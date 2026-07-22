@@ -72,6 +72,8 @@ swift build -c debug
 swift run PDFReader
 ```
 
+`Build of product 'PDFReader' complete!`가 표시된 뒤에는 GUI 앱이 실행되는 동안 터미널이 명령을 계속 점유합니다. 이는 정상입니다. **PDF Reader** 창은 자동으로 열려야 하며, `⌘O`로 PDF를 선택하고 `⌘Q`로 정상 종료할 수 있습니다. 개발 프로세스를 터미널에서 바로 중단하려면 `Control-C`를 누릅니다.
+
 Swift 패키지는 동일한 프로덕션 소스를 결정론적으로 빌드하고 테스트하기 위한 명령줄 실행 경로입니다. 유일한 서드파티 의존성은 `Package.resolved`에 고정되어 있습니다.
 
 ## 설정

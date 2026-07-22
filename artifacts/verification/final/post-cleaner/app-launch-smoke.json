@@ -1,24 +1,46 @@
 {
   "status": "passed",
-  "criterion": "Each isolated Debug and Release application process remained alive for two seconds before bounded harness termination.",
+  "criterion": "Each isolated Debug and Release SwiftPM application process created a visible layer-zero macOS window before bounded harness termination.",
   "results": [
     {
       "configuration": "debug",
-      "executable": ".build/final-spm/arm64-apple-macosx/debug/PDFReader",
-      "remainedRunningForTwoSeconds": true,
+      "executable": ".build/arm64-apple-macosx/debug/PDFReader",
+      "windowObserved": true,
+      "runningWhenWindowObserved": true,
+      "window": {
+        "layer": 0,
+        "y": 159,
+        "isOnscreen": true,
+        "title": "",
+        "width": 1034,
+        "height": 756,
+        "x": 635,
+        "alpha": 1
+      },
       "terminatedByHarness": true,
       "finalReturnCode": -15,
-      "durationSeconds": 2.026,
+      "durationSeconds": 1.152,
       "stdout": "",
       "stderr": ""
     },
     {
       "configuration": "release",
-      "executable": ".build/final-spm/arm64-apple-macosx/release/PDFReader",
-      "remainedRunningForTwoSeconds": true,
+      "executable": ".build/arm64-apple-macosx/release/PDFReader",
+      "windowObserved": true,
+      "runningWhenWindowObserved": true,
+      "window": {
+        "isOnscreen": true,
+        "width": 1030,
+        "y": 160,
+        "title": "",
+        "layer": 0,
+        "height": 754,
+        "x": 637,
+        "alpha": 1
+      },
       "terminatedByHarness": true,
       "finalReturnCode": -15,
-      "durationSeconds": 2.025,
+      "durationSeconds": 0.665,
       "stdout": "",
       "stderr": ""
     }

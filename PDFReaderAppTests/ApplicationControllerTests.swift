@@ -4,6 +4,44 @@ import PDFReaderCore
 import Testing
 @testable import PDFReaderApp
 
+@Suite("App lifecycle bootstrap")
+@MainActor
+struct AppLifecycleTests {
+    @Test("SwiftPM launch installs the delegate before entering the AppKit run loop")
+    func swiftPackageLaunchInstallsDelegateBeforeRunLoop() {
+        let application = AppRuntimeApplicationStub()
+        let delegate = AppDelegate()
+
+        AppDelegate.runApplication(application: application, delegate: delegate)
+
+        #expect(application.delegate === delegate)
+        #expect(application.requestedActivationPolicy == .regular)
+        #expect(application.runCount == 1)
+        #expect(application.delegateWasInstalledWhenRun)
+        #expect(application.activationPolicyWhenRun == .regular)
+    }
+}
+
+@MainActor
+private final class AppRuntimeApplicationStub: AppRuntimeApplication {
+    var delegate: (any NSApplicationDelegate)?
+    private(set) var requestedActivationPolicy: NSApplication.ActivationPolicy?
+    private(set) var runCount = 0
+    private(set) var delegateWasInstalledWhenRun = false
+    private(set) var activationPolicyWhenRun: NSApplication.ActivationPolicy?
+
+    func setActivationPolicy(_ activationPolicy: NSApplication.ActivationPolicy) -> Bool {
+        requestedActivationPolicy = activationPolicy
+        return true
+    }
+
+    func run() {
+        runCount += 1
+        delegateWasInstalledWhenRun = delegate != nil
+        activationPolicyWhenRun = requestedActivationPolicy
+    }
+}
+
 @Suite("ApplicationController shell dispatch")
 @MainActor
 struct ApplicationControllerTests {

@@ -76,6 +76,8 @@ swift build -c debug
 swift run PDFReader
 ```
 
+After `Build of product 'PDFReader' complete!` appears, the terminal remains attached while the GUI app runs; this is normal. The **PDF Reader** window should open automatically. Use `⌘O` to choose a PDF, `⌘Q` to quit normally, or `Control-C` to stop the development process from the terminal.
+
 The Swift package is retained as a deterministic command-line build/test harness for the same production sources. `Package.resolved` pins the only third-party dependency.
 
 ## Configuration

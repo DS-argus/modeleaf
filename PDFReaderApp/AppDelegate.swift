@@ -1,20 +1,47 @@
 import AppKit
 import PDFReaderCore
 
+@MainActor
+protocol AppRuntimeApplication: AnyObject {
+    var delegate: (any NSApplicationDelegate)? { get set }
+
+    func setActivationPolicy(_ activationPolicy: NSApplication.ActivationPolicy) -> Bool
+    func run()
+}
+
+extension NSApplication: AppRuntimeApplication {}
+
 @main
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var applicationController: ApplicationController?
     private var pendingOpenURLs: [URL] = []
 
+    static func main() {
+        runApplication()
+    }
+
+    static func runApplication(
+        application: any AppRuntimeApplication = NSApplication.shared,
+        delegate: AppDelegate = AppDelegate()
+    ) {
+        application.delegate = delegate
+        _ = application.setActivationPolicy(.regular)
+        withExtendedLifetime(delegate) {
+            application.run()
+        }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let controller = ApplicationController()
+        let application = notification.object as? NSApplication ?? .shared
+        let controller = ApplicationController(application: application)
         controller.start()
         applicationController = controller
         if !pendingOpenURLs.isEmpty {
             controller.openExternalDocuments(pendingOpenURLs)
             pendingOpenURLs.removeAll()
         }
+        application.activate()
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
