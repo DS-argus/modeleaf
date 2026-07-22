@@ -1,0 +1,53 @@
+{
+  "checks": {
+    "adapter_preserves_uppercase_and_ime": true,
+    "all_expected_files_exist": true,
+    "dispatcher_handles_document_tab_page_zoom_fit": true,
+    "dispatcher_receives_semantic_replay": true,
+    "dispatcher_uses_configured_navigation_values": true,
+    "empty_and_active_window_route_tested": true,
+    "empty_page_context_recovery_tested": true,
+    "g12_semantic_replay_tested": true,
+    "menu_key_convergence_tested": true,
+    "native_prompt_input_tested": true,
+    "no_pdf_mutation_calls_in_production": true,
+    "prompt_context_and_focus_are_restored": true,
+    "reader_window_is_single_responder_route": true,
+    "real_pdfkit_scroll_path_exists": true,
+    "real_pdfkit_scrolling_tested": true,
+    "router_handles_speculative_candidates": true,
+    "router_has_epoch_timeout_and_invalidation": true,
+    "router_uses_key_sequence_engine": true,
+    "search_is_explicitly_deferred_to_g009": true,
+    "source_hash_preservation_tested": true,
+    "timeout_epoch_tested": true,
+    "window_installs_input_router": true
+  },
+  "goal": "G008-step-7-wire-navigation-workflow",
+  "mutationHits": [],
+  "scope": {
+    "adapter": "PDFReaderApp/Input/AppKitKeyEventAdapter.swift",
+    "adapterTests": "PDFReaderAppTests/AppKitKeyEventAdapterTests.swift",
+    "dispatcher": "PDFReaderApp/App/ActionDispatcher.swift",
+    "dispatcherTests": "PDFReaderAppTests/ActionDispatcherTests.swift",
+    "mainWindow": "PDFReaderApp/Window/MainWindowController.swift",
+    "pdfView": "PDFReaderApp/Input/ReaderPDFView.swift",
+    "router": "PDFReaderApp/Input/ReaderInputRouter.swift",
+    "routerTests": "PDFReaderAppTests/ReaderInputRouterTests.swift",
+    "session": "PDFReaderApp/Reader/ReaderSession.swift",
+    "sessionTests": "PDFReaderAppTests/ReaderSessionTests.swift",
+    "window": "PDFReaderApp/Window/ReaderWindow.swift"
+  },
+  "status": "passed",
+  "testContracts": [
+    "empty and active sessions share ReaderWindow.sendEvent routing",
+    "hjkl and configured repeatable scroll actions",
+    "du/np and first/last page actions",
+    "g12 semantic replay and lone-g timeout",
+    "prompt-native text, dead-key, and IME pass-through",
+    "configured zoom/fit and tab actions",
+    "menu/key dispatcher convergence",
+    "page prompt validation, commit, cancel, focus restoration",
+    "actual PDFKit point/viewport movement and source SHA preservation"
+  ]
+}

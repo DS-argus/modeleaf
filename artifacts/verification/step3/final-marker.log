@@ -1,0 +1,52 @@
+{
+  "contract": {
+    "defaultLongerSequences": [
+      "gg",
+      "gt",
+      "gT"
+    ],
+    "epochInvalidations": [
+      "contextChanged",
+      "configurationChanged",
+      "focusLost",
+      "sessionChanged",
+      "sessionClosed",
+      "promptCommitted",
+      "promptCancelled",
+      "explicitCancel"
+    ],
+    "implicitCountGrammar": false,
+    "prefixTimeoutMilliseconds": 500,
+    "prefixTrie": "exact, prefix, exact-and-prefix, no-match",
+    "semanticPageReplay": "g + ASCII digits, one-based PageNumberInputBuffer"
+  },
+  "status": "passed",
+  "story": "G004-step-3-implement-key-engine",
+  "verification": {
+    "publicInterface": [
+      "PDFReaderCore-arm64.abi.json",
+      "PDFReaderCore-x86_64.abi.json"
+    ],
+    "sourceScopeAudit": "source-scope-audit.json",
+    "swiftPM": {
+      "releaseBuild": "passed",
+      "suites": 5,
+      "tests": 41
+    },
+    "trace": "trace.json",
+    "xcode": {
+      "analyze": "passed",
+      "appTests": 1,
+      "coreSuites": 4,
+      "coreTests": 37,
+      "debugBuild": "passed",
+      "releaseBuild": "passed"
+    }
+  },
+  "warningDisposition": {
+    "benignAppIntentsMetadataWarnings": 8,
+    "linkerArchitectureWarnings": 0,
+    "swiftActorIsolationWarnings": 0,
+    "unexpectedCompilerWarnings": 0
+  }
+}

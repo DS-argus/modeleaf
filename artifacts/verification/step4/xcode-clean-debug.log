@@ -1,0 +1,22 @@
+Command line invocation:
+    /tmp/pdfreader-xcodebuild.p0gGik/xcodebuild -project PDFReader.xcodeproj -scheme PDFReader -derivedDataPath .build/xcode-derived -destination platform=macOS,arch=arm64 CODE_SIGNING_ALLOWED=NO -configuration Debug clean
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+2026-07-22 13:45:17.404 xcodebuild[54478:280245759]  IDEDownloadableMetalToolchainCoordinator: Failed to remount the Metal Toolchain: No downloaded assets found: Failed querying assets for assetType (com.apple.MobileAsset.MetalToolchain), queryDict ({
+}), installedOnly (1)
+Resolve Package Graph
+
+
+Resolved source packages:
+  TOMLDecoder: https://github.com/dduan/TOMLDecoder.git @ 0.4.5
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+** CLEAN SUCCEEDED **
+

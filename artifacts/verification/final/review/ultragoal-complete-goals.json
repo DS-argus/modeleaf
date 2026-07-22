@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "done": true,
+  "blocked": false,
+  "handoff": null,
+  "blockedGoals": [],
+  "summary": {
+    "total": 11,
+    "pending": 0,
+    "inProgress": 0,
+    "complete": 10,
+    "failed": 0,
+    "reviewBlocked": 1,
+    "needsUserDecision": 0,
+    "superseded": 0,
+    "steeringBlocked": 0,
+    "aggregateComplete": false,
+    "artifactComplete": true
+  }
+}

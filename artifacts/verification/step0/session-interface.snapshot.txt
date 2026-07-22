@@ -1,0 +1,35 @@
+ReaderSession v1 — main-actor, read-only boundary
+
+Allowed public capabilities:
+- immutable session identity and display name
+- pageCount and 1-based currentPageNumber
+- go(toOneBasedPage:), next/previous/first/last
+- scroll small/large, zoom in/out/reset, fit width/page
+- extractable-text search request/cancel/result traversal
+- current selection and non-mutating copy support
+- ordered close/teardown
+
+Forbidden public capabilities:
+- PDFDocument.write or dataRepresentation for production persistence
+- page insert/remove/exchange
+- annotation add/remove/change
+- form value mutation or unlock
+- print/export/history/link/media execution
+
+Ownership:
+- ReaderSessionStore is the sole owner of ReaderSession lifetime and active selection.
+- One ReaderSession owns exactly one PDFDocument, one PDFView, and one serialized PDFSearchCoordinator.
+- MainWindowController presents state and restores focus; it owns no session or service.
+
+Search boundary:
+- idle -> running -> cancelling(pendingLatest?) -> idle
+- replacement begin is deferred until the prior PDFKit end callback has returned and one main-queue turn has elapsed.
+- generation tokens are secondary late-callback defense, not the ordering mechanism.
+
+Teardown order:
+1. request and observe search cancellation/end
+2. detach search/document delegates and notifications
+3. clear selections and highlights
+4. set PDFView.document = nil
+5. remove the view
+6. release the session

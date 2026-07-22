@@ -1,0 +1,69 @@
+{
+  "evidenceRoot": "artifacts/verification/step8",
+  "goal": "G009-step-8-implement-search-workflow",
+  "implementation": {
+    "committedSearch": [
+      "slash opens a native prompt",
+      "text remains native while typing",
+      "Enter commits one trimmed literal query",
+      "no incremental search and no OCR"
+    ],
+    "coordinator": [
+      "one coordinator per ReaderSession",
+      "idle/running/cancelling(pendingLatest)",
+      "replacement starts one main-queue turn after the prior end callback",
+      "secondary generation and transition-token defenses"
+    ],
+    "isolationAndTeardown": [
+      "each tab retains an independent query/results/context",
+      "tab switching restores NORMAL or SEARCH",
+      "close cancels, detaches callbacks, clears selection/highlights, then detaches document"
+    ],
+    "results": [
+      "all matches use semantic search-highlight color",
+      "one active match uses semantic accent color",
+      "Enter and Shift-Enter wrap next/previous",
+      "Esc cancels and clears"
+    ]
+  },
+  "knownBenignDiagnostics": [
+    "PDFKit emits attributedStringScaled debug messages while exercising text/selection fixtures.",
+    "The deliberately malformed PDF fixture causes one expected CoreGraphics parser diagnostic."
+  ],
+  "status": "passed_with_host_toolchain_gap",
+  "verification": {
+    "audits": {
+      "OCRorIncrementalHooks": 0,
+      "productionPDFMutationCalls": 0,
+      "searchWorkflow": "passed",
+      "warningScan": "passed"
+    },
+    "projectGeneration": {
+      "fileSystemSynchronizedRoots": true,
+      "generated": true,
+      "graphValidation": true
+    },
+    "swiftPM": {
+      "passed": true,
+      "releaseBuild": true,
+      "tests": "125 Swift Testing tests / 21 suites plus 1 XCTest",
+      "warningsAsErrors": true
+    },
+    "targetedG009": {
+      "passed": true,
+      "tests": "10 tests / 3 suites"
+    },
+    "xcode": {
+      "attempted": [
+        "Debug build",
+        "build-for-testing",
+        "universal Release build",
+        "analyze"
+      ],
+      "disposition": "SwiftPM compilation/tests and generated-project validation are authoritative; raw host-toolchain failures retained",
+      "reason": "Xcode 26.6 first-launch system content is incomplete: CoreSimulator.framework is absent and installation requires administrator authorization",
+      "sourceFailureObserved": false,
+      "status": "unavailable_before_project_load"
+    }
+  }
+}

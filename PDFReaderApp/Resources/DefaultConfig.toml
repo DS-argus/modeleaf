@@ -1,0 +1,42 @@
+# Generated from PDFReaderCore.BuiltInDefaults. Do not edit this bundled copy.
+# Copy it to ~/.config/pdf-reader/config.toml and edit the copy.
+
+[keymap]
+"document.open" = ["<D-o>"]
+"document.close" = ["<D-w>"]
+"app.quit" = ["<D-q>"]
+"tab.next" = ["gt"]
+"tab.previous" = ["gT"]
+"scroll.left" = ["h"]
+"scroll.down" = ["j"]
+"scroll.up" = ["k"]
+"scroll.right" = ["l"]
+"scroll.largeDown" = ["d"]
+"scroll.largeUp" = ["u"]
+"page.next" = ["n"]
+"page.previous" = ["p"]
+"page.first" = ["gg"]
+"page.last" = ["G"]
+"page.prompt" = ["g"]
+"prompt.commit" = ["<CR>"]
+"prompt.cancel" = ["<Esc>"]
+"search.prompt" = ["/"]
+"search.next" = ["<CR>"]
+"search.previous" = ["<S-CR>"]
+"search.cancel" = ["<Esc>"]
+"view.zoomIn" = ["+"]
+"view.zoomOut" = ["-"]
+"view.zoomReset" = ["="]
+"view.fitWidth" = ["w"]
+"view.fitPage" = ["f"]
+
+[navigation]
+small_scroll_points = 48.0
+large_scroll_viewport_fraction = 0.8
+zoom_factor = 1.1
+
+[input]
+prefix_timeout_ms = 500
+
+[theme]
+built_in = "catppuccin-mocha"

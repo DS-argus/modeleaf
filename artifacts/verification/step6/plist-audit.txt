@@ -1,0 +1,30 @@
+=== checked-in Info.plist ===
+{
+  "CFBundleDevelopmentRegion" => "$(DEVELOPMENT_LANGUAGE)"
+  "CFBundleDisplayName" => "PDF Reader"
+  "CFBundleDocumentTypes" => [
+    0 => {
+      "CFBundleTypeName" => "PDF Document"
+      "CFBundleTypeRole" => "Viewer"
+      "LSHandlerRank" => "Alternate"
+      "LSItemContentTypes" => [
+        0 => "com.adobe.pdf"
+      ]
+    }
+  ]
+  "CFBundleExecutable" => "$(EXECUTABLE_NAME)"
+  "CFBundleIdentifier" => "$(PRODUCT_BUNDLE_IDENTIFIER)"
+  "CFBundleInfoDictionaryVersion" => "6.0"
+  "CFBundleName" => "$(PRODUCT_NAME)"
+  "CFBundlePackageType" => "$(PRODUCT_BUNDLE_PACKAGE_TYPE)"
+  "CFBundleShortVersionString" => "0.1.0"
+  "CFBundleVersion" => "1"
+  "LSApplicationCategoryType" => "public.app-category.productivity"
+  "LSMinimumSystemVersion" => "$(MACOSX_DEPLOYMENT_TARGET)"
+  "NSHighResolutionCapable" => true
+  "NSPrincipalClass" => "NSApplication"
+}
+=== built Release Info.plist document types ===
+[{"CFBundleTypeName":"PDF Document","CFBundleTypeRole":"Viewer","LSItemContentTypes":["com.adobe.pdf"],"LSHandlerRank":"Alternate"}]
+=== duplicate copied Info.plist resource ===
+PASS: no duplicate Resources/Info.plist

@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "globalActions": [
+    "document.open",
+    "app.quit"
+  ],
+  "actions": [
+    {"id":"document.open","contexts":["navigation","pagePrompt","searchPrompt","searchResults"],"global":true},
+    {"id":"document.close","contexts":["navigation","searchResults"],"global":false},
+    {"id":"app.quit","contexts":["navigation","pagePrompt","searchPrompt","searchResults"],"global":true},
+    {"id":"tab.next","contexts":["navigation","searchResults"],"global":false},
+    {"id":"tab.previous","contexts":["navigation","searchResults"],"global":false},
+    {"id":"scroll.left","contexts":["navigation","searchResults"],"global":false},
+    {"id":"scroll.down","contexts":["navigation","searchResults"],"global":false},
+    {"id":"scroll.up","contexts":["navigation","searchResults"],"global":false},
+    {"id":"scroll.right","contexts":["navigation","searchResults"],"global":false},
+    {"id":"scroll.largeDown","contexts":["navigation","searchResults"],"global":false},
+    {"id":"scroll.largeUp","contexts":["navigation","searchResults"],"global":false},
+    {"id":"page.next","contexts":["navigation","searchResults"],"global":false},
+    {"id":"page.previous","contexts":["navigation","searchResults"],"global":false},
+    {"id":"page.first","contexts":["navigation","searchResults"],"global":false},
+    {"id":"page.last","contexts":["navigation","searchResults"],"global":false},
+    {"id":"page.prompt","contexts":["navigation","searchResults"],"global":false},
+    {"id":"prompt.commit","contexts":["pagePrompt","searchPrompt"],"global":false},
+    {"id":"prompt.cancel","contexts":["pagePrompt","searchPrompt"],"global":false},
+    {"id":"search.prompt","contexts":["navigation","searchResults"],"global":false},
+    {"id":"search.next","contexts":["searchResults"],"global":false},
+    {"id":"search.previous","contexts":["searchResults"],"global":false},
+    {"id":"search.cancel","contexts":["searchResults"],"global":false},
+    {"id":"view.zoomIn","contexts":["navigation","searchResults"],"global":false},
+    {"id":"view.zoomOut","contexts":["navigation","searchResults"],"global":false},
+    {"id":"view.zoomReset","contexts":["navigation","searchResults"],"global":false},
+    {"id":"view.fitWidth","contexts":["navigation","searchResults"],"global":false},
+    {"id":"view.fitPage","contexts":["navigation","searchResults"],"global":false}
+  ]
+}

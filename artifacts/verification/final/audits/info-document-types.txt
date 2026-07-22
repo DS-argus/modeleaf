@@ -1,0 +1,10 @@
+[
+  {
+    "CFBundleTypeName": "PDF Document",
+    "CFBundleTypeRole": "Viewer",
+    "LSHandlerRank": "Alternate",
+    "LSItemContentTypes": [
+      "com.adobe.pdf"
+    ]
+  }
+]

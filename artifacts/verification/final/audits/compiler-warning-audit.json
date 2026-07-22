@@ -1,0 +1,305 @@
+{
+  "status": "passed",
+  "logsScanned": [
+    "artifacts/verification/final/post-cleaner/canvas-theme-targeted.log",
+    "artifacts/verification/final/post-cleaner/focus-theme-targeted.log",
+    "artifacts/verification/final/post-cleaner/generate-xcode-project.log",
+    "artifacts/verification/final/post-cleaner/key-view-targeted.log",
+    "artifacts/verification/final/post-cleaner/plutil-lint.log",
+    "artifacts/verification/final/post-cleaner/swift-build-debug.log",
+    "artifacts/verification/final/post-cleaner/swift-build-release-warnings-as-errors.log",
+    "artifacts/verification/final/post-cleaner/swift-build-release.log",
+    "artifacts/verification/final/post-cleaner/swift-package-resolve.log",
+    "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+    "artifacts/verification/final/post-cleaner/swift-test.log",
+    "artifacts/verification/final/post-cleaner/targeted-regressions.log",
+    "artifacts/verification/final/post-cleaner/ui-test-source-typecheck.log",
+    "artifacts/verification/final/post-cleaner/validate-xcode-project.log",
+    "artifacts/verification/final/visual-test.log"
+  ],
+  "compilerWarningLines": [],
+  "externalFrameworkRuntimeDiagnostics": [
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 391,
+      "text": "CoreGraphics PDF has logged an error. Set environment variable \"CG_PDF_VERBOSE\" to learn more."
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 392,
+      "text": "2026-07-22 17:05:08.971 swiftpm-testing-helper[95640:281264117] Drawing a PDFPage when its PDFDocument is nil is unsupported."
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 393,
+      "text": "2026-07-22 17:05:09.013 swiftpm-testing-helper[95640:281264108] attributedStringScaled count: 3"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 394,
+      "text": "2026-07-22 17:05:09.013 swiftpm-testing-helper[95640:281264108] attributedStringScaled i: 0"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 395,
+      "text": "2026-07-22 17:05:09.013 swiftpm-testing-helper[95640:281264108] attributedStringScaled: adding carriage return"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 396,
+      "text": "2026-07-22 17:05:09.013 swiftpm-testing-helper[95640:281264108] attributedStringScaled i: 1"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 397,
+      "text": "2026-07-22 17:05:09.013 swiftpm-testing-helper[95640:281264108] attributedStringScaled: adding carriage return"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 398,
+      "text": "2026-07-22 17:05:09.013 swiftpm-testing-helper[95640:281264108] attributedStringScaled i: 2"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 399,
+      "text": "2026-07-22 17:05:09.015 swiftpm-testing-helper[95640:281264108] attributedStringScaled count: 3"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 400,
+      "text": "2026-07-22 17:05:09.015 swiftpm-testing-helper[95640:281264108] attributedStringScaled i: 0"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 401,
+      "text": "2026-07-22 17:05:09.015 swiftpm-testing-helper[95640:281264108] attributedStringScaled: adding carriage return"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 402,
+      "text": "2026-07-22 17:05:09.015 swiftpm-testing-helper[95640:281264108] attributedStringScaled i: 1"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 403,
+      "text": "2026-07-22 17:05:09.015 swiftpm-testing-helper[95640:281264108] attributedStringScaled: adding carriage return"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 404,
+      "text": "2026-07-22 17:05:09.015 swiftpm-testing-helper[95640:281264108] attributedStringScaled i: 2"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 405,
+      "text": "2026-07-22 17:05:10.516 swiftpm-testing-helper[95640:281264108] attributedStringScaled count: 1"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 406,
+      "text": "2026-07-22 17:05:10.516 swiftpm-testing-helper[95640:281264108] attributedStringScaled i: 0"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 407,
+      "text": "2026-07-22 17:05:10.516 swiftpm-testing-helper[95640:281264108] attributedStringScaled count: 1"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 408,
+      "text": "2026-07-22 17:05:10.516 swiftpm-testing-helper[95640:281264108] attributedStringScaled i: 0"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 428,
+      "text": "2026-07-22 17:05:10.559 swiftpm-testing-helper[95640:281264108] attributedStringScaled count: 1"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 429,
+      "text": "2026-07-22 17:05:10.559 swiftpm-testing-helper[95640:281264108] attributedStringScaled i: 0"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 430,
+      "text": "2026-07-22 17:05:10.560 swiftpm-testing-helper[95640:281264108] attributedStringScaled count: 1"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test-warnings-as-errors.log",
+      "line": 431,
+      "text": "2026-07-22 17:05:10.560 swiftpm-testing-helper[95640:281264108] attributedStringScaled i: 0"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 286,
+      "text": "2026-07-22 17:04:58.513 swiftpm-testing-helper[94953:281262598] attributedStringScaled count: 1"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 287,
+      "text": "2026-07-22 17:04:58.513 swiftpm-testing-helper[94953:281262598] attributedStringScaled i: 0"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 288,
+      "text": "2026-07-22 17:04:58.515 swiftpm-testing-helper[94953:281262598] attributedStringScaled count: 1"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 289,
+      "text": "2026-07-22 17:04:58.515 swiftpm-testing-helper[94953:281262598] attributedStringScaled i: 0"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 290,
+      "text": "2026-07-22 17:04:58.529 swiftpm-testing-helper[94953:281262608] Drawing a PDFPage when its PDFDocument is nil is unsupported."
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 291,
+      "text": "2026-07-22 17:04:58.566 swiftpm-testing-helper[94953:281262598] attributedStringScaled count: 3"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 292,
+      "text": "2026-07-22 17:04:58.566 swiftpm-testing-helper[94953:281262598] attributedStringScaled i: 0"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 293,
+      "text": "2026-07-22 17:04:58.566 swiftpm-testing-helper[94953:281262598] attributedStringScaled: adding carriage return"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 294,
+      "text": "2026-07-22 17:04:58.566 swiftpm-testing-helper[94953:281262598] attributedStringScaled i: 1"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 295,
+      "text": "2026-07-22 17:04:58.566 swiftpm-testing-helper[94953:281262598] attributedStringScaled: adding carriage return"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 296,
+      "text": "2026-07-22 17:04:58.566 swiftpm-testing-helper[94953:281262598] attributedStringScaled i: 2"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 297,
+      "text": "2026-07-22 17:04:58.566 swiftpm-testing-helper[94953:281262598] attributedStringScaled count: 3"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 298,
+      "text": "2026-07-22 17:04:58.566 swiftpm-testing-helper[94953:281262598] attributedStringScaled i: 0"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 299,
+      "text": "2026-07-22 17:04:58.567 swiftpm-testing-helper[94953:281262598] attributedStringScaled: adding carriage return"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 300,
+      "text": "2026-07-22 17:04:58.567 swiftpm-testing-helper[94953:281262598] attributedStringScaled i: 1"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 301,
+      "text": "2026-07-22 17:04:58.567 swiftpm-testing-helper[94953:281262598] attributedStringScaled: adding carriage return"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 302,
+      "text": "2026-07-22 17:04:58.567 swiftpm-testing-helper[94953:281262598] attributedStringScaled i: 2"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 303,
+      "text": "2026-07-22 17:04:59.158 swiftpm-testing-helper[94953:281262598] attributedStringScaled count: 1"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 304,
+      "text": "2026-07-22 17:04:59.158 swiftpm-testing-helper[94953:281262598] attributedStringScaled i: 0"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 305,
+      "text": "2026-07-22 17:04:59.158 swiftpm-testing-helper[94953:281262598] attributedStringScaled count: 1"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 306,
+      "text": "2026-07-22 17:04:59.158 swiftpm-testing-helper[94953:281262598] attributedStringScaled i: 0"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/swift-test.log",
+      "line": 307,
+      "text": "CoreGraphics PDF has logged an error. Set environment variable \"CG_PDF_VERBOSE\" to learn more."
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/targeted-regressions.log",
+      "line": 175,
+      "text": "2026-07-22 16:50:16.441 swiftpm-testing-helper[39186:281187190] attributedStringScaled count: 3"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/targeted-regressions.log",
+      "line": 176,
+      "text": "2026-07-22 16:50:16.441 swiftpm-testing-helper[39186:281187190] attributedStringScaled i: 0"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/targeted-regressions.log",
+      "line": 177,
+      "text": "2026-07-22 16:50:16.441 swiftpm-testing-helper[39186:281187190] attributedStringScaled: adding carriage return"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/targeted-regressions.log",
+      "line": 178,
+      "text": "2026-07-22 16:50:16.441 swiftpm-testing-helper[39186:281187190] attributedStringScaled i: 1"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/targeted-regressions.log",
+      "line": 179,
+      "text": "2026-07-22 16:50:16.441 swiftpm-testing-helper[39186:281187190] attributedStringScaled: adding carriage return"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/targeted-regressions.log",
+      "line": 180,
+      "text": "2026-07-22 16:50:16.441 swiftpm-testing-helper[39186:281187190] attributedStringScaled i: 2"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/targeted-regressions.log",
+      "line": 181,
+      "text": "2026-07-22 16:50:16.443 swiftpm-testing-helper[39186:281187190] attributedStringScaled count: 3"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/targeted-regressions.log",
+      "line": 182,
+      "text": "2026-07-22 16:50:16.443 swiftpm-testing-helper[39186:281187190] attributedStringScaled i: 0"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/targeted-regressions.log",
+      "line": 183,
+      "text": "2026-07-22 16:50:16.443 swiftpm-testing-helper[39186:281187190] attributedStringScaled: adding carriage return"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/targeted-regressions.log",
+      "line": 184,
+      "text": "2026-07-22 16:50:16.443 swiftpm-testing-helper[39186:281187190] attributedStringScaled i: 1"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/targeted-regressions.log",
+      "line": 185,
+      "text": "2026-07-22 16:50:16.443 swiftpm-testing-helper[39186:281187190] attributedStringScaled: adding carriage return"
+    },
+    {
+      "path": "artifacts/verification/final/post-cleaner/targeted-regressions.log",
+      "line": 186,
+      "text": "2026-07-22 16:50:16.443 swiftpm-testing-helper[39186:281187190] attributedStringScaled i: 2"
+    }
+  ],
+  "xcodeHostLogsExcluded": "Xcode exits before project load; its host plug-in errors are recorded under artifacts/verification/final/xcode/.",
+  "note": "PDFKit/CoreGraphics runtime diagnostics remain visible in raw test logs and are not compiler warning lines."
+}

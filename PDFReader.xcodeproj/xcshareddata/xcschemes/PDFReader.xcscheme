@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme LastUpgradeVersion = "2660" version = "1.7">
+   <BuildAction parallelizeBuildables = "YES" buildImplicitDependencies = "YES">
+      <BuildActionEntries>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "3C367607D7884AFCF274C257"
+               BuildableName = "PDFReaderCore.framework"
+               BlueprintName = "PDFReaderCore"
+               ReferencedContainer = "container:PDFReader.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "7F722F72E711E72F04E27923"
+               BuildableName = "PDFReader.app"
+               BlueprintName = "PDFReaderApp"
+               ReferencedContainer = "container:PDFReader.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "40C2AD90F2AA40999071909A"
+               BuildableName = "PDFReaderTestSupport.framework"
+               BlueprintName = "PDFReaderTestSupport"
+               ReferencedContainer = "container:PDFReader.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "CB8572D9B0A8C22D71776B07"
+               BuildableName = "PDFReaderCoreTests.xctest"
+               BlueprintName = "PDFReaderCoreTests"
+               ReferencedContainer = "container:PDFReader.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "13E763036D8F76C938B7DA71"
+               BuildableName = "PDFReaderAppTests.xctest"
+               BlueprintName = "PDFReaderAppTests"
+               ReferencedContainer = "container:PDFReader.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "689A3C7DEBEF01BE92FBC5D2"
+               BuildableName = "PDFReaderUITests.xctest"
+               BlueprintName = "PDFReaderUITests"
+               ReferencedContainer = "container:PDFReader.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+      </BuildActionEntries>
+   </BuildAction>
+   <TestAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" shouldUseLaunchSchemeArgsEnv = "YES">
+      <MacroExpansion>
+      <BuildableReference
+         BuildableIdentifier = "primary"
+         BlueprintIdentifier = "7F722F72E711E72F04E27923"
+         BuildableName = "PDFReader.app"
+         BlueprintName = "PDFReaderApp"
+         ReferencedContainer = "container:PDFReader.xcodeproj">
+      </BuildableReference>
+      </MacroExpansion>
+      <Testables>
+         <TestableReference skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "CB8572D9B0A8C22D71776B07"
+               BuildableName = "PDFReaderCoreTests.xctest"
+               BlueprintName = "PDFReaderCoreTests"
+               ReferencedContainer = "container:PDFReader.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "13E763036D8F76C938B7DA71"
+               BuildableName = "PDFReaderAppTests.xctest"
+               BlueprintName = "PDFReaderAppTests"
+               ReferencedContainer = "container:PDFReader.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "689A3C7DEBEF01BE92FBC5D2"
+               BuildableName = "PDFReaderUITests.xctest"
+               BlueprintName = "PDFReaderUITests"
+               ReferencedContainer = "container:PDFReader.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
+   </TestAction>
+   <LaunchAction buildConfiguration = "Debug" selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB" selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB" launchStyle = "0" useCustomWorkingDirectory = "NO" ignoresPersistentStateOnLaunch = "NO" debugDocumentVersioning = "YES" debugServiceExtension = "internal" allowLocationSimulation = "YES">
+      <BuildableProductRunnable runnableDebuggingMode = "0">
+      <BuildableReference
+         BuildableIdentifier = "primary"
+         BlueprintIdentifier = "7F722F72E711E72F04E27923"
+         BuildableName = "PDFReader.app"
+         BlueprintName = "PDFReaderApp"
+         ReferencedContainer = "container:PDFReader.xcodeproj">
+      </BuildableReference>
+      </BuildableProductRunnable>
+   </LaunchAction>
+   <ProfileAction buildConfiguration = "Release" shouldUseLaunchSchemeArgsEnv = "YES" savedToolIdentifier = "" useCustomWorkingDirectory = "NO" debugDocumentVersioning = "YES">
+      <BuildableProductRunnable runnableDebuggingMode = "0">
+      <BuildableReference
+         BuildableIdentifier = "primary"
+         BlueprintIdentifier = "7F722F72E711E72F04E27923"
+         BuildableName = "PDFReader.app"
+         BlueprintName = "PDFReaderApp"
+         ReferencedContainer = "container:PDFReader.xcodeproj">
+      </BuildableReference>
+      </BuildableProductRunnable>
+   </ProfileAction>
+   <AnalyzeAction buildConfiguration = "Debug" />
+   <ArchiveAction buildConfiguration = "Release" revealArchiveInOrganizer = "YES" />
+</Scheme>

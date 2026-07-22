@@ -1,0 +1,795 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		4642C58A0AFFED69A72DAD2C /* PDFReaderCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */; };
+		2A091A65B4BB0475C73F8F6B /* PDFReaderCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */; };
+		B5396727030A0D3D6FA4C1E3 /* PDFReaderCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */; };
+		89925A2A2D5771CC13A5DFA2 /* PDFReaderCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */; };
+		43B4D3A16A4F1F02612D4193 /* PDFReaderTestSupport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C70AF9CD6A05F9871BF0721A /* PDFReaderTestSupport.framework */; };
+		C24C6A546675DDB8990762C3 /* TOMLDecoder in Frameworks */ = {isa = PBXBuildFile; productRef = 72ED85A22FC6BDB47FF1AE81 /* TOMLDecoder */; };
+		069F4A77557CBECC25DAEFD9 /* PDFReaderCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		984988DA8FF266A31B67D28D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3C367607D7884AFCF274C257;
+			remoteInfo = PDFReaderCore;
+		};
+		07EBDA1DF561E0DD36155F31 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3C367607D7884AFCF274C257;
+			remoteInfo = PDFReaderCore;
+		};
+		6BC90B06B13F3BF772F578B9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3C367607D7884AFCF274C257;
+			remoteInfo = PDFReaderCore;
+		};
+		3A44EB44A8BED1E8EEC67FD8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7F722F72E711E72F04E27923;
+			remoteInfo = PDFReaderApp;
+		};
+		76859C809C9FB75C837E2593 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3C367607D7884AFCF274C257;
+			remoteInfo = PDFReaderCore;
+		};
+		554D8333070A513C39F9530D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 40C2AD90F2AA40999071909A;
+			remoteInfo = PDFReaderTestSupport;
+		};
+		8641791CD2BEDAC73AE39D5B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7F722F72E711E72F04E27923;
+			remoteInfo = PDFReaderApp;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PDFReaderCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		57627DBA3634259684E38C8B /* PDFReader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PDFReader.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C70AF9CD6A05F9871BF0721A /* PDFReaderTestSupport.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PDFReaderTestSupport.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		C44B5EE66DCFBB36F4265D67 /* PDFReaderCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PDFReaderCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2D0F8ABEDA3041AC0459241E /* PDFReaderAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PDFReaderAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		338E00092B1C985F807E7522 /* PDFReaderUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PDFReaderUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0BF5E403C9EB9FB82621255C /* Exceptions for PDFReaderApp */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 7F722F72E711E72F04E27923 /* PDFReaderApp */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		2A8A484AAE77FC2EE7372172 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				069F4A77557CBECC25DAEFD9 /* PDFReaderCore.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		4FD9ADCBD804C041872D21DD /* PDFReaderCore */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PDFReaderCore;
+			sourceTree = "<group>";
+		};
+		1E3DBE79DA87710F2D1B1058 /* PDFReaderApp */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0BF5E403C9EB9FB82621255C /* Exceptions for PDFReaderApp */,
+			);
+			path = PDFReaderApp;
+			sourceTree = "<group>";
+		};
+		4444264E4A98851A3B3B20B6 /* PDFReaderTestSupport */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PDFReaderTestSupport;
+			sourceTree = "<group>";
+		};
+		95E941A930F7035D033BB969 /* PDFReaderCoreTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PDFReaderCoreTests;
+			sourceTree = "<group>";
+		};
+		8E366546A588094F6D92378C /* PDFReaderAppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PDFReaderAppTests;
+			sourceTree = "<group>";
+		};
+		A0EA9E566DB5A45B76D7D5CA /* PDFReaderUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PDFReaderUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		85B611741F0BA674AACAA055 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72D049584CEFEB0484EF40C9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4642C58A0AFFED69A72DAD2C /* PDFReaderCore.framework in Frameworks */,
+				C24C6A546675DDB8990762C3 /* TOMLDecoder in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6C7C7A6B8F723B22F2FD4059 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A091A65B4BB0475C73F8F6B /* PDFReaderCore.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7C4EEF672F439869BEBD0627 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B5396727030A0D3D6FA4C1E3 /* PDFReaderCore.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		556C199B98B7E829916D75F2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				89925A2A2D5771CC13A5DFA2 /* PDFReaderCore.framework in Frameworks */,
+				43B4D3A16A4F1F02612D4193 /* PDFReaderTestSupport.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E3C771CFB84388975B8EFC85 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		870B3294C0CBD48AF6BBCC1B = {
+			isa = PBXGroup;
+			children = (
+				4FD9ADCBD804C041872D21DD /* PDFReaderCore */,
+				1E3DBE79DA87710F2D1B1058 /* PDFReaderApp */,
+				4444264E4A98851A3B3B20B6 /* PDFReaderTestSupport */,
+				95E941A930F7035D033BB969 /* PDFReaderCoreTests */,
+				8E366546A588094F6D92378C /* PDFReaderAppTests */,
+				A0EA9E566DB5A45B76D7D5CA /* PDFReaderUITests */,
+				615B463D1028E4E24B674CF7 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		615B463D1028E4E24B674CF7 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */,
+				57627DBA3634259684E38C8B /* PDFReader.app */,
+				C70AF9CD6A05F9871BF0721A /* PDFReaderTestSupport.framework */,
+				C44B5EE66DCFBB36F4265D67 /* PDFReaderCoreTests.xctest */,
+				2D0F8ABEDA3041AC0459241E /* PDFReaderAppTests.xctest */,
+				338E00092B1C985F807E7522 /* PDFReaderUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3C367607D7884AFCF274C257 /* PDFReaderCore */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DE97C5FED84776B12CA2E90F /* Build configuration list for PBXNativeTarget "PDFReaderCore" */;
+			buildPhases = (
+				FE1077E13B76C49C0272FEA7 /* Sources */ ,
+				85B611741F0BA674AACAA055 /* Frameworks */ ,
+				FCBFAE54C6AD9ED3DD08707C /* Resources */ ,
+			);
+			buildRules = ();
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				4FD9ADCBD804C041872D21DD /* PDFReaderCore */,
+			);
+			name = PDFReaderCore;
+			packageProductDependencies = (
+			);
+			productName = PDFReaderCore;
+			productReference = 2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		7F722F72E711E72F04E27923 /* PDFReaderApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0D5239B38F4F1C5EBC5EDA2B /* Build configuration list for PBXNativeTarget "PDFReaderApp" */;
+			buildPhases = (
+				F65C2900B8CA980AF07C9E65 /* Sources */ ,
+				72D049584CEFEB0484EF40C9 /* Frameworks */ ,
+				86A4EBE2FE09CAD6E7DCB684 /* Resources */ ,
+				2A8A484AAE77FC2EE7372172 /* Embed Frameworks */ ,
+			);
+			buildRules = ();
+			dependencies = (
+				59ABA8418AB3FF3232466AAE /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				1E3DBE79DA87710F2D1B1058 /* PDFReaderApp */,
+			);
+			name = PDFReaderApp;
+			packageProductDependencies = (
+				72ED85A22FC6BDB47FF1AE81 /* TOMLDecoder */,
+			);
+			productName = PDFReaderApp;
+			productReference = 57627DBA3634259684E38C8B /* PDFReader.app */;
+			productType = "com.apple.product-type.application";
+		};
+		40C2AD90F2AA40999071909A /* PDFReaderTestSupport */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3745DB1544CAD972525CEDC5 /* Build configuration list for PBXNativeTarget "PDFReaderTestSupport" */;
+			buildPhases = (
+				C6F026C54921352B486FCB00 /* Sources */ ,
+				6C7C7A6B8F723B22F2FD4059 /* Frameworks */ ,
+				9954E30073C0C0B28ED6179E /* Resources */ ,
+			);
+			buildRules = ();
+			dependencies = (
+				B4D925758211BEDB03C577A5 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				4444264E4A98851A3B3B20B6 /* PDFReaderTestSupport */,
+			);
+			name = PDFReaderTestSupport;
+			packageProductDependencies = (
+			);
+			productName = PDFReaderTestSupport;
+			productReference = C70AF9CD6A05F9871BF0721A /* PDFReaderTestSupport.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		CB8572D9B0A8C22D71776B07 /* PDFReaderCoreTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A404FB65AA32BA28982F24D8 /* Build configuration list for PBXNativeTarget "PDFReaderCoreTests" */;
+			buildPhases = (
+				8CC331FFD368E8F7238AB149 /* Sources */ ,
+				7C4EEF672F439869BEBD0627 /* Frameworks */ ,
+				15EADE3ABA9601A39B33332E /* Resources */ ,
+			);
+			buildRules = ();
+			dependencies = (
+				5A0D4F3345AC8218C77901D3 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				95E941A930F7035D033BB969 /* PDFReaderCoreTests */,
+			);
+			name = PDFReaderCoreTests;
+			packageProductDependencies = (
+			);
+			productName = PDFReaderCoreTests;
+			productReference = C44B5EE66DCFBB36F4265D67 /* PDFReaderCoreTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		13E763036D8F76C938B7DA71 /* PDFReaderAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EE9A46B7459B78D7B197BAEB /* Build configuration list for PBXNativeTarget "PDFReaderAppTests" */;
+			buildPhases = (
+				FC143C71E243CCBF9E7B9304 /* Sources */ ,
+				556C199B98B7E829916D75F2 /* Frameworks */ ,
+				D061242E08F5A8E3A0702264 /* Resources */ ,
+			);
+			buildRules = ();
+			dependencies = (
+				9DED5A6ECC25DC04C601F1E8 /* PBXTargetDependency */,
+				E3DBCDDF2A4308B8D1EE5BE1 /* PBXTargetDependency */,
+				F38E63623D90F77EB5D05DFD /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				8E366546A588094F6D92378C /* PDFReaderAppTests */,
+			);
+			name = PDFReaderAppTests;
+			packageProductDependencies = (
+			);
+			productName = PDFReaderAppTests;
+			productReference = 2D0F8ABEDA3041AC0459241E /* PDFReaderAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		689A3C7DEBEF01BE92FBC5D2 /* PDFReaderUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 67F13CFE864B9531592D64B7 /* Build configuration list for PBXNativeTarget "PDFReaderUITests" */;
+			buildPhases = (
+				EB12BAA547CEDD0861AC6012 /* Sources */ ,
+				E3C771CFB84388975B8EFC85 /* Frameworks */ ,
+				8B45016FB0CEA9F1C233FA1A /* Resources */ ,
+			);
+			buildRules = ();
+			dependencies = (
+				FE909FA281106DE09F5A95AD /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A0EA9E566DB5A45B76D7D5CA /* PDFReaderUITests */,
+			);
+			name = PDFReaderUITests;
+			packageProductDependencies = (
+			);
+			productName = PDFReaderUITests;
+			productReference = 338E00092B1C985F807E7522 /* PDFReaderUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		98F54143AB4E86B28C3AFEE0 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+			};
+			buildConfigurationList = FCBE72429C0B1B8B87DC8CC9 /* Build configuration list for PBXProject "PDFReader" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base);
+			mainGroup = 870B3294C0CBD48AF6BBCC1B;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BA66665FA276E76C2C914D88 /* XCRemoteSwiftPackageReference "TOMLDecoder" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 615B463D1028E4E24B674CF7 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3C367607D7884AFCF274C257 /* PDFReaderCore */,
+				7F722F72E711E72F04E27923 /* PDFReaderApp */,
+				40C2AD90F2AA40999071909A /* PDFReaderTestSupport */,
+				CB8572D9B0A8C22D71776B07 /* PDFReaderCoreTests */,
+				13E763036D8F76C938B7DA71 /* PDFReaderAppTests */,
+				689A3C7DEBEF01BE92FBC5D2 /* PDFReaderUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		FCBFAE54C6AD9ED3DD08707C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		86A4EBE2FE09CAD6E7DCB684 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9954E30073C0C0B28ED6179E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		15EADE3ABA9601A39B33332E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D061242E08F5A8E3A0702264 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8B45016FB0CEA9F1C233FA1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FE1077E13B76C49C0272FEA7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F65C2900B8CA980AF07C9E65 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C6F026C54921352B486FCB00 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8CC331FFD368E8F7238AB149 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC143C71E243CCBF9E7B9304 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB12BAA547CEDD0861AC6012 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		59ABA8418AB3FF3232466AAE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3C367607D7884AFCF274C257 /* PDFReaderCore */;
+			targetProxy = 984988DA8FF266A31B67D28D /* PBXContainerItemProxy */;
+		};
+		B4D925758211BEDB03C577A5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3C367607D7884AFCF274C257 /* PDFReaderCore */;
+			targetProxy = 07EBDA1DF561E0DD36155F31 /* PBXContainerItemProxy */;
+		};
+		5A0D4F3345AC8218C77901D3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3C367607D7884AFCF274C257 /* PDFReaderCore */;
+			targetProxy = 6BC90B06B13F3BF772F578B9 /* PBXContainerItemProxy */;
+		};
+		9DED5A6ECC25DC04C601F1E8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7F722F72E711E72F04E27923 /* PDFReaderApp */;
+			targetProxy = 3A44EB44A8BED1E8EEC67FD8 /* PBXContainerItemProxy */;
+		};
+		E3DBCDDF2A4308B8D1EE5BE1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3C367607D7884AFCF274C257 /* PDFReaderCore */;
+			targetProxy = 76859C809C9FB75C837E2593 /* PBXContainerItemProxy */;
+		};
+		F38E63623D90F77EB5D05DFD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 40C2AD90F2AA40999071909A /* PDFReaderTestSupport */;
+			targetProxy = 554D8333070A513C39F9530D /* PBXContainerItemProxy */;
+		};
+		FE909FA281106DE09F5A95AD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7F722F72E711E72F04E27923 /* PDFReaderApp */;
+			targetProxy = 8641791CD2BEDAC73AE39D5B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		877A6BA951A2EA0025A2ABE8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		959134B361DD7E21ADEA3164 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		47001AC50483674873310B75 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.core;
+				GENERATE_INFOPLIST_FILE = YES;
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				DEFINES_MODULE = YES;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				SKIP_INSTALL = YES;
+				PRODUCT_NAME = PDFReaderCore;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+			};
+			name = Debug;
+		};
+		F5B7075F88D462EEE7834F80 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.core;
+				GENERATE_INFOPLIST_FILE = YES;
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				DEFINES_MODULE = YES;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				SKIP_INSTALL = YES;
+				PRODUCT_NAME = PDFReaderCore;
+			};
+			name = Release;
+		};
+		AA8DF525F31ACFF09B3E6D8C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader;
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PDFReaderApp/Info.plist;
+				PRODUCT_NAME = PDFReader;
+				PRODUCT_MODULE_NAME = PDFReaderApp;
+				CODE_SIGN_STYLE = Automatic;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+			};
+			name = Debug;
+		};
+		4E0F9E840F15A9A911F2E110 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader;
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PDFReaderApp/Info.plist;
+				PRODUCT_NAME = PDFReader;
+				PRODUCT_MODULE_NAME = PDFReaderApp;
+				CODE_SIGN_STYLE = Automatic;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+			};
+			name = Release;
+		};
+		E5D68B690F23D77126995141 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.testsupport;
+				GENERATE_INFOPLIST_FILE = YES;
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				DEFINES_MODULE = YES;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				SKIP_INSTALL = YES;
+				PRODUCT_NAME = PDFReaderTestSupport;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+			};
+			name = Debug;
+		};
+		D85D62732C1BB2AE98FAF6F2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.testsupport;
+				GENERATE_INFOPLIST_FILE = YES;
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				DEFINES_MODULE = YES;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				SKIP_INSTALL = YES;
+				PRODUCT_NAME = PDFReaderTestSupport;
+			};
+			name = Release;
+		};
+		78F4248AACF17D73542B0082 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.coretests;
+				GENERATE_INFOPLIST_FILE = YES;
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @loader_path/Frameworks @loader_path/../Frameworks";
+				BUNDLE_LOADER = "";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+			};
+			name = Debug;
+		};
+		B38F3D3E0C4EA9BE50583AFB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.coretests;
+				GENERATE_INFOPLIST_FILE = YES;
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @loader_path/Frameworks @loader_path/../Frameworks";
+				BUNDLE_LOADER = "";
+			};
+			name = Release;
+		};
+		C0B9E38F88D1767441A6F794 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.apptests;
+				GENERATE_INFOPLIST_FILE = YES;
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @loader_path/Frameworks @loader_path/../Frameworks";
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PDFReader.app/Contents/MacOS/PDFReader";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+			};
+			name = Debug;
+		};
+		75E1CA607E59D513653255C4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.apptests;
+				GENERATE_INFOPLIST_FILE = YES;
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @loader_path/Frameworks @loader_path/../Frameworks";
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PDFReader.app/Contents/MacOS/PDFReader";
+			};
+			name = Release;
+		};
+		7D277F9C789F44376C269D93 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.uitests;
+				GENERATE_INFOPLIST_FILE = YES;
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_TARGET_NAME = PDFReaderApp;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @loader_path/Frameworks @loader_path/../Frameworks";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+			};
+			name = Debug;
+		};
+		0B2F0CB63B5EDB90154F6B06 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.uitests;
+				GENERATE_INFOPLIST_FILE = YES;
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_TARGET_NAME = PDFReaderApp;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @loader_path/Frameworks @loader_path/../Frameworks";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FCBE72429C0B1B8B87DC8CC9 /* Build configuration list for PBXProject "PDFReader" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (877A6BA951A2EA0025A2ABE8 /* Debug */, 959134B361DD7E21ADEA3164 /* Release */);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		DE97C5FED84776B12CA2E90F /* Build configuration list for PBXNativeTarget "PDFReaderCore" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (47001AC50483674873310B75 /* Debug */, F5B7075F88D462EEE7834F80 /* Release */);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0D5239B38F4F1C5EBC5EDA2B /* Build configuration list for PBXNativeTarget "PDFReaderApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (AA8DF525F31ACFF09B3E6D8C /* Debug */, 4E0F9E840F15A9A911F2E110 /* Release */);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3745DB1544CAD972525CEDC5 /* Build configuration list for PBXNativeTarget "PDFReaderTestSupport" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (E5D68B690F23D77126995141 /* Debug */, D85D62732C1BB2AE98FAF6F2 /* Release */);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A404FB65AA32BA28982F24D8 /* Build configuration list for PBXNativeTarget "PDFReaderCoreTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (78F4248AACF17D73542B0082 /* Debug */, B38F3D3E0C4EA9BE50583AFB /* Release */);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EE9A46B7459B78D7B197BAEB /* Build configuration list for PBXNativeTarget "PDFReaderAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (C0B9E38F88D1767441A6F794 /* Debug */, 75E1CA607E59D513653255C4 /* Release */);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		67F13CFE864B9531592D64B7 /* Build configuration list for PBXNativeTarget "PDFReaderUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (7D277F9C789F44376C269D93 /* Debug */, 0B2F0CB63B5EDB90154F6B06 /* Release */);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BA66665FA276E76C2C914D88 /* XCRemoteSwiftPackageReference "TOMLDecoder" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/dduan/TOMLDecoder.git";
+			requirement = {
+				kind = exactVersion;
+				version = 0.4.5;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		72ED85A22FC6BDB47FF1AE81 /* TOMLDecoder */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA66665FA276E76C2C914D88 /* XCRemoteSwiftPackageReference "TOMLDecoder" */;
+			productName = TOMLDecoder;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+}

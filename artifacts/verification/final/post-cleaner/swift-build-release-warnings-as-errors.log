@@ -1,0 +1,11 @@
+[0/1] Planning build
+Building for production...
+[0/5] Write swift-version--58304C5D6DBC2206.txt
+[2/7] Compiling Step0ProbeSupport InputAndMenuProbe.swift
+[3/8] Compiling Step0Probe main.swift
+[3/7] Linking step0-probe
+[5/7] Compiling PDFReaderCore ActionBindingPolicy.swift
+[6/9] Compiling PDFReaderTestSupport PDFFixtureFactory.swift
+[7/9] Compiling PDFReaderApp ActionDispatcher.swift
+[7/8] Linking PDFReader
+Build complete! (11.49s)

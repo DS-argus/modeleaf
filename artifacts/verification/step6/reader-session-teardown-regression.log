@@ -1,0 +1,47 @@
+Building for debugging...
+[0/7] Write sources
+[1/7] Write swift-version--58304C5D6DBC2206.txt
+[3/7] Compiling PDFReaderApp ReaderPDFView.swift
+[4/7] Emitting module PDFReaderApp
+[4/9] Write Objects.LinkFileList
+[5/9] Linking PDFReader
+[6/9] Applying PDFReader
+[8/10] Emitting module PDFReaderAppTests
+[8/10] Write Objects.LinkFileList
+[9/10] Linking PDFReaderPackageTests
+Build complete! (3.03s)
+Test Suite 'Selected tests' started at 2026-07-22 14:34:05.699.
+Test Suite 'PDFReaderPackageTests.xctest' started at 2026-07-22 14:34:05.700.
+Test Suite 'PDFReaderPackageTests.xctest' passed at 2026-07-22 14:34:05.700.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-22 14:34:05.700.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Read-only PDF session lifecycle" started.
+◇ Test "I-PDF-04 manual, actual-size, fit-width, and fit-page are distinct view states" started.
+◇ Test "I-PDF-03 page navigation is one-based, directional, and explicit-range safe" started.
+◇ Test "I-PDF-08 teardown is ordered, idempotent, detached, and releasable" started.
+◇ Test "each tab owns exactly one distinct PDFDocument and PDFView" started.
+◇ Test "I-PDF-05 open, navigate, select, copy, fit, and close preserve source SHA-256" started.
+2026-07-22 14:34:05.812 swiftpm-testing-helper[39907:280501909] attributedStringScaled count: 3
+2026-07-22 14:34:05.812 swiftpm-testing-helper[39907:280501909] attributedStringScaled i: 0
+2026-07-22 14:34:05.812 swiftpm-testing-helper[39907:280501909] attributedStringScaled: adding carriage return
+2026-07-22 14:34:05.812 swiftpm-testing-helper[39907:280501909] attributedStringScaled i: 1
+2026-07-22 14:34:05.812 swiftpm-testing-helper[39907:280501909] attributedStringScaled: adding carriage return
+2026-07-22 14:34:05.812 swiftpm-testing-helper[39907:280501909] attributedStringScaled i: 2
+2026-07-22 14:34:05.814 swiftpm-testing-helper[39907:280501909] attributedStringScaled count: 3
+2026-07-22 14:34:05.814 swiftpm-testing-helper[39907:280501909] attributedStringScaled i: 0
+2026-07-22 14:34:05.814 swiftpm-testing-helper[39907:280501909] attributedStringScaled: adding carriage return
+2026-07-22 14:34:05.814 swiftpm-testing-helper[39907:280501909] attributedStringScaled i: 1
+2026-07-22 14:34:05.814 swiftpm-testing-helper[39907:280501909] attributedStringScaled: adding carriage return
+2026-07-22 14:34:05.814 swiftpm-testing-helper[39907:280501909] attributedStringScaled i: 2
+✔ Test "I-PDF-05 open, navigate, select, copy, fit, and close preserve source SHA-256" passed after 0.093 seconds.
+✔ Test "I-PDF-03 page navigation is one-based, directional, and explicit-range safe" passed after 0.093 seconds.
+2026-07-22 14:34:05.837 swiftpm-testing-helper[39907:280501913] Drawing a PDFPage when its PDFDocument is nil is unsupported.
+✔ Test "I-PDF-04 manual, actual-size, fit-width, and fit-page are distinct view states" passed after 0.103 seconds.
+✔ Test "each tab owns exactly one distinct PDFDocument and PDFView" passed after 0.103 seconds.
+✔ Test "I-PDF-08 teardown is ordered, idempotent, detached, and releasable" passed after 0.103 seconds.
+✔ Suite "Read-only PDF session lifecycle" passed after 0.103 seconds.
+✔ Test run with 5 tests in 1 suite passed after 0.103 seconds.

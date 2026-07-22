@@ -1,0 +1,18 @@
+{
+  "debugArchitectures": "active only",
+  "dependency": "TOMLDecoder@0.4.5 exact",
+  "deploymentTarget": "14.0",
+  "frameworkInstallName": "@rpath",
+  "sharedScheme": "PDFReader.xcodeproj/xcshareddata/xcschemes/PDFReader.xcscheme",
+  "status": "passed",
+  "strictConcurrency": "complete",
+  "swift": "6.0",
+  "targets": [
+    "PDFReaderApp",
+    "PDFReaderAppTests",
+    "PDFReaderCore",
+    "PDFReaderCoreTests",
+    "PDFReaderTestSupport",
+    "PDFReaderUITests"
+  ]
+}

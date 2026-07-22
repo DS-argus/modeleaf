@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "criterion": "Each isolated Debug and Release application process remained alive for two seconds before bounded harness termination.",
+  "results": [
+    {
+      "configuration": "debug",
+      "executable": ".build/final-spm/arm64-apple-macosx/debug/PDFReader",
+      "remainedRunningForTwoSeconds": true,
+      "terminatedByHarness": true,
+      "finalReturnCode": -15,
+      "durationSeconds": 2.026,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "configuration": "release",
+      "executable": ".build/final-spm/arm64-apple-macosx/release/PDFReader",
+      "remainedRunningForTwoSeconds": true,
+      "terminatedByHarness": true,
+      "finalReturnCode": -15,
+      "durationSeconds": 2.025,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

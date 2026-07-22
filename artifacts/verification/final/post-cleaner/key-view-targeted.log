@@ -1,0 +1,139 @@
+[0/1] Planning build
+Building for debugging...
+[0/9] Write swift-version--58304C5D6DBC2206.txt
+[2/45] Compiling PDFReaderCore ActionID.swift
+[3/45] Compiling PDFReaderCore ActionRegistry.swift
+[4/45] Compiling PDFReaderCore ActionSurfaceRegistry.swift
+[5/47] Compiling PDFReaderCore SystemKeyReservationV1.swift
+[6/47] Compiling PDFReaderCore TabStore.swift
+[7/47] Compiling PDFReaderCore EffectiveAppConfig.swift
+[8/47] Compiling PDFReaderCore SparseAppConfig.swift
+[9/47] Compiling PDFReaderCore CoreVersion.swift
+[10/47] Compiling PDFReaderCore ActionBindingPolicy.swift
+[11/47] Compiling PDFReaderCore ActionDescriptor.swift
+[12/47] Compiling PDFReaderCore ActionDispatcherProtocol.swift
+[13/47] Compiling PDFReaderCore PageNumberInputBuffer.swift
+[14/47] Compiling PDFReaderCore PromptNativeReservationV1.swift
+[15/47] Compiling PDFReaderCore PromptSafeBindingPredicate.swift
+[16/47] Emitting module PDFReaderCore
+[17/47] Compiling PDFReaderCore InputContext.swift
+[18/47] Compiling PDFReaderCore KeySequence.swift
+[19/47] Compiling PDFReaderCore KeySequenceEngine.swift
+[20/47] Compiling PDFReaderCore MenuEquivalentPolicy.swift
+[21/47] Compiling PDFReaderCore BuiltInDefaults.swift
+[22/47] Compiling PDFReaderCore ConfigDecoder.swift
+[23/47] Compiling Step0ProbeSupport Step0ProbeRunner.swift
+[24/47] Compiling Step0ProbeSupport TOMLQualificationProbe.swift
+[25/47] Compiling PDFReaderCore ConfigDiagnostic.swift
+[26/47] Compiling PDFReaderCore ConfigDocumentation.swift
+[27/47] Compiling PDFReaderCore ConfigValidator.swift
+[28/47] Compiling PDFReaderCore KeySequenceParser.swift
+[29/47] Compiling PDFReaderCore KeySequenceTrie.swift
+[30/47] Compiling PDFReaderCore KeyToken.swift
+[31/47] Compiling Step0ProbeSupport SearchProbe.swift
+[32/47] Compiling Step0ProbeSupport PDFFixtureFactory.swift
+[33/47] Compiling Step0ProbeSupport ProbeResult.swift
+[34/47] Compiling Step0ProbeSupport InputAndMenuProbe.swift
+[35/47] Emitting module Step0ProbeSupport
+[36/47] Compiling Step0ProbeSupport PDFCapabilityProbe.swift
+[37/47] Compiling Step0ProbeSupport ResponderPromptProbe.swift
+[38/47] Compiling PDFReaderCore BuiltInThemes.swift
+[39/47] Compiling PDFReaderCore Theme.swift
+[40/88] Emitting module Step0Probe
+[41/88] Compiling Step0Probe main.swift
+[42/87] Emitting module Step0ProbeTests
+[43/87] Compiling Step0ProbeTests InputPolicyTests.swift
+[44/87] Emitting module PDFReaderTestSupport
+[45/87] Compiling PDFReaderTestSupport PDFFixtureFactory.swift
+[46/87] Compiling PDFReaderTestSupport TestFixtureMarker.swift
+[47/87] Compiling PDFReaderApp ReaderSessionStore.swift
+[48/87] Compiling PDFReaderApp AppKitTheme.swift
+[49/87] Compiling PDFReaderApp ThemeAttributions.swift
+[49/87] Linking step0-probe
+[50/89] Applying step0-probe
+[52/89] Emitting module PDFReaderApp
+[53/89] Compiling PDFReaderApp ReaderRootView.swift
+[54/89] Compiling PDFReaderApp ReaderWindow.swift
+[55/89] Compiling PDFReaderApp StatusBarView.swift
+[56/89] Compiling PDFReaderApp TabBarView.swift
+[57/89] Compiling PDFReaderApp ActionDispatcher.swift
+[58/89] Compiling PDFReaderApp ApplicationController.swift
+[59/89] Compiling PDFReaderApp AppDelegate.swift
+[60/89] Compiling PDFReaderApp EmptyStateView.swift
+[61/89] Compiling PDFReaderApp MainWindowController.swift
+[62/89] Compiling PDFReaderApp PromptOverlayView.swift
+[63/89] Compiling PDFReaderApp AppKitKeyEventAdapter.swift
+[64/89] Compiling PDFReaderApp ReaderInputRouter.swift
+[65/89] Compiling PDFReaderApp ReaderPDFView.swift
+[66/89] Compiling PDFReaderApp ConfigFileSource.swift
+[67/89] Compiling PDFReaderApp ConfigService.swift
+[68/89] Compiling PDFReaderApp TOMLConfigDecoder.swift
+[69/89] Compiling PDFReaderApp WindowVisualMetrics.swift
+[70/89] Compiling PDFReaderApp resource_bundle_accessor.swift
+[71/89] Compiling PDFReaderApp PDFViewController.swift
+[72/89] Compiling PDFReaderApp ReaderSearchCoordinator.swift
+[73/89] Compiling PDFReaderApp ReaderSession.swift
+[74/89] Compiling PDFReaderApp ValidatedMenuBuilder.swift
+[75/89] Compiling PDFReaderApp PDFCapabilityPolicy.swift
+[76/89] Compiling PDFReaderApp PDFOpenService.swift
+[77/89] Compiling PDFReaderCoreTests ConfigValidatorTests.swift
+[78/88] Compiling PDFReaderCoreTests TabStoreTests.swift
+[79/88] Compiling PDFReaderCoreTests ScaffoldTests.swift
+[80/88] Compiling PDFReaderCoreTests KeySequenceEngineTests.swift
+[81/88] Compiling PDFReaderCoreTests KeyGrammarAndPromptSafetyTests.swift
+[82/88] Compiling PDFReaderCoreTests ActionRegistryTests.swift
+[83/88] Compiling PDFReaderCoreTests BuiltInDefaultsTests.swift
+[84/88] Emitting module PDFReaderCoreTests
+[84/88] Linking PDFReader
+[85/88] Applying PDFReader
+[87/104] Compiling PDFReaderAppTests ThemeAndShellTests.swift
+[88/104] Compiling PDFReaderAppTests ReaderInputRouterTests.swift
+[89/104] Compiling PDFReaderAppTests ReaderSearchCoordinatorTests.swift
+[90/104] Compiling PDFReaderAppTests ReaderSearchWorkflowTests.swift
+[91/104] Compiling PDFReaderAppTests ReaderSessionStoreTests.swift
+[92/104] Compiling PDFReaderAppTests PDFCapabilityPolicyTests.swift
+[93/104] Compiling PDFReaderAppTests PDFOpenServiceTests.swift
+[94/104] Compiling PDFReaderAppTests ProductScopeTests.swift
+[95/104] Compiling PDFReaderAppTests ReadOnlyBoundaryTests.swift
+[96/104] Compiling PDFReaderAppTests ReaderSessionTests.swift
+[97/104] Compiling PDFReaderAppTests ScaffoldAppTests.swift
+[98/105] Emitting module PDFReaderAppTests
+[99/105] Compiling PDFReaderAppTests ApplicationControllerTests.swift
+[100/105] Compiling PDFReaderAppTests ConfigLoadingTests.swift
+[101/105] Compiling PDFReaderAppTests ActionDispatcherTests.swift
+[102/105] Compiling PDFReaderAppTests AppKitKeyEventAdapterTests.swift
+[103/105] Compiling PDFReaderAppTests ValidatedMenuBuilderTests.swift
+[104/107] Emitting module PDFReaderPackageTests
+[105/107] Compiling PDFReaderPackageTests runner.swift
+[105/106] Linking PDFReaderPackageTests
+Build complete! (6.55s)
+Test Suite 'Selected tests' started at 2026-07-22 17:05:39.698.
+Test Suite 'PDFReaderPackageTests.xctest' started at 2026-07-22 17:05:39.699.
+Test Suite 'PDFReaderPackageTests.xctest' passed at 2026-07-22 17:05:39.699.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-22 17:05:39.699.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Polished native shell and AppKit themes" started.
+◇ Test "U-THEME-03 applying a theme styles shell chrome but never mutates presented content colors" started.
+◇ Test "V-THEME-01 four themes render the six required visual acceptance states" started.
+◇ Test "unbound Tab and Backtab move the real PDF canvas through the AppKit key-view loop" started.
+◇ Test "U-THEME-01 every built-in theme resolves complete AppKit chrome colors" started.
+◇ Test "background token reaches the real PDF surrounding canvas without recoloring page content" started.
+◇ Test "U-THEME-02 one semantic override changes only that AppKit token" started.
+◇ Test "empty, single-tab, multi-tab, prompt, search, and error states keep stable accessible surfaces" started.
+◇ Test "tab pointer controls compose only stable tab and document actions" started.
+◇ Test "active search and focus colors are independently configurable semantic tokens" started.
+✔ Test "U-THEME-03 applying a theme styles shell chrome but never mutates presented content colors" passed after 0.133 seconds.
+✔ Test "unbound Tab and Backtab move the real PDF canvas through the AppKit key-view loop" passed after 0.133 seconds.
+✔ Test "U-THEME-01 every built-in theme resolves complete AppKit chrome colors" passed after 0.246 seconds.
+✔ Test "background token reaches the real PDF surrounding canvas without recoloring page content" passed after 1.401 seconds.
+✔ Test "tab pointer controls compose only stable tab and document actions" passed after 1.405 seconds.
+✔ Test "empty, single-tab, multi-tab, prompt, search, and error states keep stable accessible surfaces" passed after 1.405 seconds.
+✔ Test "U-THEME-02 one semantic override changes only that AppKit token" passed after 1.405 seconds.
+✔ Test "active search and focus colors are independently configurable semantic tokens" passed after 1.405 seconds.
+✔ Test "V-THEME-01 four themes render the six required visual acceptance states" passed after 1.405 seconds.
+✔ Suite "Polished native shell and AppKit themes" passed after 1.405 seconds.
+✔ Test run with 9 tests in 1 suite passed after 1.405 seconds.

@@ -1,0 +1,189 @@
+{
+  "plan": {
+    "version": 1,
+    "createdAt": "2026-07-22T03:22:39.596Z",
+    "updatedAt": "2026-07-22T08:11:32.088Z",
+    "briefPath": ".omx/ultragoal/brief.md",
+    "goalsPath": ".omx/ultragoal/goals.json",
+    "ledgerPath": ".omx/ultragoal/ledger.jsonl",
+    "codexGoalMode": "aggregate",
+    "goals": [
+      {
+        "id": "G001-step-0-qualify-risks",
+        "title": "Step 0 — qualify risks",
+        "objective": "Create minimal executable probes and recorded evidence for AppKit responder/focus routing, config-derived menu equivalents, prompt literal/dead-key/IME safety, PDFKit capability suppression, serialized PDFKit search cancellation ordering, and TOMLDecoder 0.4.5 strict recursive validation. Scaffold only what the probes require; stop and revise the plan if any feasibility contract fails.",
+        "status": "complete",
+        "attempt": 1,
+        "createdAt": "2026-07-22T03:22:39.596Z",
+        "updatedAt": "2026-07-22T03:33:15.825Z",
+        "startedAt": "2026-07-22T03:22:44.103Z",
+        "completedAt": "2026-07-22T03:33:15.825Z",
+        "evidence": "Step 0 passed: swift test (4 Swift Testing cases), executable AppKit/PDFKit/TOML probe 45/45 checks, Release build, exact TOMLDecoder 0.4.5 pin, frozen interface snapshots and SHA-256 evidence under artifacts/verification/step0/. Discovered and locked PDFKit replacement search deferral after end callback return."
+      },
+      {
+        "id": "G002-step-1-scaffold-project",
+        "title": "Step 1 — scaffold project",
+        "objective": "Create the macOS 14+ Swift 6 Xcode project and target graph for PDFReaderCore, PDFReaderApp, PDFReaderCoreTests, PDFReaderAppTests, PDFReaderUITests, and test support. Add only the qualified exact TOMLDecoder dependency, establish resources and build settings, initialize repository hygiene, and prove Debug/Release build plus dependency resolution.",
+        "status": "complete",
+        "attempt": 1,
+        "createdAt": "2026-07-22T03:22:39.596Z",
+        "updatedAt": "2026-07-22T04:01:47.210Z",
+        "startedAt": "2026-07-22T03:33:20.139Z",
+        "completedAt": "2026-07-22T04:01:47.210Z",
+        "evidence": "Generated and validated the six-target macOS 14+/Swift 6 Xcode graph; TOMLDecoder is exact-pinned at 0.4.5; SwiftPM resolve/build Debug/build Release/test passed; actual xcodebuild list/resolve/Debug/Release/unit tests passed; UI target compiled; embedded framework uses @rpath; release surface scan and executable smoke passed. Evidence: artifacts/verification/scaffold/report.json and SHA256SUMS."
+      },
+      {
+        "id": "G003-step-2-freeze-actions-and-bindings",
+        "title": "Step 2 — freeze actions and bindings",
+        "objective": "Implement a deliberately minimal, viewer-first stable action registry, four input contexts, documented key-token grammar, built-in key/value/theme defaults, prompt-native/system reservation tables, action-aware prompt-safe binding predicate, and menu-equivalent policy in the Foundation-only core with exhaustive unit tests. Borrow Sioyek's successful configurable multi-key/count navigation mental model only; explicitly exclude its marks, bookmarks, highlights, portals, smart jumps, command palette, scripts, and research-workflow surface.",
+        "status": "complete",
+        "attempt": 1,
+        "createdAt": "2026-07-22T03:22:39.596Z",
+        "updatedAt": "2026-07-22T04:18:33.152Z",
+        "steeringEvidence": "User explicitly requested a simpler viewer optimized core and named Sioyek only as a key-customization/navigation reference.",
+        "steeringRationale": "Prevent feature creep and keep the key map compact while preserving extensible action IDs.",
+        "startedAt": "2026-07-22T04:01:47.407Z",
+        "completedAt": "2026-07-22T04:18:33.152Z",
+        "evidence": "Frozen Foundation-only v1 contract: 27 stable viewer-first actions, four input contexts, exact default bindings and numeric bounds, 88 prompt-native plus 18 system reservations, action-aware prompt safety, menu-equivalent policy, 51 registry-backed surfaces, and four semantic dark themes. SwiftPM: 26 tests/4 suites plus Release build passed. Xcode: Debug and Release builds, 22 core tests/3 suites, and 1 app test passed; linker architecture and actor-isolation warnings are zero. ABI, contract, source-scope audit, report, and verified SHA-256 manifest are under artifacts/verification/step2/."
+      },
+      {
+        "id": "G004-step-3-implement-key-engine",
+        "title": "Step 3 — implement key engine",
+        "objective": "Implement the pure prefix trie and deterministic sequence state machine with exact/longer matches, replay, repeat handling, semantic g+digits page input, timeout epochs, and invalidation on context/config/focus/session changes. Prove all default bindings and edge cases with unit tests.",
+        "status": "complete",
+        "attempt": 1,
+        "createdAt": "2026-07-22T03:22:39.596Z",
+        "updatedAt": "2026-07-22T04:29:31.815Z",
+        "startedAt": "2026-07-22T04:18:33.343Z",
+        "completedAt": "2026-07-22T04:29:31.815Z",
+        "evidence": "Implemented Foundation-only KeySequenceTrie, KeySequenceEngine, explicit PrefixEpoch invalidation, semantic g+digit replay, repeat suppression, prompt input ownership, and one-based PageNumberInputBuffer. U-SEQ-01...08 and U-CTX-01...06 pass without sleep-based timing. SwiftPM: 41 tests/5 suites and Release build passed. Xcode: Debug/Release builds, 37 core tests/4 suites, 1 app test, and analyze passed with zero linker/actor/unexpected compiler warnings. Executable trace proves g12=page 12, gg/gt/gT, stale epoch blocking, native prompt precedence, no implicit count grammar; ABI/report/SHA-256 evidence is under artifacts/verification/step3/."
+      },
+      {
+        "id": "G005-step-4-implement-strict-config",
+        "title": "Step 4 — implement strict config",
+        "objective": "Implement bounded config path/I/O and TOML adapter at the app edge plus sparse/effective core models, recursive leaf allowlisting, strict validation, typed default overlay, conflict and prompt/menu safety checks, atomic activation, complete-default fallback, aggregated diagnostics, and generated round-trip default config documentation.",
+        "status": "complete",
+        "attempt": 1,
+        "createdAt": "2026-07-22T03:22:39.596Z",
+        "updatedAt": "2026-07-22T04:51:02.893Z",
+        "startedAt": "2026-07-22T04:29:32.012Z",
+        "completedAt": "2026-07-22T04:51:02.893Z",
+        "evidence": "Strict config complete: bounded fixed-path TOML adapter, recursive allowlist, sparse typed overlay, aggregated diagnostics, prompt/menu/key conflicts, atomic complete-default fallback, and generated CONFIG/default TOML. Fresh verification passed: SwiftPM 61 tests/7 suites + Release build; Xcode Debug/Release universal builds, 45 core tests/5 suites, 12 app config tests/1 suite, 1 XCTest, and analyze. Public constructor, parser-boundary, execution-surface, lockfile, trace, warning, and SHA-256 audits passed under artifacts/verification/step4/."
+      },
+      {
+        "id": "G006-step-5-build-native-shell",
+        "title": "Step 5 — build native shell",
+        "objective": "Implement ApplicationController, ReaderSessionStore ownership boundary, and MainWindowController presentation/focus with first-class native multi-document tabs. Build polished, restrained empty/read/multi-tab states using a compact custom tab strip, unobtrusive status/prompt overlays, careful spacing/typography/hover/focus/active states, and four coherent semantic dark themes without recoloring PDF pages. Keep chrome visually quieter and more macOS-native than Sioyek while retaining keyboard-first operation, config-derived menus, and accessibility semantics.",
+        "status": "complete",
+        "attempt": 1,
+        "createdAt": "2026-07-22T03:22:39.596Z",
+        "updatedAt": "2026-07-22T05:17:02.533Z",
+        "steeringEvidence": "User identified tabs and a more refined, attractive UI as explicit differentiators from Sioyek.",
+        "steeringRationale": "Make the UI quality and tab model acceptance-critical rather than incidental styling.",
+        "startedAt": "2026-07-22T04:51:03.089Z",
+        "completedAt": "2026-07-22T05:17:02.533Z",
+        "evidence": "Implemented Foundation-only first-class tab ordering, ReaderSessionStore as the sole runtime-session owner, and a polished native AppKit shell with compact custom tabs, empty/read/prompt/status states, four semantic dark themes, config-derived menus, focus restoration, and accessibility semantics. Fresh evidence: SwiftPM 85 tests/12 suites plus 1 XCTest and Release build passed; Xcode Debug and universal arm64+x86_64 Release builds and analyze passed; the immediately preceding shell Xcode run passed 56 core tests/6 suites plus 24 app tests/5 suites and 1 XCTest, while the final added accessibility-role assertion passed in the fresh SwiftPM suite. Deterministic empty and multi-tab prompt PNG snapshots and source-scope audit passed. Signed UI target built, but host automation timed out before test code; result bundle and disposition are retained under artifacts/verification/step5/. SHA-256 manifest verifies all evidence."
+      },
+      {
+        "id": "G007-step-6-implement-read-only-pdf-sessi",
+        "title": "Step 6 — implement read-only PDF sessions",
+        "objective": "Implement NSOpenPanel/UTType.pdf and external URL opening, one PDFDocument/PDFView per session, allowed navigation/selection/view-state APIs, PDF capability suppression, error handling, ordered main-actor teardown, and interface/source/hash/form/annotation tests proving non-mutation.",
+        "status": "complete",
+        "attempt": 1,
+        "createdAt": "2026-07-22T03:22:39.596Z",
+        "updatedAt": "2026-07-22T05:36:13.105Z",
+        "startedAt": "2026-07-22T05:17:05.414Z",
+        "completedAt": "2026-07-22T05:36:13.105Z",
+        "evidence": "Read-only PDF sessions complete: NSOpenPanel/UTType.pdf and Finder Open-With converge; one PDFDocument/ReaderPDFView per session; navigation/zoom/fit, capability suppression, source-hash/form/annotation immutability, and ordered teardown are covered. Fresh SwiftPM 99 tests/16 suites + 1 XCTest and G007 targeted 14 tests/4 suites passed; Release build passed. Xcode Debug, universal x86_64+arm64 Release, and analyze passed with no Info.plist resource warning. Source boundary and executable-module ABI audits passed; evidence and verified SHA-256 manifest are under artifacts/verification/step6/. Xcode host test-start stalled after compilation and was boundedly interrupted; disposition/result bundle retained, with SwiftPM authoritative."
+      },
+      {
+        "id": "G008-step-7-wire-navigation-workflow",
+        "title": "Step 7 — wire navigation workflow",
+        "objective": "Route empty-window and active-session input through the window responder path and ActionDispatcher; implement small/large scroll, page next/previous/first/last, g+digits page prompt, zoom/reset/fit, tab movement/close, focus restoration, pending-prefix status, and menu/key convergence tests.",
+        "status": "complete",
+        "attempt": 1,
+        "createdAt": "2026-07-22T03:22:39.596Z",
+        "updatedAt": "2026-07-22T06:01:38.623Z",
+        "startedAt": "2026-07-22T05:36:17.175Z",
+        "completedAt": "2026-07-22T06:01:38.623Z",
+        "evidence": "Navigation workflow complete: ReaderWindow/AppKit adapter/ReaderInputRouter/ActionDispatcher unify empty and active input; configured scroll/page/zoom/fit/tab actions, g+digits prompt replay, timeout epochs, focus restoration, and menu/key convergence are implemented. Fresh targeted G008 17 tests/4 suites, full SwiftPM 115 tests/19 suites plus 1 XCTest, Release build, warnings-as-errors, generated-project validation, workflow/read-only/warning audits, and SHA-256 verification passed under artifacts/verification/step7/. Fresh xcodebuild actions were attempted but Xcode 26.6 cannot load before project parsing because first-launch CoreSimulator system content is missing and administrator authorization is unavailable; raw logs and disposition are retained, with SwiftPM authoritative."
+      },
+      {
+        "id": "G009-step-8-implement-search-workflow",
+        "title": "Step 8 — implement search workflow",
+        "objective": "Implement committed embedded-text search with a per-session serialized idle-running-cancelling-pendingLatest coordinator, secondary generation defense, next/previous wrapping, active/all-result highlighting, cancellation/clear/close teardown, per-tab isolation, and search prompt/result focus tests. Do not add OCR or incremental search.",
+        "status": "complete",
+        "attempt": 1,
+        "createdAt": "2026-07-22T03:22:39.596Z",
+        "updatedAt": "2026-07-22T06:14:23.551Z",
+        "startedAt": "2026-07-22T06:01:38.820Z",
+        "completedAt": "2026-07-22T06:14:23.551Z",
+        "evidence": "Committed embedded-text search is complete: each ReaderSession owns a serialized idle/running/cancelling(pendingLatest) coordinator and generation-tagged PDFKit driver; latest replacement waits past the prior end callback; all results plus one active result are theme-highlighted; Enter/Shift-Enter wrap; Esc and close cancel, detach, and clear; tabs preserve isolated search state/context; OCR and incremental search remain absent. Fresh targeted G009 10 tests/3 suites, full SwiftPM 125 tests/21 suites plus 1 XCTest, Release build, warnings-as-errors, project generation/validation, search/read-only/warning audits, and SHA-256 verification passed under artifacts/verification/step8/. Fresh xcodebuild actions were attempted but Xcode 26.6 remains unavailable before project load because administrator-gated CoreSimulator first-launch content is missing; raw logs and disposition are retained."
+      },
+      {
+        "id": "G010-step-9-finish-product-and-verificati",
+        "title": "Step 9 — finish product and verification",
+        "objective": "Finish diagnostics, config/theme workflows, fixtures, accessibility and manual verification records, README/config/action documentation, and all approved unit/integration/UI tests. Add explicit product-scope proof that advanced Sioyek-style research/editing features are absent, plus visual acceptance evidence for empty, single-tab, multi-tab, prompt, search, and error states across four themes. Run Debug/Release builds, dependency resolution, test suites, static analysis, interface/source scope audits, and result-bundle disposition; then run the mandatory changed-file cleanup, post-cleaner verification, architecture-invariant audit, and independent code-reviewer plus architect final gate.",
+        "status": "review_blocked",
+        "attempt": 1,
+        "createdAt": "2026-07-22T03:22:39.596Z",
+        "updatedAt": "2026-07-22T06:50:27.298Z",
+        "steeringEvidence": "The accepted steering adds visible differentiation criteria: less feature surface, tabs, and polished native UI.",
+        "steeringRationale": "The final gate must prove the new product direction, not only functional correctness.",
+        "startedAt": "2026-07-22T06:14:23.755Z",
+        "reviewBlockedAt": "2026-07-22T06:50:27.298Z",
+        "evidence": "Independent code-reviewer REQUEST CHANGES and architect BLOCK reports found command-path, prompt composition lifecycle, hidden Return shortcut, window persistence, diagnostics, text-presence, theme-token, and UI-workflow gaps."
+      },
+      {
+        "id": "G011-resolve-final-independent-review-blo",
+        "title": "Resolve final independent-review blockers",
+        "objective": "Repair the dispatcher boundary for tab pointer controls and prompt-safe globals; remove hidden shortcuts and persistence; implement aggregate configuration diagnostics, no-searchable-text distinction, required semantic theme tokens, and the approved UI workflow coverage; rerun the complete cleanup, verification, invariant, code-reviewer, and architect gates.",
+        "status": "complete",
+        "attempt": 1,
+        "createdAt": "2026-07-22T06:50:27.299Z",
+        "updatedAt": "2026-07-22T08:11:32.088Z",
+        "evidence": "Resolved all independent-review blockers; post-fix Debug/Release/strict builds, full and strict 139 Swift Testing cases in 22 suites plus 1 XCTest, targeted 37/5 and key-view 9/1, strict UI source typecheck, 16/16 source audit, 108/108 manifest, 24-state visual gate, code-reviewer APPROVE, and architect CLEAR. Evidence: artifacts/verification/final/.",
+        "startedAt": "2026-07-22T06:50:51.325Z",
+        "completedAt": "2026-07-22T08:11:32.088Z"
+      }
+    ],
+    "codexObjective": "Complete the durable ultragoal plan in .omx/ultragoal/goals.json, including later accepted/appended stories, under the original brief constraints; use .omx/ultragoal/ledger.jsonl as the audit trail."
+  },
+  "summary": {
+    "total": 11,
+    "pending": 0,
+    "inProgress": 0,
+    "complete": 10,
+    "failed": 0,
+    "reviewBlocked": 1,
+    "needsUserDecision": 0,
+    "superseded": 0,
+    "steeringBlocked": 0,
+    "aggregateComplete": false,
+    "artifactComplete": true
+  },
+  "reconciliation": {
+    "ok": true,
+    "snapshot": {
+      "available": true,
+      "objective": "Complete the durable ultragoal plan in .omx/ultragoal/goals.json, including later accepted/appended stories, under the original brief constraints; use .omx/ultragoal/ledger.jsonl as the audit trail.",
+      "status": "complete",
+      "remainingTokens": null,
+      "raw": {
+        "goal": {
+          "threadId": "019f871c-1bfc-78f3-a72f-feed2c81bb9c",
+          "objective": "Complete the durable ultragoal plan in .omx/ultragoal/goals.json, including later accepted/appended stories, under the original brief constraints; use .omx/ultragoal/ledger.jsonl as the audit trail.",
+          "status": "complete",
+          "tokensUsed": 5129871,
+          "timeUsedSeconds": 17172,
+          "createdAt": 1784690570,
+          "updatedAt": 1784707742
+        },
+        "remainingTokens": null,
+        "completionBudgetReport": null
+      }
+    },
+    "warnings": [],
+    "errors": []
+  }
+}

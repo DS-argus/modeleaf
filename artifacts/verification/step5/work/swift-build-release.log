@@ -1,0 +1,10 @@
+[0/1] Planning build
+Building for production...
+[0/6] Write sources
+[2/6] Write swift-version--58304C5D6DBC2206.txt
+[4/6] Compiling PDFReaderCore ActionBindingPolicy.swift
+[5/8] Compiling PDFReaderTestSupport TestFixtureMarker.swift
+[6/8] Compiling PDFReaderApp ApplicationController.swift
+[6/8] Write Objects.LinkFileList
+[7/8] Linking PDFReader
+Build complete! (11.21s)

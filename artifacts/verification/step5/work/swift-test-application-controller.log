@@ -1,0 +1,17 @@
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.12s)
+Test Suite 'Selected tests' started at 2026-07-22 14:02:12.079.
+Test Suite 'PDFReaderPackageTests.xctest' started at 2026-07-22 14:02:12.080.
+Test Suite 'PDFReaderPackageTests.xctest' passed at 2026-07-22 14:02:12.080.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-22 14:02:12.080.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "ApplicationController shell dispatch" started.
+◇ Test "dispatch covers open, close, tab movement, and quit without owning PDF state" started.
+✔ Test "dispatch covers open, close, tab movement, and quit without owning PDF state" passed after 0.056 seconds.
+✔ Suite "ApplicationController shell dispatch" passed after 0.056 seconds.
+✔ Test run with 1 test in 1 suite passed after 0.057 seconds.

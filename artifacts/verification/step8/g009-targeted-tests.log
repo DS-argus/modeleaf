@@ -1,0 +1,40 @@
+[0/1] Planning build
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.23s)
+Test Suite 'Selected tests' started at 2026-07-22 15:11:34.914.
+Test Suite 'PDFReaderPackageTests.xctest' started at 2026-07-22 15:11:34.915.
+Test Suite 'PDFReaderPackageTests.xctest' passed at 2026-07-22 15:11:34.915.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-22 15:11:34.915.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Viewer-first action dispatcher" started.
+◇ Suite "Committed PDFKit search workflow" started.
+◇ Suite "Serialized per-session search coordinator" started.
+◇ Test "search is committed once, navigates results, and clears back to NORMAL" started.
+◇ Test "I-SEARCH-07 two tabs search independently and clearing one preserves the other" started.
+◇ Test "I-SEARCH-05 committed embedded-text search highlights all matches and one active match" started.
+◇ Test "I-SEARCH-06 a completed no-match search remains clearable and never invokes OCR" started.
+◇ Test "I-SEARCH-03 next and previous wrap across one active and all highlighted results" started.
+◇ Test "slash prompt, result keys, focus, and per-tab SEARCH context remain isolated" started.
+◇ Test "I-SEARCH-04 close cancellation detaches callbacks and clears result presentation" started.
+◇ Test "I-SEARCH-08 production PDFKit replacement starts only the latest committed query" started.
+◇ Test "I-SEARCH-02 clear invalidates a replacement already deferred past the end callback" started.
+◇ Test "I-SEARCH-01 replacement waits for end, latest wins, and stale generations are ignored" started.
+✔ Test "I-SEARCH-07 two tabs search independently and clearing one preserves the other" passed after 0.116 seconds.
+✔ Test "I-SEARCH-05 committed embedded-text search highlights all matches and one active match" passed after 0.116 seconds.
+✔ Test "I-SEARCH-03 next and previous wrap across one active and all highlighted results" passed after 0.296 seconds.
+✔ Test "search is committed once, navigates results, and clears back to NORMAL" passed after 0.346 seconds.
+✔ Test "I-SEARCH-06 a completed no-match search remains clearable and never invokes OCR" passed after 0.346 seconds.
+✔ Test "slash prompt, result keys, focus, and per-tab SEARCH context remain isolated" passed after 0.346 seconds.
+✔ Test "I-SEARCH-04 close cancellation detaches callbacks and clears result presentation" passed after 0.346 seconds.
+✔ Test "I-SEARCH-02 clear invalidates a replacement already deferred past the end callback" passed after 0.346 seconds.
+✔ Test "I-SEARCH-08 production PDFKit replacement starts only the latest committed query" passed after 0.346 seconds.
+✔ Suite "Viewer-first action dispatcher" passed after 0.346 seconds.
+✔ Suite "Committed PDFKit search workflow" passed after 0.346 seconds.
+✔ Test "I-SEARCH-01 replacement waits for end, latest wins, and stale generations are ignored" passed after 0.346 seconds.
+✔ Suite "Serialized per-session search coordinator" passed after 0.346 seconds.
+✔ Test run with 10 tests in 3 suites passed after 0.346 seconds.

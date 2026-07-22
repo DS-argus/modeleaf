@@ -1,0 +1,104 @@
+[0/1] Planning build
+Building for debugging...
+[0/7] Write sources
+[1/12] /Users/argus/Programming/pdf-reader/.build/final-spm/arm64-apple-macosx/debug/PDFReaderPackageTests.derived/runner.swift
+[4/13] Write sources
+[6/13] Write swift-version--58304C5D6DBC2206.txt
+[8/28] Compiling PDFReaderApp WindowVisualMetrics.swift
+[9/31] Compiling PDFReaderApp PDFViewController.swift
+[10/32] Compiling PDFReaderApp PromptOverlayView.swift
+[11/32] Compiling PDFReaderApp MainWindowController.swift
+[12/32] Compiling PDFReaderApp ReaderSession.swift
+[13/32] Compiling PDFReaderApp ReaderPDFView.swift
+[14/32] Emitting module PDFReaderApp
+[15/32] Compiling PDFReaderApp PDFOpenService.swift
+[16/32] Compiling PDFReaderApp EmptyStateView.swift
+[17/32] Compiling PDFReaderApp ReaderRootView.swift
+[18/32] Compiling PDFReaderApp TabBarView.swift
+[18/33] Write Objects.LinkFileList
+[20/33] Compiling Step0ProbeTests InputPolicyTests.swift
+[21/33] Emitting module Step0ProbeTests
+[21/33] Linking PDFReader
+[22/33] Applying PDFReader
+[24/49] Compiling PDFReaderCoreTests ActionRegistryTests.swift
+[25/49] Compiling PDFReaderCoreTests KeyGrammarAndPromptSafetyTests.swift
+[26/49] Compiling PDFReaderCoreTests ConfigValidatorTests.swift
+[27/49] Compiling PDFReaderCoreTests KeySequenceEngineTests.swift
+[28/49] Emitting module PDFReaderCoreTests
+[29/49] Compiling PDFReaderCoreTests BuiltInDefaultsTests.swift
+[30/49] Compiling PDFReaderCoreTests ScaffoldTests.swift
+[31/49] Compiling PDFReaderCoreTests TabStoreTests.swift
+[32/49] Compiling PDFReaderAppTests ProductScopeTests.swift
+[33/49] Compiling PDFReaderAppTests ReadOnlyBoundaryTests.swift
+[34/49] Compiling PDFReaderAppTests ReaderSessionTests.swift
+[35/50] Compiling PDFReaderAppTests ScaffoldAppTests.swift
+[36/50] Compiling PDFReaderAppTests ReaderInputRouterTests.swift
+[37/50] Compiling PDFReaderAppTests ReaderSearchCoordinatorTests.swift
+[38/50] Compiling PDFReaderAppTests ValidatedMenuBuilderTests.swift
+[39/50] Compiling PDFReaderAppTests ThemeAndShellTests.swift
+[40/50] Compiling PDFReaderAppTests ReaderSearchWorkflowTests.swift
+[41/50] Compiling PDFReaderAppTests ReaderSessionStoreTests.swift
+[42/50] Compiling PDFReaderAppTests PDFCapabilityPolicyTests.swift
+[43/50] Compiling PDFReaderAppTests PDFOpenServiceTests.swift
+[44/50] Compiling PDFReaderAppTests ActionDispatcherTests.swift
+[45/50] Compiling PDFReaderAppTests AppKitKeyEventAdapterTests.swift
+[46/50] Emitting module PDFReaderAppTests
+[47/50] Compiling PDFReaderAppTests ApplicationControllerTests.swift
+[48/50] Compiling PDFReaderAppTests ConfigLoadingTests.swift
+[49/52] Compiling PDFReaderPackageTests runner.swift
+[50/52] Emitting module PDFReaderPackageTests
+[50/52] Write Objects.LinkFileList
+[51/52] Linking PDFReaderPackageTests
+Build complete! (13.02s)
+Test Suite 'Selected tests' started at 2026-07-22 16:31:58.721.
+Test Suite 'PDFReaderPackageTests.xctest' started at 2026-07-22 16:31:58.722.
+Test Suite 'PDFReaderPackageTests.xctest' passed at 2026-07-22 16:31:58.722.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-22 16:31:58.722.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Viewer-first action dispatcher" started.
+◇ Suite "Polished native shell and AppKit themes" started.
+◇ Test "semantic page replay, validation, commit, and cancel restore reader focus" started.
+◇ Test "slash prompt, result keys, focus, and per-tab SEARCH context remain isolated" started.
+◇ Test "session changes discard marked composition before dismissing the prompt" started.
+◇ Test "window input, page prompt status, commit, and focus restoration form one workflow" started.
+◇ Test "tab movement and close retain the store as the sole session owner" started.
+◇ Test "configured movement, page, and zoom actions call only the active session" started.
+◇ Test "menu clicks and key events converge on the same dispatcher entry point" started.
+◇ Test "page input in an empty window cannot leave an invisible PAGE context" started.
+◇ Test "prompt-safe globals discard marked composition and restore context before key or menu effects" started.
+◇ Test "active search and focus colors are independently configurable semantic tokens" started.
+◇ Test "search is committed once, navigates results, and clears back to NORMAL" started.
+◇ Test "remapped prompt-safe global uses Command-F12 and tears down marked composition" started.
+◇ Test "U-THEME-01 every built-in theme resolves complete AppKit chrome colors" started.
+◇ Test "empty, single-tab, multi-tab, prompt, search, and error states keep stable accessible surfaces" started.
+◇ Test "U-THEME-02 one semantic override changes only that AppKit token" started.
+◇ Test "background token reaches the real PDF surrounding canvas without recoloring page content" started.
+◇ Test "V-THEME-01 four themes render the six required visual acceptance states" started.
+◇ Test "tab pointer controls compose only stable tab and document actions" started.
+◇ Test "U-THEME-03 applying a theme styles shell chrome but never mutates presented content colors" started.
+✔ Test "semantic page replay, validation, commit, and cancel restore reader focus" passed after 0.262 seconds.
+✔ Test "session changes discard marked composition before dismissing the prompt" passed after 0.263 seconds.
+✔ Test "window input, page prompt status, commit, and focus restoration form one workflow" passed after 0.264 seconds.
+✔ Test "configured movement, page, and zoom actions call only the active session" passed after 0.264 seconds.
+✔ Test "tab movement and close retain the store as the sole session owner" passed after 0.264 seconds.
+✔ Test "page input in an empty window cannot leave an invisible PAGE context" passed after 0.264 seconds.
+✔ Test "prompt-safe globals discard marked composition and restore context before key or menu effects" passed after 0.264 seconds.
+✔ Test "menu clicks and key events converge on the same dispatcher entry point" passed after 1.587 seconds.
+✔ Test "active search and focus colors are independently configurable semantic tokens" passed after 1.587 seconds.
+✔ Test "remapped prompt-safe global uses Command-F12 and tears down marked composition" passed after 1.592 seconds.
+✔ Test "background token reaches the real PDF surrounding canvas without recoloring page content" passed after 1.591 seconds.
+✔ Test "empty, single-tab, multi-tab, prompt, search, and error states keep stable accessible surfaces" passed after 1.592 seconds.
+✔ Test "slash prompt, result keys, focus, and per-tab SEARCH context remain isolated" passed after 1.592 seconds.
+✔ Test "U-THEME-02 one semantic override changes only that AppKit token" passed after 1.591 seconds.
+✔ Test "U-THEME-01 every built-in theme resolves complete AppKit chrome colors" passed after 1.592 seconds.
+✔ Test "search is committed once, navigates results, and clears back to NORMAL" passed after 1.592 seconds.
+✔ Test "V-THEME-01 four themes render the six required visual acceptance states" passed after 1.592 seconds.
+✔ Test "tab pointer controls compose only stable tab and document actions" passed after 1.591 seconds.
+✔ Test "U-THEME-03 applying a theme styles shell chrome but never mutates presented content colors" passed after 1.591 seconds.
+✔ Suite "Viewer-first action dispatcher" passed after 1.592 seconds.
+✔ Suite "Polished native shell and AppKit themes" passed after 1.592 seconds.
+✔ Test run with 19 tests in 2 suites passed after 1.592 seconds.

@@ -1,0 +1,19 @@
+.DS_Store
+.build/
+DerivedData/
+*.xcresult
+xcuserdata/
+.swiftpm/
+__pycache__/
+*.pyc
+*.xcuserstate
+
+# OMX workflow plans, state, and runtime files remain local-only.
+.omx/
+.gjc/
+
+# Runtime/user configuration is never stored in the repository.
+config.toml
+
+# Local-only product and verification notes are not published.
+.internal/

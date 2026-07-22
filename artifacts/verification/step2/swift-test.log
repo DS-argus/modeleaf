@@ -1,0 +1,98 @@
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.13s)
+Test Suite 'All tests' started at 2026-07-22 13:15:04.239.
+Test Suite 'PDFReaderPackageTests.xctest' started at 2026-07-22 13:15:04.240.
+Test Suite 'ScaffoldAppTests' started at 2026-07-22 13:15:04.240.
+Test Case '-[PDFReaderAppTests.ScaffoldAppTests testAppDependencyGraph]' started.
+Test Case '-[PDFReaderAppTests.ScaffoldAppTests testAppDependencyGraph]' passed (0.001 seconds).
+Test Suite 'ScaffoldAppTests' passed at 2026-07-22 13:15:04.241.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'PDFReaderPackageTests.xctest' passed at 2026-07-22 13:15:04.241.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'All tests' passed at 2026-07-22 13:15:04.241.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.001 (0.003) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Action registry and binding policy" started.
+◇ Suite "Key grammar and prompt safety" started.
+◇ Suite "Canonical defaults, themes, and documentation" started.
+◇ Test "TOML qualification section passes" started.
+◇ Suite "Step 0 input policy" started.
+◇ Test "core target is linked" started.
+◇ Test "U-ACT-04 repeat policy blocks lifecycle actions" started.
+◇ Test "CONFIG.md generated blocks and grammar remain synchronized" started.
+◇ Test "U-KEY-06 every system reservation rejects prompt-active globals" started.
+◇ Test "Built-in numeric values and bounds are exact" started.
+◇ Test "Built-in keymap is complete and accepted by pure policies" started.
+◇ Test "Four semantic dark themes are complete and PDF-agnostic" started.
+◇ Test "U-KEY-04 invalid grammar is rejected" started.
+◇ Test "U-KEY-02 built-in and modifier grammar round-trips" started.
+◇ Test "Bundled DefaultConfig.toml is generated from BuiltInDefaults" started.
+◇ Test "U-KEY-05 repeat metadata follows descriptors" started.
+◇ Test "U-KEY-06 every native reservation rejects prompt-active globals" started.
+◇ Test "U-ACT-02 every action binds, dispatches, and unbinds" started.
+◇ Test "Exact default vocabulary remains compact and viewer-first" started.
+◇ Test "Reservation tables match their independent v1 snapshots" started.
+◇ Test "U-ACT-03 pure menu equivalents derive from evaluated bindings" started.
+◇ Test "U-KEY-06 action-aware prompt decision table" started.
+◇ Test "U-ACT-01 exact stable action set" started.
+◇ Test "U-KEY-01 logical character normalization" started.
+◇ Test "U-ACT-02 every declared UI surface is registry-backed" started.
+◇ Test "U-KEY-03 multi-key sequences preserve order" started.
+◇ Test "U-ACT-05 context and global classification is exact" started.
+◇ Test unsafePromptGlobalsAreRejected(_:) started.
+◇ Test safeCommandGlobalsRemainValid(_:) started.
+◇ Test everyReservationIsRejected() started.
+◇ Test case passing 1 argument source → "<>" to "U-KEY-04 invalid grammar is rejected" started.
+◇ Test case passing 1 argument source → "" to "U-KEY-04 invalid grammar is rejected" started.
+◇ Test case passing 1 argument source → "<" to "U-KEY-04 invalid grammar is rejected" started.
+◇ Test case passing 1 argument source → "g>" to "U-KEY-04 invalid grammar is rejected" started.
+◇ Test case passing 1 argument source → "<Fn>" to "U-KEY-04 invalid grammar is rejected" started.
+◇ Test case passing 1 argument source → "<Globe>" to "U-KEY-04 invalid grammar is rejected" started.
+◇ Test case passing 1 argument source → "<MediaPlay>" to "U-KEY-04 invalid grammar is rejected" started.
+◇ Test case passing 1 argument source → "<Power>" to "U-KEY-04 invalid grammar is rejected" started.
+◇ Test case passing 1 argument source → "<F25>" to "U-KEY-04 invalid grammar is rejected" started.
+◇ Test case passing 1 argument source → "<D-D-o>" to "U-KEY-04 invalid grammar is rejected" started.
+◇ Test case passing 1 argument source → "<Hyper-o>" to "U-KEY-04 invalid grammar is rejected" started.
+◇ Test case passing 1 argument source → " " to "U-KEY-04 invalid grammar is rejected" started.
+◇ Test case passing 1 argument source → "o" to unsafePromptGlobalsAreRejected(_:) started.
+◇ Test case passing 1 argument source → "go" to unsafePromptGlobalsAreRejected(_:) started.
+◇ Test case passing 1 argument source → "<C-o>" to unsafePromptGlobalsAreRejected(_:) started.
+◇ Test case passing 1 argument source → "<A-o>" to unsafePromptGlobalsAreRejected(_:) started.
+◇ Test case passing 1 argument source → "<S-o>" to unsafePromptGlobalsAreRejected(_:) started.
+✔ Test "core target is linked" passed after 0.004 seconds.
+◇ Test case passing 1 argument source → "<D-q>" to safeCommandGlobalsRemainValid(_:) started.
+✔ Test "U-ACT-04 repeat policy blocks lifecycle actions" passed after 0.004 seconds.
+✔ Test "Built-in numeric values and bounds are exact" passed after 0.004 seconds.
+◇ Test case passing 1 argument source → "<D-F12>" to safeCommandGlobalsRemainValid(_:) started.
+✔ Test "Four semantic dark themes are complete and PDF-agnostic" passed after 0.004 seconds.
+✔ Test "U-KEY-05 repeat metadata follows descriptors" passed after 0.004 seconds.
+◇ Test case passing 1 argument source → "<D-o>" to safeCommandGlobalsRemainValid(_:) started.
+✔ Test "Exact default vocabulary remains compact and viewer-first" passed after 0.004 seconds.
+✔ Test "U-KEY-06 every system reservation rejects prompt-active globals" passed after 0.004 seconds.
+✔ Test "U-KEY-06 action-aware prompt decision table" passed after 0.004 seconds.
+✔ Test "U-ACT-01 exact stable action set" passed after 0.004 seconds.
+✔ Test "U-KEY-06 every native reservation rejects prompt-active globals" passed after 0.004 seconds.
+✔ Test "U-KEY-03 multi-key sequences preserve order" passed after 0.004 seconds.
+✔ Test "Built-in keymap is complete and accepted by pure policies" passed after 0.004 seconds.
+✔ Test "U-ACT-05 context and global classification is exact" passed after 0.004 seconds.
+✔ Test "Reservation tables match their independent v1 snapshots" passed after 0.004 seconds.
+✔ Test "U-KEY-04 invalid grammar is rejected" with 12 test cases passed after 0.004 seconds.
+✔ Test unsafePromptGlobalsAreRejected(_:) with 5 test cases passed after 0.004 seconds.
+✔ Test "U-ACT-02 every declared UI surface is registry-backed" passed after 0.004 seconds.
+✔ Test "U-KEY-01 logical character normalization" passed after 0.004 seconds.
+✔ Test safeCommandGlobalsRemainValid(_:) with 3 test cases passed after 0.004 seconds.
+✔ Test "CONFIG.md generated blocks and grammar remain synchronized" passed after 0.004 seconds.
+✔ Test everyReservationIsRejected() passed after 0.004 seconds.
+✔ Suite "Step 0 input policy" passed after 0.004 seconds.
+✔ Test "U-KEY-02 built-in and modifier grammar round-trips" passed after 0.004 seconds.
+✔ Suite "Key grammar and prompt safety" passed after 0.004 seconds.
+✔ Test "Bundled DefaultConfig.toml is generated from BuiltInDefaults" passed after 0.005 seconds.
+✔ Test "TOML qualification section passes" passed after 0.006 seconds.
+✔ Suite "Canonical defaults, themes, and documentation" passed after 0.006 seconds.
+✔ Test "U-ACT-03 pure menu equivalents derive from evaluated bindings" passed after 0.005 seconds.
+✔ Test "U-ACT-02 every action binds, dispatches, and unbinds" passed after 0.012 seconds.
+✔ Suite "Action registry and binding policy" passed after 0.013 seconds.
+✔ Test run with 26 tests in 4 suites passed after 0.013 seconds.

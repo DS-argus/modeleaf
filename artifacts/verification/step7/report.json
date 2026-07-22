@@ -1,0 +1,65 @@
+{
+  "evidenceRoot": "artifacts/verification/step7",
+  "goal": "G008-step-7-wire-navigation-workflow",
+  "implementation": {
+    "dispatcher": [
+      "menu/button and key dispatch converge on ActionDispatcher",
+      "configured small/large scroll and zoom values are honored",
+      "page, zoom/fit, tab, document, and lifecycle actions are routed"
+    ],
+    "inputRouting": [
+      "ReaderWindow.sendEvent provides one responder path for empty and active sessions",
+      "AppKitKeyEventAdapter maps printable, named, modified, uppercase, dead-key, and IME input",
+      "ReaderInputRouter drives the pure KeySequenceEngine with candidate matching, prefix epochs, timeout, native pass-through, and invalidation"
+    ],
+    "pagePrompt": [
+      "g+digits semantic replay enters PAGE context without losing the first digit",
+      "commit/cancel validation returns to NORMAL and restores reader focus",
+      "empty-window page input cannot leave an invisible PAGE context"
+    ],
+    "readOnlyNavigation": [
+      "point and viewport scrolling move PDFKit clip bounds",
+      "navigation workflow keeps source PDF SHA-256 unchanged",
+      "search actions remain intentionally deferred to G009"
+    ]
+  },
+  "knownBenignDiagnostics": [
+    "PDFKit emits attributedStringScaled debug messages while exercising selection fixtures.",
+    "The deliberately malformed PDF fixture causes one expected CoreGraphics parser diagnostic.",
+    "PDFKit may log a draw-after-detach diagnostic during teardown tests; ordered teardown and release assertions pass."
+  ],
+  "status": "passed_with_host_toolchain_gap",
+  "verification": {
+    "audits": {
+      "productionPDFMutationCalls": 0,
+      "warningScan": "passed",
+      "workflow": "passed"
+    },
+    "projectGeneration": {
+      "generated": true,
+      "graphValidation": true
+    },
+    "swiftPM": {
+      "passed": true,
+      "releaseBuild": true,
+      "tests": "115 Swift Testing tests / 19 suites plus 1 XCTest",
+      "warningsAsErrors": true
+    },
+    "targetedG008": {
+      "passed": true,
+      "tests": "17 tests / 4 suites"
+    },
+    "xcode": {
+      "attempted": [
+        "Debug build",
+        "build-for-testing",
+        "universal Release build",
+        "analyze"
+      ],
+      "disposition": "SwiftPM compilation/tests and generated-project validation are authoritative for this story; raw host-toolchain failures retained",
+      "reason": "Xcode 26.6 first-launch system content is incomplete: /Library/Developer/PrivateFrameworks/CoreSimulator.framework is absent; installation requires administrator authorization",
+      "sourceFailureObserved": false,
+      "status": "unavailable_before_project_load"
+    }
+  }
+}

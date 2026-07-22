@@ -1,0 +1,6 @@
+status=host-automation-unavailable
+action=terminated-after-build-and-result-bundle-creation
+scope=PDFReaderCoreTests,PDFReaderAppTests
+observation=xcodebuild completed compilation but emitted no test-start event during repeated polling; the process was interrupted instead of allowing an unbounded hang.
+authoritative_test_evidence=swift-test.log (99 Swift Testing tests in 16 suites plus 1 XCTest); g007-targeted-tests.log (14 G007 tests across 4 suites)
+known_environment_context=Xcode 26.6 was restored from local resources and requires a DYLD framework workaround; direct host test execution is not reliable in this environment.

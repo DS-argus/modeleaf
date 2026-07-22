@@ -1,0 +1,177 @@
+{
+  "generatedAt": "2026-07-22T05:15:55.515422+00:00",
+  "passed": true,
+  "checks": [
+    {
+      "id": "foundation-only-core-imports",
+      "passed": true,
+      "evidence": {
+        "PDFReaderCore/Actions/ActionBindingPolicy.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Actions/ActionDescriptor.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Actions/ActionDispatcherProtocol.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Actions/ActionID.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Actions/ActionRegistry.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Actions/ActionSurfaceRegistry.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Actions/MenuEquivalentPolicy.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Config/BuiltInDefaults.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Config/ConfigDecoder.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Config/ConfigDiagnostic.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Config/ConfigDocumentation.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Config/ConfigValidator.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Config/EffectiveAppConfig.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Config/SparseAppConfig.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/CoreVersion.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Input/InputContext.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Input/KeySequence.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Input/KeySequenceEngine.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Input/KeySequenceParser.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Input/KeySequenceTrie.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Input/KeyToken.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Input/PageNumberInputBuffer.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Input/PromptNativeReservationV1.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Input/PromptSafeBindingPredicate.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Input/SystemKeyReservationV1.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Tabs/TabStore.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Theme/BuiltInThemes.swift": [
+          "import Foundation"
+        ],
+        "PDFReaderCore/Theme/Theme.swift": [
+          "import Foundation"
+        ]
+      }
+    },
+    {
+      "id": "tab-store-identity-order-only",
+      "passed": true,
+      "evidence": {
+        "forbiddenCodePatterns": [
+          "\\bAppKit\\b",
+          "\\bPDFKit\\b",
+          "\\bNSView\\b",
+          "\\bPDFDocument\\b",
+          "\\bURL\\b",
+          "\\btitle\\b",
+          "\\bReaderSession\\w*\\b"
+        ]
+      }
+    },
+    {
+      "id": "session-store-owns-runtime-sessions",
+      "passed": true,
+      "evidence": "ReaderSessionStore contains the only production session dictionary and core TabStore"
+    },
+    {
+      "id": "window-controller-is-presentation-only",
+      "passed": true,
+      "evidence": "MainWindowController stores an unowned ReaderSessionStore reference and renders snapshots"
+    },
+    {
+      "id": "theme-does-not-own-pdf-content",
+      "passed": true,
+      "evidence": "AppKitTheme and ReaderRootView have no PDFKit/PDFView dependency"
+    },
+    {
+      "id": "viewer-first-production-surface",
+      "passed": true,
+      "evidence": {
+        "featureSymbols": {
+          "\\bPDFAnnotation\\b": [],
+          "\\bBookmark\\w*\\b": [],
+          "\\bHighlight\\w*\\b": [],
+          "\\bPortal\\w*\\b": [],
+          "\\bScriptRunner\\b": [],
+          "\\bCommandPalette\\b": [],
+          "\\bRecentDocument\\w*\\b": [],
+          "\\bNSOutlineView\\b": [],
+          "\\bNSToolbar\\b": []
+        },
+        "pluginTermOccurrences": [
+          "PDFReaderApp/Config/TOMLConfigDecoder.swift"
+        ],
+        "pluginTermDisposition": "The only occurrence is the config executable-surface denylist."
+      }
+    },
+    {
+      "id": "menus-derived-from-validated-config",
+      "passed": true,
+      "evidence": "ApplicationController passes only validated MenuDescriptor values to ValidatedMenuBuilder"
+    },
+    {
+      "id": "stable-accessibility-identifiers",
+      "passed": true,
+      "evidence": [
+        "mainWindow",
+        "emptyState",
+        "empty.openButton",
+        "tabBar",
+        "statusBar",
+        "promptOverlay",
+        "prompt.textField",
+        "prompt.commitButton",
+        "prompt.cancelButton"
+      ]
+    },
+    {
+      "id": "custom-shell-no-toolbar-sidebar",
+      "passed": true,
+      "evidence": "No production toolbar, split/sidebar, or outline view"
+    },
+    {
+      "id": "four-theme-attribution-source",
+      "passed": true,
+      "evidence": "ThemeAttributions.swift and ThemeAttributions.md are present"
+    }
+  ]
+}

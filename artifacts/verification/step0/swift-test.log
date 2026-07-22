@@ -1,0 +1,37 @@
+[0/1] Planning build
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/8] Compiling Step0ProbeSupport SearchProbe.swift
+[4/8] Emitting module Step0ProbeSupport
+[5/8] Compiling Step0ProbeSupport TOMLQualificationProbe.swift
+[5/9] Write Objects.LinkFileList
+[7/10] Linking step0-probe
+[8/10] Linking PDFReaderStep0PackageTests
+[9/10] Applying step0-probe
+Build complete! (1.93s)
+Test Suite 'All tests' started at 2026-07-22 12:31:55.088.
+Test Suite 'All tests' passed at 2026-07-22 12:31:55.089.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.002) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Step 0 input policy" started.
+◇ Test "TOML qualification section passes" started.
+◇ Test unsafePromptGlobalsAreRejected(_:) started.
+◇ Test safeCommandGlobalsRemainValid(_:) started.
+◇ Test everyReservationIsRejected() started.
+◇ Test case passing 1 argument source → "o" to unsafePromptGlobalsAreRejected(_:) started.
+◇ Test case passing 1 argument source → "<D-q>" to safeCommandGlobalsRemainValid(_:) started.
+◇ Test case passing 1 argument source → "go" to unsafePromptGlobalsAreRejected(_:) started.
+◇ Test case passing 1 argument source → "<D-o>" to safeCommandGlobalsRemainValid(_:) started.
+◇ Test case passing 1 argument source → "<C-o>" to unsafePromptGlobalsAreRejected(_:) started.
+◇ Test case passing 1 argument source → "<D-F12>" to safeCommandGlobalsRemainValid(_:) started.
+◇ Test case passing 1 argument source → "<A-o>" to unsafePromptGlobalsAreRejected(_:) started.
+◇ Test case passing 1 argument source → "<S-o>" to unsafePromptGlobalsAreRejected(_:) started.
+✔ Test safeCommandGlobalsRemainValid(_:) with 3 test cases passed after 0.001 seconds.
+✔ Test unsafePromptGlobalsAreRejected(_:) with 5 test cases passed after 0.001 seconds.
+✔ Test everyReservationIsRejected() passed after 0.001 seconds.
+✔ Suite "Step 0 input policy" passed after 0.001 seconds.
+✔ Test "TOML qualification section passes" passed after 0.004 seconds.
+✔ Test run with 4 tests in 1 suite passed after 0.004 seconds.

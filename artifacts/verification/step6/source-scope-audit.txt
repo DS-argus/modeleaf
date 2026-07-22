@@ -1,0 +1,9 @@
+status=passed
+no_pdf_mutation_calls_in_production_boundary=PASS
+reader_session_stores_exactly_one_pdf_document=PASS
+pdf_view_controller_stores_exactly_one_reader_pdf_view=PASS
+reader_session_store_is_sole_session_dictionary=PASS
+ordered_teardown_contract_present=PASS
+core_is_foundation_only=PASS
+production_files=6
+mutation_hits=0

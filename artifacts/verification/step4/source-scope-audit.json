@@ -1,0 +1,41 @@
+{
+  "configServiceRuntimeFallback": "typed BuiltInDefaults through ConfigValidator only",
+  "coreConfigImportedModules": [
+    "Foundation"
+  ],
+  "coreConfigImports": {
+    "PDFReaderCore/Config/BuiltInDefaults.swift": [
+      "Foundation"
+    ],
+    "PDFReaderCore/Config/ConfigDecoder.swift": [
+      "Foundation"
+    ],
+    "PDFReaderCore/Config/ConfigDiagnostic.swift": [
+      "Foundation"
+    ],
+    "PDFReaderCore/Config/ConfigDocumentation.swift": [
+      "Foundation"
+    ],
+    "PDFReaderCore/Config/ConfigValidator.swift": [
+      "Foundation"
+    ],
+    "PDFReaderCore/Config/EffectiveAppConfig.swift": [
+      "Foundation"
+    ],
+    "PDFReaderCore/Config/SparseAppConfig.swift": [
+      "Foundation"
+    ]
+  },
+  "dependencyPins": {
+    "PDFReader.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved": "0.4.5",
+    "Package.resolved": "0.4.5"
+  },
+  "executionAPIsInProductionConfig": {},
+  "publicValidatedConfigConstructors": 0,
+  "runtimeResourceFallbackReferences": [],
+  "status": "passed",
+  "tomlDecoderImports": [
+    "PDFReaderApp/Config/TOMLConfigDecoder.swift",
+    "Spikes/Step0/Sources/Support/TOMLQualificationProbe.swift"
+  ]
+}

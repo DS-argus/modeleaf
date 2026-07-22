@@ -1,0 +1,12 @@
+{
+  "constValueCount": 0,
+  "interpretation": "The executable module exports no public Swift declarations; ReaderSession and view/session capabilities remain internal.",
+  "module": "PDFReaderApp",
+  "publicABIRoot": {
+    "json_format_version": 8,
+    "kind": "Root",
+    "name": "NO_MODULE",
+    "printedName": "NO_MODULE"
+  },
+  "status": "passed"
+}

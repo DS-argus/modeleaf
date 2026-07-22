@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "warningLinesByLog": {
+    "g008-targeted-tests.log": [],
+    "swift-build-release.log": [],
+    "swift-test-warnings-as-errors.log": [],
+    "swift-test.log": []
+  }
+}

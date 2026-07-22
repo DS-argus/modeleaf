@@ -1,0 +1,63 @@
+{
+  "checks": {
+    "actual_pdfkit_and_tabs_tested": true,
+    "all_and_active_results_are_presented": true,
+    "all_expected_files_exist": true,
+    "deterministic_coordinator_contracts_tested": true,
+    "dispatcher_requires_committed_nonempty_query": true,
+    "generated_xcode_project_uses_app_and_test_synchronized_roots": true,
+    "no_incremental_text_change_hook": true,
+    "no_ocr_or_vision_api_in_production": true,
+    "no_pdf_mutation_calls_in_production": true,
+    "pdfkit_search_commands_are_serialized": true,
+    "pdfkit_search_is_async_literal_embedded_text": true,
+    "prompt_focus_and_result_keys_tested": true,
+    "replacement_is_deferred_past_end_callback": true,
+    "replacement_latest_wins_and_is_clear_invalidatable": true,
+    "result_navigation_wraps": true,
+    "search_actions_are_wired": true,
+    "search_is_owned_per_reader_session": true,
+    "search_preserves_source_hash": true,
+    "search_prompt_and_results_have_distinct_contexts": true,
+    "search_teardown_cancels_detaches_and_clears": true,
+    "searches_are_generation_tagged": true,
+    "state_machine_is_idle_running_cancelling_pending_latest": true,
+    "tabs_restore_their_own_search_context": true,
+    "theme_search_token_drives_highlights": true
+  },
+  "goal": "G009-step-8-implement-search-workflow",
+  "mutationHits": [],
+  "scope": {
+    "coordinator": "PDFReaderApp/Reader/ReaderSearchCoordinator.swift",
+    "coordinatorTests": "PDFReaderAppTests/ReaderSearchCoordinatorTests.swift",
+    "dispatcher": "PDFReaderApp/App/ActionDispatcher.swift",
+    "dispatcherTests": "PDFReaderAppTests/ActionDispatcherTests.swift",
+    "project": "PDFReader.xcodeproj/project.pbxproj",
+    "session": "PDFReaderApp/Reader/ReaderSession.swift",
+    "store": "PDFReaderApp/Reader/ReaderSessionStore.swift",
+    "theme": "PDFReaderApp/Theme/AppKitTheme.swift",
+    "view": "PDFReaderApp/Reader/PDFViewController.swift",
+    "window": "PDFReaderApp/Window/MainWindowController.swift",
+    "workflowTests": "PDFReaderAppTests/ReaderSearchWorkflowTests.swift"
+  },
+  "searchContract": {
+    "excluded": [
+      "OCR",
+      "incremental search"
+    ],
+    "isolation": "one coordinator and PDFDocument delegate per ReaderSession",
+    "navigation": "next/previous wraps",
+    "options": [
+      "caseInsensitive",
+      "literal"
+    ],
+    "resultPresentation": "all highlighted plus one active selection",
+    "states": [
+      "idle",
+      "running",
+      "cancelling(pendingLatest)"
+    ],
+    "trigger": "committed prompt only"
+  },
+  "status": "passed"
+}

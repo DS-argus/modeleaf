@@ -1,0 +1,80 @@
+Building for debugging...
+[0/9] Write sources
+[3/9] Write swift-version--58304C5D6DBC2206.txt
+[5/9] Emitting module PDFReaderCore
+[6/9] Compiling PDFReaderCore ConfigDocumentation.swift
+[7/17] Compiling PDFReaderApp AppKitTheme.swift
+[8/17] Compiling PDFReaderApp ReaderSession.swift
+[9/17] Compiling PDFReaderApp PDFViewController.swift
+[10/24] Compiling PDFReaderApp ReaderPDFView.swift
+[11/24] Compiling PDFReaderApp ApplicationController.swift
+[12/24] Emitting module PDFReaderApp
+[13/24] Compiling PDFReaderApp EmptyStateView.swift
+[14/24] Compiling PDFReaderApp PDFOpenService.swift
+[15/24] Compiling PDFReaderApp MainWindowController.swift
+[16/24] Compiling PDFReaderApp PromptOverlayView.swift
+[17/24] Compiling PDFReaderApp TabBarView.swift
+[18/24] Compiling PDFReaderApp ReaderRootView.swift
+[19/24] Compiling PDFReaderApp StatusBarView.swift
+[19/24] Write Objects.LinkFileList
+[20/24] Linking PDFReader
+[21/24] Applying PDFReader
+[23/39] Compiling PDFReaderAppTests ReaderSearchWorkflowTests.swift
+[24/39] Compiling PDFReaderAppTests ApplicationControllerTests.swift
+[25/39] Compiling PDFReaderAppTests ConfigLoadingTests.swift
+[26/39] Compiling PDFReaderAppTests PDFCapabilityPolicyTests.swift
+[27/39] Compiling PDFReaderAppTests PDFOpenServiceTests.swift
+[28/39] Compiling PDFReaderAppTests ThemeAndShellTests.swift
+[29/39] Compiling PDFReaderAppTests ReaderSessionStoreTests.swift
+[30/39] Compiling PDFReaderAppTests ReaderInputRouterTests.swift
+[31/39] Compiling PDFReaderAppTests ReaderSearchCoordinatorTests.swift
+[32/39] Compiling PDFReaderAppTests ReaderSessionTests.swift
+[33/40] Compiling PDFReaderAppTests ProductScopeTests.swift
+[34/40] Compiling PDFReaderAppTests ReadOnlyBoundaryTests.swift
+[35/40] Compiling PDFReaderAppTests ActionDispatcherTests.swift
+[36/40] Compiling PDFReaderAppTests AppKitKeyEventAdapterTests.swift
+[37/40] Emitting module PDFReaderAppTests
+[38/40] Compiling PDFReaderAppTests ValidatedMenuBuilderTests.swift
+[38/40] Write Objects.LinkFileList
+[39/40] Linking PDFReaderPackageTests
+Build complete! (5.92s)
+Test Suite 'Selected tests' started at 2026-07-22 16:29:20.841.
+Test Suite 'PDFReaderPackageTests.xctest' started at 2026-07-22 16:29:20.843.
+Test Suite 'PDFReaderPackageTests.xctest' passed at 2026-07-22 16:29:20.843.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-07-22 16:29:20.843.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Polished native shell and AppKit themes" started.
+◇ Suite "Committed PDFKit search workflow" started.
+◇ Test "empty, single-tab, multi-tab, prompt, search, and error states keep stable accessible surfaces" started.
+◇ Test "U-THEME-03 applying a theme styles shell chrome but never mutates presented content colors" started.
+◇ Test "V-THEME-01 four themes render the six required visual acceptance states" started.
+◇ Test "I-SEARCH-07 two tabs search independently and clearing one preserves the other" started.
+◇ Test "active search and focus colors are independently configurable semantic tokens" started.
+◇ Test "I-SRCH-05 image-only and empty PDFs report no searchable text without OCR or source mutation" started.
+◇ Test "I-SEARCH-08 production PDFKit replacement starts only the latest committed query" started.
+◇ Test "I-SEARCH-06 a completed no-match search remains clearable and never invokes OCR" started.
+◇ Test "tab pointer controls compose only stable tab and document actions" started.
+◇ Test "I-SEARCH-05 committed embedded-text search highlights all matches and one active match" started.
+◇ Test "background token reaches the real PDF surrounding canvas without recoloring page content" started.
+◇ Test "U-THEME-01 every built-in theme resolves complete AppKit chrome colors" started.
+◇ Test "U-THEME-02 one semantic override changes only that AppKit token" started.
+✔ Test "empty, single-tab, multi-tab, prompt, search, and error states keep stable accessible surfaces" passed after 0.208 seconds.
+✔ Test "active search and focus colors are independently configurable semantic tokens" passed after 0.219 seconds.
+✔ Test "I-SEARCH-07 two tabs search independently and clearing one preserves the other" passed after 0.219 seconds.
+✔ Test "U-THEME-03 applying a theme styles shell chrome but never mutates presented content colors" passed after 1.558 seconds.
+✔ Test "V-THEME-01 four themes render the six required visual acceptance states" passed after 1.558 seconds.
+✔ Test "U-THEME-02 one semantic override changes only that AppKit token" passed after 1.558 seconds.
+✔ Test "background token reaches the real PDF surrounding canvas without recoloring page content" passed after 1.558 seconds.
+✔ Test "I-SRCH-05 image-only and empty PDFs report no searchable text without OCR or source mutation" passed after 1.558 seconds.
+✔ Test "U-THEME-01 every built-in theme resolves complete AppKit chrome colors" passed after 1.558 seconds.
+✔ Test "tab pointer controls compose only stable tab and document actions" passed after 1.558 seconds.
+✔ Test "I-SEARCH-08 production PDFKit replacement starts only the latest committed query" passed after 1.558 seconds.
+✔ Suite "Polished native shell and AppKit themes" passed after 1.559 seconds.
+✔ Test "I-SEARCH-05 committed embedded-text search highlights all matches and one active match" passed after 1.558 seconds.
+✔ Test "I-SEARCH-06 a completed no-match search remains clearable and never invokes OCR" passed after 1.558 seconds.
+✔ Suite "Committed PDFKit search workflow" passed after 1.559 seconds.
+✔ Test run with 13 tests in 2 suites passed after 1.559 seconds.
