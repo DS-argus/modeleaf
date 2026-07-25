@@ -158,7 +158,7 @@ struct PaneRedTeamTests {
         // actions, and PDFKit-rendered page content in both panes.
         for (action, name) in [(ActionID.paneSplitRight, "side-by-side.png"), (.paneSplitDown, "stacked.png")] {
             try withTemporaryDirectory { fixtures in
-                let url = try PDFFixtureFactory.makeTextPDF(in: fixtures, name: "pane-evidence.pdf", pageCount: 9)
+                let url = try PDFFixtureFactory.makePerformancePDF(.F, in: fixtures)
                 let controller = ApplicationController(
                     configService: ConfigService(source: ConfigFileSource(url: fixtures.appendingPathComponent("missing-config.toml"))),
                     sessionStore: ReaderSessionStore(),
@@ -170,13 +170,14 @@ struct PaneRedTeamTests {
                 }
                 _ = controller.mainWindowController
                 #expect(controller.openDocument(at: url))
-                #expect((controller.coordinator.activeSession as? ReaderSession)?.goToPage(2) == true)
+                (controller.coordinator.activeSession as? ReaderSession)?.fitWidth()
                 controller.dispatch(action)
                 guard case .split = controller.coordinator.snapshot.layout else {
                     Issue.record("Expected a committed split for \(name)")
                     return
                 }
                 #expect((controller.coordinator.activeSession as? ReaderSession)?.goToPage(7) == true)
+                (controller.coordinator.activeSession as? ReaderSession)?.fitWidth()
                 let root = controller.mainWindowController.rootView
                 root.frame = NSRect(x: 0, y: 0, width: 900, height: 640)
                 root.needsLayout = true
