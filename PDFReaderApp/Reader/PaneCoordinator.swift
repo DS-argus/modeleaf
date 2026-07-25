@@ -15,9 +15,15 @@ struct PaneCoordinatorSnapshot {
     func assertCardinality() {
         switch layout {
         case .empty:
-            precondition(panes.isEmpty && activePaneID == nil && activeContentView == nil && activeFocusView == nil && activeStatus == nil)
+            precondition(
+                panes.isEmpty && activePaneID == nil && activeContentView == nil && activeFocusView == nil && activeStatus == nil,
+                "empty cardinality violated: panes=\(panes.count) activePaneID=\(String(describing: activePaneID)) contentView=\(activeContentView != nil) focusView=\(activeFocusView != nil) status=\(activeStatus != nil)"
+            )
         case let .single(id):
-            precondition(panes.count == 1 && panes[id]?.isEmpty == false && activePaneID == id && activeContentView != nil && activeFocusView != nil && activeStatus != nil)
+            precondition(
+                panes.count == 1 && panes[id]?.isEmpty == false && activePaneID == id && activeContentView != nil && activeFocusView != nil && activeStatus != nil,
+                "single cardinality violated: pane=\(id) panes=\(panes.map { "\($0.key): \($0.value.tabs.count) tabs" }.sorted()) activePaneID=\(String(describing: activePaneID)) contentView=\(activeContentView != nil) focusView=\(activeFocusView != nil) status=\(activeStatus != nil)"
+            )
         case let .split(_, leadingOrTop, trailingOrBottom):
             precondition(
                 panes.count == 2 && panes[leadingOrTop]?.isEmpty == false && panes[trailingOrBottom]?.isEmpty == false,

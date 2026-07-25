@@ -50,6 +50,8 @@ private final class TabItemView: NSView {
         wantsLayer = true
         layer?.cornerRadius = WindowVisualMetrics.compactCornerRadius
 
+        selectButton.respondsToFirstMouse = true
+        closeButton.respondsToFirstMouse = true
         selectButton.title = displayTitle
         selectButton.isBordered = false
         selectButton.alignment = .left
@@ -153,7 +155,9 @@ private final class TabItemView: NSView {
         switch itemLayout {
         case .regular:
             widthConstraint.constant = TabBarLayoutMetrics.regularTabWidth
-            selectButton.title = displayTitle
+            selectButton.respondsToFirstMouse = true
+        closeButton.respondsToFirstMouse = true
+        selectButton.title = displayTitle
             selectLeadingConstraint.constant = 10
             selectTrailingConstraint.constant = -4
             closeTrailingConstraint.constant = -6
@@ -299,6 +303,7 @@ final class TabBarView: NSView {
         scrollView.verticalScrollElasticity = .none
         scrollView.documentView = documentView
         scrollView.prepareForAutoLayout()
+        newTabButton.respondsToFirstMouse = true
         newTabButton.isBordered = false
         newTabButton.imagePosition = .imageOnly
         newTabButton.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "Open PDF in New Tab")

@@ -411,6 +411,35 @@ struct PaneShellTests {
         }
     }
 
+    @Test("first-mouse click-through is scoped to tab controls and the PDF canvas only")
+    func firstMouseScope() throws {
+        let fixture = splitFixture()
+        let controller = MainWindowController(
+            coordinator: fixture.coordinator,
+            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            actionHandler: { _ in }
+        )
+        defer { controller.close() }
+        let pane = try #require(controller.rootView.paneViewForTesting(fixture.trailing))
+
+        let tabSelect = try #require(firstDescendant(
+            of: pane,
+            identifier: "tab.\(fixture.duplicate.id.rawValue.uuidString.lowercased())"
+        ) as? NSButton)
+        let tabClose = try #require(firstDescendant(
+            of: pane,
+            identifier: "tab.close.\(fixture.duplicate.id.rawValue.uuidString.lowercased())"
+        ) as? NSButton)
+        #expect(tabSelect.acceptsFirstMouse(for: nil))
+        #expect(tabClose.acceptsFirstMouse(for: nil))
+        #expect(pane.tabBar.newTabButton.acceptsFirstMouse(for: nil))
+        #expect(ReaderPDFView(frame: .zero).acceptsFirstMouse(for: nil))
+
+        #expect(!controller.rootView.promptOverlay.commitButton.acceptsFirstMouse(for: nil))
+        #expect(!controller.rootView.promptOverlay.cancelButton.acceptsFirstMouse(for: nil))
+        #expect(!controller.rootView.emptyState.openButton.acceptsFirstMouse(for: nil))
+    }
+
     private func firstDescendant<T: NSView>(of view: NSView, as type: T.Type) -> T? {
         if let matched = view as? T { return matched }
         for subview in view.subviews {
