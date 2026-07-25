@@ -179,6 +179,125 @@ struct PaneShellTests {
     }
 
 
+    @Test("collapse and unsplit reattach the survivor beneath the visible root host")
+    func survivorContentMovesOutOfHiddenPaneContainer() throws {
+        for collapseWithClose in [true, false] {
+            let fixture = splitFixture()
+            let controller = MainWindowController(
+                coordinator: fixture.coordinator,
+                theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+                actionHandler: { _ in }
+            )
+            defer { controller.close() }
+            let container = try #require(firstDescendant(of: controller.rootView, as: PaneContainerView.self))
+
+            if collapseWithClose {
+                #expect(fixture.coordinator.closeActiveTab())
+            } else {
+                #expect(fixture.coordinator.unsplit())
+            }
+
+            let survivor = collapseWithClose ? fixture.origin : fixture.duplicate
+            #expect(container.isHidden)
+            #expect(survivor.contentView.window === controller.window)
+            #expect(!isDescendant(survivor.contentView, of: container))
+            #expect(isDescendant(survivor.contentView, of: controller.rootView))
+        }
+    }
+
+    @Test("status and focus renders preserve a custom split divider ratio")
+    func snapshotRendersPreserveCustomDividerRatio() throws {
+        let fixture = splitFixture()
+        let controller = MainWindowController(
+            coordinator: fixture.coordinator,
+            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            actionHandler: { _ in }
+        )
+        defer { controller.close() }
+        let container = try #require(firstDescendant(of: controller.rootView, as: PaneContainerView.self))
+        controller.rootView.layoutSubtreeIfNeeded()
+        container.setPosition(280, ofDividerAt: 0)
+        controller.rootView.layoutSubtreeIfNeeded()
+        let initialRatio = container.subviews[0].frame.width / (container.bounds.width - container.dividerThickness)
+
+        fixture.origin.page = 6
+        fixture.origin.publishPresentationChange()
+        #expect(fixture.coordinator.focus(.left))
+        #expect(fixture.coordinator.focus(.right))
+        controller.rootView.layoutSubtreeIfNeeded()
+
+        let renderedRatio = container.subviews[0].frame.width / (container.bounds.width - container.dividerThickness)
+        #expect(abs(renderedRatio - initialRatio) < 0.001)
+    }
+
+    @Test("resplitting a trailing survivor gives it the leading traffic-light inset")
+    func resplitPromotesTrailingSurvivorToLeadingInset() throws {
+        let coordinator = PaneCoordinator()
+        let origin = StubReaderSession(id: TabID(), title: "Origin.pdf")
+        let firstDuplicate = StubReaderSession(id: TabID(), title: "First duplicate.pdf")
+        let secondDuplicate = StubReaderSession(id: TabID(), title: "Second duplicate.pdf")
+        var duplicates = [firstDuplicate, secondDuplicate]
+        coordinator.configureDuplication { _ in duplicates.removeFirst() }
+        #expect(coordinator.insert(origin, into: .createIfEmpty))
+        let trailing = try #require(coordinator.split(direction: .sideBySide))
+        let controller = MainWindowController(
+            coordinator: coordinator,
+            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            actionHandler: { _ in }
+        )
+        defer { controller.close() }
+
+        #expect(coordinator.unsplit())
+        #expect(coordinator.snapshot.layout == .single(trailing))
+        let newTrailing = try #require(coordinator.split(direction: .sideBySide))
+        let leading = try #require(coordinator.snapshot.panes.keys.first { $0 != newTrailing })
+        let leadingPane = try #require(controller.rootView.paneViewForTesting(leading))
+        let trailingPane = try #require(controller.rootView.paneViewForTesting(newTrailing))
+        #expect(leading == trailing)
+        #expect(leadingPane.tabBar.trafficLightInset == WindowVisualMetrics.trafficLightInset)
+        #expect(trailingPane.tabBar.trafficLightInset == 0)
+    }
+
+    @Test("window mouse events activate an inactive pane before canvas and tab selection handlers")
+    func realPointerActivationOrdering() throws {
+        let coordinator = PaneCoordinator()
+        let leading = EventRecordingSession(id: TabID(), title: "Leading.pdf")
+        let trailing = EventRecordingSession(id: TabID(), title: "Trailing.pdf")
+        let secondTrailingTab = EventRecordingSession(id: TabID(), title: "Trailing second.pdf")
+        coordinator.configureDuplication { _ in trailing }
+        #expect(coordinator.insert(leading, into: .createIfEmpty))
+        let trailingID = try #require(coordinator.split(direction: .sideBySide))
+        let leadingID = try #require(coordinator.snapshot.panes.keys.first { $0 != trailingID })
+        #expect(coordinator.insert(secondTrailingTab, into: .existing(trailingID)))
+        #expect(coordinator.activatePane(leadingID))
+        let controller = MainWindowController(
+            coordinator: coordinator,
+            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            actionHandler: { _ in }
+        )
+        defer { controller.close() }
+        let window = try #require(controller.window)
+        let readerWindow = try #require(window as? ReaderWindow)
+        readerWindow.mouseDownHandler = { _ in
+            _ = coordinator.activatePane(trailingID)
+        }
+        controller.rootView.layoutSubtreeIfNeeded()
+
+        trailing.canvas.onMouseDown = { trailing.canvas.activeWhenHandled = coordinator.activePaneID == trailingID }
+        sendClick(to: trailing.canvas, in: window)
+        trailing.canvas.mouseDown(with: mouseDownEvent(at: trailing.canvas, in: window))
+        #expect(trailing.canvas.activeWhenHandled)
+        #expect(coordinator.activePaneID == trailingID)
+
+        #expect(coordinator.activatePane(leadingID))
+        let tab = try #require(firstDescendant(of: controller.rootView, identifier: "tab.\(secondTrailingTab.id.rawValue.uuidString.lowercased())"))
+        let tabItem = try #require(tab.superview)
+        sendClick(to: tabItem, at: NSPoint(x: tabItem.bounds.midX, y: 1), in: window)
+        tabItem.mouseDown(with: mouseDownEvent(at: tabItem, in: window))
+        #expect(coordinator.activePaneID == trailingID)
+        #expect(coordinator.store(for: trailingID)?.snapshot.activeID == secondTrailingTab.id)
+    }
+
     @Test("480 by 360 split panes preserve reachable controls at both divider limits")
     func minimumWindowSplitLayout() throws {
         for orientation in [PaneOrientation.sideBySide, .stacked] {
@@ -269,6 +388,49 @@ struct PaneShellTests {
         for subview in view.subviews { assertNoAmbiguousLayout(in: subview) }
     }
 
+
+    private func sendClick(to view: NSView, at point: NSPoint? = nil, in window: NSWindow) {
+        let point = point ?? NSPoint(x: view.bounds.midX, y: view.bounds.midY)
+        let location = view.convert(point, to: window.contentView)
+        let down = NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: location,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1
+        )!
+        let up = NSEvent.mouseEvent(
+            with: .leftMouseUp,
+            location: location,
+            modifierFlags: [],
+            timestamp: 0.01,
+            windowNumber: window.windowNumber,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 0
+        )!
+        window.sendEvent(down)
+        window.sendEvent(up)
+    }
+
+    private func mouseDownEvent(at view: NSView, in window: NSWindow) -> NSEvent {
+        NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: window.contentView),
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1
+        )!
+    }
     private func splitFixture(originPage: Int = 1, duplicatePage: Int = 1) -> (
         coordinator: PaneCoordinator,
         leading: PaneID,
@@ -284,5 +446,48 @@ struct PaneShellTests {
         let trailing = try! #require(coordinator.split(direction: .sideBySide))
         let leading = try! #require(coordinator.snapshot.panes.keys.first { $0 != trailing })
         return (coordinator, leading, trailing, origin, duplicate)
+    }
+}
+
+
+@MainActor
+private final class EventRecordingSession: ReaderSessionPresenting, ReaderDuplicationSnapshotProviding {
+    let id: TabID
+    let title: String
+    let canvas = EventRecordingCanvas()
+    var contentView: NSView { canvas }
+
+    init(id: TabID, title: String) {
+        self.id = id
+        self.title = title
+        canvas.setAccessibilityIdentifier("pdfCanvas")
+    }
+
+    var statusSnapshot: ReaderStatusSnapshot {
+        ReaderStatusSnapshot(context: "NORMAL", page: "1 / 1", zoom: "100%", detail: title)
+    }
+
+
+    func prepareForClose() {}
+    var duplicationSnapshot: ReaderDuplicationSnapshot {
+        ReaderDuplicationSnapshot(
+            sourceURL: URL(fileURLWithPath: "/tmp/\(title)"),
+            oneBasedPage: 1,
+            viewMode: .manual,
+
+            scaleFactor: 1
+        )
+    }
+}
+
+@MainActor
+private final class EventRecordingCanvas: NSView {
+    var onMouseDown: (() -> Void)?
+    var activeWhenHandled = false
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        onMouseDown?()
     }
 }

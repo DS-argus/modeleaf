@@ -321,12 +321,13 @@ struct ReaderSessionTests {
         try withSession(pageCount: 3) { session, _ in
             let validated = try #require(ConfigValidator.validate(SparseAppConfig()).validatedConfig)
             let store = ReaderSessionStore()
+            let coordinator = PaneCoordinator(initialStore: store)
             let dispatcher = ActionDispatcher(
-                sessionStore: store,
+                coordinator: coordinator,
                 navigation: BuiltInDefaults.config.navigation
             )
             let controller = MainWindowController(
-                sessionStore: store,
+                coordinator: coordinator,
                 theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
                 actionHandler: { dispatcher.dispatch($0) },
                 keyDispatchHandler: { dispatcher.dispatch($0) },

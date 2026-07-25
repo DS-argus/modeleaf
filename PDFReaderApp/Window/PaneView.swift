@@ -61,6 +61,15 @@ final class PaneView: NSView {
         tabBar.setPaneActive(active)
     }
 
+    func setPositionLabel(_ label: String) {
+        setAccessibilityLabel("\(label) pane")
+        tabBar.setAccessibilityLabel("\(label) pane document tabs")
+    }
+
+    func setTrafficLightInset(_ inset: CGFloat) {
+        tabBar.trafficLightInset = inset
+    }
+
     func activateForPointerEvent() {
         onActivate?()
     }
@@ -78,17 +87,22 @@ final class PaneView: NSView {
     }
 
     private func setPresentedContentView(_ view: NSView?) {
-        guard presentedContentView !== view else { return }
-        presentedContentView?.removeFromSuperview()
+        if presentedContentView !== view { presentedContentView?.removeFromSuperview() }
         presentedContentView = view
-        guard let view else { return }
-        view.prepareForAutoLayout()
-        contentHost.addSubview(view)
-        NSLayoutConstraint.activate([
-            view.topAnchor.constraint(equalTo: contentHost.topAnchor),
-            view.leadingAnchor.constraint(equalTo: contentHost.leadingAnchor),
-            view.trailingAnchor.constraint(equalTo: contentHost.trailingAnchor),
-            view.bottomAnchor.constraint(equalTo: contentHost.bottomAnchor),
-        ])
+        attachContentView(view, to: contentHost)
     }
+}
+
+@MainActor
+func attachContentView(_ view: NSView?, to host: NSView) {
+    guard let view, view.superview !== host else { return }
+    view.removeFromSuperview()
+    view.prepareForAutoLayout()
+    host.addSubview(view)
+    NSLayoutConstraint.activate([
+        view.topAnchor.constraint(equalTo: host.topAnchor),
+        view.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+        view.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+        view.bottomAnchor.constraint(equalTo: host.bottomAnchor),
+    ])
 }

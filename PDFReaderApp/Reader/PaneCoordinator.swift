@@ -19,9 +19,12 @@ struct PaneCoordinatorSnapshot {
         case let .single(id):
             precondition(panes.count == 1 && panes[id]?.isEmpty == false && activePaneID == id && activeContentView != nil && activeFocusView != nil && activeStatus != nil)
         case let .split(_, leadingOrTop, trailingOrBottom):
-            precondition(panes.count == 2 && panes[leadingOrTop]?.isEmpty == false && panes[trailingOrBottom]?.isEmpty == false)
-            precondition(activePaneID == leadingOrTop || activePaneID == trailingOrBottom)
-            precondition(activeContentView != nil && activeFocusView != nil && activeStatus != nil)
+            precondition(
+                panes.count == 2 && panes[leadingOrTop]?.isEmpty == false && panes[trailingOrBottom]?.isEmpty == false,
+                "split cardinality violated: leading=\(leadingOrTop) trailing=\(trailingOrBottom) panes=\(panes.map { "\($0.key): \($0.value.tabs.count) tabs" }.sorted())"
+            )
+            precondition(activePaneID == leadingOrTop || activePaneID == trailingOrBottom, "split active pane \(String(describing: activePaneID)) is not a member pane")
+            precondition(activeContentView != nil && activeFocusView != nil && activeStatus != nil, "split snapshot is missing active view/status fields")
         }
     }
 }
@@ -50,6 +53,7 @@ final class PaneCoordinator {
     private(set) var activePaneID: PaneID?
     var onSnapshot: ((PaneCoordinatorSnapshot) -> Void)?
     private var duplicationCompletion: ((any ReaderSessionPresenting, Bool) -> Void)?
+
     init(initialStore: ReaderSessionStore) {
         if initialStore.snapshot.isEmpty {
             bootstrapStore = initialStore
@@ -61,55 +65,59 @@ final class PaneCoordinator {
         }
         initialStore.registerChangeHandler { [weak self] _ in self?.storeDidChange() }
     }
+
     init() {}
-
-
-    static func legacy(_ store: ReaderSessionStore) -> PaneCoordinator {
-        let coordinator = PaneCoordinator()
-        let id = PaneID()
-        coordinator.stores[id] = store
-        coordinator.layout = .single(id)
-        coordinator.activePaneID = id
-        return coordinator
-    }
-
-    func observeLegacyStore() {
-        activeStore?.registerChangeHandler { [weak self] _ in self?.storeDidChange() }
-    }
 
     func configureDuplication(_ handler: @escaping (ReaderDuplicationSnapshot) -> (any ReaderSessionPresenting)?) { duplicateSession = handler }
     func configureDuplicationCompletion(_ handler: @escaping (any ReaderSessionPresenting, Bool) -> Void) { duplicationCompletion = handler }
     func configureCloseStaging(_ handler: @escaping (PaneCoordinatorSnapshot) -> Bool) { closeStagingHandler = handler }
 
     var snapshot: PaneCoordinatorSnapshot { makeSnapshot() }
-    var activeStore: ReaderSessionStore? { activePaneID.flatMap { stores[$0] } ?? bootstrapStore }
+    private var activeStore: ReaderSessionStore? { activePaneID.flatMap { stores[$0] } ?? bootstrapStore }
     var activeSession: (any ReaderSessionPresenting)? { activeStore?.activeSession }
     func store(for id: PaneID) -> ReaderSessionStore? { stores[id] }
     func session(for id: TabID) -> (any ReaderSessionPresenting)? { activeStore?.session(for: id) }
 
     @discardableResult
     func insert(_ session: any ReaderSessionPresenting, into target: PaneOpenTarget) -> Bool {
+        let previousSuppression = suppressCallbacks
         suppressCallbacks = true
-        defer { suppressCallbacks = false; publish() }
+        var didMutate = false
+        defer {
+            suppressCallbacks = previousSuppression
+            if didMutate { publish() }
+        }
+
         switch target {
         case .createIfEmpty:
             switch layout {
             case .empty:
                 let id = PaneID()
                 let store = bootstrapStore ?? ReaderSessionStore()
-                bootstrapStore = nil
+                if store.onChange == nil {
+                    store.registerChangeHandler { [weak self] _ in self?.storeDidChange() }
+                }
+                let wasBootstrapStore = bootstrapStore === store
+                if wasBootstrapStore { bootstrapStore = nil }
+                guard store.insert(session) else {
+                    if wasBootstrapStore { bootstrapStore = store }
+                    return false
+                }
                 stores[id] = store
-                if store.onChange == nil { store.registerChangeHandler { [weak self] _ in self?.storeDidChange() } }
                 layout = .single(id)
                 activePaneID = id
-                return store.insert(session)
+                didMutate = true
+                return true
             case .single, .split:
-                return activeStore?.insert(session) ?? false
+                guard let store = activeStore, store.insert(session) else { return false }
+                didMutate = true
+                return true
             }
         case let .existing(id):
-            guard let store = stores[id], !store.snapshot.isEmpty else { return false }
+            guard let store = stores[id], !store.snapshot.isEmpty, store.insert(session) else { return false }
             activePaneID = id
-            return store.insert(session)
+            didMutate = true
+            return true
         }
     }
 
@@ -120,8 +128,7 @@ final class PaneCoordinator {
 
     @discardableResult
     func activatePane(_ id: PaneID) -> Bool {
-        guard stores[id] != nil else { return false }
-        guard activePaneID != id else { return true }
+        guard stores[id] != nil, activePaneID != id else { return stores[id] != nil }
         activePaneID = id
         publish()
         return true
@@ -133,6 +140,10 @@ final class PaneCoordinator {
               let source = activeSession as? any ReaderDuplicationSnapshotProviding,
               let candidate = duplicateSession?(source.duplicationSnapshot)
         else { return nil }
+
+        let previousSuppression = suppressCallbacks
+        suppressCallbacks = true
+        defer { suppressCallbacks = previousSuppression }
         let destinationID = PaneID()
         let destination = ReaderSessionStore()
         destination.registerChangeHandler { [weak self] _ in self?.storeDidChange() }
@@ -141,12 +152,12 @@ final class PaneCoordinator {
             duplicationCompletion?(candidate, false)
             return nil
         }
-        suppressCallbacks = true
         stores[destinationID] = destination
         layout = .split(orientation: direction, leadingOrTop: originID, trailingOrBottom: destinationID)
         activePaneID = destinationID
-        suppressCallbacks = false
+        suppressCallbacks = previousSuppression
         publish()
+        suppressCallbacks = true
         duplicationCompletion?(candidate, true)
         return destinationID
     }
@@ -179,7 +190,9 @@ final class PaneCoordinator {
         else { return false }
         let projected = makeSnapshot(layout: .single(activePaneID), activePaneID: activePaneID, stores: stores.filter { $0.key != removedID })
         guard (stage ?? closeStagingHandler ?? { _ in true })(projected) else { publish(); return false }
+        let previousSuppression = suppressCallbacks
         suppressCallbacks = true
+        defer { suppressCallbacks = previousSuppression }
         for tab in removedStore.snapshot.tabs {
             guard let token = removedStore.beginClose(tab.id), removedStore.commitClose(token) else {
                 preconditionFailure("ReaderSessionStore cannot commit unsplit teardown")
@@ -187,8 +200,9 @@ final class PaneCoordinator {
         }
         stores.removeValue(forKey: removedID)
         layout = .single(activePaneID)
-        suppressCallbacks = false
+        suppressCallbacks = previousSuppression
         publish()
+        suppressCallbacks = true
         return true
     }
 
@@ -199,7 +213,6 @@ final class PaneCoordinator {
               let id = store.snapshot.activeID,
               let token = store.beginClose(id)
         else { return false }
-
         let transition: PaneCloseTransition
         let projected: PaneCoordinatorSnapshot
         if token.projectedSelection != nil {
@@ -213,23 +226,21 @@ final class PaneCoordinator {
             transition = .windowEmpty
             projected = makeEmptySnapshot()
         }
-
         guard (stage ?? closeStagingHandler ?? { _ in true })(projected) else {
             store.rollbackClose(token)
             publish()
             return false
         }
-
+        let previousSuppression = suppressCallbacks
         suppressCallbacks = true
+        defer { suppressCallbacks = previousSuppression }
         guard store.commitClose(token) else {
-            suppressCallbacks = false
             store.rollbackClose(token)
             publish()
             return false
         }
         switch transition {
-        case .tabSuccessor:
-            break
+        case .tabSuccessor: break
         case let .paneCollapse(survivor):
             stores.removeValue(forKey: paneID)
             layout = .single(survivor)
@@ -239,8 +250,9 @@ final class PaneCoordinator {
             layout = .empty
             activePaneID = nil
         }
-        suppressCallbacks = false
+        suppressCallbacks = previousSuppression
         publish()
+        suppressCallbacks = true
         return true
     }
 
@@ -254,22 +266,16 @@ final class PaneCoordinator {
         }
         if !suppressCallbacks { publish() }
     }
+
     private func makeEmptySnapshot() -> PaneCoordinatorSnapshot {
         PaneCoordinatorSnapshot(layout: .empty, panes: [:], activePaneID: nil, activeContentView: nil, paneContentViews: [:], activeFocusView: nil, activeStatus: nil, windowTitle: "Modeleaf", inputContext: .navigation)
     }
 
-    private func makeSnapshot(
-        layout: PaneLayout? = nil,
-        activePaneID: PaneID? = nil,
-        stores sourceStores: [PaneID: ReaderSessionStore]? = nil
-    ) -> PaneCoordinatorSnapshot {
+    private func makeSnapshot(layout: PaneLayout? = nil, activePaneID: PaneID? = nil, stores sourceStores: [PaneID: ReaderSessionStore]? = nil) -> PaneCoordinatorSnapshot {
         let effectiveLayout = layout ?? self.layout
         let effectiveActivePaneID = activePaneID ?? self.activePaneID
         let effectiveStores = sourceStores ?? stores
-        guard let effectiveActivePaneID,
-              let activeStore = effectiveStores[effectiveActivePaneID],
-              !activeStore.snapshot.isEmpty
-        else { return makeEmptySnapshot() }
+        guard let effectiveActivePaneID, let activeStore = effectiveStores[effectiveActivePaneID], !activeStore.snapshot.isEmpty else { return makeEmptySnapshot() }
         let panes = Dictionary(uniqueKeysWithValues: effectiveStores.map { ($0.key, $0.value.snapshot) })
         let paneContentViews = Dictionary(uniqueKeysWithValues: effectiveStores.compactMap { id, store in store.activeSession.map { (id, $0.contentView) } })
         let active = activeStore.activeSession

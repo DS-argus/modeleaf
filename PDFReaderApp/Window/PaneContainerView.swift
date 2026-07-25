@@ -16,7 +16,9 @@ final class PaneContainerView: NSSplitView, NSSplitViewDelegate {
     required init?(coder: NSCoder) { nil }
 
     func install(leadingOrTop: PaneView, trailingOrBottom: PaneView, orientation: PaneOrientation) {
-        isVertical = orientation == .sideBySide
+        let vertical = orientation == .sideBySide
+        guard isVertical != vertical || subviews.count != 2 || subviews[0] !== leadingOrTop || subviews[1] !== trailingOrBottom else { return }
+        isVertical = vertical
         for view in subviews { view.removeFromSuperview() }
         addSubview(leadingOrTop)
         addSubview(trailingOrBottom)

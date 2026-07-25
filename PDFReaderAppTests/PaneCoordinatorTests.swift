@@ -32,6 +32,33 @@ struct PaneCoordinatorTests {
         #expect(snapshots.count == 2)
     }
 
+    @Test("settled pane mutations emit one snapshot and rejected mutations emit none")
+    func settledMutationEmissionMatrix() throws {
+        let coordinator = PaneCoordinator()
+        let origin = StubReaderSession(id: TabID(), title: "Origin.pdf")
+        let duplicate = StubReaderSession(id: TabID(), title: "Duplicate.pdf")
+        coordinator.configureDuplication { _ in duplicate }
+        var emissions: [PaneCoordinatorSnapshot] = []
+        coordinator.onSnapshot = { snapshot in
+            snapshot.assertCardinality()
+            emissions.append(snapshot)
+        }
+        #expect(coordinator.insert(origin, into: .createIfEmpty))
+        #expect(emissions.count == 1)
+        #expect(!coordinator.insert(origin, into: .existing(PaneID())))
+        #expect(emissions.count == 1)
+        let trailing = try #require(coordinator.split(direction: .sideBySide))
+        #expect(emissions.count == 2)
+        #expect(coordinator.focus(.left))
+        #expect(emissions.count == 3)
+        #expect(coordinator.activatePane(trailing))
+        #expect(emissions.count == 4)
+        #expect(!coordinator.closeActiveTab { _ in false })
+        #expect(emissions.count == 5) // restoration after rejected staged close
+        #expect(coordinator.closeActiveTab())
+        #expect(emissions.count == 6)
+    }
+
     @Test("projected close commits only after staging succeeds")
     func projectedClose() {
         let coordinator = PaneCoordinator()

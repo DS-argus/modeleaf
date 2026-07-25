@@ -18,7 +18,8 @@ struct ActionDispatcherTests {
             largeScrollViewportFraction: 0.65,
             zoomFactor: 1.25
         )
-        let dispatcher = ActionDispatcher(sessionStore: store, navigation: navigation)
+        let coordinator = PaneCoordinator(initialStore: store)
+        let dispatcher = ActionDispatcher(coordinator: coordinator, navigation: navigation)
 
         for action in [
             ActionID.scrollLeft, .scrollDown, .scrollUp, .scrollRight,
@@ -48,7 +49,8 @@ struct ActionDispatcherTests {
         #expect(store.insert(first))
         #expect(store.insert(second))
         #expect(store.insert(third))
-        let dispatcher = ActionDispatcher(sessionStore: store, navigation: BuiltInDefaults.config.navigation)
+        let coordinator = PaneCoordinator(initialStore: store)
+        let dispatcher = ActionDispatcher(coordinator: coordinator, navigation: BuiltInDefaults.config.navigation)
 
         dispatcher.dispatch(.tabPrevious)
         #expect(store.activeSession?.id == second.id)
@@ -70,7 +72,8 @@ struct ActionDispatcherTests {
         let session = RecordingReaderSession(title: "Reference.pdf", pageCount: 24)
         #expect(store.insert(session))
         let presenter = PromptPresenterSpy()
-        let dispatcher = ActionDispatcher(sessionStore: store, navigation: BuiltInDefaults.config.navigation)
+        let coordinator = PaneCoordinator(initialStore: store)
+        let dispatcher = ActionDispatcher(coordinator: coordinator, navigation: BuiltInDefaults.config.navigation)
         dispatcher.presentation = presenter
         let one = try KeySequenceParser.parseSingleToken("1")
 
@@ -108,7 +111,8 @@ struct ActionDispatcherTests {
         let store = ReaderSessionStore()
         let session = RecordingReaderSession(title: "Reference.pdf")
         #expect(store.insert(session))
-        let dispatcher = ActionDispatcher(sessionStore: store, navigation: BuiltInDefaults.config.navigation)
+        let coordinator = PaneCoordinator(initialStore: store)
+        let dispatcher = ActionDispatcher(coordinator: coordinator, navigation: BuiltInDefaults.config.navigation)
         let menuBuilder = ValidatedMenuBuilder(descriptors: validated.menuDescriptors) {
             dispatcher.dispatch($0)
         }
@@ -129,14 +133,15 @@ struct ActionDispatcherTests {
         let session = RecordingReaderSession(title: "Reference.pdf")
         var openCount = 0
         var quitCount = 0
+        let coordinator = PaneCoordinator(initialStore: store)
         let dispatcher = ActionDispatcher(
-            sessionStore: store,
+            coordinator: coordinator,
             navigation: BuiltInDefaults.config.navigation,
             openDocumentHandler: { openCount += 1 },
             terminationHandler: { quitCount += 1 }
         )
         let controller = MainWindowController(
-            sessionStore: store,
+            coordinator: coordinator,
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
             actionHandler: { dispatcher.dispatch($0) },
             keyDispatchHandler: { dispatcher.dispatch($0) },
@@ -202,13 +207,14 @@ struct ActionDispatcherTests {
         let store = ReaderSessionStore()
         let session = RecordingReaderSession(title: "Reference.pdf")
         var openCount = 0
+        let coordinator = PaneCoordinator(initialStore: store)
         let dispatcher = ActionDispatcher(
-            sessionStore: store,
+            coordinator: coordinator,
             navigation: BuiltInDefaults.config.navigation,
             openDocumentHandler: { openCount += 1 }
         )
         let controller = MainWindowController(
-            sessionStore: store,
+            coordinator: coordinator,
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
             actionHandler: { dispatcher.dispatch($0) },
             keyDispatchHandler: { dispatcher.dispatch($0) },
@@ -248,9 +254,10 @@ struct ActionDispatcherTests {
         let store = ReaderSessionStore()
         let first = RecordingReaderSession(title: "First.pdf")
         let second = RecordingReaderSession(title: "Second.pdf")
-        let dispatcher = ActionDispatcher(sessionStore: store, navigation: BuiltInDefaults.config.navigation)
+        let coordinator = PaneCoordinator(initialStore: store)
+        let dispatcher = ActionDispatcher(coordinator: coordinator, navigation: BuiltInDefaults.config.navigation)
         let controller = MainWindowController(
-            sessionStore: store,
+            coordinator: coordinator,
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
             actionHandler: { dispatcher.dispatch($0) },
             keyDispatchHandler: { dispatcher.dispatch($0) },
@@ -286,9 +293,10 @@ struct ActionDispatcherTests {
         let validated = try #require(ConfigValidator.validate(SparseAppConfig()).validatedConfig)
         let store = ReaderSessionStore()
         let session = RecordingReaderSession(title: "Reference.pdf", pageCount: 24)
-        let dispatcher = ActionDispatcher(sessionStore: store, navigation: BuiltInDefaults.config.navigation)
+        let coordinator = PaneCoordinator(initialStore: store)
+        let dispatcher = ActionDispatcher(coordinator: coordinator, navigation: BuiltInDefaults.config.navigation)
         let controller = MainWindowController(
-            sessionStore: store,
+            coordinator: coordinator,
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
             actionHandler: { dispatcher.dispatch($0) },
             keyDispatchHandler: { dispatcher.dispatch($0) },
@@ -319,9 +327,10 @@ struct ActionDispatcherTests {
     func emptyPagePromptReturnsToNavigation() throws {
         let validated = try #require(ConfigValidator.validate(SparseAppConfig()).validatedConfig)
         let store = ReaderSessionStore()
-        let dispatcher = ActionDispatcher(sessionStore: store, navigation: BuiltInDefaults.config.navigation)
+        let coordinator = PaneCoordinator(initialStore: store)
+        let dispatcher = ActionDispatcher(coordinator: coordinator, navigation: BuiltInDefaults.config.navigation)
         let controller = MainWindowController(
-            sessionStore: store,
+            coordinator: coordinator,
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
             actionHandler: { dispatcher.dispatch($0) },
             keyDispatchHandler: { dispatcher.dispatch($0) },
@@ -343,7 +352,8 @@ struct ActionDispatcherTests {
         let session = RecordingReaderSession(title: "Reference.pdf")
         #expect(store.insert(session))
         let presenter = PromptPresenterSpy()
-        let dispatcher = ActionDispatcher(sessionStore: store, navigation: BuiltInDefaults.config.navigation)
+        let coordinator = PaneCoordinator(initialStore: store)
+        let dispatcher = ActionDispatcher(coordinator: coordinator, navigation: BuiltInDefaults.config.navigation)
         dispatcher.presentation = presenter
 
         dispatcher.dispatch(.searchPrompt)
@@ -375,9 +385,10 @@ struct ActionDispatcherTests {
         let store = ReaderSessionStore()
         let first = RecordingReaderSession(title: "First.pdf")
         let second = RecordingReaderSession(title: "Second.pdf")
-        let dispatcher = ActionDispatcher(sessionStore: store, navigation: BuiltInDefaults.config.navigation)
+        let coordinator = PaneCoordinator(initialStore: store)
+        let dispatcher = ActionDispatcher(coordinator: coordinator, navigation: BuiltInDefaults.config.navigation)
         let controller = MainWindowController(
-            sessionStore: store,
+            coordinator: coordinator,
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
             actionHandler: { dispatcher.dispatch($0) },
             keyDispatchHandler: { dispatcher.dispatch($0) },

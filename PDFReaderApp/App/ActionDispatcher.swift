@@ -23,7 +23,7 @@ extension ReaderWorkflowPresenting {
 
 @MainActor
 final class ActionDispatcher {
-    private let coordinator: PaneCoordinator?
+    private let coordinator: PaneCoordinator
     private let navigation: NavigationConfiguration
     private var openDocumentHandler: () -> Void
     private var terminationHandler: () -> Void
@@ -42,14 +42,6 @@ final class ActionDispatcher {
         self.terminationHandler = terminationHandler
     }
 
-    convenience init(
-        sessionStore: ReaderSessionStore,
-        navigation: NavigationConfiguration,
-        openDocumentHandler: @escaping () -> Void = {},
-        terminationHandler: @escaping () -> Void = {}
-    ) {
-        self.init(coordinator: PaneCoordinator.legacy(sessionStore), navigation: navigation, openDocumentHandler: openDocumentHandler, terminationHandler: terminationHandler)
-    }
     func configureLifecycleHandlers(
         openDocument: @escaping () -> Void,
         terminate: @escaping () -> Void
@@ -73,33 +65,33 @@ final class ActionDispatcher {
             presentation?.prepareForGlobalAction()
             openDocumentHandler()
         case .documentClose:
-            _ = coordinator?.closeActiveTab()
+            _ = coordinator.closeActiveTab()
         case .appQuit:
             presentation?.prepareForGlobalAction()
             terminationHandler()
 
         case .tabNext:
-            _ = activeStore?.activateNext()
+            _ = coordinator.activateNext()
         case .tabPrevious:
-            _ = activeStore?.activatePrevious()
+            _ = coordinator.activatePrevious()
         case .tabSelect1:
-            _ = activeStore?.activateTab(atOneBasedOrdinal: 1)
+            _ = coordinator.activateTab(atOneBasedOrdinal: 1)
         case .tabSelect2:
-            _ = activeStore?.activateTab(atOneBasedOrdinal: 2)
+            _ = coordinator.activateTab(atOneBasedOrdinal: 2)
         case .tabSelect3:
-            _ = activeStore?.activateTab(atOneBasedOrdinal: 3)
+            _ = coordinator.activateTab(atOneBasedOrdinal: 3)
         case .tabSelect4:
-            _ = activeStore?.activateTab(atOneBasedOrdinal: 4)
+            _ = coordinator.activateTab(atOneBasedOrdinal: 4)
         case .tabSelect5:
-            _ = activeStore?.activateTab(atOneBasedOrdinal: 5)
+            _ = coordinator.activateTab(atOneBasedOrdinal: 5)
         case .tabSelect6:
-            _ = activeStore?.activateTab(atOneBasedOrdinal: 6)
+            _ = coordinator.activateTab(atOneBasedOrdinal: 6)
         case .tabSelect7:
-            _ = activeStore?.activateTab(atOneBasedOrdinal: 7)
+            _ = coordinator.activateTab(atOneBasedOrdinal: 7)
         case .tabSelect8:
-            _ = activeStore?.activateTab(atOneBasedOrdinal: 8)
+            _ = coordinator.activateTab(atOneBasedOrdinal: 8)
         case .tabSelect9:
-            _ = activeStore?.activateTab(atOneBasedOrdinal: 9)
+            _ = coordinator.activateTab(atOneBasedOrdinal: 9)
         case .scrollLeft:
             activeSession?.moveHorizontally(byPoints: -navigation.smallScrollPoints)
         case .scrollDown:
@@ -144,19 +136,19 @@ final class ActionDispatcher {
             activeSession?.fitPage()
 
         case .paneSplitRight:
-            _ = coordinator?.split(direction: .sideBySide)
+            _ = coordinator.split(direction: .sideBySide)
         case .paneSplitDown:
-            _ = coordinator?.split(direction: .stacked)
+            _ = coordinator.split(direction: .stacked)
         case .paneFocusLeft:
-            _ = coordinator?.focus(.left)
+            _ = coordinator.focus(.left)
         case .paneFocusDown:
-            _ = coordinator?.focus(.down)
+            _ = coordinator.focus(.down)
         case .paneFocusUp:
-            _ = coordinator?.focus(.up)
+            _ = coordinator.focus(.up)
         case .paneFocusRight:
-            _ = coordinator?.focus(.right)
+            _ = coordinator.focus(.right)
         case .paneUnsplit:
-            _ = coordinator?.unsplit()
+            _ = coordinator.unsplit()
 
         case .searchPrompt:
             presentSearchPrompt()
@@ -170,9 +162,7 @@ final class ActionDispatcher {
         }
     }
 
-    private var activeStore: ReaderSessionStore? { coordinator?.activeStore }
-
-    private var activeSession: (any ReaderSessionPresenting)? { activeStore?.activeSession }
+    private var activeSession: (any ReaderSessionPresenting)? { coordinator.activeSession }
     private func presentPagePrompt(initialText: String) {
         guard activeSession != nil else {
             presentation?.dismissPromptAndRestoreFocus(to: .navigation, reason: .explicitCancel)

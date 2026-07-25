@@ -92,7 +92,7 @@ struct ApplicationControllerTests {
                 terminationHandler: {}
             )
             defer {
-                while store.closeActive() {}
+                while controller.coordinator.closeActiveTab() {}
                 controller.mainWindowController.close()
             }
 
@@ -206,6 +206,84 @@ struct ApplicationControllerTests {
         #expect(status.expandedDetail?.contains("promptLifecycleUnbound") == true)
     }
 
+    @Test("controller split duplicates mounted reader presentation and completes one post-commit open trace")
+    func controllerSplitDuplicatesMountedPresentationAndCompletesMetricsOnce() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 3)
+            let store = ReaderSessionStore()
+            let metrics = ControllerRecordingMetrics()
+            let controller = ApplicationController(
+                configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                sessionStore: store,
+                openMetrics: metrics,
+                terminationHandler: {}
+            )
+            defer {
+                while controller.coordinator.closeActiveTab() {}
+                controller.mainWindowController.close()
+            }
+
+
+            _ = controller.mainWindowController
+            #expect(controller.openDocument(at: url))
+            metrics.reset()
+            let source = try #require(store.activeSession as? ReaderSession)
+            #expect(source.goToPage(2))
+            source.zoom(by: 1.25)
+            controller.dispatch(.paneSplitRight)
+            _ = controller.mainWindowController
+
+            guard case let .split(_, _, destination) = controller.coordinator.snapshot.layout else {
+                Issue.record("Expected a committed split")
+                return
+            }
+            let duplicate = try #require(controller.coordinator.store(for: destination)?.activeSession as? ReaderSession)
+            #expect(duplicate.currentPageNumber == source.currentPageNumber)
+            #expect(duplicate.viewMode == source.viewMode)
+            #expect(abs(duplicate.scaleFactor - source.scaleFactor) < 0.0001)
+            #expect(duplicate.contentView.window === controller.mainWindowController.window)
+            #expect(metrics.events.filter { $0.name == .openReady && $0.outcome == .success }.count == 1)
+            #expect(metrics.events.filter { $0.name == .openTotal && $0.boundary == .end && $0.outcome == .success }.count == 1)
+        }
+    }
+
+    @Test("controller split reopen failure preserves source topology and balances the failed trace")
+    func controllerSplitReopenFailurePreservesSourceTopology() throws {
+        try withTemporaryDirectory { directory in
+            let metrics = ControllerRecordingMetrics()
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1)
+            let store = ReaderSessionStore()
+            let controller = ApplicationController(
+                configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                sessionStore: store,
+                openMetrics: metrics,
+                terminationHandler: {}
+            )
+            defer {
+                while controller.coordinator.closeActiveTab() {}
+                controller.mainWindowController.close()
+            }
+            _ = controller.mainWindowController
+            #expect(controller.openDocument(at: url))
+            metrics.reset()
+            let source = try #require(store.activeSession as? ReaderSession)
+            try FileManager.default.removeItem(at: url)
+
+            controller.dispatch(.paneSplitRight)
+            #expect(controller.coordinator.snapshot.layout == .single(try #require(controller.coordinator.activePaneID)))
+            #expect(store.sessionCount == 1)
+            #expect(store.activeSession?.id == source.id)
+            #expect(controller.mainWindowController.rootView.statusBar.presentation.tone == .error)
+            #expect(controller.mainWindowController.rootView.statusBar.presentation.detail.contains("PDF file not found"))
+            #expect(metrics.events.suffix(4).map(\.signature) == [
+                "filePreflight.begin.-",
+                "filePreflight.end.missingFile",
+                "open.failed.point.missingFile",
+                "open.total.end.missingFile",
+            ])
+        }
+    }
+
     private func fixedID(_ value: Int) -> TabID {
         TabID(rawValue: UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", value))!)
     }
@@ -264,8 +342,11 @@ private final class ControllerRecordingMetrics: PDFOpenMetrics {
     private(set) var events: [PDFOpenMetricEvent] = []
 
     func record(_ event: PDFOpenMetricEvent) {
+
         events.append(event)
     }
+
+    func reset() { events.removeAll() }
 }
 
 private extension PDFOpenMetricEvent {

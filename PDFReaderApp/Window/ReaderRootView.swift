@@ -135,6 +135,8 @@ final class ReaderRootView: NSView {
             paneContainer.isHidden = false
             let leading = paneView(for: leadingOrTop, trafficLightInset: WindowVisualMetrics.trafficLightInset)
             let trailing = paneView(for: trailingOrBottom, trafficLightInset: 0)
+            leading.setPositionLabel(orientation == .sideBySide ? "Left" : "Top")
+            trailing.setPositionLabel(orientation == .sideBySide ? "Right" : "Bottom")
             leading.render(snapshot: snapshot.panes[leadingOrTop]!, contentView: snapshot.paneContentViews[leadingOrTop])
             trailing.render(snapshot: snapshot.panes[trailingOrBottom]!, contentView: snapshot.paneContentViews[trailingOrBottom])
             paneContainer.install(leadingOrTop: leading, trailingOrBottom: trailing, orientation: orientation)
@@ -153,7 +155,10 @@ final class ReaderRootView: NSView {
     }
 
     private func paneView(for id: PaneID, trafficLightInset: CGFloat) -> PaneView {
-        if let pane = paneViews[id] { return pane }
+        if let pane = paneViews[id] {
+            pane.setTrafficLightInset(trafficLightInset)
+            return pane
+        }
         let pane = PaneView(id: id, trafficLightInset: trafficLightInset)
         if let theme { pane.apply(theme: theme) }
         paneViews[id] = pane
@@ -206,18 +211,9 @@ final class ReaderRootView: NSView {
     }
 
     private func setPresentedContentView(_ view: NSView?) {
-        guard presentedContentView !== view else { return }
-        presentedContentView?.removeFromSuperview()
+        if presentedContentView !== view { presentedContentView?.removeFromSuperview() }
         presentedContentView = view
-        guard let view else { return }
-        view.prepareForAutoLayout()
-        contentHost.addSubview(view)
-        NSLayoutConstraint.activate([
-            view.topAnchor.constraint(equalTo: contentHost.topAnchor),
-            view.leadingAnchor.constraint(equalTo: contentHost.leadingAnchor),
-            view.trailingAnchor.constraint(equalTo: contentHost.trailingAnchor),
-            view.bottomAnchor.constraint(equalTo: contentHost.bottomAnchor),
-        ])
+        attachContentView(view, to: contentHost)
     }
 
     private static func statusLabel(for context: InputContext) -> String {

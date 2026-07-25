@@ -93,7 +93,7 @@ struct ThemeAndShellTests {
         )
         let store = ReaderSessionStore()
         let controller = MainWindowController(
-            sessionStore: store,
+            coordinator: PaneCoordinator(initialStore: store),
             theme: theme,
             actionHandler: { _ in }
         )
@@ -135,7 +135,7 @@ struct ThemeAndShellTests {
     func readerCanvasStartsKeyViewTraversal() throws {
         let store = ReaderSessionStore()
         let controller = MainWindowController(
-            sessionStore: store,
+            coordinator: PaneCoordinator(initialStore: store),
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
             actionHandler: { _ in }
         )
@@ -193,7 +193,7 @@ struct ThemeAndShellTests {
         let store = ReaderSessionStore()
         var actions: [ActionID] = []
         let controller = MainWindowController(
-            sessionStore: store,
+            coordinator: PaneCoordinator(initialStore: store),
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
             actionHandler: { actions.append($0) }
         )
@@ -305,7 +305,7 @@ struct ThemeAndShellTests {
             title: "Sample Document.pdf"
         )
         let controller = MainWindowController(
-            sessionStore: store,
+            coordinator: PaneCoordinator(initialStore: store),
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
             actionHandler: { _ in }
         )
@@ -373,7 +373,7 @@ struct ThemeAndShellTests {
     func activeTabRemainsVisibleAtMinimumWidth() throws {
         let store = ReaderSessionStore()
         let controller = MainWindowController(
-            sessionStore: store,
+            coordinator: PaneCoordinator(initialStore: store),
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
             actionHandler: { _ in }
         )
@@ -432,7 +432,7 @@ struct ThemeAndShellTests {
     func adaptiveCompactTabsPreserveIdentityAndControls() throws {
         let store = ReaderSessionStore()
         let controller = MainWindowController(
-            sessionStore: store,
+            coordinator: PaneCoordinator(initialStore: store),
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
             actionHandler: { _ in }
         )
@@ -536,7 +536,7 @@ struct ThemeAndShellTests {
         )
         let store = ReaderSessionStore()
         let controller = MainWindowController(
-            sessionStore: store,
+            coordinator: PaneCoordinator(initialStore: store),
             theme: AppKitTheme(configuration: config.config.theme),
             actionHandler: { _ in },
             validatedConfig: config
@@ -559,13 +559,14 @@ struct ThemeAndShellTests {
         let first = StubReaderSession(id: TabID(), title: "One.pdf")
         let second = StubReaderSession(id: TabID(), title: "Two.pdf")
         let third = StubReaderSession(id: TabID(), title: "Three.pdf")
+        let coordinator = PaneCoordinator(initialStore: store)
         let dispatcher = ActionDispatcher(
-            sessionStore: store,
+            coordinator: coordinator,
             navigation: BuiltInDefaults.config.navigation
         )
         var actions: [ActionID] = []
         let controller = MainWindowController(
-            sessionStore: store,
+            coordinator: coordinator,
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
             actionHandler: {
                 actions.append($0)
@@ -620,7 +621,7 @@ struct ThemeAndShellTests {
         let fullTitle = "Sample Document - A Very Long Document Name.pdf"
         let session = StubReaderSession(id: TabID(), title: fullTitle)
         let controller = MainWindowController(
-            sessionStore: store,
+            coordinator: PaneCoordinator(initialStore: store),
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
             actionHandler: { _ in }
         )

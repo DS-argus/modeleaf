@@ -84,22 +84,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
         rootView.promptOverlay.commitButton.handler = { [weak self] in self?.actionHandler(.promptCommit) }
         rootView.promptOverlay.cancelButton.handler = { [weak self] in self?.actionHandler(.promptCancel) }
-        coordinator.onSnapshot = { [weak self] _ in self?.refresh() }
+        coordinator.onSnapshot = { [weak self] snapshot in self?.refresh(snapshot: snapshot) }
         coordinator.configureCloseStaging { [weak self] projected in self?.stageClose(projected) ?? false }
-        refresh()
+        refresh(snapshot: coordinator.snapshot)
     }
 
-    convenience init(
-        sessionStore: ReaderSessionStore,
-        theme: AppKitTheme,
-        actionHandler: @escaping (ActionID) -> Void,
-        keyDispatchHandler: ((KeyActionDispatch) -> Void)? = nil,
-        validatedConfig: ValidatedAppConfig? = nil
-    ) {
-        let coordinator = PaneCoordinator.legacy(sessionStore)
-        self.init(coordinator: coordinator, theme: theme, actionHandler: actionHandler, keyDispatchHandler: keyDispatchHandler, validatedConfig: validatedConfig)
-        coordinator.observeLegacyStore()
-    }
     required init?(coder: NSCoder) {
         nil
     }
@@ -108,7 +97,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         super.showWindow(sender)
         window?.center()
         window?.makeKeyAndOrderFront(sender)
-        focusActiveSurface()
+        focusActiveSurface(snapshot: coordinator.snapshot)
     }
 
     func apply(theme: AppKitTheme) {
@@ -129,7 +118,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         inputRouter.synchronizeContext(context)
         rootView.setInputContext(context)
         rootView.promptOverlay.present(presentation)
-        rebuildKeyViewLoop()
+        rebuildKeyViewLoop(snapshot: coordinator.snapshot)
         window?.makeFirstResponder(rootView.promptOverlay.textField)
     }
 
@@ -149,8 +138,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         inputRouter.synchronizeContext(context)
         inputRouter.invalidate(reason)
         rootView.setInputContext(context)
-        rebuildKeyViewLoop()
-        focusActiveSurface()
+        rebuildKeyViewLoop(snapshot: coordinator.snapshot)
+        focusActiveSurface(snapshot: coordinator.snapshot)
     }
 
     func showPromptValidation(_ message: String) {
@@ -179,7 +168,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     func windowDidBecomeKey(_ notification: Notification) {
         if rootView.promptOverlay.isHidden {
-            focusActiveSurface()
+            focusActiveSurface(snapshot: coordinator.snapshot)
         } else {
             window?.makeFirstResponder(rootView.promptOverlay.textField)
             rootView.promptOverlay.setFocusAppearance(true)
@@ -191,9 +180,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.promptOverlay.setFocusAppearance(false)
     }
 
-    private func refresh() {
-        let snapshot = coordinator.snapshot
-        let active = coordinator.activeSession
+    private func refresh(snapshot: PaneCoordinatorSnapshot) {
         if snapshot.activeID != lastActiveSessionID {
             let reason: KeyInputInvalidationReason = lastActiveSessionID != nil && snapshot.activeID == nil
                 ? .sessionClosed
@@ -202,23 +189,22 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
                 rootView.promptOverlay.discardMarkedComposition()
                 rootView.promptOverlay.dismiss()
             }
-            let context = active?.preferredInputContext ?? .navigation
+            let context = snapshot.inputContext
             inputRouter.synchronizeContext(context)
             inputRouter.invalidate(reason)
             rootView.setInputContext(context)
             lastActiveSessionID = snapshot.activeID
         }
         rootView.render(snapshot: snapshot)
-        rebuildKeyViewLoop()
+        rebuildKeyViewLoop(snapshot: snapshot)
         window?.title = snapshot.windowTitle
-        focusActiveSurface()
+        focusActiveSurface(snapshot: snapshot)
     }
-    private func rebuildKeyViewLoop(snapshot: PaneCoordinatorSnapshot? = nil) {
+    private func rebuildKeyViewLoop(snapshot: PaneCoordinatorSnapshot) {
         for view in installedKeyViewLoop {
             view.nextKeyView = nil
         }
 
-        let snapshot = snapshot ?? coordinator.snapshot
         var views: [NSView] = []
         if let activeFocusView = snapshot.activeFocusView {
             views.append(activeFocusView)
@@ -264,11 +250,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
 
-    private func focusActiveSurface() {
+    private func focusActiveSurface(snapshot: PaneCoordinatorSnapshot) {
         guard rootView.promptOverlay.isHidden else { return }
-        if let active = coordinator.activeSession, active.focusView.acceptsFirstResponder {
-            window?.makeFirstResponder(active.focusView)
-        } else if coordinator.snapshot.isEmpty {
+        if let focusView = snapshot.activeFocusView, focusView.acceptsFirstResponder {
+            window?.makeFirstResponder(focusView)
+        } else if snapshot.isEmpty {
             window?.makeFirstResponder(rootView.emptyState.openButton)
         }
     }
