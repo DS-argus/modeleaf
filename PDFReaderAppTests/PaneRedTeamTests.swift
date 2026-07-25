@@ -194,8 +194,17 @@ struct PaneRedTeamTests {
                 #expect(controller.openDocument(at: url))
                 (controller.coordinator.activeSession as? ReaderSession)?.fitWidth()
                 controller.dispatch(action)
-                guard case .split = controller.coordinator.snapshot.layout else {
-                    Issue.record("Expected a committed split for \(name)")
+                // Post-S1 topology: side-by-side commits .split while a
+                // stacked split of a single pane commits .single(.two).
+                let layout = controller.coordinator.snapshot.layout
+                let committed: Bool
+                switch (action, layout) {
+                case (.paneSplitRight, .split): committed = true
+                case (.paneSplitDown, .single(.two)): committed = true
+                default: committed = false
+                }
+                guard committed else {
+                    Issue.record("Expected a committed split for \(name), got \(layout)")
                     return
                 }
                 #expect((controller.coordinator.activeSession as? ReaderSession)?.goToPage(7) == true)
