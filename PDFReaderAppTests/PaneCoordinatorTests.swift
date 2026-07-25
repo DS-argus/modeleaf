@@ -232,44 +232,63 @@ struct PaneCoordinatorTests {
         #expect(coordinator.activeSession?.id == reopened.id)
     }
 
-    @Test("collapse and unsplit release closed PDFKit sessions and search owners")
-    func projectedPaneTeardownReleasesAllOwnedObjects() throws {
+    @Test("four-pane teardown releases each collapsed tier and all globally unsplit PDFKit ownership")
+    func fourPaneTeardownReleasesAllOwnedObjects() throws {
         try withTemporaryDirectory { directory in
             let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1)
-            for path in [ClosePath.collapse, .unsplit] {
-                var weakSession: WeakObject<ReaderSession>?
-                var weakView: WeakObject<PDFView>?
-                var weakDocument: WeakObject<PDFDocument>?
-                var weakSearch: WeakObject<PaneSearchLifecycleSpy>?
-                autoreleasepool {
+            for path in [FourPaneClosePath.rowCollapse, .columnCollapse, .globalUnsplit] {
+                let removedReferences = try autoreleasepool { () throws -> [WeakSessionObjects] in
                     let coordinator = PaneCoordinator()
-                    #expect(coordinator.insert(try! PDFOpenService().open(url: url), into: .createIfEmpty))
+                    var references: [PaneID: WeakSessionObjects] = [:]
+                    var pendingReferences: WeakSessionObjects?
+                    let original = try PDFOpenService().open(url: url)
+                    #expect(coordinator.insert(original, into: .createIfEmpty))
                     coordinator.configureDuplication { _ in
                         let document = PDFDocument(url: url)!
                         let search = PaneSearchLifecycleSpy()
                         let session = ReaderSession(sourceURL: url, document: document, searchLifecycle: search)
-                        weakSession = WeakObject(session)
-                        weakView = WeakObject(descendantPDFViews(in: session.contentView).only!)
-                        weakDocument = WeakObject(document)
-                        weakSearch = WeakObject(search)
+                        pendingReferences = WeakSessionObjects(session: session, view: descendantPDFViews(in: session.contentView).only!, document: document, search: search)
                         return session
                     }
-                    #expect(coordinator.split(direction: .sideBySide) != nil)
 
+                    let trailingTop = try #require(coordinator.split(direction: .sideBySide))
+                    references[trailingTop] = pendingReferences!
+                    let leadingTop = try #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailingTop })
+                    #expect(coordinator.activatePane(leadingTop))
+                    let leadingBottom = try #require(coordinator.split(direction: .stacked))
+                    references[leadingBottom] = pendingReferences!
+                    #expect(coordinator.activatePane(trailingTop))
+                    let trailingBottom = try #require(coordinator.split(direction: .stacked))
+                    references[trailingBottom] = pendingReferences!
+                    #expect(coordinator.snapshot.layout == .split(leading: .two(top: leadingTop, bottom: leadingBottom), trailing: .two(top: trailingTop, bottom: trailingBottom)))
+
+                    let removed: [WeakSessionObjects]
                     switch path {
-                    case .collapse:
+                    case .rowCollapse:
                         #expect(coordinator.closeActiveTab())
-                    case .unsplit:
-                        #expect(coordinator.focus(.left))
+                        removed = [references[trailingBottom]!]
+                        #expect(coordinator.snapshot.layout == .split(leading: .two(top: leadingTop, bottom: leadingBottom), trailing: .one(trailingTop)))
+                        #expect(coordinator.store(for: trailingTop)?.activeSession != nil)
+                    case .columnCollapse:
+                        #expect(coordinator.closeActiveTab())
+                        #expect(coordinator.activatePane(trailingTop))
+                        #expect(coordinator.closeActiveTab())
+                        removed = [references[trailingBottom]!, references[trailingTop]!]
+                        #expect(coordinator.snapshot.layout == .single(.two(top: leadingTop, bottom: leadingBottom)))
+                        #expect(coordinator.store(for: leadingTop)?.activeSession != nil)
+                    case .globalUnsplit:
+                        #expect(coordinator.activatePane(leadingTop))
                         #expect(coordinator.unsplit())
+                        removed = [references[trailingTop]!, references[leadingBottom]!, references[trailingBottom]!]
+                        #expect(coordinator.snapshot.layout == .single(.one(leadingTop)))
+                        #expect(coordinator.activeSession === original)
                     }
+                    coordinator.snapshot.assertCardinality()
                     while coordinator.closeActiveTab() {}
+                    return removed
                 }
                 drainPDFKit()
-                #expect(weakSession?.value == nil)
-                #expect(weakView?.value == nil)
-                #expect(weakDocument?.value == nil)
-                #expect(weakSearch?.value == nil)
+                removedReferences.forEach(assertReleased)
             }
         }
     }
@@ -297,6 +316,42 @@ struct PaneCoordinatorTests {
         #expect(coordinator.activePaneID == leadingTop)
         #expect(!coordinator.focus(.up))
     }
+    @Test("four-pane close cascade projects each tier once and rollback preserves every tier")
+    func fourPaneCloseCascadeAndRollback() throws {
+        let coordinator = PaneCoordinator()
+        var duplicates = (1...3).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }
+        coordinator.configureDuplication { _ in duplicates.removeFirst() }
+        let origin = StubReaderSession(id: TabID(), title: "Origin.pdf")
+        var emissions = 0
+        coordinator.onSnapshot = { _ in emissions += 1 }
+        #expect(coordinator.insert(origin, into: .createIfEmpty))
+        let trailingTop = try #require(coordinator.split(direction: .sideBySide))
+        let leadingTop = try #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailingTop })
+        #expect(coordinator.activatePane(leadingTop))
+        let leadingBottom = try #require(coordinator.split(direction: .stacked))
+        #expect(coordinator.activatePane(trailingTop))
+        let trailingBottom = try #require(coordinator.split(direction: .stacked))
+
+        let expected = [
+            PaneLayout.split(leading: .two(top: leadingTop, bottom: leadingBottom), trailing: .two(top: trailingTop, bottom: trailingBottom)),
+            .split(leading: .two(top: leadingTop, bottom: leadingBottom), trailing: .one(trailingTop)),
+            .single(.two(top: leadingTop, bottom: leadingBottom)),
+            .single(.one(leadingTop)),
+            .empty,
+        ]
+        for index in 0..<4 {
+            #expect(coordinator.snapshot.layout == expected[index])
+            let before = emissions
+            #expect(!coordinator.closeActiveTab { _ in false })
+            #expect(coordinator.snapshot.layout == expected[index])
+            #expect(emissions == before + 1)
+            #expect(coordinator.closeActiveTab())
+            #expect(coordinator.snapshot.layout == expected[index + 1])
+            #expect(emissions == before + 2)
+            coordinator.snapshot.assertCardinality()
+        }
+    }
+
     private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("pdf-reader-pane-coordinator-\(UUID().uuidString)", isDirectory: true)
@@ -316,6 +371,13 @@ struct PaneCoordinatorTests {
             RunLoop.current.run(until: Date().addingTimeInterval(0.01))
         }
     }
+
+    private func assertReleased(_ references: WeakSessionObjects) {
+        #expect(references.session.value == nil)
+        #expect(references.view.value == nil)
+        #expect(references.document.value == nil)
+        #expect(references.search.value == nil)
+    }
 }
 
 
@@ -331,10 +393,6 @@ extension StubReaderSession: ReaderDuplicationSnapshotProviding {
     }
 }
 
-private enum ClosePath {
-    case collapse
-    case unsplit
-}
 
 private final class WeakObject<Value: AnyObject> {
     weak var value: Value?
@@ -353,4 +411,24 @@ private final class PaneSearchLifecycleSpy: ReaderSearchLifecycle {
 
 private extension Array {
     var only: Element? { count == 1 ? self[0] : nil }
+}
+
+private enum FourPaneClosePath {
+    case rowCollapse
+    case columnCollapse
+    case globalUnsplit
+}
+
+private struct WeakSessionObjects {
+    let session: WeakObject<ReaderSession>
+    let view: WeakObject<PDFView>
+    let document: WeakObject<PDFDocument>
+    let search: WeakObject<PaneSearchLifecycleSpy>
+
+    init(session: ReaderSession, view: PDFView, document: PDFDocument, search: PaneSearchLifecycleSpy) {
+        self.session = WeakObject(session)
+        self.view = WeakObject(view)
+        self.document = WeakObject(document)
+        self.search = WeakObject(search)
+    }
 }

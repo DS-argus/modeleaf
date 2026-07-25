@@ -230,6 +230,26 @@ struct PaneShellTests {
         #expect(controller.window?.firstResponder === fixture.origin.focusView)
     }
 
+    @Test("active prompt remains focused through global unsplit staging then dismisses on settle")
+    func activePromptDismissesAfterGlobalUnsplitSettlement() throws {
+        let fixture = splitFixture()
+        let controller = MainWindowController(
+            coordinator: fixture.coordinator,
+            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            actionHandler: { _ in }
+        )
+        defer { controller.close() }
+
+        controller.showWindow(nil)
+        controller.presentPrompt(PromptPresentation(kind: .search, text: "needle", validationMessage: nil))
+        let promptResponder = controller.rootView.promptOverlay.textField.currentEditor()
+        #expect(controller.window?.firstResponder === promptResponder)
+        #expect(fixture.coordinator.unsplit())
+        #expect(controller.rootView.promptOverlay.isHidden)
+        #expect(controller.window?.firstResponder === fixture.duplicate.focusView)
+        #expect(fixture.coordinator.snapshot.layout == .single(.one(fixture.trailing)))
+    }
+
 
     @Test("collapse and unsplit reattach the survivor beneath the visible root host")
     func survivorContentMovesOutOfHiddenPaneContainer() throws {

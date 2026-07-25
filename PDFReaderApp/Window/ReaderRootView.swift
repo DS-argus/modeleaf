@@ -71,6 +71,8 @@ final class ReaderRootView: NSView {
         if isCommitted { prunePaneViews(absentFrom: snapshot.panes) }
         guard snapshot.layout.isMultiPane else {
             paneContainer.isHidden = true
+            leadingColumnHost.removeFromSuperview()
+            trailingColumnHost.removeFromSuperview()
             if isCommitted { paneContainer.removeAllPanes() }
             tabBar.isHidden = snapshot.isEmpty
             render(snapshot: snapshot.activeStoreSnapshot, activeContentView: snapshot.activeContentView, sessionStatus: snapshot.activeStatus)

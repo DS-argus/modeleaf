@@ -8,6 +8,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let inputRouter: ReaderInputRouter
     private var lastActiveSessionID: TabID?
     private let openPaneHandler: ((PaneID) -> Void)?
+    private var promptCloseProjection: (layout: PaneLayout, paneID: PaneID?, tabID: TabID?)?
     private var installedKeyViewLoop: [NSView] = []
     let rootView: ReaderRootView
 
@@ -181,6 +182,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func refresh(snapshot: PaneCoordinatorSnapshot) {
+        let dismissStagedPrompt = promptCloseProjection.map {
+            $0.layout == snapshot.layout && $0.paneID == snapshot.activePaneID && $0.tabID == snapshot.activeID
+        } ?? false
+        promptCloseProjection = nil
         defer {
             // Focus rings are first-responder driven, but PDFView moves first
             // responder to internal views; recompute every visible pane's ring
@@ -191,7 +196,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             }
             (snapshot.activeFocusView as? ReaderPDFView)?.refreshFocusAppearance()
         }
-        if snapshot.activeID != lastActiveSessionID {
+        if snapshot.activeID != lastActiveSessionID || dismissStagedPrompt {
             let reason: KeyInputInvalidationReason = lastActiveSessionID != nil && snapshot.activeID == nil
                 ? .sessionClosed
                 : .sessionChanged
@@ -249,7 +254,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         guard let window else { return false }
         guard window.isVisible else { return true }
         let target = projected.activeFocusView ?? projected.activeContentView ?? rootView.emptyState.openButton
-        guard rootView.promptOverlay.isHidden, window.attachedSheet == nil else { return true }
+        guard rootView.promptOverlay.isHidden, window.attachedSheet == nil else {
+            if !rootView.promptOverlay.isHidden {
+                promptCloseProjection = (projected.layout, projected.activePaneID, projected.activeID)
+            }
+            return true
+        }
         rootView.render(snapshot: projected, isCommitted: false)
         rebuildKeyViewLoop(snapshot: projected)
         guard target.acceptsFirstResponder,

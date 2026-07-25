@@ -119,6 +119,72 @@ struct ApplicationControllerTests {
         }
     }
 
+
+    @Test("pane-scoped deferred open rejects removed four-pane targets across collapse and unsplit")
+    func deferredPaneOpenRejectsRemovedFourPaneTargets() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1)
+            for removal in [DeferredPaneRemoval.rowCollapse, .globalUnsplit] {
+                let store = ReaderSessionStore()
+                #expect(store.insert(try PDFOpenService().open(url: url)))
+                let metrics = ControllerRecordingMetrics()
+                let openPanel = CapturingOpenPanelStub()
+                let controller = ApplicationController(
+                    configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                    sessionStore: store,
+                    openMetrics: metrics,
+                    openPanelPresenter: openPanel,
+                    terminationHandler: {}
+                )
+                defer {
+                    while controller.coordinator.closeActiveTab() {}
+                    controller.mainWindowController.close()
+                }
+
+                controller.dispatch(.paneSplitRight)
+                let trailingTop = try #require(controller.coordinator.activePaneID)
+                controller.dispatch(.paneFocusLeft)
+                _ = try #require(controller.coordinator.activePaneID)
+                controller.dispatch(.paneSplitDown)
+                controller.dispatch(.paneFocusRight)
+                #expect(controller.coordinator.activePaneID == trailingTop)
+                controller.dispatch(.paneSplitDown)
+                let target = try #require(controller.coordinator.activePaneID)
+                #expect(controller.coordinator.snapshot.layout.paneIDs.count == 4)
+                let targetView = try #require(descendantPaneViews(in: controller.mainWindowController.rootView).first { $0.id == target })
+
+                metrics.reset()
+                targetView.tabBar.onNewTab?()
+                #expect(openPanel.presentCount == 1)
+                #expect(openPanel.capturedCompletion != nil)
+
+                switch removal {
+                case .rowCollapse:
+                    #expect(controller.coordinator.closeActiveTab())
+                    #expect(controller.coordinator.snapshot.layout.paneIDs.count == 3)
+                case .globalUnsplit:
+                    #expect(controller.coordinator.focus(.up))
+                    #expect(controller.coordinator.activePaneID != target)
+                    #expect(controller.coordinator.unsplit())
+                    #expect(controller.coordinator.snapshot.layout.paneIDs.count == 1)
+                }
+                #expect(!controller.coordinator.snapshot.layout.contains(target))
+                controller.coordinator.snapshot.assertCardinality()
+
+                openPanel.complete(with: url)
+
+                #expect(!controller.coordinator.snapshot.layout.contains(target))
+                #expect(controller.coordinator.snapshot.panes.values.allSatisfy { $0.tabs.count == 1 })
+                #expect(controller.mainWindowController.rootView.statusBar.presentation.tone == .error)
+                #expect(metrics.events.suffix(3).map(\.signature) == [
+                    "session.closed.point.insertionRejected",
+                    "open.failed.point.insertionRejected",
+                    "open.total.end.insertionRejected",
+                ])
+                controller.coordinator.snapshot.assertCardinality()
+            }
+        }
+    }
     private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("pdf-reader-controller-\(UUID().uuidString)", isDirectory: true)
@@ -288,6 +354,11 @@ struct ApplicationControllerTests {
         TabID(rawValue: UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", value))!)
     }
 }
+private enum DeferredPaneRemoval {
+    case rowCollapse
+    case globalUnsplit
+}
+
 
 @MainActor
 private final class ControllerOpenPanelStub: PDFOpenPanelPresenting {

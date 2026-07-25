@@ -35,7 +35,8 @@ extension PaneCoordinatorSnapshot {
 
 enum PaneCloseTransition: Equatable {
     case tabSuccessor(pane: PaneID, tab: TabID)
-    case paneCollapse(survivor: PaneID)
+    case rowCollapse(survivor: PaneID)
+    case columnCollapse(survivor: PaneID)
     case windowEmpty
 }
 
@@ -154,15 +155,29 @@ final class PaneCoordinator {
         let oldLayout = layout
         let oldMemory = lastFocusedRowByColumn
         let removed = layout.paneIDs.filter { $0 != activePaneID }
+        let tokens = removed.flatMap { id -> [(PaneID, PreparedTabClose)] in
+            guard let store = stores[id] else { return [] }
+            return store.snapshot.tabs.map { tab in
+                guard let token = store.beginClose(tab.id) else {
+                    preconditionFailure("ReaderSessionStore cannot begin unsplit teardown")
+                }
+                return (id, token)
+            }
+        }
         let projected = makeSnapshot(layout: .single(.one(activePaneID)), activePaneID: activePaneID, stores: stores.filter { $0.key == activePaneID })
-        guard (stage ?? closeStagingHandler ?? { _ in true })(projected) else { publish(); return false }
+        guard (stage ?? closeStagingHandler ?? { _ in true })(projected) else {
+            for (id, token) in tokens.reversed() { stores[id]?.rollbackClose(token) }
+            publish()
+            return false
+        }
         let previous = suppressCallbacks; suppressCallbacks = true
         defer { suppressCallbacks = previous }
-        for id in removed {
-            guard let store = stores[id] else { continue }
-            for tab in store.snapshot.tabs { guard let token = store.beginClose(tab.id), store.commitClose(token) else { preconditionFailure("ReaderSessionStore cannot commit unsplit teardown") } }
-            stores.removeValue(forKey: id)
+        for (id, token) in tokens {
+            guard stores[id]?.commitClose(token) == true else {
+                preconditionFailure("ReaderSessionStore cannot commit unsplit teardown")
+            }
         }
+        for id in removed { stores.removeValue(forKey: id) }
         layout = .single(.one(activePaneID)); setActivePane(activePaneID)
         normalizeMemory(from: oldLayout, to: layout, previousMemory: oldMemory)
         suppressCallbacks = previous; publish(); suppressCallbacks = true
@@ -180,7 +195,7 @@ final class PaneCoordinator {
             transition = .tabSuccessor(pane: paneID, tab: successor)
             projected = makeSnapshot()
         } else if let collapse = layoutAfterRemovingLastTab(in: paneID) {
-            transition = .paneCollapse(survivor: collapse.activePaneID)
+            transition = collapseTransition(for: paneID, in: oldLayout, survivor: collapse.activePaneID)
             projected = makeSnapshot(layout: collapse.layout, activePaneID: collapse.activePaneID, stores: stores.filter { $0.key != paneID })
         } else {
             transition = .windowEmpty
@@ -193,7 +208,7 @@ final class PaneCoordinator {
         switch transition {
         case .tabSuccessor:
             break
-        case let .paneCollapse(survivor):
+        case let .rowCollapse(survivor), let .columnCollapse(survivor):
             stores.removeValue(forKey: paneID)
             guard let collapse = layoutAfterRemovingLastTab(in: paneID, from: oldLayout) else { preconditionFailure("missing pane collapse") }
             layout = collapse.layout
@@ -209,6 +224,18 @@ final class PaneCoordinator {
         return true
     }
 
+    private func collapseTransition(for paneID: PaneID, in layout: PaneLayout, survivor: PaneID) -> PaneCloseTransition {
+        switch layout {
+        case .single(.two):
+            return .rowCollapse(survivor: survivor)
+        case let .split(leading, trailing):
+            let stack = leading.contains(paneID) ? leading : trailing
+            if case .two = stack { return .rowCollapse(survivor: survivor) }
+            return .columnCollapse(survivor: survivor)
+        case .empty, .single(.one):
+            preconditionFailure("non-terminal pane collapse has no source stack")
+        }
+    }
     private func focusTarget(in stack: PaneStack, side: PaneColumnSide) -> PaneID {
         switch stack {
         case let .one(id): return id
