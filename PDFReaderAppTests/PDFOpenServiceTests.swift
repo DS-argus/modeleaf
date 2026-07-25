@@ -85,7 +85,7 @@ struct PDFOpenServiceTests {
             #expect(store.sessionCount == 2)
             #expect(store.activeSession?.title == "external.pdf")
 
-            while store.closeActive() {}
+            while controller.coordinator.closeActiveTab() {}
         }
     }
 
