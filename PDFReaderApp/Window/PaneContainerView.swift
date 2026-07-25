@@ -35,7 +35,8 @@ final class PaneContainerView: NSSplitView, NSSplitViewDelegate {
 
     private var defaultDividerPosition: CGFloat {
         let available = isVertical ? bounds.width : bounds.height
-        return max(minimumPaneThickness, (available - dividerThickness) / 2)
+        let maximum = max(minimumPaneThickness, available - dividerThickness - minimumPaneThickness)
+        return min(maximum, max(minimumPaneThickness, (available - dividerThickness) / 2))
     }
 
     func splitView(_ splitView: NSSplitView, canCollapseSubview subview: NSView) -> Bool { false }

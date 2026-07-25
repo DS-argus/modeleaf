@@ -342,12 +342,17 @@ struct ConfigLoadingTests {
         #expect(oversizedResult.activeConfig.config == BuiltInDefaults.config)
     }
 
-    @Test("pane actions are independently TOML-rebindable and dispatch only in navigation")
+    @Test("pane actions keep their shipped bindings and TOML rebindings in reader contexts")
     func paneActionRebindingsDispatchInNavigationOnly() throws {
         let actions: [ActionID] = [
             .paneSplitRight, .paneSplitDown, .paneFocusLeft, .paneFocusDown,
             .paneFocusUp, .paneFocusRight, .paneUnsplit,
         ]
+        let shippedBindings = ["<C-Space>|", "<C-Space>-", "<C-h>", "<C-j>", "<C-k>", "<C-l>", "<C-Space>o"]
+        for (action, binding) in zip(actions, shippedBindings) {
+            #expect(ActionRegistry.v1.descriptor(for: action)?.activeContexts == [.navigation, .searchResults])
+            #expect(BuiltInDefaults.keymap[action]?.map(\.description) == [binding])
+        }
         let bindings = ["<C-w>r", "<C-w>d", "<C-a>", "<C-b>", "<C-c>", "<C-e>", "<C-w>q"]
         let source = "[keymap]\n" + zip(actions, bindings)
             .map { "\"\($0.rawValue)\" = [\"\($1)\"]" }

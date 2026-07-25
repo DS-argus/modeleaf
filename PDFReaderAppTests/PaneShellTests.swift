@@ -526,6 +526,88 @@ struct PaneShellTests {
         #expect(!controller.rootView.promptOverlay.cancelButton.acceptsFirstMouse(for: nil))
         #expect(!controller.rootView.emptyState.openButton.acceptsFirstMouse(for: nil))
     }
+    @Test("480 by 360 three-divider matrix keeps every pane surface reachable")
+    func minimumWindowThreeDividerMatrix() throws {
+        enum Topology: Equatable { case twoByTwo, leadingStack, trailingStack }
+
+        for topology in [Topology.twoByTwo, .leadingStack, .trailingStack] {
+            let coordinator = PaneCoordinator()
+            var duplicates = (1...3).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }
+            coordinator.configureDuplication { _ in duplicates.removeFirst() }
+            #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Origin.pdf"), into: .createIfEmpty))
+
+            switch topology {
+            case .twoByTwo:
+                let trailing = try #require(coordinator.split(direction: .sideBySide))
+                #expect(coordinator.split(direction: .stacked) != nil)
+                let leading = try #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailing })
+                #expect(coordinator.activatePane(leading))
+                #expect(coordinator.split(direction: .stacked) != nil)
+            case .leadingStack:
+                #expect(coordinator.split(direction: .stacked) != nil)
+                #expect(coordinator.split(direction: .sideBySide) != nil)
+            case .trailingStack:
+                #expect(coordinator.split(direction: .sideBySide) != nil)
+                #expect(coordinator.split(direction: .stacked) != nil)
+            }
+
+            let controller = MainWindowController(
+                coordinator: coordinator,
+                theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+                actionHandler: { _ in }
+            )
+            defer { controller.close() }
+            let window = try #require(controller.window)
+            window.setContentSize(WindowVisualMetrics.minimumSize)
+            controller.rootView.layoutSubtreeIfNeeded()
+
+            let containers = paneContainers(in: controller.rootView)
+            let outer = try #require(containers.first { $0.isVertical })
+            let inner = containers.filter { !$0.isVertical }
+            #expect(inner.count == (topology == .twoByTwo ? 2 : 1))
+
+            let dividerCombinations = 0..<(1 << (inner.count + 1))
+            for combination in dividerCombinations {
+                let allContainers = [outer] + inner
+                for (index, container) in allContainers.enumerated() {
+                    container.setPosition((combination & (1 << index)) == 0 ? -1_000 : 1_000, ofDividerAt: 0)
+                }
+                controller.rootView.layoutSubtreeIfNeeded()
+                let positions = allContainers.map { container in
+                    container.isVertical ? container.subviews[0].frame.width : container.subviews[0].frame.height
+                }
+                controller.rootView.render(snapshot: coordinator.snapshot)
+                controller.rootView.layoutSubtreeIfNeeded()
+
+                for (index, container) in allContainers.enumerated() {
+                    let thickness = container.isVertical ? container.bounds.width : container.bounds.height
+                    let first = container.isVertical ? container.subviews[0].frame.width : container.subviews[0].frame.height
+                    let second = container.isVertical ? container.subviews[1].frame.width : container.subviews[1].frame.height
+                    #expect(first >= 160 && second >= 160)
+                    let persisted = container.isVertical ? container.subviews[0].frame.width : container.subviews[0].frame.height
+                    #expect(abs(persisted - positions[index]) < 0.5)
+                    #expect(thickness >= first + second + container.dividerThickness)
+                }
+
+                for paneID in coordinator.snapshot.layout.paneIDs {
+                    let pane = try #require(controller.rootView.paneViewForTesting(paneID))
+                    let activeTabID = try #require(coordinator.snapshot.panes[paneID]?.activeID)
+                    let close = try #require(firstDescendant(of: pane, identifier: "tab.close.\(activeTabID.rawValue.uuidString.lowercased())"))
+                    assertReachable(close, in: controller.rootView)
+                    assertReachable(pane.tabBar.newTabButton, in: controller.rootView)
+                    assertReachable(try #require(coordinator.snapshot.paneContentViews[paneID]), in: controller.rootView)
+                    #expect(pane.tabBar.trafficLightInset == (paneID == coordinator.snapshot.layout.topLeftPaneID ? WindowVisualMetrics.trafficLightInset : 0))
+                }
+                assertReachable(controller.rootView.statusBar, in: controller.rootView)
+                assertNoAmbiguousLayout(in: controller.rootView)
+            }
+        }
+    }
+
+    private func paneContainers(in view: NSView) -> [PaneContainerView] {
+        let own = (view as? PaneContainerView).map { [$0] } ?? []
+        return own + view.subviews.flatMap(paneContainers(in:))
+    }
 
     private func firstDescendant<T: NSView>(of view: NSView, as type: T.Type) -> T? {
         if let matched = view as? T { return matched }

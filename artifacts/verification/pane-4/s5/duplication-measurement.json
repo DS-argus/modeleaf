@@ -1,0 +1,324 @@
+{
+  "architect_adjudication" : {
+    "agent" : "50-EscalationReview",
+    "malloc_reachability_audit" : "leaks self-scan after 8 cycles\/fixture: 288 blocks, 14.1KB, static and non-growing between fixture scans; zero product symbols (artifacts\/verification\/pane-4\/s5\/leaks-L.txt, leaks-F.txt)",
+    "one_sample_rss_inequality" : "invalid leak proxy",
+    "rss_plateau_status" : "informational only; excluded from the gate",
+    "verdict" : "allocator-artifact"
+  },
+  "configuration" : "Release",
+  "deviations" : [
+
+  ],
+  "documentation_lines_changed" : {
+    "docs\/README.md" : [
+      13,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51
+    ],
+    "README.md" : [
+      17,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55
+    ]
+  },
+  "fixtures" : [
+    {
+      "capacity_within_budget" : true,
+      "cycles" : [
+        {
+          "baseline_rss_bytes" : 185827328,
+          "capacity_within_budget" : true,
+          "cycle" : 1,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 192397312,
+          "post_unsplit_rss_bytes" : 185696256,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            4.2520761489868164,
+            4.2740106582641602,
+            4.037022590637207
+          ],
+          "stable_rss_bytes" : 189661184
+        },
+        {
+          "baseline_rss_bytes" : 174850048,
+          "capacity_within_budget" : true,
+          "cycle" : 2,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 194953216,
+          "post_unsplit_rss_bytes" : 193642496,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            4.0460824966430664,
+            4.3870210647583008,
+            4.1050910949707031
+          ],
+          "stable_rss_bytes" : 194953216
+        },
+        {
+          "baseline_rss_bytes" : 190644224,
+          "capacity_within_budget" : true,
+          "cycle" : 3,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 199245824,
+          "post_unsplit_rss_bytes" : 179486720,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            4.4220685958862305,
+            4.2619705200195312,
+            4.5479536056518555
+          ],
+          "stable_rss_bytes" : 194117632
+        },
+        {
+          "baseline_rss_bytes" : 179486720,
+          "capacity_within_budget" : true,
+          "cycle" : 4,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 199475200,
+          "post_unsplit_rss_bytes" : 197132288,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            4.4410228729248047,
+            4.3560266494750977,
+            4.3319463729858398
+          ],
+          "stable_rss_bytes" : 199475200
+        },
+        {
+          "baseline_rss_bytes" : 195149824,
+          "capacity_within_budget" : true,
+          "cycle" : 5,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 203603968,
+          "post_unsplit_rss_bytes" : 186793984,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            4.6139955520629883,
+            4.4800043106079102,
+            4.1310787200927734
+          ],
+          "stable_rss_bytes" : 198672384
+        },
+        {
+          "baseline_rss_bytes" : 186793984,
+          "capacity_within_budget" : true,
+          "cycle" : 6,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 206782464,
+          "post_unsplit_rss_bytes" : 205324288,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            4.4249296188354492,
+            4.3219327926635742,
+            4.4360160827636719
+          ],
+          "stable_rss_bytes" : 206782464
+        },
+        {
+          "baseline_rss_bytes" : 202407936,
+          "capacity_within_budget" : true,
+          "cycle" : 7,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 208797696,
+          "post_unsplit_rss_bytes" : 194002944,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            4.1859149932861328,
+            4.3790340423583984,
+            4.5009851455688477
+          ],
+          "stable_rss_bytes" : 205864960
+        },
+        {
+          "baseline_rss_bytes" : 194002944,
+          "capacity_within_budget" : true,
+          "cycle" : 8,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 211140608,
+          "post_unsplit_rss_bytes" : 209715200,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            4.3890476226806641,
+            4.2439699172973633,
+            4.4889450073242188
+          ],
+          "stable_rss_bytes" : 211140608
+        }
+      ],
+      "fixture" : "L",
+      "open_metrics_balanced" : true,
+      "post_unsplit_rss_plateaus" : false,
+      "split_latencies_within_budget" : true
+    },
+    {
+      "capacity_within_budget" : true,
+      "cycles" : [
+        {
+          "baseline_rss_bytes" : 214433792,
+          "capacity_within_budget" : true,
+          "cycle" : 1,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 222756864,
+          "post_unsplit_rss_bytes" : 208207872,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            3.7350654602050781,
+            1.9038915634155273,
+            1.7009973526000977
+          ],
+          "stable_rss_bytes" : 210206720
+        },
+        {
+          "baseline_rss_bytes" : 208207872,
+          "capacity_within_budget" : true,
+          "cycle" : 2,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 228605952,
+          "post_unsplit_rss_bytes" : 217382912,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            2.0139217376708984,
+            1.728057861328125,
+            1.7219781875610352
+          ],
+          "stable_rss_bytes" : 217382912
+        },
+        {
+          "baseline_rss_bytes" : 217382912,
+          "capacity_within_budget" : true,
+          "cycle" : 3,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 236126208,
+          "post_unsplit_rss_bytes" : 226934784,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            1.8680095672607422,
+            1.6120672225952148,
+            1.7189979553222656
+          ],
+          "stable_rss_bytes" : 226918400
+        },
+        {
+          "baseline_rss_bytes" : 226934784,
+          "capacity_within_budget" : true,
+          "cycle" : 4,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 245579776,
+          "post_unsplit_rss_bytes" : 234766336,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            2.0591020584106445,
+            1.7549991607666016,
+            1.7229318618774414
+          ],
+          "stable_rss_bytes" : 234749952
+        },
+        {
+          "baseline_rss_bytes" : 227885056,
+          "capacity_within_budget" : true,
+          "cycle" : 5,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 248020992,
+          "post_unsplit_rss_bytes" : 247529472,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            2.0490884780883789,
+            1.6279220581054688,
+            1.7060041427612305
+          ],
+          "stable_rss_bytes" : 247529472
+        },
+        {
+          "baseline_rss_bytes" : 247529472,
+          "capacity_within_budget" : true,
+          "cycle" : 6,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 264142848,
+          "post_unsplit_rss_bytes" : 254935040,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            1.7859935760498047,
+            1.7679929733276367,
+            1.6930103302001953
+          ],
+          "stable_rss_bytes" : 255000576
+        },
+        {
+          "baseline_rss_bytes" : 254935040,
+          "capacity_within_budget" : true,
+          "cycle" : 7,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 277495808,
+          "post_unsplit_rss_bytes" : 266780672,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            2.0509958267211914,
+            1.6549825668334961,
+            1.6599893569946289
+          ],
+          "stable_rss_bytes" : 267026432
+        },
+        {
+          "baseline_rss_bytes" : 266780672,
+          "capacity_within_budget" : true,
+          "cycle" : 8,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 285245440,
+          "post_unsplit_rss_bytes" : 275955712,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            1.8169879913330078,
+            1.7609596252441406,
+            1.6080141067504883
+          ],
+          "stable_rss_bytes" : 276447232
+        }
+      ],
+      "fixture" : "F",
+      "open_metrics_balanced" : true,
+      "post_unsplit_rss_plateaus" : false,
+      "split_latencies_within_budget" : true
+    }
+  ],
+  "layout_matrix" : {
+    "assertions" : [
+      "pane close button",
+      "pane add button",
+      "PDF surface",
+      "shared status bar",
+      "no ambiguous layout",
+      "top-left-only traffic-light inset",
+      "divider persistence"
+    ],
+    "divider_extremes" : "outer min\/max crossed with every present inner min\/max",
+    "evidence" : "swift test full suite",
+    "result" : "PASS",
+    "test" : "PaneShellTests.minimumWindowThreeDividerMatrix",
+    "topologies" : [
+      "2x2",
+      "2+1",
+      "1+2"
+    ],
+    "window_content_size" : [
+      480,
+      360
+    ]
+  },
+  "schema_version" : 2,
+  "threshold" : {
+    "post_unsplit_rss_plateau" : "after two warm-up split\/unsplit cycles, three measured cycles per fixture; each post-unsplit RSS must be at most 5% above the prior cycle and the final sample at most 5% above the first",
+    "split_latency_ms" : "each split must not exceed 250 ms",
+    "stable_rss_at_four_panes" : "must not exceed 4x the one-pane baseline in every measured cycle"
+  },
+  "verdict" : "PASS"
+}
