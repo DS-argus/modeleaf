@@ -14,6 +14,7 @@ The interaction design takes one focused idea from [Sioyek](https://github.com/a
 
 - opens local PDFs from the app, Finder/Open With, or the default `⌘O` binding;
 - keeps multiple documents in independent tabs, with clickable tab controls and a `+` button that opens another PDF;
+- splits the reading surface into at most two panes; each pane owns its own tabs and active document;
 - opens each document on page 1 fitted inside the visible canvas;
 - scrolls, changes pages, jumps to a numbered page, zooms, and fits the view;
 - searches embedded PDF text with per-tab result state and highlighting;
@@ -32,6 +33,9 @@ The shipped bindings stay deliberately small:
 | page 12 | `g12`, then `Enter` |
 | next / previous tab | `N` / `P` |
 | select tab 1…9 | `⌘1` … `⌘9` |
+| split right / down | `Ctrl-w v` / `Ctrl-w s` |
+| focus left / down / up / right | `Ctrl-h` / `Ctrl-j` / `Ctrl-k` / `Ctrl-l` |
+| unsplit | `Ctrl-w o` |
 | search | `/`, then `Enter` |
 | next / previous match | `Enter` / `Shift-Enter` |
 | clear search | `Esc` |
@@ -42,10 +46,9 @@ In fit-page mode, `j`/`d` move to the next page and `k`/`u` to the previous page
 
 Tabs remain keyboard-first, but can also be selected and closed with the pointer. Their compact fixed-width labels omit `.pdf` and truncate at the end when necessary. The right-side `+` button dispatches the same read-only PDF open action as `⌘O`.
 
-See [CONFIG.md](CONFIG.md) for the exhaustive 36-action registry, key-token grammar, validation rules, numeric bounds, and generated default file.
+See [CONFIG.md](CONFIG.md) for the exhaustive 43-action registry, key-token grammar, validation rules, numeric bounds, and generated default file.
 
 ## Explicit v1 boundary
-
 V1 has no bookmarks, user-authored annotations or highlights, marks, portals, smart jumps, command palette, external commands, scripts, plugins, macros, OCR, print, export, session persistence, thumbnail sidebar, or research-library workflow. Search highlighting is transient viewer state and is never written to the PDF.
 
 These omissions are product constraints rather than half-implemented menu items. Any later expansion must preserve the stable action boundary, strict declarative configuration, per-tab session isolation, and read-only PDFKit adapter.

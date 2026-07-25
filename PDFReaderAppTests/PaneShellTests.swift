@@ -287,6 +287,48 @@ struct PaneShellTests {
         #expect(trailingPane.tabBar.trafficLightInset == 0)
     }
 
+    @Test("committed unsplit releases the retired pane view and resplit builds a fresh labeled pane")
+    func committedUnsplitPrunesRetiredPaneViews() throws {
+        let coordinator = PaneCoordinator()
+        let firstDuplicate = StubReaderSession(id: TabID(), title: "First duplicate.pdf")
+        let secondDuplicate = StubReaderSession(id: TabID(), title: "Second duplicate.pdf")
+        var duplicates = [firstDuplicate, secondDuplicate]
+        coordinator.configureDuplication { _ in duplicates.removeFirst() }
+        let trailing = try splitWithFreshOrigin(coordinator)
+        let leading = try #require(coordinator.snapshot.panes.keys.first { $0 != trailing })
+        let controller = MainWindowController(
+            coordinator: coordinator,
+            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            actionHandler: { _ in }
+        )
+        defer { controller.close() }
+
+        let retiredPane = try #require(controller.rootView.paneViewForTesting(leading))
+
+        #expect(coordinator.unsplit())
+        controller.rootView.layoutSubtreeIfNeeded()
+        // Durable pruning contract: the cache entry is gone, the retired pane
+        // is fully detached from the window hierarchy, and its callbacks are
+        // released. NSView deallocation timing itself is AppKit-owned and
+        // nondeterministic (tracking areas, event caches), so object identity
+        // and detachment — not weak-nil — are the asserted guarantees.
+        #expect(controller.rootView.paneViewForTesting(leading) == nil)
+        #expect(retiredPane.superview == nil)
+        #expect(retiredPane.window == nil)
+        #expect(retiredPane.onActivate == nil && retiredPane.onSelect == nil)
+
+        let newTrailing = try #require(coordinator.split(direction: .sideBySide))
+        let resplitLeading = try #require(coordinator.snapshot.panes.keys.first { $0 != newTrailing })
+        let leadingPane = try #require(controller.rootView.paneViewForTesting(resplitLeading))
+        let trailingPane = try #require(controller.rootView.paneViewForTesting(newTrailing))
+        #expect(newTrailing != leading)
+        #expect(leadingPane !== retiredPane)
+        #expect(trailingPane !== retiredPane)
+        #expect(leadingPane.accessibilityLabel() == "Left pane")
+        #expect(leadingPane.tabBar.trafficLightInset == WindowVisualMetrics.trafficLightInset)
+        #expect(trailingPane.accessibilityLabel() == "Right pane")
+        #expect(trailingPane.tabBar.trafficLightInset == 0)
+    }
     @Test("window mouse events activate an inactive pane before canvas and tab selection handlers")
     func realPointerActivationOrdering() throws {
         let coordinator = PaneCoordinator()
@@ -539,8 +581,23 @@ struct PaneShellTests {
         let leading = try! #require(coordinator.snapshot.panes.keys.first { $0 != trailing })
         return (coordinator, leading, trailing, origin, duplicate)
     }
+    private func weakPane(in rootView: ReaderRootView, with id: PaneID) -> WeakPaneReference {
+        WeakPaneReference(rootView.paneViewForTesting(id))
+    }
+    private func splitWithFreshOrigin(_ coordinator: PaneCoordinator) throws -> PaneID {
+        let origin = StubReaderSession(id: TabID(), title: "Origin.pdf")
+        #expect(coordinator.insert(origin, into: .createIfEmpty))
+        return try #require(coordinator.split(direction: .sideBySide))
+    }
 }
 
+private final class WeakPaneReference {
+    weak var value: PaneView?
+
+    init(_ value: PaneView?) {
+        self.value = value
+    }
+}
 
 @MainActor
 private final class EventRecordingSession: ReaderSessionPresenting, ReaderDuplicationSnapshotProviding {

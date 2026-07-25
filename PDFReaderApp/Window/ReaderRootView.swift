@@ -123,10 +123,12 @@ final class ReaderRootView: NSView {
         statusBar.render(currentStatus)
     }
 
-    func render(snapshot: PaneCoordinatorSnapshot) {
+    func render(snapshot: PaneCoordinatorSnapshot, isCommitted: Bool = true) {
+        if isCommitted { prunePaneViews(absentFrom: snapshot.panes) }
         switch snapshot.layout {
         case .empty, .single:
             paneContainer.isHidden = true
+            if isCommitted { paneContainer.removeAllPanes() }
             tabBar.isHidden = snapshot.isEmpty
             render(snapshot: snapshot.activeStoreSnapshot, activeContentView: snapshot.activeContentView, sessionStatus: snapshot.activeStatus)
         case let .split(orientation, leadingOrTop, trailingOrBottom):
@@ -167,6 +169,12 @@ final class ReaderRootView: NSView {
         pane.onActivate = { [weak self] in self?.onPaneActivate?(id) }
         pane.onNewTab = { [weak self] in self?.onPaneNewTab?(id) }
         return pane
+    }
+    private func prunePaneViews(absentFrom panes: [PaneID: ReaderSessionStoreSnapshot]) {
+        let retiredIDs = paneViews.keys.filter { panes[$0] == nil }
+        for id in retiredIDs {
+            paneViews.removeValue(forKey: id)?.retire()
+        }
     }
 
 

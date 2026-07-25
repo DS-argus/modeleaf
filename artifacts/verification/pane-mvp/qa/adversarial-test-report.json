@@ -1,0 +1,56 @@
+{
+  "artifacts" : [
+    "side-by-side.png",
+    "stacked.png"
+  ],
+  "cases" : [
+    {
+      "case" : "AC-2 split ceiling both directions \/ rapid repeat",
+      "evidence" : "PaneRedTeamTests",
+      "verdict" : "passed"
+    },
+    {
+      "case" : "EF4 AC-6 close-collapse-empty-reopen-resplit twice",
+      "evidence" : "PaneRedTeamTests",
+      "verdict" : "passed"
+    },
+    {
+      "case" : "AC-7 unsplit rollback then commit with multi-tab opposite pane",
+      "evidence" : "PaneRedTeamTests",
+      "verdict" : "passed"
+    },
+    {
+      "case" : "AC-8 stale pane completion reject and empty createIfEmpty",
+      "evidence" : "PaneRedTeamTests",
+      "verdict" : "passed"
+    },
+    {
+      "case" : "AC-4 boundary focus spam in both geometries and terminal layouts",
+      "evidence" : "PaneRedTeamTests",
+      "verdict" : "passed"
+    },
+    {
+      "case" : "AC-3 interleaved page zoom search isolation",
+      "evidence" : "PaneRedTeamTests",
+      "verdict" : "passed"
+    },
+    {
+      "case" : "EF8 duplicate search and selection exclusion",
+      "evidence" : "PaneRedTeamTests",
+      "verdict" : "passed"
+    },
+    {
+      "case" : "Non-goals max-two-pane fail-closed guard",
+      "evidence" : "PaneRedTeamTests",
+      "verdict" : "passed"
+    },
+    {
+      "case" : "Prompt focus ownership during rejected close\/unsplit",
+      "evidence" : "PaneRedTeamTests",
+      "verdict" : "passed"
+    }
+  ],
+  "kind" : "adversarial test-report",
+  "suite" : "PaneRedTeamTests",
+  "verdict" : "passed"
+}

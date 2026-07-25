@@ -240,7 +240,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         guard window.isVisible else { return true }
         let target = projected.activeFocusView ?? projected.activeContentView ?? rootView.emptyState.openButton
         guard rootView.promptOverlay.isHidden, window.attachedSheet == nil else { return true }
-        rootView.render(snapshot: projected)
+        rootView.render(snapshot: projected, isCommitted: false)
         rebuildKeyViewLoop(snapshot: projected)
         guard target.acceptsFirstResponder,
               window.makeFirstResponder(target),

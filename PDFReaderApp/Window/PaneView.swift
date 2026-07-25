@@ -81,6 +81,16 @@ final class PaneView: NSView {
         setPresentedContentView(contentView)
     }
 
+    func retire() {
+        presentedContentView?.removeFromSuperview()
+        presentedContentView = nil
+        onActivate = nil
+        onSelect = nil
+        onClose = nil
+        onNewTab = nil
+        for view in subviews { view.removeFromSuperview() }
+        removeFromSuperview()
+    }
     private func activateThen(_ operation: () -> Void) {
         onActivate?()
         operation()

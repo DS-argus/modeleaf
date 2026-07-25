@@ -20,13 +20,16 @@ final class PaneContainerView: NSSplitView, NSSplitViewDelegate {
         guard isVertical != vertical || subviews.count != 2 || subviews[0] !== leadingOrTop || subviews[1] !== trailingOrBottom else { return }
         isVertical = vertical
         for view in subviews { view.removeFromSuperview() }
-        addSubview(leadingOrTop)
-        addSubview(trailingOrBottom)
+        addArrangedSubview(leadingOrTop)
+        addArrangedSubview(trailingOrBottom)
         needsLayout = true
         layoutSubtreeIfNeeded()
         setPosition(dividerPosition, ofDividerAt: 0)
     }
 
+    func removeAllPanes() {
+        for view in subviews { removeArrangedSubview(view) }
+    }
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         guard subviews.count == 2 else { return }
