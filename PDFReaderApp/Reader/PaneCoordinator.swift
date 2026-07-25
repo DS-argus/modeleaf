@@ -107,19 +107,18 @@ final class PaneCoordinator {
 
     @discardableResult
     func split(direction: PaneOrientation) -> PaneID? {
-        guard case let .single(.one(originID)) = layout,
-              let source = activeSession as? any ReaderDuplicationSnapshotProviding,
+        guard let activePaneID, let destinationLayout = layout.applyingSplit(direction, to: activePaneID) else { return nil }
+        guard let source = activeSession as? any ReaderDuplicationSnapshotProviding,
               let candidate = duplicateSession?(source.duplicationSnapshot)
         else { return nil }
+
         let previous = suppressCallbacks; suppressCallbacks = true
         defer { suppressCallbacks = previous }
         let destinationID = PaneID(); let destination = ReaderSessionStore()
         destination.registerChangeHandler { [weak self] _ in self?.storeDidChange() }
         guard destination.insert(candidate) else { candidate.prepareForClose(); duplicationCompletion?(candidate, false); return nil }
         stores[destinationID] = destination
-        layout = direction == .sideBySide
-            ? .split(leading: .one(originID), trailing: .one(destinationID))
-            : .single(.two(top: originID, bottom: destinationID))
+        layout = destinationLayout(destinationID)
         setActivePane(destinationID)
         suppressCallbacks = previous; publish(); suppressCallbacks = true
         duplicationCompletion?(candidate, true)

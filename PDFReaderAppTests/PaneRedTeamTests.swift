@@ -10,19 +10,24 @@ import Testing
 struct PaneRedTeamTests {
     @Test("adversarial pane state-machine matrix")
     func adversarialStateMachineMatrix() throws {
-        // AC-2: both directions and repeated dispatch at the two-pane ceiling.
+        // AC-2: each axis remains available until its target reaches its structural ceiling.
         for orientation in [PaneOrientation.sideBySide, .stacked] {
             let fixture = makeFixture(orientation: orientation)
-            let settled = fixture.emissions.count
+            if orientation == .sideBySide {
+                #expect(fixture.coordinator.split(direction: .sideBySide) == nil)
+                #expect(fixture.coordinator.split(direction: .stacked) != nil)
+            } else {
+                #expect(fixture.coordinator.split(direction: .sideBySide) != nil)
+                #expect(fixture.coordinator.split(direction: .stacked) != nil)
+            }
+            let settledLayout = fixture.coordinator.snapshot.layout
+            #expect(fixture.coordinator.snapshot.panes.count == (orientation == .sideBySide ? 3 : 4))
             for _ in 0..<20 {
                 #expect(fixture.coordinator.split(direction: .sideBySide) == nil)
                 #expect(fixture.coordinator.split(direction: .stacked) == nil)
             }
-            #expect(fixture.coordinator.snapshot.layout == (orientation == .sideBySide ? .split(leading: .one(fixture.leading), trailing: .one(fixture.trailing)) : .single(.two(top: fixture.leading, bottom: fixture.trailing))))
-            #expect(fixture.coordinator.snapshot.panes.count == 2)
-            #expect(fixture.emissions.count == settled)
+            #expect(fixture.coordinator.snapshot.layout == settledLayout)
         }
-
         // EF4/AC-6: exercise collapse -> empty -> createIfEmpty -> split twice.
         for _ in 0..<2 {
             let fixture = makeFixture(orientation: .sideBySide)

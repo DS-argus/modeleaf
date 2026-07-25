@@ -107,8 +107,11 @@ final class ReaderRootView: NSView {
             let pane = configurePane(id, snapshot: snapshot, label: side == .leading ? "Left" : "Right")
             return pane
         case let .two(top, bottom):
-            let topView = configurePane(top, snapshot: snapshot, label: "Top")
-            let bottomView = configurePane(bottom, snapshot: snapshot, label: "Bottom")
+            let columnLabel = side == .leading ? "Left" : "Right"
+            let isSplit: Bool
+            if case .split = snapshot.layout { isSplit = true } else { isSplit = false }
+            let topView = configurePane(top, snapshot: snapshot, label: isSplit ? "\(columnLabel) Top" : "Top")
+            let bottomView = configurePane(bottom, snapshot: snapshot, label: isSplit ? "\(columnLabel) Bottom" : "Bottom")
             let container = side == .leading ? leadingStackContainer : trailingStackContainer
             container.install(leading: topView, trailing: bottomView, orientation: .stacked)
             return container

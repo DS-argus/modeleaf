@@ -698,6 +698,35 @@ struct PaneShellTests {
         #expect(coordinator.insert(origin, into: .createIfEmpty))
         return try #require(coordinator.split(direction: .sideBySide))
     }
+
+    @Test("asymmetric three-pane rendering nests only the stacked column")
+    func asymmetricNestedPaneRendering() throws {
+        let coordinator = PaneCoordinator()
+        var duplicates = [
+            StubReaderSession(id: TabID(), title: "Right top.pdf"),
+            StubReaderSession(id: TabID(), title: "Right bottom.pdf"),
+        ]
+        coordinator.configureDuplication { _ in duplicates.removeFirst() }
+        #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Left.pdf"), into: .createIfEmpty))
+        #expect(coordinator.split(direction: .sideBySide) != nil)
+        #expect(coordinator.split(direction: .stacked) != nil)
+        let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(configuration: BuiltInDefaults.config.theme), actionHandler: { _ in })
+        defer { controller.close() }
+
+        let layout = coordinator.snapshot.layout
+        guard case let .split(leading: .one(left), trailing: .two(top: rightTop, bottom: rightBottom)) = layout else {
+            Issue.record("Expected one-plus-two split layout")
+            return
+        }
+        let outer = try #require(firstDescendant(of: controller.rootView, as: PaneContainerView.self))
+        #expect(outer.isVertical)
+        #expect(outer.subviews.count == 2)
+        #expect(controller.rootView.paneViewForTesting(left)?.tabBar.trafficLightInset == WindowVisualMetrics.trafficLightInset)
+        #expect(controller.rootView.paneViewForTesting(rightTop)?.accessibilityLabel() == "Right Top pane")
+        #expect(controller.rootView.paneViewForTesting(rightBottom)?.accessibilityLabel() == "Right Bottom pane")
+        #expect(controller.rootView.paneViewForTesting(rightTop)?.tabBar.trafficLightInset == 0)
+        #expect(controller.rootView.paneViewForTesting(rightBottom)?.tabBar.trafficLightInset == 0)
+    }
 }
 
 private final class WeakPaneReference {

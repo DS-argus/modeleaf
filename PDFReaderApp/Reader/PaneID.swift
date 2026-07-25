@@ -75,6 +75,25 @@ enum PaneLayout: Equatable, Sendable {
     }
 
     func row(of id: PaneID) -> PaneRow? { column(containing: id)?.row(of: id) }
-}
 
+
+    func applyingSplit(_ orientation: PaneOrientation, to activePaneID: PaneID) -> ((PaneID) -> PaneLayout)? {
+        switch (orientation, self) {
+        case let (.sideBySide, .single(stack)):
+            return { destination in .split(leading: stack, trailing: .one(destination)) }
+        case let (.stacked, .single(.one(origin))) where origin == activePaneID:
+            return { destination in .single(.two(top: origin, bottom: destination)) }
+        case let (.stacked, .split(leading, trailing)):
+            if case let .one(origin) = leading, origin == activePaneID {
+                return { destination in .split(leading: .two(top: origin, bottom: destination), trailing: trailing) }
+            }
+            if case let .one(origin) = trailing, origin == activePaneID {
+                return { destination in .split(leading: leading, trailing: .two(top: origin, bottom: destination)) }
+            }
+            return nil
+        default:
+            return nil
+        }
+    }
+}
 enum PaneOpenTarget: Equatable, Sendable { case existing(PaneID), createIfEmpty }

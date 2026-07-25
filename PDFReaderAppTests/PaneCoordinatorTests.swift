@@ -106,7 +106,7 @@ struct PaneCoordinatorTests {
     func splitAndLimit() {
         let coordinator = PaneCoordinator()
         let origin = StubReaderSession(id: TabID(), title: "Origin.pdf", page: 4, zoom: 1.5)
-        let duplicate = StubReaderSession(id: TabID(), title: "Origin.pdf", page: 1, zoom: 1)
+        let duplicate = StubReaderSession(id: TabID(), title: "Origin.pdf", page: 4, zoom: 1.5)
         coordinator.configureDuplication { snapshot in
             #expect(snapshot.oneBasedPage == 4)
             #expect(snapshot.viewMode == .manual)
@@ -118,9 +118,71 @@ struct PaneCoordinatorTests {
         #expect(coordinator.snapshot.layout == .split(leading: .one(coordinator.snapshot.panes.keys.first(where: { $0 != destination })!), trailing: .one(destination)))
         #expect(coordinator.activePaneID == destination)
         #expect(coordinator.store(for: destination)?.snapshot.tabs.map(\.id) == [duplicate.id])
-        #expect(coordinator.split(direction: .stacked) == nil)
+        #expect(coordinator.split(direction: .stacked) != nil)
     }
 
+    @Test("split target matrix supports both axes through four panes")
+    func splitTargetMatrix() throws {
+        enum Topology: CaseIterable { case singleOne, singleTwo, splitOneOne, splitTwoOne, splitOneTwo, splitTwoTwo }
+        for topology in Topology.allCases {
+            for direction in [PaneOrientation.sideBySide, .stacked] {
+                let coordinator = PaneCoordinator()
+                var duplicationCalls = 0
+                coordinator.configureDuplication { _ in
+                    duplicationCalls += 1
+                    return StubReaderSession(id: TabID(), title: "Duplicate \(duplicationCalls).pdf")
+                }
+                var completionCalls = 0
+                var emissions = 0
+                coordinator.configureDuplicationCompletion { _, _ in completionCalls += 1 }
+                coordinator.onSnapshot = { _ in emissions += 1 }
+                #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Origin.pdf"), into: .createIfEmpty))
+                switch topology {
+                case .singleOne:
+                    break
+                case .singleTwo:
+                    #expect(coordinator.split(direction: .stacked) != nil)
+                case .splitOneOne:
+                    #expect(coordinator.split(direction: .sideBySide) != nil)
+                case .splitTwoOne:
+                    #expect(coordinator.split(direction: .sideBySide) != nil)
+                    #expect(coordinator.activatePane(coordinator.snapshot.layout.paneIDs.first!))
+                    #expect(coordinator.split(direction: .stacked) != nil)
+                case .splitOneTwo:
+                    #expect(coordinator.split(direction: .sideBySide) != nil)
+                    #expect(coordinator.split(direction: .stacked) != nil)
+                    #expect(coordinator.activatePane(coordinator.snapshot.layout.paneIDs.first!))
+                case .splitTwoTwo:
+                    #expect(coordinator.split(direction: .sideBySide) != nil)
+                    #expect(coordinator.split(direction: .stacked) != nil)
+                    #expect(coordinator.activatePane(coordinator.snapshot.layout.paneIDs.first!))
+                    #expect(coordinator.split(direction: .stacked) != nil)
+                }
+
+                let before = coordinator.snapshot
+                let callsBefore = duplicationCalls
+                let completionCallsBefore = completionCalls
+                let emissionsBefore = emissions
+                let result = coordinator.split(direction: direction)
+                let expectedSuccess = switch (topology, direction) {
+                case (.singleOne, _), (.singleTwo, .sideBySide), (.splitOneOne, .stacked), (.splitOneTwo, .stacked): true
+                default: false
+                }
+                #expect((result != nil) == expectedSuccess, "\(topology) / \(direction)")
+                #expect(duplicationCalls == callsBefore + (expectedSuccess ? 1 : 0))
+                #expect(completionCalls == completionCallsBefore + (expectedSuccess ? 1 : 0))
+                #expect(emissions == emissionsBefore + (expectedSuccess ? 1 : 0))
+                #expect(coordinator.snapshot.layout.paneIDs.count == before.layout.paneIDs.count + (expectedSuccess ? 1 : 0))
+                if expectedSuccess {
+                    #expect(coordinator.activePaneID == result)
+                    #expect(coordinator.snapshot.layout.contains(result!))
+                } else {
+                    #expect(coordinator.snapshot.layout == before.layout)
+                    #expect(coordinator.activePaneID == before.activePaneID)
+                }
+            }
+        }
+    }
     @Test("geometric focus and unsplit retain the active pane")
     func focusAndUnsplit() {
         let coordinator = PaneCoordinator()
