@@ -7,6 +7,7 @@ struct PaneCoordinatorSnapshot {
     let activePaneID: PaneID?
     let activeContentView: NSView?
     let paneContentViews: [PaneID: NSView]
+    let paneFocusViews: [PaneID: NSView]
     let activeFocusView: NSView?
     let activeStatus: ReaderStatusSnapshot?
     let windowTitle: String
@@ -274,7 +275,7 @@ final class PaneCoordinator {
     }
 
     private func makeEmptySnapshot() -> PaneCoordinatorSnapshot {
-        PaneCoordinatorSnapshot(layout: .empty, panes: [:], activePaneID: nil, activeContentView: nil, paneContentViews: [:], activeFocusView: nil, activeStatus: nil, windowTitle: "Modeleaf", inputContext: .navigation)
+        PaneCoordinatorSnapshot(layout: .empty, panes: [:], activePaneID: nil, activeContentView: nil, paneContentViews: [:], paneFocusViews: [:], activeFocusView: nil, activeStatus: nil, windowTitle: "Modeleaf", inputContext: .navigation)
     }
 
     private func makeSnapshot(layout: PaneLayout? = nil, activePaneID: PaneID? = nil, stores sourceStores: [PaneID: ReaderSessionStore]? = nil) -> PaneCoordinatorSnapshot {
@@ -284,8 +285,9 @@ final class PaneCoordinator {
         guard let effectiveActivePaneID, let activeStore = effectiveStores[effectiveActivePaneID], !activeStore.snapshot.isEmpty else { return makeEmptySnapshot() }
         let panes = Dictionary(uniqueKeysWithValues: effectiveStores.map { ($0.key, $0.value.snapshot) })
         let paneContentViews = Dictionary(uniqueKeysWithValues: effectiveStores.compactMap { id, store in store.activeSession.map { (id, $0.contentView) } })
+        let paneFocusViews = Dictionary(uniqueKeysWithValues: effectiveStores.compactMap { id, store in store.activeSession.map { (id, $0.focusView) } })
         let active = activeStore.activeSession
-        let result = PaneCoordinatorSnapshot(layout: effectiveLayout, panes: panes, activePaneID: effectiveActivePaneID, activeContentView: active?.contentView, paneContentViews: paneContentViews, activeFocusView: active?.focusView, activeStatus: active?.statusSnapshot, windowTitle: active.map { "\($0.title) — Modeleaf" } ?? "Modeleaf", inputContext: active?.preferredInputContext ?? .navigation)
+        let result = PaneCoordinatorSnapshot(layout: effectiveLayout, panes: panes, activePaneID: effectiveActivePaneID, activeContentView: active?.contentView, paneContentViews: paneContentViews, paneFocusViews: paneFocusViews, activeFocusView: active?.focusView, activeStatus: active?.statusSnapshot, windowTitle: active.map { "\($0.title) — Modeleaf" } ?? "Modeleaf", inputContext: active?.preferredInputContext ?? .navigation)
         result.assertCardinality()
         return result
     }

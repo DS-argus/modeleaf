@@ -406,13 +406,12 @@ final class TabBarView: NSView {
     private func refreshPaneAppearance() {
         guard let theme else { return }
         layer?.backgroundColor = theme.tabBarBackground.cgColor
-        if let paneIsActive {
-            layer?.borderWidth = paneIsActive ? WindowVisualMetrics.focusIndicatorWidth : 0
-            layer?.borderColor = paneIsActive ? theme.focusRing.cgColor : NSColor.clear.cgColor
-        } else {
-            layer?.borderWidth = 0
-            layer?.borderColor = NSColor.clear.cgColor
-        }
+        // No perimeter border: user review found the 2pt focus-ring outline
+        // loud and clashing with the canvas ring. Active-pane distinction
+        // lives in the per-tab styling (quieter selected tab on the inactive
+        // pane) plus the canvas focus ring and accessibility value.
+        layer?.borderWidth = 0
+        layer?.borderColor = NSColor.clear.cgColor
     }
 
     @discardableResult

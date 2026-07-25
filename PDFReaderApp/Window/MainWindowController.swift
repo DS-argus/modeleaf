@@ -181,6 +181,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func refresh(snapshot: PaneCoordinatorSnapshot) {
+        defer {
+            // Focus rings are first-responder driven, but PDFView moves first
+            // responder to internal views; recompute every visible pane's ring
+            // from the settled snapshot so a pane that lost focus indirectly
+            // never keeps a stale ring (user review item 3-5).
+            for view in snapshot.paneFocusViews.values {
+                (view as? ReaderPDFView)?.refreshFocusAppearance()
+            }
+            (snapshot.activeFocusView as? ReaderPDFView)?.refreshFocusAppearance()
+        }
         if snapshot.activeID != lastActiveSessionID {
             let reason: KeyInputInvalidationReason = lastActiveSessionID != nil && snapshot.activeID == nil
                 ? .sessionClosed

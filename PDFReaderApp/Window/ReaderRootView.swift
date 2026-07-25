@@ -132,7 +132,14 @@ final class ReaderRootView: NSView {
             tabBar.isHidden = snapshot.isEmpty
             render(snapshot: snapshot.activeStoreSnapshot, activeContentView: snapshot.activeContentView, sessionStatus: snapshot.activeStatus)
         case let .split(orientation, leadingOrTop, trailingOrBottom):
+            // The window-level tab bar fully collapses in split mode so the
+            // pane container (and the leading pane's tab bar) starts at the
+            // window top, aligned with the traffic lights. Invalidate the
+            // cached single-pane snapshot so returning to one pane restores
+            // the window tab bar height.
             tabBar.isHidden = true
+            tabBarHeightConstraint.constant = 0
+            renderedSessionSnapshot = nil
             emptyState.isHidden = true
             paneContainer.isHidden = false
             let leading = paneView(for: leadingOrTop, trafficLightInset: WindowVisualMetrics.trafficLightInset)

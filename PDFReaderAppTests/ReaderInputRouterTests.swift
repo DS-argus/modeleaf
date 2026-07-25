@@ -172,4 +172,31 @@ struct ReaderInputRouterTests {
             #expect(!router.handle(try #require(makeKeyEvent(characters: context == .pagePrompt ? "7" : "x"))))
         }
     }
+
+    @Test("pane bindings dispatch while browsing search results")
+    func paneBindingsDispatchFromSearchResults() throws {
+        // User review 1-6: splitting must not require leaving an active
+        // search. searchResults is a browsing context, not a typing context.
+        let validated = try #require(ConfigValidator.validate(SparseAppConfig()).validatedConfig)
+        var dispatches: [ActionID] = []
+        let router = ReaderInputRouter(
+            config: validated,
+            automaticallySchedulesTimeouts: false,
+            pendingHandler: { _ in },
+            dispatchHandler: { dispatches.append($0.actionID) }
+        )
+        router.synchronizeContext(.searchResults)
+
+        for event in [
+            try #require(makeKeyEvent(characters: "w", charactersIgnoringModifiers: "w", modifiers: [.control])),
+            try #require(makeKeyEvent(characters: "v")),
+        ] {
+            _ = router.handle(event)
+        }
+        #expect(dispatches == [.paneSplitRight])
+
+        dispatches.removeAll()
+        _ = router.handle(try #require(makeKeyEvent(characters: "l", charactersIgnoringModifiers: "l", modifiers: [.control])))
+        #expect(dispatches == [.paneFocusRight])
+    }
 }

@@ -114,7 +114,7 @@ struct ThemeAndShellTests {
         #expect(NSColor(cgColor: layerColor)?.hexRGB == "#123456")
         #expect(theme.canvasBackground.hexRGB == "#123456")
         #expect(controller.window?.firstResponder === readerView)
-        #expect(readerView.layer?.borderWidth == WindowVisualMetrics.focusIndicatorWidth)
+        #expect(readerView.layer?.borderWidth == WindowVisualMetrics.canvasFocusRingWidth)
         #expect(NSColor(cgColor: try #require(readerView.layer?.borderColor))?.hexRGB == "#FEDCBA")
 
         controller.presentPrompt(

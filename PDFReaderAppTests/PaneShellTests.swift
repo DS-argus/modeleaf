@@ -1,4 +1,5 @@
 import AppKit
+import PDFReaderTestSupport
 import Testing
 @testable import PDFReaderApp
 import PDFReaderCore
@@ -105,8 +106,11 @@ struct PaneShellTests {
             let trailing = try #require(controller.rootView.paneViewForTesting(fixture.trailing))
             #expect([leading, trailing].filter { $0.accessibilityValue() as? String == "active" }.count == 1)
             #expect(trailing.accessibilityValue() as? String == "active")
+            // Tab bars carry no perimeter border in any state (user review
+            // 3-6); the single active indicator is the accessibility value
+            // plus the active pane's hairline canvas focus ring.
             #expect(leading.tabBar.layer?.borderWidth == 0)
-            #expect(trailing.tabBar.layer?.borderWidth == WindowVisualMetrics.focusIndicatorWidth)
+            #expect(trailing.tabBar.layer?.borderWidth == 0)
         }
         #expect(controller.window?.title == "Duplicate.pdf — Modeleaf")
         #expect(controller.rootView.statusBar.presentation.page == "7 / 10")
@@ -563,6 +567,90 @@ struct PaneShellTests {
             pressure: 1
         )!
         window.sendEvent(event)
+    }
+
+    @Test("split mode collapses the window tab bar so pane tab bars reach the window top")
+    func splitCollapsesWindowTabBar() throws {
+        // User review 2-2: the leading pane's tab bar sat below the traffic
+        // lights because the hidden window-level tab bar kept its 34pt height.
+        let fixture = splitFixture()
+        let controller = MainWindowController(
+            coordinator: fixture.coordinator,
+            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            actionHandler: { _ in }
+        )
+        defer { controller.close() }
+        let root = controller.rootView
+        root.frame = NSRect(origin: .zero, size: WindowVisualMetrics.initialSize)
+        root.layoutSubtreeIfNeeded()
+
+        #expect(root.tabBar.isHidden)
+        #expect(root.tabBar.frame.height == 0)
+        let leadingPane = try #require(root.paneViewForTesting(fixture.leading))
+        // Top-aligned with the window: the pane's top edge equals the root's
+        // top edge (AppKit bottom-left origin => maxY comparison).
+        #expect(abs(leadingPane.convert(NSPoint(x: 0, y: leadingPane.bounds.maxY), to: root).y - root.bounds.maxY) < 0.5)
+
+        // Returning to a single pane restores the window tab bar height.
+        #expect(fixture.coordinator.unsplit())
+        root.layoutSubtreeIfNeeded()
+        #expect(!root.tabBar.isHidden)
+        #expect(root.tabBar.frame.height == WindowVisualMetrics.tabBarHeight)
+    }
+
+    @Test("exactly one hairline canvas ring survives split and pane switches")
+    func canvasRingFollowsActivePane() throws {
+        // User review 3-5: right after a split both canvases kept a focus
+        // ring because PDFView moves first responder to an internal view and
+        // the origin ring went stale.
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 2)
+            let service = PDFOpenService()
+            let origin = try service.open(url: url)
+            let coordinator = PaneCoordinator()
+            coordinator.configureDuplication { snapshot in try? service.open(url: snapshot.sourceURL) }
+            #expect(coordinator.insert(origin, into: .createIfEmpty))
+            let controller = MainWindowController(
+                coordinator: coordinator,
+                theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+                actionHandler: { _ in }
+            )
+            defer {
+                while coordinator.closeActiveTab() {}
+                controller.close()
+            }
+            let trailingID = try #require(coordinator.split(direction: .sideBySide))
+            let leadingID = try #require(coordinator.snapshot.panes.keys.first { $0 != trailingID })
+            controller.rootView.layoutSubtreeIfNeeded()
+
+            @MainActor func ringWidths() throws -> [PaneID: CGFloat] {
+                let snapshot = coordinator.snapshot
+                var widths: [PaneID: CGFloat] = [:]
+                for (id, view) in snapshot.paneFocusViews {
+                    let canvas = try #require(view as? ReaderPDFView)
+                    canvas.refreshFocusAppearance()
+                    widths[id] = canvas.layer?.borderWidth ?? -1
+                }
+                return widths
+            }
+
+            var widths = try ringWidths()
+            #expect(widths[trailingID] == WindowVisualMetrics.canvasFocusRingWidth)
+            #expect(widths[leadingID] == 0)
+
+            #expect(coordinator.activatePane(leadingID))
+            widths = try ringWidths()
+            #expect(widths[leadingID] == WindowVisualMetrics.canvasFocusRingWidth)
+            #expect(widths[trailingID] == 0)
+        }
+    }
+
+    private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pdf-reader-pane-shell-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: url) }
+        try body(url)
     }
 
     private func splitFixture(originPage: Int = 1, duplicatePage: Int = 1) -> (

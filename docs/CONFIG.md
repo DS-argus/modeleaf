@@ -27,7 +27,7 @@ large_scroll_viewport_fraction = 0.8
 zoom_factor = 1.1
 
 [input]
-prefix_timeout_ms = 300
+prefix_timeout_ms = 800
 
 [theme]
 built_in = "catppuccin-mocha"
@@ -97,7 +97,7 @@ accent = "#89B4FA"
 - 작은 스크롤: `48 pt` (허용 범위 `1...512`)
 - 큰 스크롤: `0.8 × viewport` (허용 범위 `0.1...2.0`)
 - 확대·축소 배율: `1.10` (허용 범위 `1.01...2.0`)
-- prefix timeout: `300 ms` (허용 범위 `100...2000`)
+- prefix timeout: `800 ms` (허용 범위 `100...2000`)
 - 초기 테마: `catppuccin-mocha`
 - 테마: `catppuccin-mocha`, `tokyo-night`, `gruvbox-dark`, `nord`
 
@@ -279,7 +279,7 @@ large_scroll_viewport_fraction = 0.8
 zoom_factor = 1.1
 
 [input]
-prefix_timeout_ms = 300
+prefix_timeout_ms = 800
 
 [theme]
 built_in = "catppuccin-mocha"

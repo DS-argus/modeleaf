@@ -179,7 +179,7 @@ final class ReaderPDFView: PDFView {
 
     func applyFocusIndicator(_ color: NSColor) {
         focusIndicatorColor = color
-        updateFocusAppearance(isFocused: window?.firstResponder === self)
+        refreshFocusAppearance()
     }
 
     func scrollBy(xPoints: Double, yPoints: Double) {
@@ -280,9 +280,21 @@ final class ReaderPDFView: PDFView {
         return window.makeFirstResponder(explicitTarget)
     }
 
+    /// Recomputes the focus ring from the window's actual first responder.
+    ///
+    /// PDFView routinely moves first-responder status to an internal document
+    /// view, so responder-override callbacks alone can leave a stale ring on a
+    /// pane that lost focus indirectly (e.g. right after a split). The shell
+    /// calls this on every settled snapshot render.
+    func refreshFocusAppearance() {
+        let responder = window?.firstResponder as? NSView
+        let focused = responder.map { $0 === self || $0.isDescendant(of: self) } ?? false
+        updateFocusAppearance(isFocused: focused)
+    }
+
     private func updateFocusAppearance(isFocused: Bool) {
         layer?.borderColor = focusIndicatorColor.cgColor
-        layer?.borderWidth = isFocused ? WindowVisualMetrics.focusIndicatorWidth : 0
+        layer?.borderWidth = isFocused ? WindowVisualMetrics.canvasFocusRingWidth : 0
     }
 
     private var documentScrollView: NSScrollView? {

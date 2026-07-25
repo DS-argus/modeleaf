@@ -133,7 +133,9 @@ struct KeyGrammarAndPromptSafetyTests {
         let promptContexts: Set<InputContext> = [.pagePrompt, .searchPrompt]
         for actionID in paneActions {
             let descriptor = try #require(ActionRegistry.v1.descriptor(for: actionID))
-            #expect(descriptor.activeContexts == [.navigation])
+            // Pane actions work while browsing search results (user review 1-6)
+            // but remain excluded from every prompt (typing) context.
+            #expect(descriptor.activeContexts == [.navigation, .searchResults])
             for context in promptContexts {
                 #expect(PromptSafeBindingPredicate.evaluate(
                     action: descriptor,

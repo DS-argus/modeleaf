@@ -26,7 +26,7 @@ struct KeySequenceEngineTests {
         #expect(pending.sequence.description == "g")
         #expect(pending.exactAction == .pagePrompt)
         #expect(pending.hasLongerMatches)
-        #expect(pending.timeoutMilliseconds == 300)
+        #expect(pending.timeoutMilliseconds == 800)
         #expect(pending.epoch == PrefixEpoch(rawValue: 1))
     }
 

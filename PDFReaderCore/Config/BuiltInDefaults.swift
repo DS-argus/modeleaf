@@ -15,7 +15,7 @@ public enum BuiltInDefaults {
             largeScrollViewportFraction: 0.8,
             zoomFactor: 1.10
         ),
-        input: InputConfiguration(prefixTimeoutMilliseconds: 300),
+        input: InputConfiguration(prefixTimeoutMilliseconds: 800),
         theme: ThemeConfiguration(builtIn: .catppuccinMocha)
     )
 

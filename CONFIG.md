@@ -89,13 +89,13 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `view.zoomReset` | unbound | `navigation`, `searchResults` | `suppressed` |
 | `view.fitWidth` | `w` | `navigation`, `searchResults` | `suppressed` |
 | `view.fitPage` | `f` | `navigation`, `searchResults` | `suppressed` |
-| `pane.splitRight` | `<C-w>v` | `navigation` | `suppressed` |
-| `pane.splitDown` | `<C-w>s` | `navigation` | `suppressed` |
-| `pane.focusLeft` | `<C-h>` | `navigation` | `suppressed` |
-| `pane.focusDown` | `<C-j>` | `navigation` | `suppressed` |
-| `pane.focusUp` | `<C-k>` | `navigation` | `suppressed` |
-| `pane.focusRight` | `<C-l>` | `navigation` | `suppressed` |
-| `pane.unsplit` | `<C-w>o` | `navigation` | `suppressed` |
+| `pane.splitRight` | `<C-w>v` | `navigation`, `searchResults` | `suppressed` |
+| `pane.splitDown` | `<C-w>s` | `navigation`, `searchResults` | `suppressed` |
+| `pane.focusLeft` | `<C-h>` | `navigation`, `searchResults` | `suppressed` |
+| `pane.focusDown` | `<C-j>` | `navigation`, `searchResults` | `suppressed` |
+| `pane.focusUp` | `<C-k>` | `navigation`, `searchResults` | `suppressed` |
+| `pane.focusRight` | `<C-l>` | `navigation`, `searchResults` | `suppressed` |
+| `pane.unsplit` | `<C-w>o` | `navigation`, `searchResults` | `suppressed` |
 
 ## Built-in values
 
@@ -288,7 +288,7 @@ large_scroll_viewport_fraction = 0.8
 zoom_factor = 1.1
 
 [input]
-prefix_timeout_ms = 300
+prefix_timeout_ms = 800
 
 [theme]
 built_in = "catppuccin-mocha"

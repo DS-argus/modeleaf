@@ -80,12 +80,12 @@ public struct ActionRegistry: Sendable {
         ActionDescriptor(id: .viewFitWidth, title: "Fit Width", scope: .contexts(readerContexts)),
         ActionDescriptor(id: .viewFitPage, title: "Fit Page", scope: .contexts(readerContexts)),
 
-        ActionDescriptor(id: .paneSplitRight, title: "Split Right", scope: .contexts([.navigation]), repeatPolicy: .suppressed),
-        ActionDescriptor(id: .paneSplitDown, title: "Split Down", scope: .contexts([.navigation]), repeatPolicy: .suppressed),
-        ActionDescriptor(id: .paneFocusLeft, title: "Focus Left Pane", scope: .contexts([.navigation]), repeatPolicy: .suppressed),
-        ActionDescriptor(id: .paneFocusDown, title: "Focus Down Pane", scope: .contexts([.navigation]), repeatPolicy: .suppressed),
-        ActionDescriptor(id: .paneFocusUp, title: "Focus Up Pane", scope: .contexts([.navigation]), repeatPolicy: .suppressed),
-        ActionDescriptor(id: .paneFocusRight, title: "Focus Right Pane", scope: .contexts([.navigation]), repeatPolicy: .suppressed),
-        ActionDescriptor(id: .paneUnsplit, title: "Close Other Pane", scope: .contexts([.navigation]), repeatPolicy: .suppressed),
+        ActionDescriptor(id: .paneSplitRight, title: "Split Right", scope: .contexts([.navigation, .searchResults]), repeatPolicy: .suppressed),
+        ActionDescriptor(id: .paneSplitDown, title: "Split Down", scope: .contexts([.navigation, .searchResults]), repeatPolicy: .suppressed),
+        ActionDescriptor(id: .paneFocusLeft, title: "Focus Left Pane", scope: .contexts([.navigation, .searchResults]), repeatPolicy: .suppressed),
+        ActionDescriptor(id: .paneFocusDown, title: "Focus Down Pane", scope: .contexts([.navigation, .searchResults]), repeatPolicy: .suppressed),
+        ActionDescriptor(id: .paneFocusUp, title: "Focus Up Pane", scope: .contexts([.navigation, .searchResults]), repeatPolicy: .suppressed),
+        ActionDescriptor(id: .paneFocusRight, title: "Focus Right Pane", scope: .contexts([.navigation, .searchResults]), repeatPolicy: .suppressed),
+        ActionDescriptor(id: .paneUnsplit, title: "Close Other Pane", scope: .contexts([.navigation, .searchResults]), repeatPolicy: .suppressed),
     ]
 }

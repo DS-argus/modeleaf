@@ -13,6 +13,9 @@ enum WindowVisualMetrics {
     static let cornerRadius: CGFloat = 8
     static let compactCornerRadius: CGFloat = 6
     static let focusIndicatorWidth: CGFloat = 2
+    /// Width of the active-pane PDF canvas focus ring. Deliberately hairline:
+    /// user review found the 2pt ring visually heavy in split layouts.
+    static let canvasFocusRingWidth: CGFloat = 1
 }
 
 @MainActor
