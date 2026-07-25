@@ -63,6 +63,26 @@ struct ReaderSessionTests {
         }
     }
 
+
+    @Test("seeded duplicate presentation applies page and all view modes after mounting")
+    func seededDuplicatePresentation() throws {
+        for (mode, scale) in [(ReaderViewMode.manual, 1.25), (.actualSize, 1.0), (.fitWidth, 1.0), (.fitPage, 1.0)] {
+            try withSession(pageCount: 3) { session, sourceURL in
+                session.seedPendingPresentation(ReaderDuplicationSnapshot(sourceURL: sourceURL, oneBasedPage: 2, viewMode: mode, scaleFactor: scale))
+                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 480), styleMask: [.titled], backing: .buffered, defer: false)
+                window.contentView = session.contentView
+                session.contentView.frame = window.contentLayoutRect
+                session.contentView.layoutSubtreeIfNeeded()
+                #expect(session.initialPresentationState == .applied)
+                #expect(session.currentPageNumber == 2)
+                #expect(session.viewMode == mode)
+                if mode == .manual || mode == .actualSize {
+                    #expect(abs(session.scaleFactor - scale) < 0.0001)
+                }
+            }
+        }
+    }
+
     @Test("I-PDF-03 page navigation is one-based, directional, and explicit-range safe")
     func pageNavigation() throws {
         try withSession(pageCount: 3) { session, _ in

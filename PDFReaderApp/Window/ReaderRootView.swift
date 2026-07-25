@@ -8,10 +8,16 @@ final class ReaderRootView: NSView {
     let statusBar = StatusBarView()
     let promptOverlay = PromptOverlayView()
     private let contentHost = NSView()
+    private let paneContainer = PaneContainerView(orientation: .sideBySide)
+    private var paneViews: [PaneID: PaneView] = [:]
+    private var theme: AppKitTheme?
     private var tabBarHeightConstraint: NSLayoutConstraint!
     private weak var presentedContentView: NSView?
     private var currentStatus = StatusBarPresentation.empty
     private var readerInputContext: InputContext?
+    var onPaneSelect: ((PaneID, TabID) -> Void)?
+    var onPaneClose: ((PaneID, TabID) -> Void)?
+    var onPaneNewTab: ((PaneID) -> Void)?
     private var renderedSessionSnapshot: ReaderSessionStoreSnapshot?
 
     override init(frame frameRect: NSRect) {
@@ -25,6 +31,15 @@ final class ReaderRootView: NSView {
         }
         emptyState.prepareForAutoLayout()
         contentHost.addSubview(emptyState)
+        paneContainer.prepareForAutoLayout()
+        contentHost.addSubview(paneContainer)
+        NSLayoutConstraint.activate([
+            paneContainer.topAnchor.constraint(equalTo: contentHost.topAnchor),
+            paneContainer.leadingAnchor.constraint(equalTo: contentHost.leadingAnchor),
+            paneContainer.trailingAnchor.constraint(equalTo: contentHost.trailingAnchor),
+            paneContainer.bottomAnchor.constraint(equalTo: contentHost.bottomAnchor),
+        ])
+        paneContainer.isHidden = true
 
         tabBarHeightConstraint = tabBar.heightAnchor.constraint(equalToConstant: 0)
         let preferredPromptWidth = promptOverlay.widthAnchor.constraint(
@@ -68,6 +83,8 @@ final class ReaderRootView: NSView {
     }
 
     func apply(theme: AppKitTheme) {
+        self.theme = theme
+        for pane in paneViews.values { pane.apply(theme: theme) }
         layer?.backgroundColor = theme[.background].cgColor
         contentHost.wantsLayer = true
         contentHost.layer?.backgroundColor = theme[.background].cgColor
@@ -103,6 +120,44 @@ final class ReaderRootView: NSView {
             currentStatus = .empty
         }
         statusBar.render(currentStatus)
+    }
+
+    func render(snapshot: PaneCoordinatorSnapshot) {
+        switch snapshot.layout {
+        case .empty, .single:
+            paneContainer.isHidden = true
+            tabBar.isHidden = snapshot.isEmpty
+            render(snapshot: snapshot.activeStoreSnapshot, activeContentView: snapshot.activeContentView, sessionStatus: snapshot.activeStatus)
+        case let .split(orientation, leadingOrTop, trailingOrBottom):
+            tabBar.isHidden = true
+            emptyState.isHidden = true
+            paneContainer.isHidden = false
+            let leading = paneView(for: leadingOrTop, trafficLightInset: WindowVisualMetrics.trafficLightInset)
+            let trailing = paneView(for: trailingOrBottom, trafficLightInset: 0)
+            leading.render(snapshot: snapshot.panes[leadingOrTop]!, contentView: snapshot.paneContentViews[leadingOrTop])
+            trailing.render(snapshot: snapshot.panes[trailingOrBottom]!, contentView: snapshot.paneContentViews[trailingOrBottom])
+            paneContainer.install(leadingOrTop: leading, trailingOrBottom: trailing, orientation: orientation)
+            if let sessionStatus = snapshot.activeStatus {
+                currentStatus.context = readerInputContext.map(Self.statusLabel(for:)) ?? sessionStatus.context
+                currentStatus.page = sessionStatus.page
+                currentStatus.zoom = sessionStatus.zoom
+                currentStatus.detail = sessionStatus.detail
+                currentStatus.expandedDetail = nil
+                currentStatus.tone = .normal
+            }
+            statusBar.render(currentStatus)
+        }
+    }
+
+    private func paneView(for id: PaneID, trafficLightInset: CGFloat) -> PaneView {
+        if let pane = paneViews[id] { return pane }
+        let pane = PaneView(id: id, trafficLightInset: trafficLightInset)
+        if let theme { pane.apply(theme: theme) }
+        paneViews[id] = pane
+        pane.onSelect = { [weak self] tabID in self?.onPaneSelect?(id, tabID) }
+        pane.onClose = { [weak self] tabID in self?.onPaneClose?(id, tabID) }
+        pane.onNewTab = { [weak self] in self?.onPaneNewTab?(id) }
+        return pane
     }
 
     func setInputContext(_ context: InputContext) {

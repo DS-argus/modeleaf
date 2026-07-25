@@ -38,6 +38,13 @@
 "view.zoomReset" = []
 "view.fitWidth" = ["w"]
 "view.fitPage" = ["f"]
+"pane.splitRight" = ["<C-w>v"]
+"pane.splitDown" = ["<C-w>s"]
+"pane.focusLeft" = ["<C-h>"]
+"pane.focusDown" = ["<C-j>"]
+"pane.focusUp" = ["<C-k>"]
+"pane.focusRight" = ["<C-l>"]
+"pane.unsplit" = ["<C-w>o"]
 
 [navigation]
 small_scroll_points = 48.0

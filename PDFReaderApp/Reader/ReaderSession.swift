@@ -338,3 +338,23 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         return "\(active) / \(search.matchCount) · “\(search.query)”"
     }
 }
+
+
+extension ReaderSession: ReaderDuplicationSnapshotProviding {
+    var duplicationSnapshot: ReaderDuplicationSnapshot {
+        ReaderDuplicationSnapshot(
+            sourceURL: sourceURL,
+            oneBasedPage: currentPageNumber ?? 1,
+            viewMode: viewMode,
+            scaleFactor: scaleFactor
+        )
+    }
+
+    func seedPendingPresentation(_ snapshot: ReaderDuplicationSnapshot) {
+        viewController.seedPresentation(
+            page: snapshot.oneBasedPage,
+            viewMode: snapshot.viewMode,
+            scaleFactor: snapshot.scaleFactor
+        )
+    }
+}

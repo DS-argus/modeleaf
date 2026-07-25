@@ -3,7 +3,7 @@ import PDFReaderCore
 
 @MainActor
 final class MainWindowController: NSWindowController, NSWindowDelegate {
-    private unowned let sessionStore: ReaderSessionStore
+    private let coordinator: PaneCoordinator
     private let actionHandler: (ActionID) -> Void
     private let inputRouter: ReaderInputRouter
     private var lastActiveSessionID: TabID?
@@ -11,13 +11,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     let rootView: ReaderRootView
 
     init(
-        sessionStore: ReaderSessionStore,
+        coordinator: PaneCoordinator,
         theme: AppKitTheme,
         actionHandler: @escaping (ActionID) -> Void,
         keyDispatchHandler: ((KeyActionDispatch) -> Void)? = nil,
         validatedConfig: ValidatedAppConfig? = nil
     ) {
-        self.sessionStore = sessionStore
+        self.coordinator = coordinator
         self.actionHandler = actionHandler
         self.rootView = ReaderRootView(frame: NSRect(origin: .zero, size: WindowVisualMetrics.initialSize))
         let config = validatedConfig ?? Self.builtInValidatedConfig()
@@ -54,12 +54,37 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.tabBar.onSelect = { [weak self] id in self?.dispatchTabSelection(to: id) }
         rootView.tabBar.onClose = { [weak self] id in self?.dispatchTabClose(id) }
         rootView.tabBar.onNewTab = { [weak self] in self?.actionHandler(.documentOpen) }
+        rootView.onPaneSelect = { [weak self] paneID, tabID in
+            guard let self else { return }
+            self.coordinator.activatePane(paneID)
+            self.dispatchTabSelection(to: tabID)
+        }
+        rootView.onPaneClose = { [weak self] paneID, tabID in
+            guard let self else { return }
+            self.coordinator.activatePane(paneID)
+            self.dispatchTabClose(tabID)
+        }
+        rootView.onPaneNewTab = { [weak self] paneID in
+            self?.coordinator.activatePane(paneID)
+            self?.actionHandler(.documentOpen)
+        }
         rootView.promptOverlay.commitButton.handler = { [weak self] in self?.actionHandler(.promptCommit) }
         rootView.promptOverlay.cancelButton.handler = { [weak self] in self?.actionHandler(.promptCancel) }
-        sessionStore.onChange = { [weak self] _ in self?.refresh() }
+        coordinator.onSnapshot = { [weak self] _ in self?.refresh() }
         refresh()
     }
 
+    convenience init(
+        sessionStore: ReaderSessionStore,
+        theme: AppKitTheme,
+        actionHandler: @escaping (ActionID) -> Void,
+        keyDispatchHandler: ((KeyActionDispatch) -> Void)? = nil,
+        validatedConfig: ValidatedAppConfig? = nil
+    ) {
+        let coordinator = PaneCoordinator.legacy(sessionStore)
+        self.init(coordinator: coordinator, theme: theme, actionHandler: actionHandler, keyDispatchHandler: keyDispatchHandler, validatedConfig: validatedConfig)
+        coordinator.observeLegacyStore()
+    }
     required init?(coder: NSCoder) {
         nil
     }
@@ -122,7 +147,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func prepareForGlobalAction() {
         rootView.promptOverlay.discardMarkedComposition()
         dismissPromptAndRestoreFocus(
-            to: sessionStore.activeSession?.preferredInputContext ?? .navigation,
+            to: coordinator.activeSession?.preferredInputContext ?? .navigation,
             reason: .explicitCancel
         )
     }
@@ -152,8 +177,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func refresh() {
-        let snapshot = sessionStore.snapshot
-        let active = sessionStore.activeSession
+        let snapshot = coordinator.snapshot
+        let active = coordinator.activeSession
         if snapshot.activeID != lastActiveSessionID {
             let reason: KeyInputInvalidationReason = lastActiveSessionID != nil && snapshot.activeID == nil
                 ? .sessionClosed
@@ -168,13 +193,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             rootView.setInputContext(context)
             lastActiveSessionID = snapshot.activeID
         }
-        rootView.render(
-            snapshot: snapshot,
-            activeContentView: active?.contentView,
-            sessionStatus: active?.statusSnapshot
-        )
+        rootView.render(snapshot: snapshot)
         rebuildKeyViewLoop()
-        window?.title = active.map { "\($0.title) — Modeleaf" } ?? "Modeleaf"
+        window?.title = snapshot.windowTitle
         focusActiveSurface()
     }
 
@@ -184,7 +205,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
 
         var views: [NSView] = []
-        if let active = sessionStore.activeSession {
+        if let active = coordinator.activeSession {
             views.append(active.focusView)
             if !rootView.promptOverlay.isHidden {
                 views.append(contentsOf: [
@@ -211,15 +232,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     private func focusActiveSurface() {
         guard rootView.promptOverlay.isHidden else { return }
-        if let active = sessionStore.activeSession, active.focusView.acceptsFirstResponder {
+        if let active = coordinator.activeSession, active.focusView.acceptsFirstResponder {
             window?.makeFirstResponder(active.focusView)
-        } else if sessionStore.snapshot.isEmpty {
+        } else if coordinator.snapshot.isEmpty {
             window?.makeFirstResponder(rootView.emptyState.openButton)
         }
     }
 
     private func dispatchTabSelection(to targetID: TabID) {
-        let snapshot = sessionStore.snapshot
+        let snapshot = coordinator.snapshot
         guard let activeID = snapshot.activeID,
               activeID != targetID,
               let activeIndex = snapshot.tabs.firstIndex(where: { $0.id == activeID }),
@@ -239,16 +260,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func dispatchTabClose(_ targetID: TabID) {
-        let originalActiveID = sessionStore.snapshot.activeID
-        guard sessionStore.session(for: targetID) != nil else { return }
+        let originalActiveID = coordinator.snapshot.activeID
+        guard coordinator.session(for: targetID) != nil else { return }
 
         dispatchTabSelection(to: targetID)
-        guard sessionStore.snapshot.activeID == targetID else { return }
+        guard coordinator.snapshot.activeID == targetID else { return }
         actionHandler(.documentClose)
 
         guard let originalActiveID,
               originalActiveID != targetID,
-              sessionStore.session(for: originalActiveID) != nil
+              coordinator.session(for: originalActiveID) != nil
         else {
             return
         }

@@ -28,6 +28,7 @@ final class PDFViewController: NSViewController {
     private(set) var initialPresentationState: InitialPDFPresentationState = .pending
     private var searchPalette = SearchHighlightPalette.default
     private var searchSelections: [PDFSelection] = []
+    private var pendingPresentation: (page: Int, mode: ReaderViewMode, scale: CGFloat)?
     private var activeSearchIndex: Int?
 
     init(document: PDFDocument, traceID: OpenTraceID, metrics: any PDFOpenMetrics) {
@@ -180,6 +181,13 @@ final class PDFViewController: NSViewController {
         viewMode = .fitPage
     }
 
+
+    func seedPresentation(page: Int, viewMode: ReaderViewMode, scaleFactor: Double) {
+        guard page >= 1, page <= initialDocument.pageCount, scaleFactor.isFinite, scaleFactor > 0 else { return }
+        pendingPresentation = (page, viewMode, CGFloat(scaleFactor))
+        initialPresentationState = .pending
+    }
+
     func clearSelection() {
         loadViewIfNeeded()
         readerView.currentSelection = nil
@@ -231,6 +239,31 @@ final class PDFViewController: NSViewController {
         }
 
         initialPresentationState = .applying
+        if let pendingPresentation {
+            guard let page = initialDocument.page(at: pendingPresentation.page - 1) else { return }
+            readerView.go(to: page)
+            switch pendingPresentation.mode {
+            case .manual:
+                readerView.displayMode = .singlePage
+                readerView.autoScales = false
+                readerView.scaleFactor = pendingPresentation.scale
+            case .actualSize:
+                readerView.displayMode = .singlePage
+                readerView.autoScales = false
+                readerView.scaleFactor = pendingPresentation.scale
+            case .fitWidth:
+                readerView.displayMode = .singlePageContinuous
+                readerView.autoScales = true
+            case .fitPage:
+                readerView.displayMode = .singlePage
+                readerView.autoScales = true
+            }
+            readerView.layoutDocumentView()
+            viewMode = pendingPresentation.mode
+            self.pendingPresentation = nil
+            initialPresentationState = .applied
+            return
+        }
         readerView.displayMode = .singlePage
         readerView.autoScales = true
         readerView.go(to: firstPage)

@@ -89,6 +89,13 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `view.zoomReset` | unbound | `navigation`, `searchResults` | `suppressed` |
 | `view.fitWidth` | `w` | `navigation`, `searchResults` | `suppressed` |
 | `view.fitPage` | `f` | `navigation`, `searchResults` | `suppressed` |
+| `pane.splitRight` | `<C-w>v` | `navigation` | `suppressed` |
+| `pane.splitDown` | `<C-w>s` | `navigation` | `suppressed` |
+| `pane.focusLeft` | `<C-h>` | `navigation` | `suppressed` |
+| `pane.focusDown` | `<C-j>` | `navigation` | `suppressed` |
+| `pane.focusUp` | `<C-k>` | `navigation` | `suppressed` |
+| `pane.focusRight` | `<C-l>` | `navigation` | `suppressed` |
+| `pane.unsplit` | `<C-w>o` | `navigation` | `suppressed` |
 
 ## Built-in values
 
@@ -267,6 +274,13 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 "view.zoomReset" = []
 "view.fitWidth" = ["w"]
 "view.fitPage" = ["f"]
+"pane.splitRight" = ["<C-w>v"]
+"pane.splitDown" = ["<C-w>s"]
+"pane.focusLeft" = ["<C-h>"]
+"pane.focusDown" = ["<C-j>"]
+"pane.focusUp" = ["<C-k>"]
+"pane.focusRight" = ["<C-l>"]
+"pane.unsplit" = ["<C-w>o"]
 
 [navigation]
 small_scroll_points = 48.0

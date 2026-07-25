@@ -66,6 +66,14 @@ public enum MenuItemRegistry {
         MenuItemDefinition(identifier: "view.actual-size", title: "Actual Size", actionID: .viewZoomReset, placement: .view),
         MenuItemDefinition(identifier: "view.fit-width", title: "Fit Width", actionID: .viewFitWidth, placement: .view),
         MenuItemDefinition(identifier: "view.fit-page", title: "Fit Page", actionID: .viewFitPage, placement: .view),
+
+        MenuItemDefinition(identifier: "navigation.split-right", title: "Split Right", actionID: .paneSplitRight, placement: .navigation),
+        MenuItemDefinition(identifier: "navigation.split-down", title: "Split Down", actionID: .paneSplitDown, placement: .navigation),
+        MenuItemDefinition(identifier: "navigation.focus-left-pane", title: "Focus Left Pane", actionID: .paneFocusLeft, placement: .navigation),
+        MenuItemDefinition(identifier: "navigation.focus-down-pane", title: "Focus Down Pane", actionID: .paneFocusDown, placement: .navigation),
+        MenuItemDefinition(identifier: "navigation.focus-up-pane", title: "Focus Up Pane", actionID: .paneFocusUp, placement: .navigation),
+        MenuItemDefinition(identifier: "navigation.focus-right-pane", title: "Focus Right Pane", actionID: .paneFocusRight, placement: .navigation),
+        MenuItemDefinition(identifier: "navigation.close-other-pane", title: "Close Other Pane", actionID: .paneUnsplit, placement: .navigation),
     ]
 }
 

@@ -27,7 +27,7 @@ enum AppKitKeyEventAdapter {
         }
 
         let unmodifiedCharacters = modifiers.contains(.shift)
-            ? event.characters(byApplyingModifiers: [])
+            ? unmodifiedCharacters(for: event)
             : nil
         let chordCharacter = unmodifiedCharacters.flatMap {
             $0.count == 1 ? $0.first : nil
@@ -41,6 +41,20 @@ enum AppKitKeyEventAdapter {
         return candidates.removingDuplicates()
     }
 
+    /// Layout translation used for physical-key chord candidates.
+    ///
+    /// `NSEvent.characters(byApplyingModifiers:)` consults the system's current
+    /// keyboard layout, which makes synthesized test events dependent on the
+    /// machine's active input source (e.g. a Hangul layout translates key code
+    /// 5 to "\u{314E}" instead of "g"). Tests may pin this seam to a
+    /// deterministic translation; production always uses the live layout.
+    nonisolated(unsafe) static var unmodifiedCharactersProvider: (NSEvent) -> String? = {
+        $0.characters(byApplyingModifiers: [])
+    }
+
+    private static func unmodifiedCharacters(for event: NSEvent) -> String? {
+        unmodifiedCharactersProvider(event)
+    }
     private static func keyModifiers(from flags: NSEvent.ModifierFlags) -> KeyModifiers {
         let flags = flags.intersection(.deviceIndependentFlagsMask)
         var result: KeyModifiers = []

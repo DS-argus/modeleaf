@@ -62,6 +62,15 @@ public enum BuiltInDefaults {
         .viewZoomReset: [],
         .viewFitWidth: sequences("w"),
         .viewFitPage: sequences("f"),
+
+
+        .paneSplitRight: sequences("<C-w>v"),
+        .paneSplitDown: sequences("<C-w>s"),
+        .paneFocusLeft: sequences("<C-h>"),
+        .paneFocusDown: sequences("<C-j>"),
+        .paneFocusUp: sequences("<C-k>"),
+        .paneFocusRight: sequences("<C-l>"),
+        .paneUnsplit: sequences("<C-w>o"),
     ]
 
     public static var defaultConfigTOML: String {

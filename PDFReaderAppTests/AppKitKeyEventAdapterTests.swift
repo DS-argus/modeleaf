@@ -6,6 +6,18 @@ import Testing
 @Suite("AppKit key event adaptation")
 @MainActor
 struct AppKitKeyEventAdapterTests {
+    /// Pins the adapter's layout-translation seam so synthesized Shift-chord
+    /// events do not depend on the machine's active keyboard input source.
+    private func withPinnedUnmodifiedCharacters(
+        _ value: String,
+        _ body: () throws -> Void
+    ) rethrows {
+        let original = AppKitKeyEventAdapter.unmodifiedCharactersProvider
+        AppKitKeyEventAdapter.unmodifiedCharactersProvider = { _ in value }
+        defer { AppKitKeyEventAdapter.unmodifiedCharactersProvider = original }
+        try body()
+    }
+
     @Test("literal uppercase Vim keys are preferred while explicit Shift chords remain candidates")
     func uppercaseCandidates() throws {
         let event = try #require(makeKeyEvent(
@@ -15,7 +27,9 @@ struct AppKitKeyEventAdapterTests {
             keyCode: 5
         ))
 
-        #expect(AppKitKeyEventAdapter.tokens(for: event).map(\.description) == ["G", "<S-g>"])
+        try withPinnedUnmodifiedCharacters("g") {
+            #expect(AppKitKeyEventAdapter.tokens(for: event).map(\.description) == ["G", "<S-g>"])
+        }
     }
 
     @Test("real AppKit Shift semantics still produce literal uppercase Vim keys")
@@ -27,9 +41,11 @@ struct AppKitKeyEventAdapterTests {
             keyCode: 45
         ))
 
-        let candidates = AppKitKeyEventAdapter.tokens(for: event).map(\.description)
-        #expect(candidates.first == "N")
-        #expect(candidates.contains("<S-n>"))
+        try withPinnedUnmodifiedCharacters("n") {
+            let candidates = AppKitKeyEventAdapter.tokens(for: event).map(\.description)
+            #expect(candidates.first == "N")
+            #expect(candidates.contains("<S-n>"))
+        }
     }
 
     @Test("Shift-produced punctuation is preferred before the physical key chord")
@@ -41,10 +57,12 @@ struct AppKitKeyEventAdapterTests {
             keyCode: 24
         ))
 
-        #expect(
-            AppKitKeyEventAdapter.tokens(for: event).map(\.description)
-                == ["+", "<S-=>", "<S-Equal>"]
-        )
+        try withPinnedUnmodifiedCharacters("=") {
+            #expect(
+                AppKitKeyEventAdapter.tokens(for: event).map(\.description)
+                    == ["+", "<S-=>", "<S-Equal>"]
+            )
+        }
     }
 
     @Test("Option and Command chords do not become produced-character literals")

@@ -222,6 +222,37 @@ final class TabBarView: NSView {
     var orderedKeyViews: [NSView] { itemViews.flatMap(\.orderedKeyViews) + [newTabButton] }
     override var mouseDownCanMoveWindow: Bool { false }
 
+    /// Pane-scoped accessibility namespace. When set, the tab bar and its
+    /// new-tab control expose pane-qualified identifiers; single-pane windows
+    /// keep the historical unscoped identifiers.
+    var accessibilityScope: String? {
+        didSet {
+            guard accessibilityScope != oldValue else { return }
+            applyAccessibilityIdentifiers()
+        }
+    }
+
+    /// Leading inset reserving space for the window traffic lights. Only the
+    /// pane occupying the window's top-left applies the reservation; other
+    /// panes pass 0.
+    var trafficLightInset: CGFloat = WindowVisualMetrics.trafficLightInset {
+        didSet {
+            guard trafficLightInset != oldValue else { return }
+            stackView.edgeInsets.left = trafficLightInset
+            needsLayout = true
+        }
+    }
+
+    private func applyAccessibilityIdentifiers() {
+        if let accessibilityScope {
+            setAccessibilityIdentifier("\(accessibilityScope).tabBar")
+            newTabButton.setAccessibilityIdentifier("\(accessibilityScope).tab.new")
+        } else {
+            setAccessibilityIdentifier("tabBar")
+            newTabButton.setAccessibilityIdentifier("tab.new")
+        }
+    }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
@@ -235,7 +266,7 @@ final class TabBarView: NSView {
         stackView.spacing = TabBarLayoutMetrics.spacing
         stackView.edgeInsets = NSEdgeInsets(
             top: 4,
-            left: WindowVisualMetrics.trafficLightInset,
+            left: trafficLightInset,
             bottom: 4,
             right: TabBarLayoutMetrics.trailingInset
         )
@@ -363,7 +394,7 @@ final class TabBarView: NSView {
 
         let tabCount = itemViews.count
         let spacingWidth = CGFloat(max(0, tabCount - 1)) * TabBarLayoutMetrics.spacing
-        let regularContentWidth = WindowVisualMetrics.trafficLightInset
+        let regularContentWidth = trafficLightInset
             + TabBarLayoutMetrics.trailingInset
             + CGFloat(tabCount) * TabBarLayoutMetrics.regularTabWidth
             + spacingWidth
@@ -380,7 +411,7 @@ final class TabBarView: NSView {
         }
 
         let inactiveCount = max(0, tabCount - 1)
-        let fixedCompactWidth = WindowVisualMetrics.trafficLightInset
+        let fixedCompactWidth = trafficLightInset
             + TabBarLayoutMetrics.trailingInset
             + CGFloat(inactiveCount) * TabBarLayoutMetrics.compactInactiveTabWidth
             + spacingWidth

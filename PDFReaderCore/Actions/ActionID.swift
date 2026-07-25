@@ -43,4 +43,12 @@ public enum ActionID: String, CaseIterable, Codable, Hashable, Sendable {
     case viewZoomReset = "view.zoomReset"
     case viewFitWidth = "view.fitWidth"
     case viewFitPage = "view.fitPage"
+
+    case paneSplitRight = "pane.splitRight"
+    case paneSplitDown = "pane.splitDown"
+    case paneFocusLeft = "pane.focusLeft"
+    case paneFocusDown = "pane.focusDown"
+    case paneFocusUp = "pane.focusUp"
+    case paneFocusRight = "pane.focusRight"
+    case paneUnsplit = "pane.unsplit"
 }
