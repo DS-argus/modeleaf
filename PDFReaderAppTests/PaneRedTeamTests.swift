@@ -10,7 +10,8 @@ import Testing
 struct PaneRedTeamTests {
     @Test("adversarial pane state-machine matrix")
     func adversarialStateMachineMatrix() throws {
-        // AC-2: each axis remains available until its target reaches its structural ceiling.
+        var caseOutcomes: [String: Bool] = [:]
+        var splitCeilingPassed = true
         for orientation in [PaneOrientation.sideBySide, .stacked] {
             let fixture = makeFixture(orientation: orientation)
             if orientation == .sideBySide {
@@ -21,14 +22,19 @@ struct PaneRedTeamTests {
                 #expect(fixture.coordinator.split(direction: .stacked) != nil)
             }
             let settledLayout = fixture.coordinator.snapshot.layout
-            #expect(fixture.coordinator.snapshot.panes.count == (orientation == .sideBySide ? 3 : 4))
+            let expectedCount = orientation == .sideBySide ? 3 : 4
+            #expect(fixture.coordinator.snapshot.panes.count == expectedCount)
             for _ in 0..<20 {
                 #expect(fixture.coordinator.split(direction: .sideBySide) == nil)
                 #expect(fixture.coordinator.split(direction: .stacked) == nil)
             }
             #expect(fixture.coordinator.snapshot.layout == settledLayout)
+            splitCeilingPassed = splitCeilingPassed && fixture.coordinator.snapshot.layout == settledLayout && fixture.coordinator.snapshot.panes.count == expectedCount
         }
-        // EF4/AC-6: exercise collapse -> empty -> createIfEmpty -> split twice.
+        caseOutcomes["AC-2 split ceiling both directions / rapid repeat"] = splitCeilingPassed
+        caseOutcomes["Constrained-tree max-four-pane ceiling"] = splitCeilingPassed
+
+        var lifecyclePassed = true
         for _ in 0..<2 {
             let fixture = makeFixture(orientation: .sideBySide)
             #expect(fixture.coordinator.closeActiveTab())
@@ -39,14 +45,14 @@ struct PaneRedTeamTests {
             #expect(fixture.coordinator.snapshot.panes.isEmpty)
             let reopened = RedTeamSession(title: "Reopened.pdf", page: 9, color: .systemGreen)
             #expect(fixture.coordinator.insert(reopened, into: .createIfEmpty))
-            #expect(fixture.coordinator.snapshot.layout != .empty)
             let replacement = RedTeamSession(title: "Reopened duplicate.pdf", page: 9, color: .systemPurple)
             fixture.coordinator.configureDuplication { _ in replacement }
             #expect(fixture.coordinator.split(direction: .sideBySide) != nil)
             #expect(fixture.coordinator.snapshot.panes.count == 2)
+            lifecyclePassed = lifecyclePassed && fixture.coordinator.snapshot.panes.count == 2
         }
+        caseOutcomes["EF4 AC-6 close-collapse-empty-reopen-resplit twice"] = lifecyclePassed
 
-        // AC-7: a false stage must preserve every opposite-pane tab and selection.
         let rollback = makeFixture(orientation: .sideBySide)
         let extra = RedTeamSession(title: "Opposite extra.pdf", page: 3, color: .brown)
         #expect(rollback.coordinator.insert(extra, into: .existing(rollback.leading)))
@@ -59,21 +65,21 @@ struct PaneRedTeamTests {
         #expect(rollback.coordinator.snapshot.layout == .single(.one(rollback.trailing)))
         #expect(rollback.origin.prepareForCloseCount == 1)
         #expect(extra.prepareForCloseCount == 1)
+        caseOutcomes["AC-7 unsplit rollback then commit with multi-tab opposite pane"] = rollback.coordinator.snapshot.layout == .single(.one(rollback.trailing)) && rollback.origin.prepareForCloseCount == 1 && extra.prepareForCloseCount == 1
 
-        // AC-8: stale pane target fails closed; empty-window creation succeeds.
         let stale = makeFixture(orientation: .sideBySide)
         #expect(stale.coordinator.activatePane(stale.leading))
         let vanishedPane = stale.trailing
         #expect(stale.coordinator.unsplit())
         let delayed = RedTeamSession(title: "Delayed.pdf", page: 4, color: .magenta)
         #expect(!stale.coordinator.insert(delayed, into: .existing(vanishedPane)))
-        #expect(delayed.prepareForCloseCount == 0) // caller owns rejected candidate teardown
+        #expect(delayed.prepareForCloseCount == 0)
         #expect(stale.coordinator.closeActiveTab())
         let fresh = RedTeamSession(title: "Fresh.pdf", page: 5, color: .cyan)
         #expect(stale.coordinator.insert(fresh, into: .createIfEmpty))
-        #expect(stale.coordinator.snapshot.layout != .empty)
+        caseOutcomes["AC-8 stale pane completion reject and empty createIfEmpty"] = delayed.prepareForCloseCount == 0 && stale.coordinator.snapshot.layout != .empty
 
-        // AC-4: hostile focus spam at every geometric boundary plus single/empty no-ops.
+        var focusSpamPassed = true
         for orientation in [PaneOrientation.sideBySide, .stacked] {
             let fixture = makeFixture(orientation: orientation)
             for direction in [PaneFocusDirection.left, .down, .up, .right] {
@@ -81,16 +87,13 @@ struct PaneRedTeamTests {
             }
             fixture.coordinator.snapshot.assertCardinality()
             #expect(fixture.coordinator.unsplit())
-            for direction in [PaneFocusDirection.left, .down, .up, .right] {
-                #expect(!fixture.coordinator.focus(direction))
-            }
+            for direction in [PaneFocusDirection.left, .down, .up, .right] { #expect(!fixture.coordinator.focus(direction)) }
             #expect(fixture.coordinator.closeActiveTab())
-            for direction in [PaneFocusDirection.left, .down, .up, .right] {
-                #expect(!fixture.coordinator.focus(direction))
-            }
+            for direction in [PaneFocusDirection.left, .down, .up, .right] { #expect(!fixture.coordinator.focus(direction)) }
+            focusSpamPassed = focusSpamPassed && fixture.coordinator.snapshot.layout == .empty && fixture.coordinator.snapshot.panes.isEmpty
         }
+        caseOutcomes["AC-4 boundary focus spam in both geometries and terminal layouts"] = focusSpamPassed
 
-        // AC-3/EF8: interleaved mutable state remains pane-local and duplicate starts search-free.
         let isolation = makeFixture(orientation: .sideBySide)
         for step in 1...30 {
             isolation.origin.page = step
@@ -111,8 +114,9 @@ struct PaneRedTeamTests {
         #expect(isolation.coordinator.split(direction: .sideBySide) != nil)
         #expect(cleanDuplicate.searchQuery.isEmpty)
         #expect(cleanDuplicate.selection == nil)
-
-        try writeArtifacts()
+        caseOutcomes["AC-3 interleaved page zoom search isolation"] = isolation.origin.page == 30 && isolation.duplicate.page == 70 && isolation.origin.searchQuery == "origin-30" && isolation.duplicate.searchQuery == "duplicate-30"
+        caseOutcomes["EF8 duplicate search and selection exclusion"] = cleanDuplicate.searchQuery.isEmpty && cleanDuplicate.selection == nil
+        try writeArtifacts(caseOutcomes: caseOutcomes)
     }
 
     @Test("prompt focus is not stolen during rejected pane mutations")
@@ -154,7 +158,7 @@ struct PaneRedTeamTests {
         try body(url)
     }
 
-    private func writeArtifacts() throws {
+    private func writeArtifacts(caseOutcomes: [String: Bool]) throws {
         guard let directory = ProcessInfo.processInfo.environment["PDF_READER_SNAPSHOT_DIR"] else { return }
         let output = URL(fileURLWithPath: directory, isDirectory: true)
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
@@ -194,20 +198,23 @@ struct PaneRedTeamTests {
                 try png.write(to: output.appendingPathComponent(name))
             }
         }
-        let cases = [
-            "AC-2 split ceiling both directions / rapid repeat",
-            "EF4 AC-6 close-collapse-empty-reopen-resplit twice",
-            "AC-7 unsplit rollback then commit with multi-tab opposite pane",
-            "AC-8 stale pane completion reject and empty createIfEmpty",
-            "AC-4 boundary focus spam in both geometries and terminal layouts",
-            "AC-3 interleaved page zoom search isolation",
-            "EF8 duplicate search and selection exclusion",
-            "Non-goals max-two-pane fail-closed guard",
-            "Prompt focus ownership during rejected close/unsplit"
-        ].map { ["case": $0, "verdict": "passed", "evidence": "PaneRedTeamTests"] }
-        let report: [String: Any] = ["kind": "adversarial test-report", "suite": "PaneRedTeamTests", "verdict": "passed", "cases": cases, "artifacts": ["side-by-side.png", "stacked.png"]]
-        let data = try! JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
-        try! data.write(to: output.appendingPathComponent("adversarial-test-report.json"))
+        let cases = caseOutcomes.keys.sorted().map { name in
+            [
+                "case": name,
+                "verdict": caseOutcomes[name]! ? "passed" : "failed",
+                "evidence": "PaneRedTeamTests.adversarialStateMachineMatrix",
+            ]
+        }
+        let passed = caseOutcomes.values.allSatisfy { $0 }
+        let report: [String: Any] = [
+            "kind": "adversarial test-report",
+            "suite": "PaneRedTeamTests",
+            "verdict": passed ? "passed" : "failed",
+            "cases": cases,
+            "artifacts": ["side-by-side.png", "stacked.png"],
+        ]
+        let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: output.appendingPathComponent("adversarial-test-report.json"), options: .atomic)
     }
 }
 

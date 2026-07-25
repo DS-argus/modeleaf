@@ -7,6 +7,7 @@ import PDFReaderCore
 @Suite("Pane focus, routing, and shared chrome")
 @MainActor
 struct PaneShellTests {
+    private enum ShellTopology { case leadingStack, trailingStack, twoByTwo }
     @Test("pointer activation precedes canvas and tab-bar operations")
     func pointerActivationOrdering() {
         let pane = PaneView(id: PaneID(), trafficLightInset: 0)
@@ -600,10 +601,183 @@ struct PaneShellTests {
                 }
                 assertReachable(controller.rootView.statusBar, in: controller.rootView)
                 assertNoAmbiguousLayout(in: controller.rootView)
+                // AppKit has no deterministic public observer for every
+                // unsatisfiable-layout console report. This strict proxy checks
+                // ambiguity and the exercised split equations at every point.
+                allContainers.forEach(assertSatisfiedSplitConstraints)
             }
         }
     }
 
+
+    @Test("projected collapse rollback preserves outer and inner divider positions")
+    func dividerRollbackMatrix() throws {
+        enum Collapse { case row, column }
+        for collapse in [Collapse.row, .column] {
+            let fixture = fourPaneShellFixture()
+            let controller = makeController(fixture.coordinator)
+            defer { controller.close() }
+            let window = try #require(controller.window as? ReaderWindow)
+            window.orderFrontRegardless()
+            controller.rootView.layoutSubtreeIfNeeded()
+            let outer = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
+            let innerID = collapse == .row ? "paneContainer.trailingStack" : "paneContainer.leadingStack"
+            let inner = try #require(firstDescendant(of: controller.rootView, identifier: innerID) as? PaneContainerView)
+            outer.setPosition(280, ofDividerAt: 0)
+            inner.setPosition(180, ofDividerAt: 0)
+            outer.onDividerMoved?(outer.currentDividerPosition)
+            inner.onDividerMoved?(inner.currentDividerPosition)
+            controller.rootView.layoutSubtreeIfNeeded()
+            let before = (outer.currentDividerPosition, inner.currentDividerPosition)
+            let closing = collapse == .row ? fixture.trailingBottom : fixture.leadingTop
+            #expect(fixture.coordinator.activatePane(closing))
+            #expect(!fixture.coordinator.closeActiveTab { projected in
+                controller.rootView.render(snapshot: projected, isCommitted: false)
+                return false
+            })
+            drainRunLoop()
+            controller.rootView.layoutSubtreeIfNeeded()
+            #expect(abs(outer.currentDividerPosition - before.0) < 0.5)
+            #expect(abs(inner.currentDividerPosition - before.1) < 0.5)
+        }
+    }
+
+    @Test("divider state is independent and follows surviving pane pairs")
+    func dividerOwnershipMatrix() throws {
+        let fixture = fourPaneShellFixture()
+        let controller = makeController(fixture.coordinator)
+        defer { controller.close() }
+        controller.rootView.layoutSubtreeIfNeeded()
+        let outer = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
+        let leading = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.leadingStack") as? PaneContainerView)
+        outer.setPosition(300, ofDividerAt: 0)
+        controller.rootView.layoutSubtreeIfNeeded()
+        let outerPosition = outer.currentDividerPosition
+        leading.setPosition(180, ofDividerAt: 0)
+        controller.rootView.layoutSubtreeIfNeeded()
+        outer.onDividerMoved?(outer.currentDividerPosition)
+        #expect(abs(outer.currentDividerPosition - outerPosition) < 0.5)
+        let innerPosition = leading.currentDividerPosition
+        outer.setPosition(260, ofDividerAt: 0)
+        controller.rootView.layoutSubtreeIfNeeded()
+        leading.onDividerMoved?(leading.currentDividerPosition)
+        #expect(abs(leading.currentDividerPosition - innerPosition) < 0.5)
+
+        #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
+        #expect(fixture.coordinator.closeActiveTab())
+        let freshBottom = try #require(fixture.coordinator.split(direction: .stacked))
+        let fresh = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.leadingStack") as? PaneContainerView)
+        drainRunLoop()
+        controller.rootView.layoutSubtreeIfNeeded()
+        let available = fresh.bounds.height - fresh.dividerThickness
+        #expect(abs(fresh.currentDividerPosition - available / 2) < 0.5)
+        #expect(freshBottom != fixture.leadingBottom)
+
+        let trailing = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingStack") as? PaneContainerView)
+        trailing.setPosition(170, ofDividerAt: 0)
+        controller.rootView.layoutSubtreeIfNeeded()
+        let survivingPosition = trailing.currentDividerPosition
+        trailing.onDividerMoved?(trailing.currentDividerPosition)
+        #expect(fixture.coordinator.activatePane(freshBottom))
+        #expect(fixture.coordinator.closeActiveTab())
+        #expect(fixture.coordinator.activatePane(fixture.leadingTop))
+        #expect(fixture.coordinator.closeActiveTab())
+        controller.rootView.layoutSubtreeIfNeeded()
+        let surviving = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.leadingStack") as? PaneContainerView)
+        #expect(abs(surviving.currentDividerPosition - survivingPosition) < 0.5)
+    }
+
+    @Test("three and four pane pointer activation table keeps chrome and key loops pane-scoped")
+    func multiPaneInteractionTable() throws {
+        for topology in [ShellTopology.leadingStack, .trailingStack, .twoByTwo] {
+            let fixture = paneShellFixture(topology)
+            let controller = makeController(fixture.coordinator)
+            defer { controller.close() }
+            let window = try #require(controller.window as? ReaderWindow)
+            window.orderFrontRegardless()
+            window.makeKey()
+            controller.rootView.layoutSubtreeIfNeeded()
+            for paneID in fixture.coordinator.snapshot.layout.paneIDs {
+                let pane = try #require(controller.rootView.paneViewForTesting(paneID))
+                sendMouseDown(to: pane, at: NSPoint(x: pane.bounds.midX, y: pane.bounds.midY), in: window)
+                #expect(fixture.coordinator.activePaneID == paneID)
+                let panes = try fixture.coordinator.snapshot.layout.paneIDs.map { try #require(controller.rootView.paneViewForTesting($0)) }
+                #expect(panes.filter { $0.accessibilityValue() as? String == "active" }.count == 1)
+                #expect(pane.accessibilityLabel() == expectedPositionLabel(for: paneID, layout: fixture.coordinator.snapshot.layout))
+                #expect(fixture.coordinator.snapshot.activeFocusView?.nextKeyView === pane.orderedKeyViews.first)
+            }
+        }
+
+        let nested = paneShellFixture(.twoByTwo)
+        let controller = makeController(nested.coordinator)
+        defer { controller.close() }
+        let window = try #require(controller.window)
+        window.orderFrontRegardless()
+        controller.presentPrompt(PromptPresentation(kind: .search, text: "nested", validationMessage: nil))
+        let responder = controller.rootView.promptOverlay.textField.currentEditor()
+        #expect(nested.coordinator.activatePane(nested.trailingBottom))
+        var promptOwnedProjection = false
+        #expect(nested.coordinator.closeActiveTab { _ in
+            promptOwnedProjection = window.firstResponder === responder
+            return true
+        })
+        #expect(promptOwnedProjection)
+    }
+    private func makeController(_ coordinator: PaneCoordinator) -> MainWindowController {
+        MainWindowController(coordinator: coordinator, theme: AppKitTheme(configuration: BuiltInDefaults.config.theme), actionHandler: { _ in })
+    }
+
+    private func fourPaneShellFixture() -> (coordinator: PaneCoordinator, leadingTop: PaneID, leadingBottom: PaneID, trailingTop: PaneID, trailingBottom: PaneID) {
+        let coordinator = PaneCoordinator()
+        var duplicates = (1...5).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }
+        coordinator.configureDuplication { _ in duplicates.removeFirst() }
+        #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Origin.pdf"), into: .createIfEmpty))
+        let trailingTop = try! #require(coordinator.split(direction: .sideBySide))
+        let leadingTop = try! #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailingTop })
+        #expect(coordinator.activatePane(leadingTop))
+        let leadingBottom = try! #require(coordinator.split(direction: .stacked))
+        #expect(coordinator.activatePane(trailingTop))
+        let trailingBottom = try! #require(coordinator.split(direction: .stacked))
+        return (coordinator, leadingTop, leadingBottom, trailingTop, trailingBottom)
+    }
+
+    private func paneShellFixture(_ topology: ShellTopology) -> (coordinator: PaneCoordinator, leadingTop: PaneID, leadingBottom: PaneID, trailingTop: PaneID, trailingBottom: PaneID) {
+        let fixture = fourPaneShellFixture()
+        switch topology {
+        case .leadingStack:
+            #expect(fixture.coordinator.activatePane(fixture.trailingBottom))
+            #expect(fixture.coordinator.closeActiveTab())
+        case .trailingStack:
+            #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
+            #expect(fixture.coordinator.closeActiveTab())
+        case .twoByTwo:
+            break
+        }
+        return fixture
+    }
+    private func expectedPositionLabel(for paneID: PaneID, layout: PaneLayout) -> String {
+        switch layout {
+        case .empty: return ""
+        case let .single(stack): return stack.row(of: paneID) == .bottom ? "Bottom pane" : "Top pane"
+        case let .split(leading, trailing):
+            if leading.contains(paneID) { return leading.row(of: paneID) == .bottom ? "Left Bottom pane" : leading.row(of: paneID) == .top ? "Left Top pane" : "Left pane" }
+            return trailing.row(of: paneID) == .bottom ? "Right Bottom pane" : trailing.row(of: paneID) == .top ? "Right Top pane" : "Right pane"
+        }
+    }
+
+    private func drainRunLoop() {
+        for _ in 0..<3 { RunLoop.current.run(until: Date().addingTimeInterval(0.01)) }
+    }
+
+    private func assertSatisfiedSplitConstraints(_ container: PaneContainerView) {
+        #expect(container.subviews.count == 2)
+        let thickness = container.isVertical ? container.bounds.width : container.bounds.height
+        let first = container.isVertical ? container.subviews[0].frame.width : container.subviews[0].frame.height
+        let second = container.isVertical ? container.subviews[1].frame.width : container.subviews[1].frame.height
+        #expect(first >= WindowVisualMetrics.minimumPaneThickness)
+        #expect(second >= WindowVisualMetrics.minimumPaneThickness)
+        #expect(abs(first + second + container.dividerThickness - thickness) < 0.5)
+    }
     private func paneContainers(in view: NSView) -> [PaneContainerView] {
         let own = (view as? PaneContainerView).map { [$0] } ?? []
         return own + view.subviews.flatMap(paneContainers(in:))

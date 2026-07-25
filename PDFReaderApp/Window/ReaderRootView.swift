@@ -6,7 +6,10 @@ private final class ColumnHost: NSView {
     private weak var child: NSView?
     func install(_ view: NSView) {
         guard child !== view else { return }
-        child?.removeFromSuperview()
+        // Only detach the previous child if it is still ours: the render pass
+        // may already have reparented it into a stack container, and removing
+        // it here would tear it back out of its new home.
+        if let child, child.superview === self { child.removeFromSuperview() }
         child = view
         view.prepareForAutoLayout()
         addSubview(view)
@@ -21,11 +24,11 @@ final class ReaderRootView: NSView {
     let statusBar = StatusBarView()
     let promptOverlay = PromptOverlayView()
     private let contentHost = NSView()
-    private let paneContainer = PaneContainerView(orientation: .sideBySide)
+    private let paneContainer = PaneContainerView(orientation: .sideBySide, accessibilityIdentifier: "paneContainer")
     private let leadingColumnHost = ColumnHost()
     private let trailingColumnHost = ColumnHost()
-    private let leadingStackContainer = PaneContainerView(orientation: .stacked)
-    private let trailingStackContainer = PaneContainerView(orientation: .stacked)
+    private let leadingStackContainer = PaneContainerView(orientation: .stacked, accessibilityIdentifier: "paneContainer.leadingStack")
+    private let trailingStackContainer = PaneContainerView(orientation: .stacked, accessibilityIdentifier: "paneContainer.trailingStack")
     private var paneViews: [PaneID: PaneView] = [:]
     private var theme: AppKitTheme?
     private var tabBarHeightConstraint: NSLayoutConstraint!
@@ -36,10 +39,27 @@ final class ReaderRootView: NSView {
     var onPaneClose: ((PaneID, TabID) -> Void)?
     var onPaneNewTab: ((PaneID) -> Void)?
     private var renderedSessionSnapshot: ReaderSessionStoreSnapshot?
+    private var stackDividerPositions: [Set<PaneID>: CGFloat] = [:]
+    private var outerDividerPosition: CGFloat?
+    private var capturesDividerPositions = true
+    private var currentStackPairs: [PaneColumnSide: Set<PaneID>] = [:]
+    private var hadCommittedSplit = false
     var onPaneActivate: ((PaneID) -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect); wantsLayer = true; setAccessibilityIdentifier("readerRoot")
+        paneContainer.onDividerMoved = { [weak self] position in
+            guard let self, self.capturesDividerPositions else { return }
+            self.outerDividerPosition = position
+        }
+        leadingStackContainer.onDividerMoved = { [weak self] position in
+            guard let self, self.capturesDividerPositions, let pair = self.currentStackPairs[.leading] else { return }
+            self.stackDividerPositions[pair] = position
+        }
+        trailingStackContainer.onDividerMoved = { [weak self] position in
+            guard let self, self.capturesDividerPositions, let pair = self.currentStackPairs[.trailing] else { return }
+            self.stackDividerPositions[pair] = position
+        }
         for view in [tabBar, contentHost, statusBar, promptOverlay] { view.prepareForAutoLayout(); addSubview(view) }
         emptyState.prepareForAutoLayout(); contentHost.addSubview(emptyState)
         paneContainer.prepareForAutoLayout(); contentHost.addSubview(paneContainer)
@@ -68,12 +88,13 @@ final class ReaderRootView: NSView {
     }
 
     func render(snapshot: PaneCoordinatorSnapshot, isCommitted: Bool = true) {
+        capturesDividerPositions = isCommitted
         if isCommitted { prunePaneViews(absentFrom: snapshot.panes) }
         guard snapshot.layout.isMultiPane else {
             paneContainer.isHidden = true
             leadingColumnHost.removeFromSuperview()
             trailingColumnHost.removeFromSuperview()
-            if isCommitted { paneContainer.removeAllPanes() }
+            if isCommitted { paneContainer.removeAllPanes(); hadCommittedSplit = false; outerDividerPosition = nil }
             tabBar.isHidden = snapshot.isEmpty
             render(snapshot: snapshot.activeStoreSnapshot, activeContentView: snapshot.activeContentView, sessionStatus: snapshot.activeStatus)
             return
@@ -82,7 +103,8 @@ final class ReaderRootView: NSView {
         switch snapshot.layout {
         case let .single(stack):
             paneContainer.isHidden = true
-            leadingColumnHost.install(render(stack: stack, side: .leading, snapshot: snapshot))
+            if isCommitted { hadCommittedSplit = false; outerDividerPosition = nil }
+            leadingColumnHost.install(render(stack: stack, side: .leading, snapshot: snapshot, isCommitted: isCommitted))
             leadingColumnHost.prepareForAutoLayout()
             if leadingColumnHost.superview !== contentHost {
                 contentHost.addSubview(leadingColumnHost)
@@ -95,17 +117,29 @@ final class ReaderRootView: NSView {
             }
         case let .split(leading, trailing):
             leadingColumnHost.removeFromSuperview()
-            leadingColumnHost.install(render(stack: leading, side: .leading, snapshot: snapshot))
-            trailingColumnHost.install(render(stack: trailing, side: .trailing, snapshot: snapshot))
-            paneContainer.install(leading: leadingColumnHost, trailing: trailingColumnHost, orientation: .sideBySide)
+            leadingColumnHost.install(render(stack: leading, side: .leading, snapshot: snapshot, isCommitted: isCommitted))
+            trailingColumnHost.install(render(stack: trailing, side: .trailing, snapshot: snapshot, isCommitted: isCommitted))
+            let isNewSplit = !hadCommittedSplit
+            paneContainer.install(
+                leading: leadingColumnHost,
+                trailing: trailingColumnHost,
+                orientation: .sideBySide,
+                resetDivider: isCommitted && isNewSplit,
+                initializesDivider: isCommitted
+            )
+            if let saved = outerDividerPosition {
+                paneContainer.applyDividerPosition(saved)
+            }
+            if isCommitted { hadCommittedSplit = true }
         case .empty: break
         }
         renderStatus(snapshot.activeStatus)
     }
 
-    private func render(stack: PaneStack, side: PaneColumnSide, snapshot: PaneCoordinatorSnapshot) -> NSView {
+    private func render(stack: PaneStack, side: PaneColumnSide, snapshot: PaneCoordinatorSnapshot, isCommitted: Bool) -> NSView {
         switch stack {
         case let .one(id):
+            if isCommitted { currentStackPairs[side] = nil }
             let pane = configurePane(id, snapshot: snapshot, label: side == .leading ? "Left" : "Right")
             return pane
         case let .two(top, bottom):
@@ -115,7 +149,23 @@ final class ReaderRootView: NSView {
             let topView = configurePane(top, snapshot: snapshot, label: isSplit ? "\(columnLabel) Top" : "Top")
             let bottomView = configurePane(bottom, snapshot: snapshot, label: isSplit ? "\(columnLabel) Bottom" : "Bottom")
             let container = side == .leading ? leadingStackContainer : trailingStackContainer
-            container.install(leading: topView, trailing: bottomView, orientation: .stacked)
+            // Divider ownership is the pane PAIR, not the container instance:
+            // a surviving column keeps its ratio across side changes; a
+            // genuinely new pair starts at half. Writes are gated on committed
+            // renders so projections never mutate divider state.
+            let pair: Set<PaneID> = [top, bottom]
+            let isNewPair = stackDividerPositions[pair] == nil
+            container.install(
+                leading: topView,
+                trailing: bottomView,
+                orientation: .stacked,
+                resetDivider: isCommitted && isNewPair,
+                initializesDivider: isCommitted
+            )
+            if let saved = stackDividerPositions[pair] {
+                container.applyDividerPosition(saved)
+            }
+            if isCommitted { currentStackPairs[side] = pair }
             return container
         }
     }
@@ -126,7 +176,12 @@ final class ReaderRootView: NSView {
     }
     private func renderStatus(_ sessionStatus: ReaderStatusSnapshot?) { if let sessionStatus { currentStatus.context = readerInputContext.map(Self.statusLabel(for:)) ?? sessionStatus.context; currentStatus.page = sessionStatus.page; currentStatus.zoom = sessionStatus.zoom; currentStatus.detail = sessionStatus.detail; currentStatus.expandedDetail = nil; currentStatus.tone = .normal } else if currentStatus.tone != .error { currentStatus = .empty }; statusBar.render(currentStatus) }
     private func paneView(for id: PaneID, trafficLightInset: CGFloat) -> PaneView { if let pane = paneViews[id] { pane.setTrafficLightInset(trafficLightInset); return pane }; let pane = PaneView(id: id, trafficLightInset: trafficLightInset); if let theme { pane.apply(theme: theme) }; paneViews[id] = pane; pane.onSelect = { [weak self] tabID in self?.onPaneSelect?(id, tabID) }; pane.onClose = { [weak self] tabID in self?.onPaneClose?(id, tabID) }; pane.onActivate = { [weak self] in self?.onPaneActivate?(id) }; pane.onNewTab = { [weak self] in self?.onPaneNewTab?(id) }; return pane }
-    private func prunePaneViews(absentFrom panes: [PaneID: ReaderSessionStoreSnapshot]) { for id in paneViews.keys.filter({ panes[$0] == nil }) { paneViews.removeValue(forKey: id)?.retire() } }
+    private func prunePaneViews(absentFrom panes: [PaneID: ReaderSessionStoreSnapshot]) {
+        for id in paneViews.keys.filter({ panes[$0] == nil }) { paneViews.removeValue(forKey: id)?.retire() }
+        for pair in stackDividerPositions.keys where !pair.allSatisfy({ panes[$0] != nil }) {
+            stackDividerPositions.removeValue(forKey: pair)
+        }
+    }
     func paneViewForTesting(_ id: PaneID) -> PaneView? { paneViews[id] }
     func activatePane(atWindowPoint point: NSPoint) { let localPoint = convert(point, from: nil); var view = hitTest(localPoint); while let candidate = view { if let pane = candidate as? PaneView { pane.activateForPointerEvent(); return }; view = candidate.superview } }
     func setInputContext(_ context: InputContext) { readerInputContext = context; currentStatus.context = Self.statusLabel(for: context); statusBar.render(currentStatus) }

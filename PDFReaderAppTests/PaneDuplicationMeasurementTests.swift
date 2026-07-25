@@ -16,53 +16,62 @@ struct PaneDuplicationMeasurementTests {
     func recordsReleaseDuplicationEvidence() throws {
         guard ProcessInfo.processInfo.environment["PANE_DUPLICATION_MEASUREMENT"] == "1" else { return }
 
-        let results = try [PerformancePDFFixtureKind.L, .F].map(measure)
         let reportDirectory = repositoryRoot()
             .appendingPathComponent("artifacts/verification/pane-4/s5", isDirectory: true)
         try FileManager.default.createDirectory(at: reportDirectory, withIntermediateDirectories: true)
+        let leaksRequested = ProcessInfo.processInfo.environment["PANE_MEASUREMENT_RUN_LEAKS"] == "1"
+        let results = try [PerformancePDFFixtureKind.L, .F].map {
+            try measure($0, reportDirectory: reportDirectory, shouldRunLeaksAudit: leaksRequested)
+        }
+        let leaksAuditPassed = !leaksRequested || results.allSatisfy { $0.leaksAudit?.withinBudget == true }
 
-        // Gate = capacity + latency + metric balance. The RSS plateau is
-        // reported as informational evidence only: the architect escalation
-        // adjudication (allocator-artifact) plus the malloc-reachability
-        // audit (leaks self-scan: 288 blocks / 14.1KB static, non-growing
-        // across fixtures after 8 cycles each) established that reachable
-        // allocator/PDFKit cache retention dominates post-teardown RSS and
-        // strict RSS inequalities are invalid leak oracles here.
+        // Gate = four-pane capacity + split latency + open-metric balance, plus
+        // the leaks budget when this cycle explicitly runs the audit. RSS
+        // plateau remains informational because it includes allocator/PDFKit
+        // cache retention and is not a reliable reachability signal.
         let verdict = results.allSatisfy { result in
             result.capacityWithinBudget
                 && result.splitLatenciesWithinBudget
                 && result.openMetricsBalanced
-        } ? "PASS" : "ESCALATE"
+        } && leaksAuditPassed ? "PASS" : "ESCALATE"
         let matrixEvidence: [String: Any] = [
             "test": "PaneShellTests.minimumWindowThreeDividerMatrix",
             "window_content_size": [480, 360],
             "topologies": ["2x2", "2+1", "1+2"],
             "divider_extremes": "outer min/max crossed with every present inner min/max",
             "assertions": ["pane close button", "pane add button", "PDF surface", "shared status bar", "no ambiguous layout", "top-left-only traffic-light inset", "divider persistence"],
-            "result": "PASS",
-            "evidence": "swift test full suite",
+            "evidence": "separately-run PaneShellTests.minimumWindowThreeDividerMatrix",
         ]
         let documentation: [String: Any] = [
             "README.md": [17, 50, 51, 52, 53, 54, 55],
             "docs/README.md": [13, 46, 47, 48, 49, 50, 51],
         ]
-        let adjudication: [String: Any] = [
-            "agent": "50-EscalationReview",
-            "verdict": "allocator-artifact",
-            "one_sample_rss_inequality": "invalid leak proxy",
-            "malloc_reachability_audit": "leaks self-scan after 8 cycles/fixture: 288 blocks, 14.1KB, static and non-growing between fixture scans; zero product symbols (artifacts/verification/pane-4/s5/leaks-L.txt, leaks-F.txt)",
-            "rss_plateau_status": "informational only; excluded from the gate",
+        let leaksEvidence: [String: Any] = leaksRequested ? [
+            "status": "run",
+            "budget_total_leaked_bytes": 65_536,
+            "fixtures": results.map(\.leaksJSON),
+            "within_budget": leaksAuditPassed,
+        ] : [
+            "status": "not run this cycle",
+            "historical_artifacts_only": ["leaks-L.txt", "leaks-F.txt"],
+            "note": "Retained artifacts are historical evidence only; this report makes no current-cycle leaks PASS claim.",
         ]
-        let deviations = verdict == "PASS" ? [] : ["ESCALATE: a fixture exceeded the four-pane capacity budget, the split-latency budget, or had unbalanced open metrics."]
+        let deviations = verdict == "PASS" ? [] : ["ESCALATE: a fixture exceeded the four-pane capacity budget, split-latency budget, open-metric balance requirement, or the requested leaks budget."]
         let payload: [String: Any] = [
-            "schema_version": 2,
+            "schema_version": 3,
             "configuration": "Release",
             "threshold": [
-                "stable_rss_at_four_panes": "must not exceed 4x the one-pane baseline in every measured cycle",
-                "post_unsplit_rss_plateau": "after two warm-up split/unsplit cycles, three measured cycles per fixture; each post-unsplit RSS must be at most 5% above the prior cycle and the final sample at most 5% above the first",
+                "four_pane_capacity": "stable RSS at four panes must not exceed 4x the one-pane baseline in every measured cycle",
                 "split_latency_ms": "each split must not exceed 250 ms",
+                "open_metric_balance": "every open metric begin/end pair must balance",
+                "leaks_audit_when_run": "total leaked bytes must not exceed 65536",
+                "post_unsplit_rss_plateau": "informational only; excluded from the verdict gate",
             ],
-            "architect_adjudication": adjudication,
+            "architect_adjudication": [
+                "one_sample_rss_inequality": "invalid leak proxy",
+                "rss_plateau_status": "informational only; excluded from the gate",
+            ],
+            "leaks_audit": leaksEvidence,
             "layout_matrix": matrixEvidence,
             "documentation_lines_changed": documentation,
             "deviations": deviations,
@@ -72,35 +81,49 @@ struct PaneDuplicationMeasurementTests {
         let json = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
         try json.write(to: reportDirectory.appendingPathComponent("duplication-measurement.json"), options: .atomic)
 
+        let leaksSummary: String
+        if leaksRequested {
+            leaksSummary = results.map { result in
+                let audit = result.leaksAudit!
+                return "\(result.fixture): \(audit.blockCount) blocks / \(audit.totalLeakedBytes) bytes (≤ 65536: \(audit.withinBudget ? "yes" : "no"))"
+            }.joined(separator: "; ")
+        } else {
+            leaksSummary = "Not run this cycle. `leaks-L.txt` and `leaks-F.txt` are retained historical artifacts only, not a current-cycle PASS."
+        }
         let markdown = """
         # Pane 1→4 Release duplication measurement
 
-        **Final verdict: \(verdict)** (gate = 4x capacity + 250 ms split latency + open-metric balance)
+        **Final verdict: \(verdict)** (gate = 4× capacity + 250 ms split latency + open-metric balance\(leaksRequested ? " + requested leaks budget" : ""))
 
-        Architect adjudication: **allocator-artifact** — agent `50-EscalationReview` determined that strict RSS inequalities are invalid leak proxies for this workload. Decisive evidence: a `leaks` malloc-reachability self-scan after 8 split/unsplit cycles per fixture found only 288 unreachable blocks totalling 14.1KB, static and non-growing between the two fixture scans, with zero product symbols (`leaks-L.txt` / `leaks-F.txt` beside this report) — the multi-megabyte post-teardown RSS growth is reachable allocator/PDFKit cache retention. Weak-object death is independently proven by the `PaneCoordinatorTests.fourPaneTeardownReleasesAllOwnedObjects` matrix. The per-cycle RSS plateau table below is informational.
+        RSS plateau is informational only and excluded from the verdict gate because allocator/PDFKit cache retention is not a reachability signal. `leaks` audit: \(leaksSummary)
 
-        Pre-declared escalation threshold: after two warm-up split/unsplit cycles, ESCALATE when stable RSS at four panes is greater than four times the one-pane baseline in any measured cycle, any split takes more than 250 ms, open-metric begin/end balance does not match, or post-unsplit RSS exceeds the 5% allocation-aware growth budget. The plateau budget requires each later measured cycle to be at most 5% above the prior cycle and the final measured cycle to be at most 5% above the first.
+        Pre-declared escalation threshold: ESCALATE when stable RSS at four panes is greater than four times the one-pane baseline in any measured cycle, any split takes more than 250 ms, open-metric begin/end balance does not match, or a requested `leaks` audit reports more than 65536 total leaked bytes. Post-unsplit RSS plateau is reported below as informational evidence only.
         | Fixture | Cycle | Split 1→2 (ms) | 2→3 (ms) | 3→4 (ms) | Baseline RSS (bytes) | Peak RSS (bytes) | Stable RSS (bytes) | RSS after unsplit (bytes) | 4× capacity | Split latency | Metrics balanced |
         |---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|---|
         \(results.flatMap(\.markdownRows).joined(separator: "\n"))
 
-        | Fixture | Post-unsplit RSS plateau | Final ≤ first + 5% | 
+        | Fixture | Post-unsplit RSS plateau | Final ≤ first + 5% |
         |---|---|---|
         \(results.map(\.plateauMarkdownRow).joined(separator: "\n"))
 
-        Layout matrix: **PASS** — `PaneShellTests.minimumWindowThreeDividerMatrix` ran at exactly 480×360 for 2×2, 2+1, and 1+2 layouts. It crossed every present outer/inner divider min/max combination and verified close/add/PDF/status hit testing, non-ambiguous layout, divider persistence, and top-left-only traffic-light inset.
+        Layout matrix is verified separately by `PaneShellTests.minimumWindowThreeDividerMatrix` at exactly 480×360 for 2×2, 2+1, and 1+2 layouts; this measurement does not assert that test's result.
 
         Documentation lines changed: `README.md` 17, 50–55; `docs/README.md` 13, 46–51. Binding tables are unchanged.
 
         Deviations: \(deviations.isEmpty ? "None." : deviations.joined(separator: " "))
 
-        The harness generates `PDFFixtureFactory` `.L` (300-page text) and `.F` (raster) fixtures, opens independent `PDFDocument` sessions through the production `PDFOpenService`, performs the production `PaneCoordinator` 1→2→3→4 split path, and uses production global unsplit for teardown. RSS is sampled from the measuring process with `/bin/ps`; peak is the maximum sample taken after each split and stable is sampled after a main-run-loop drain. No shared-document optimization is used.
+        The harness generates `PDFFixtureFactory` `.L` (300-page text) and `.F` (raster) fixtures, opens independent `PDFDocument` sessions through the production `PDFOpenService`, performs the production `PaneCoordinator` 1→2→3→4 split path, and uses production global unsplit and coordinator-driven tab close for teardown. RSS is sampled from the measuring process with `/bin/ps`; peak is the maximum sample taken after each split and stable is sampled after a main-run-loop drain. No shared-document optimization is used.
         """
         try markdown.write(to: reportDirectory.appendingPathComponent("duplication-measurement.md"), atomically: true, encoding: .utf8)
-        #expect(["PASS", "ESCALATE"].contains(verdict), "measurement verdict must be explicit")
+        #expect(verdict == "PASS", "measurement gate must pass at this completion gate")
+
     }
 
-    private func measure(_ fixture: PerformancePDFFixtureKind) throws -> FixtureMeasurement {
+    private func measure(
+        _ fixture: PerformancePDFFixtureKind,
+        reportDirectory: URL,
+        shouldRunLeaksAudit: Bool
+    ) throws -> FixtureMeasurement {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("modeleaf-pane-duplication-\(fixture.rawValue)-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -115,36 +138,46 @@ struct PaneDuplicationMeasurementTests {
             try? service.open(url: snapshot.sourceURL, metrics: metrics)
         }
         #expect(coordinator.insert(origin, into: .createIfEmpty))
-        // Warm PDFKit and allocator caches before collecting the three plateau samples.
         for warmupCycle in 1...measurementWarmupCycleCount {
             _ = try measureCycle(-warmupCycle, coordinator: coordinator, metrics: metrics)
         }
         let cycles = try (1...measurementCycleCount).map { try measureCycle($0, coordinator: coordinator, metrics: metrics) }
-        origin.prepareForClose()
-        // Diagnostic malloc-reachability audit: PANE_MEASUREMENT_RUN_LEAKS=1
-        // runs `leaks` against this process right after teardown so the
-        // post-unsplit heap is scanned for genuinely unreachable blocks
-        // (distinguishes allocator/PDFKit cache retention from real leaks).
-        if ProcessInfo.processInfo.environment["PANE_MEASUREMENT_RUN_LEAKS"] == "1" {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/leaks")
-            process.arguments = [String(ProcessInfo.processInfo.processIdentifier)]
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = pipe
-            try? process.run()
-            process.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8) ?? ""
-            let url = URL(fileURLWithPath: "artifacts/verification/pane-4/s5/leaks-\(fixture.rawValue).txt")
-            try? output.write(to: url, atomically: true, encoding: .utf8)
+
+        while coordinator.closeActiveTab() {}
+        runMainLoop()
+        #expect(coordinator.snapshot.layout == .empty)
+        #expect(coordinator.snapshot.panes.isEmpty)
+        coordinator.snapshot.assertCardinality()
+
+        let leaksAudit = shouldRunLeaksAudit
+            ? try runLeaksAudit(fixture: fixture, reportDirectory: reportDirectory)
+            : nil
+        return FixtureMeasurement(fixture: fixture.rawValue, cycles: cycles, leaksAudit: leaksAudit)
+    }
+
+    private func runLeaksAudit(fixture: PerformancePDFFixtureKind, reportDirectory: URL) throws -> LeaksAudit {
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/leaks")
+        process.arguments = [String(ProcessInfo.processInfo.processIdentifier)]
+        process.standardOutput = pipe
+        process.standardError = pipe
+        try process.run()
+        process.waitUntilExit()
+        let output = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        try output.write(to: reportDirectory.appendingPathComponent("leaks-\(fixture.rawValue).txt"), atomically: true, encoding: .utf8)
+        guard [0, 1].contains(process.terminationStatus) else {
+            throw MeasurementError("leaks failed for \(fixture.rawValue) with unexpected exit status \(process.terminationStatus)")
         }
-        return FixtureMeasurement(fixture: fixture.rawValue, cycles: cycles)
+        let match = try #require(output.firstMatch(of: /Process \d+: (\d+) leaks for (\d+) total leaked bytes\./))
+        let blockCount = try #require(Int(match.1))
+        let totalLeakedBytes = try #require(Int64(match.2))
+        return LeaksAudit(exitStatus: process.terminationStatus, blockCount: blockCount, totalLeakedBytes: totalLeakedBytes)
     }
 
     private func measureCycle(_ cycle: Int, coordinator: PaneCoordinator, metrics: MeasurementMetrics) throws -> MeasurementCycle {
         _ = coordinator.snapshot
-        let baselineRSSBytes = residentMemoryBytes()
+        let baselineRSSBytes = try residentMemoryBytes()
         var peakRSSBytes = baselineRSSBytes
         var splitLatenciesMilliseconds: [Double] = []
 
@@ -153,7 +186,7 @@ struct PaneDuplicationMeasurementTests {
             _ = try #require(coordinator.split(direction: direction))
             splitLatenciesMilliseconds.append(Date().timeIntervalSince(start) * 1_000)
             _ = coordinator.snapshot
-            peakRSSBytes = max(peakRSSBytes, residentMemoryBytes())
+            peakRSSBytes = max(peakRSSBytes, try residentMemoryBytes())
         }
 
         try split(.sideBySide)
@@ -162,13 +195,13 @@ struct PaneDuplicationMeasurementTests {
         #expect(coordinator.activatePane(leading))
         try split(.stacked)
         runMainLoop()
-        let stableRSSBytes = residentMemoryBytes()
+        let stableRSSBytes = try residentMemoryBytes()
         peakRSSBytes = max(peakRSSBytes, stableRSSBytes)
 
         #expect(coordinator.snapshot.layout.paneIDs.count == 4)
         #expect(coordinator.unsplit())
         runMainLoop()
-        let postUnsplitRSSBytes = residentMemoryBytes()
+        let postUnsplitRSSBytes = try residentMemoryBytes()
 
         return MeasurementCycle(
             cycle: cycle,
@@ -185,16 +218,22 @@ struct PaneDuplicationMeasurementTests {
         RunLoop.current.run(until: Date().addingTimeInterval(0.1))
     }
 
-    private func residentMemoryBytes() -> Int64 {
+    private func residentMemoryBytes() throws -> Int64 {
         let process = Process()
         let output = Pipe()
         process.executableURL = URL(fileURLWithPath: "/bin/ps")
         process.arguments = ["-o", "rss=", "-p", "\(ProcessInfo.processInfo.processIdentifier)"]
         process.standardOutput = output
-        try? process.run()
+        try process.run()
         process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw MeasurementError("ps failed with exit status \(process.terminationStatus)")
+        }
         let text = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        return (Int64(text.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0) * 1_024
+        guard let kilobytes = Int64(text.trimmingCharacters(in: .whitespacesAndNewlines)), kilobytes > 0 else {
+            throw MeasurementError("ps returned an invalid RSS value: \(text.debugDescription)")
+        }
+        return kilobytes * 1_024
     }
 
     private func repositoryRoot() -> URL {
@@ -223,10 +262,37 @@ private final class MeasurementMetrics: PDFOpenMetrics {
     }
 }
 
+private struct LeaksAudit {
+    let exitStatus: Int32
+    let blockCount: Int
+    let totalLeakedBytes: Int64
+
+    var withinBudget: Bool { totalLeakedBytes <= 65_536 }
+
+    var json: [String: Any] {
+        [
+            "block_count": blockCount,
+            "total_leaked_bytes": totalLeakedBytes,
+            "exit_status": exitStatus,
+            "within_budget": withinBudget,
+        ]
+    }
+}
+
+private struct MeasurementError: Error, CustomStringConvertible {
+    let description: String
+    init(_ description: String) { self.description = description }
+}
+
 private struct FixtureMeasurement {
     let fixture: String
     let cycles: [MeasurementCycle]
 
+    let leaksAudit: LeaksAudit?
+
+    var leaksJSON: [String: Any] {
+        leaksAudit?.json ?? ["status": "not run"]
+    }
     var capacityWithinBudget: Bool {
         cycles.allSatisfy { $0.stableRSSBytes <= $0.baselineRSSBytes * 4 }
     }

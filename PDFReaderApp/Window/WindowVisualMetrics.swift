@@ -4,6 +4,7 @@ enum WindowVisualMetrics {
     static let initialSize = NSSize(width: 1_040, height: 760)
     static let minimumSize = NSSize(width: 480, height: 360)
     static let tabBarHeight: CGFloat = 34
+    static let minimumPaneThickness: CGFloat = 160
     static let tabHeight: CGFloat = 26
     static let statusBarHeight: CGFloat = 26
     static let trafficLightInset: CGFloat = 78

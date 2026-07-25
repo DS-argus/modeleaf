@@ -27,14 +27,21 @@ struct PaneCoordinatorSnapshot {
 }
 
 extension PaneCoordinatorSnapshot {
-    var activeStoreSnapshot: ReaderSessionStoreSnapshot { activePaneID.flatMap { panes[$0] } ?? ReaderSessionStoreSnapshot(tabs: [], activeID: nil) }
+    var activeStoreSnapshot: ReaderSessionStoreSnapshot {
+        guard let activePaneID else {
+            precondition(layout == .empty, "missing active pane in non-empty layout: \(layout)")
+            return ReaderSessionStoreSnapshot(tabs: [], activeID: nil)
+        }
+        guard let store = panes[activePaneID] else { preconditionFailure("active pane missing from snapshot: \(activePaneID)") }
+        return store
+    }
     var tabs: [ReaderTabSnapshot] { activeStoreSnapshot.tabs }
     var activeID: TabID? { activeStoreSnapshot.activeID }
     var isEmpty: Bool { activeStoreSnapshot.isEmpty }
 }
 
 enum PaneCloseTransition: Equatable {
-    case tabSuccessor(pane: PaneID, tab: TabID)
+    case tabSuccessor
     case rowCollapse(survivor: PaneID)
     case columnCollapse(survivor: PaneID)
     case windowEmpty
@@ -109,18 +116,19 @@ final class PaneCoordinator {
 
     @discardableResult
     func split(direction: PaneOrientation) -> PaneID? {
-        guard let activePaneID, let destinationLayout = layout.applyingSplit(direction, to: activePaneID) else { return nil }
+        guard let activePaneID else { return nil }
+        let destinationID = PaneID()
+        guard let destinationLayout = layout.applyingSplit(direction, to: activePaneID, inserting: destinationID) else { return nil }
         guard let source = activeSession as? any ReaderDuplicationSnapshotProviding,
               let candidate = duplicateSession?(source.duplicationSnapshot)
         else { return nil }
-
         let previous = suppressCallbacks; suppressCallbacks = true
         defer { suppressCallbacks = previous }
-        let destinationID = PaneID(); let destination = ReaderSessionStore()
+        let destination = ReaderSessionStore()
         destination.registerChangeHandler { [weak self] _ in self?.storeDidChange() }
         guard destination.insert(candidate) else { candidate.prepareForClose(); duplicationCompletion?(candidate, false); return nil }
         stores[destinationID] = destination
-        layout = destinationLayout(destinationID)
+        layout = destinationLayout
         setActivePane(destinationID)
         suppressCallbacks = previous; publish(); suppressCallbacks = true
         duplicationCompletion?(candidate, true)
@@ -191,8 +199,8 @@ final class PaneCoordinator {
         let oldMemory = lastFocusedRowByColumn
         let transition: PaneCloseTransition
         let projected: PaneCoordinatorSnapshot
-        if let successor = token.projectedSelection {
-            transition = .tabSuccessor(pane: paneID, tab: successor)
+        if token.projectedSelection != nil {
+            transition = .tabSuccessor
             projected = makeSnapshot()
         } else if let collapse = layoutAfterRemovingLastTab(in: paneID) {
             transition = collapseTransition(for: paneID, in: oldLayout, survivor: collapse.activePaneID)
@@ -217,8 +225,7 @@ final class PaneCoordinator {
         case .windowEmpty:
             stores.removeValue(forKey: paneID)
             layout = .empty
-            activePaneID = nil
-            lastFocusedRowByColumn.removeAll()
+            setActivePane(nil)
         }
         suppressCallbacks = previous; publish(); suppressCallbacks = true
         return true
@@ -291,6 +298,7 @@ final class PaneCoordinator {
         lastFocusedRowByColumn = normalized
     }
 
+
     private func stack(in layout: PaneLayout, at side: PaneColumnSide) -> PaneStack? {
         switch (layout, side) {
         case let (.single(stack), .leading): return stack
@@ -300,7 +308,13 @@ final class PaneCoordinator {
         }
     }
 
-    private func setActivePane(_ id: PaneID) {
+    private func setActivePane(_ id: PaneID?) {
+        guard let id else {
+            precondition(layout == .empty, "cannot clear active pane outside empty layout: \(layout)")
+            activePaneID = nil
+            lastFocusedRowByColumn.removeAll()
+            return
+        }
         precondition(layout.contains(id), "cannot activate pane outside installed layout: \(id) in \(layout)")
         activePaneID = id
         if let side = layout.side(of: id), let row = layout.row(of: id) {
@@ -315,15 +329,19 @@ final class PaneCoordinator {
         if !suppressCallbacks { publish() }
     }
 
-    private func makeEmptySnapshot() -> PaneCoordinatorSnapshot {
-        PaneCoordinatorSnapshot(layout: .empty, panes: [:], activePaneID: nil, activeContentView: nil, paneContentViews: [:], paneFocusViews: [:], activeFocusView: nil, activeStatus: nil, windowTitle: "Modeleaf", inputContext: .navigation)
+    private func makeEmptySnapshot(stores: [PaneID: ReaderSessionStore] = [:], activePaneID: PaneID? = nil) -> PaneCoordinatorSnapshot {
+        precondition(stores.isEmpty && activePaneID == nil, "empty snapshot requires no installed stores or active pane")
+        return PaneCoordinatorSnapshot(layout: .empty, panes: [:], activePaneID: nil, activeContentView: nil, paneContentViews: [:], paneFocusViews: [:], activeFocusView: nil, activeStatus: nil, windowTitle: "Modeleaf", inputContext: .navigation)
     }
 
     private func makeSnapshot(layout: PaneLayout? = nil, activePaneID: PaneID? = nil, stores sourceStores: [PaneID: ReaderSessionStore]? = nil) -> PaneCoordinatorSnapshot {
         let effectiveLayout = layout ?? self.layout
-        guard effectiveLayout != .empty else { return makeEmptySnapshot() }
         let effectiveActiveID = activePaneID ?? self.activePaneID
         let effectiveStores = sourceStores ?? stores
+        guard effectiveLayout != .empty else {
+            precondition(effectiveStores.isEmpty && effectiveActiveID == nil, "empty snapshot input contains stores or an active pane")
+            return makeEmptySnapshot(stores: effectiveStores, activePaneID: effectiveActiveID)
+        }
         let ids = Set(effectiveLayout.paneIDs)
         let storeKeys = Set(effectiveStores.keys)
         precondition(storeKeys == ids, "snapshot store/layout key mismatch: layout=\(effectiveLayout) layoutIDs=\(ids) stores=\(storeKeys)")
@@ -344,3 +362,4 @@ final class PaneCoordinator {
 
     private func publish() { onSnapshot?(snapshot) }
 }
+

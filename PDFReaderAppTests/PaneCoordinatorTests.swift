@@ -352,6 +352,106 @@ struct PaneCoordinatorTests {
         }
     }
 
+
+    @Test("focus memory carries, falls back, and survives deferred pane activation")
+    func focusMemoryMatrix() throws {
+        // A trailing remembered bottom survives removal of the entire leading
+        // column, becomes the leading column on resplit, and remains the h/l target.
+        let carried = fourPaneCoordinator()
+        #expect(carried.coordinator.activatePane(carried.trailingBottom))
+        #expect(carried.coordinator.activatePane(carried.leadingBottom))
+        #expect(carried.coordinator.closeActiveTab())
+        #expect(carried.coordinator.activatePane(carried.leadingTop))
+        #expect(carried.coordinator.closeActiveTab())
+        #expect(carried.coordinator.snapshot.layout == .single(.two(top: carried.trailingTop, bottom: carried.trailingBottom)))
+        let newTrailing = try #require(carried.coordinator.split(direction: .sideBySide))
+        #expect(carried.coordinator.focus(.left))
+        #expect(carried.coordinator.activePaneID == carried.trailingBottom)
+        #expect(carried.coordinator.focus(.right))
+        #expect(carried.coordinator.activePaneID == newTrailing)
+
+        // Removing the remembered row collapses to the top survivor; crossing
+        // into that column therefore has the top fallback rather than stale bottom.
+        let fallback = fourPaneCoordinator()
+        #expect(fallback.coordinator.activatePane(fallback.trailingBottom))
+        #expect(fallback.coordinator.closeActiveTab())
+        #expect(fallback.coordinator.activatePane(fallback.leadingTop))
+        #expect(fallback.coordinator.focus(.right))
+        #expect(fallback.coordinator.activePaneID == fallback.trailingTop)
+
+        // Both direct existing insertion and a delayed successful insertion
+        // activate their target pane, updating that column's remembered row.
+        let insertion = fourPaneCoordinator()
+        #expect(insertion.coordinator.activatePane(insertion.leadingTop))
+        #expect(insertion.coordinator.insert(StubReaderSession(id: TabID(), title: "Existing.pdf"), into: .existing(insertion.trailingBottom)))
+        #expect(insertion.coordinator.focus(.left))
+        #expect(insertion.coordinator.focus(.right))
+        #expect(insertion.coordinator.activePaneID == insertion.trailingBottom)
+        #expect(insertion.coordinator.activatePane(insertion.leadingTop))
+        let deferredTarget = insertion.trailingBottom
+        #expect(insertion.coordinator.insert(StubReaderSession(id: TabID(), title: "Deferred success.pdf"), into: .existing(deferredTarget)))
+        #expect(insertion.coordinator.focus(.left))
+        #expect(insertion.coordinator.focus(.right))
+        #expect(insertion.coordinator.activePaneID == deferredTarget)
+    }
+
+    @Test("rejected row, column, and unsplit projections preserve focus memory verbatim")
+    func rejectedProjectionFocusMemoryMatrix() throws {
+        enum Rejection { case row, column, unsplit }
+        for rejection in [Rejection.row, .column, .unsplit] {
+            let fixture = fourPaneCoordinator()
+            #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
+            #expect(fixture.coordinator.activatePane(fixture.trailingBottom))
+            let expectedLeft: PaneID
+            switch rejection {
+            case .row:
+                #expect(!fixture.coordinator.closeActiveTab { _ in false })
+                expectedLeft = fixture.leadingBottom
+            case .column:
+                #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
+                #expect(fixture.coordinator.closeActiveTab())
+                #expect(!fixture.coordinator.closeActiveTab { _ in false })
+                expectedLeft = fixture.leadingTop
+            case .unsplit:
+                #expect(!fixture.coordinator.unsplit { _ in false })
+                expectedLeft = fixture.leadingBottom
+            }
+            if expectedLeft == fixture.leadingTop {
+                // Rejected column projection keeps the leading survivor
+                // active; crossing right must land on the trailing column's
+                // remembered row, and returning honors the carried memory.
+                #expect(fixture.coordinator.activePaneID == fixture.leadingTop, "\(rejection)")
+                #expect(fixture.coordinator.focus(.right), "\(rejection)")
+                #expect(fixture.coordinator.activePaneID == fixture.trailingBottom, "\(rejection)")
+                #expect(fixture.coordinator.focus(.left), "\(rejection)")
+                #expect(fixture.coordinator.activePaneID == expectedLeft, "\(rejection)")
+            } else {
+                // Rejection preserves trailingBottom active; both columns'
+                // memories survive the rejected projection verbatim.
+                #expect(fixture.coordinator.activePaneID == fixture.trailingBottom, "\(rejection)")
+                #expect(fixture.coordinator.focus(.left), "\(rejection)")
+                #expect(fixture.coordinator.activePaneID == expectedLeft, "\(rejection)")
+                #expect(fixture.coordinator.focus(.right), "\(rejection)")
+                #expect(fixture.coordinator.activePaneID == fixture.trailingBottom, "\(rejection)")
+                #expect(fixture.coordinator.focus(.left), "\(rejection)")
+                #expect(fixture.coordinator.activePaneID == expectedLeft, "\(rejection)")
+            }
+        }
+    }
+
+    private func fourPaneCoordinator() -> (coordinator: PaneCoordinator, leadingTop: PaneID, leadingBottom: PaneID, trailingTop: PaneID, trailingBottom: PaneID) {
+        let coordinator = PaneCoordinator()
+        var duplicates = (1...5).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }
+        coordinator.configureDuplication { _ in duplicates.removeFirst() }
+        #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Origin.pdf"), into: .createIfEmpty))
+        let trailingTop = try! #require(coordinator.split(direction: .sideBySide))
+        let leadingTop = try! #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailingTop })
+        #expect(coordinator.activatePane(leadingTop))
+        let leadingBottom = try! #require(coordinator.split(direction: .stacked))
+        #expect(coordinator.activatePane(trailingTop))
+        let trailingBottom = try! #require(coordinator.split(direction: .stacked))
+        return (coordinator, leadingTop, leadingBottom, trailingTop, trailingBottom)
+    }
     private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("pdf-reader-pane-coordinator-\(UUID().uuidString)", isDirectory: true)
