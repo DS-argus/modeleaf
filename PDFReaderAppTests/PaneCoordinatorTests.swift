@@ -55,8 +55,16 @@ struct PaneCoordinatorTests {
         #expect(emissions.count == 4)
         #expect(!coordinator.closeActiveTab { _ in false })
         #expect(emissions.count == 5) // restoration after rejected staged close
-        #expect(coordinator.closeActiveTab())
+        let successor = StubReaderSession(id: TabID(), title: "Successor.pdf")
+        #expect(coordinator.insert(successor, into: .existing(trailing)))
         #expect(emissions.count == 6)
+        #expect(coordinator.closeActiveTab())
+        #expect(emissions.count == 7)
+        #expect(coordinator.store(for: trailing)?.snapshot.activeID == duplicate.id)
+        #expect(coordinator.focus(.left))
+        #expect(emissions.count == 8)
+        #expect(coordinator.unsplit())
+        #expect(emissions.count == 9)
     }
 
     @Test("projected close commits only after staging succeeds")

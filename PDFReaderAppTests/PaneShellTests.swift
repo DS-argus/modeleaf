@@ -116,6 +116,35 @@ struct PaneShellTests {
         #expect(controller.rootView.statusBar.presentation.page == "2 / 10")
         #expect(controller.window?.firstResponder === fixture.origin.focusView)
     }
+    @Test("split orientation exposes pane and tab-bar accessibility labels")
+    func splitOrientationAccessibilityLabels() throws {
+        for (orientation, leadingLabel, trailingLabel) in [
+            (PaneOrientation.sideBySide, "Left", "Right"),
+            (.stacked, "Top", "Bottom"),
+        ] {
+            let coordinator = PaneCoordinator()
+            let leadingSession = StubReaderSession(id: TabID(), title: "Leading.pdf")
+            let trailingSession = StubReaderSession(id: TabID(), title: "Trailing.pdf")
+            coordinator.configureDuplication { _ in trailingSession }
+            #expect(coordinator.insert(leadingSession, into: .createIfEmpty))
+            let trailingID = try #require(coordinator.split(direction: orientation))
+            let leadingID = try #require(coordinator.snapshot.panes.keys.first { $0 != trailingID })
+            let controller = MainWindowController(
+                coordinator: coordinator,
+                theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+                actionHandler: { _ in }
+            )
+            defer { controller.close() }
+
+            let leading = try #require(controller.rootView.paneViewForTesting(leadingID))
+            let trailing = try #require(controller.rootView.paneViewForTesting(trailingID))
+            #expect(leading.accessibilityLabel() == "\(leadingLabel) pane")
+            #expect(trailing.accessibilityLabel() == "\(trailingLabel) pane")
+            #expect(leading.tabBar.accessibilityLabel() == "\(leadingLabel) pane document tabs")
+            #expect(trailing.tabBar.accessibilityLabel() == "\(trailingLabel) pane document tabs")
+            #expect([leading, trailing].filter { $0.accessibilityValue() as? String == "active" }.count == 1)
+        }
+    }
     @Test("collapse stages the survivor responder and clears the removed pane from the key loop")
     func collapseStagesResponderAndKeyLoop() throws {
         let fixture = splitFixture()
@@ -270,32 +299,66 @@ struct PaneShellTests {
         let leadingID = try #require(coordinator.snapshot.panes.keys.first { $0 != trailingID })
         #expect(coordinator.insert(secondTrailingTab, into: .existing(trailingID)))
         #expect(coordinator.activatePane(leadingID))
+        let dispatcher = ActionDispatcher(
+            coordinator: coordinator,
+            navigation: BuiltInDefaults.config.navigation
+        )
         let controller = MainWindowController(
             coordinator: coordinator,
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
-            actionHandler: { _ in }
+            actionHandler: { dispatcher.dispatch($0) }
         )
         defer { controller.close() }
-        let window = try #require(controller.window)
-        let readerWindow = try #require(window as? ReaderWindow)
-        readerWindow.mouseDownHandler = { _ in
-            _ = coordinator.activatePane(trailingID)
-        }
+        let readerWindow = try #require(controller.window as? ReaderWindow)
+        readerWindow.setContentSize(WindowVisualMetrics.initialSize)
+        // A window device is required for AppKit to deliver mouse events through
+        // sendEvent; orderFrontRegardless attaches one without app activation.
+        readerWindow.orderFrontRegardless()
+        readerWindow.makeKey()
+        readerWindow.layoutIfNeeded()
+        controller.rootView.frame = NSRect(origin: .zero, size: WindowVisualMetrics.initialSize)
+        controller.rootView.needsLayout = true
         controller.rootView.layoutSubtreeIfNeeded()
+        let container = try #require(firstDescendant(of: controller.rootView, as: PaneContainerView.self))
+        container.needsLayout = true
+        container.layoutSubtreeIfNeeded()
+        container.setPosition(container.bounds.width / 2, ofDividerAt: 0)
+        container.adjustSubviews()
+        let pane = try #require(controller.rootView.paneViewForTesting(trailingID))
+        pane.needsLayout = true
+        pane.layoutSubtreeIfNeeded()
 
-        trailing.canvas.onMouseDown = { trailing.canvas.activeWhenHandled = coordinator.activePaneID == trailingID }
-        sendClick(to: trailing.canvas, in: window)
-        trailing.canvas.mouseDown(with: mouseDownEvent(at: trailing.canvas, in: window))
-        #expect(trailing.canvas.activeWhenHandled)
+        secondTrailingTab.canvas.onMouseDown = {
+            secondTrailingTab.canvas.activeWhenHandled = coordinator.activePaneID == trailingID
+        }
+        sendClick(to: secondTrailingTab.canvas, in: readerWindow)
+        #expect(secondTrailingTab.canvas.activeWhenHandled)
         #expect(coordinator.activePaneID == trailingID)
 
         #expect(coordinator.activatePane(leadingID))
-        let tab = try #require(firstDescendant(of: controller.rootView, identifier: "tab.\(secondTrailingTab.id.rawValue.uuidString.lowercased())"))
-        let tabItem = try #require(tab.superview)
-        sendClick(to: tabItem, at: NSPoint(x: tabItem.bounds.midX, y: 1), in: window)
-        tabItem.mouseDown(with: mouseDownEvent(at: tabItem, in: window))
+        let originalSelect = pane.onSelect
+        var activeWhenTabHandled = false
+        pane.onSelect = { tabID in
+            activeWhenTabHandled = coordinator.activePaneID == trailingID
+            originalSelect?(tabID)
+        }
+        pane.tabBar.needsLayout = true
+        pane.tabBar.layoutSubtreeIfNeeded()
+        readerWindow.layoutIfNeeded()
+        let tab = try #require(firstDescendant(of: controller.rootView, identifier: "tab.\(trailing.id.rawValue.uuidString.lowercased())"))
+        // Real event delivery: the production window handler must activate the
+        // clicked pane. Headless NSButton tracking cannot complete the action
+        // send, so the selection chain itself is exercised through AppKit's
+        // action path below.
+        sendClick(to: tab, in: readerWindow)
         #expect(coordinator.activePaneID == trailingID)
-        #expect(coordinator.store(for: trailingID)?.snapshot.activeID == secondTrailingTab.id)
+
+        #expect(coordinator.activatePane(leadingID))
+        let tabButton = try #require(tab as? NSButton)
+        tabButton.performClick(nil)
+        #expect(activeWhenTabHandled)
+        #expect(coordinator.activePaneID == trailingID)
+        #expect(coordinator.store(for: trailingID)?.snapshot.activeID == trailing.id)
     }
 
     @Test("480 by 360 split panes preserve reachable controls at both divider limits")
@@ -372,7 +435,6 @@ struct PaneShellTests {
         let hit = root.hitTest(point)
         #expect(hit.map { isDescendant($0, of: view) } == true, "unreachable \(view.accessibilityIdentifier()) frame=\(view.frame) hit=\(String(describing: hit))")
     }
-
     private func isDescendant(_ view: NSView, of ancestor: NSView) -> Bool {
         var candidate: NSView? = view
         while let current = candidate {
@@ -388,10 +450,9 @@ struct PaneShellTests {
         for subview in view.subviews { assertNoAmbiguousLayout(in: subview) }
     }
 
-
-    private func sendClick(to view: NSView, at point: NSPoint? = nil, in window: NSWindow) {
+    private func sendClick(to view: NSView, at point: NSPoint? = nil, in window: ReaderWindow) {
         let point = point ?? NSPoint(x: view.bounds.midX, y: view.bounds.midY)
-        let location = view.convert(point, to: window.contentView)
+        let location = view.convert(point, to: nil)
         let down = NSEvent.mouseEvent(
             with: .leftMouseDown,
             location: location,
@@ -418,10 +479,10 @@ struct PaneShellTests {
         window.sendEvent(up)
     }
 
-    private func mouseDownEvent(at view: NSView, in window: NSWindow) -> NSEvent {
-        NSEvent.mouseEvent(
+    private func sendMouseDown(to view: NSView, at point: NSPoint, in window: ReaderWindow) {
+        let event = NSEvent.mouseEvent(
             with: .leftMouseDown,
-            location: view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: window.contentView),
+            location: view.convert(point, to: nil),
             modifierFlags: [],
             timestamp: 0,
             windowNumber: window.windowNumber,
@@ -430,7 +491,9 @@ struct PaneShellTests {
             clickCount: 1,
             pressure: 1
         )!
+        window.sendEvent(event)
     }
+
     private func splitFixture(originPage: Int = 1, duplicatePage: Int = 1) -> (
         coordinator: PaneCoordinator,
         leading: PaneID,
@@ -486,6 +549,8 @@ private final class EventRecordingCanvas: NSView {
     var activeWhenHandled = false
 
     override var acceptsFirstResponder: Bool { true }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func mouseDown(with event: NSEvent) {
         onMouseDown?()

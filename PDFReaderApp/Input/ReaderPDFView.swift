@@ -28,6 +28,10 @@ final class ReaderPDFView: PDFView {
 
     override var acceptsFirstResponder: Bool { true }
 
+    /// The PDF canvas responds to the first click in an inactive window so a
+    /// pane click both focuses the window and activates that pane (EF5/AC-4).
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true

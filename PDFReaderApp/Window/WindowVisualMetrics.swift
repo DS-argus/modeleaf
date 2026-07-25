@@ -20,6 +20,12 @@ final class ClosureButton: NSButton {
     override var acceptsFirstResponder: Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
 
+    /// Tab-strip and shell controls act on the first click even when the app
+    /// is inactive, matching the pane click-to-activate contract (EF5/AC-4):
+    /// clicking an unfocused window's tab must both focus the window and
+    /// perform the selection, as native macOS tab strips do.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     var handler: (() -> Void)? {
         didSet {
             target = self
