@@ -155,8 +155,6 @@ private final class TabItemView: NSView {
         switch itemLayout {
         case .regular:
             widthConstraint.constant = TabBarLayoutMetrics.regularTabWidth
-            selectButton.respondsToFirstMouse = true
-        closeButton.respondsToFirstMouse = true
         selectButton.title = displayTitle
             selectLeadingConstraint.constant = 10
             selectTrailingConstraint.constant = -4
