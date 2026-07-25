@@ -132,6 +132,52 @@ struct PaneShellTests {
         #expect(fixture.coordinator.snapshot.layout == .single(fixture.leading))
     }
 
+    @Test("dismissed prompt collapse stages the survivor focus and removes the closed pane key loop")
+    func dismissedPromptCollapseRestoresSurvivorFocus() throws {
+        let fixture = splitFixture()
+        let controller = MainWindowController(
+            coordinator: fixture.coordinator,
+            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            actionHandler: { _ in }
+        )
+        defer { controller.close() }
+        let removedFocus = fixture.duplicate.focusView
+
+        controller.presentPrompt(PromptPresentation(kind: .page, text: "2", validationMessage: nil))
+        controller.dismissPromptAndRestoreFocus()
+        #expect(controller.window?.firstResponder === fixture.duplicate.focusView)
+
+        #expect(fixture.coordinator.closeActiveTab())
+        #expect(controller.window?.firstResponder === fixture.origin.focusView)
+        #expect(removedFocus.nextKeyView == nil)
+        #expect(fixture.coordinator.snapshot.layout == .single(fixture.leading))
+    }
+
+    @Test("active prompt owns focus through close staging before post-commit refresh")
+    func activePromptPreventsResponderMigrationDuringCloseStaging() throws {
+        let fixture = splitFixture()
+        let controller = MainWindowController(
+            coordinator: fixture.coordinator,
+            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            actionHandler: { _ in }
+        )
+        defer { controller.close() }
+
+        controller.presentPrompt(PromptPresentation(kind: .search, text: "needle", validationMessage: nil))
+        let promptResponder = controller.rootView.promptOverlay.textField.currentEditor()
+        #expect(controller.window?.firstResponder === promptResponder)
+
+        var responderStayedWithPrompt = false
+        let closed = fixture.coordinator.closeActiveTab { _ in
+            responderStayedWithPrompt = controller.window?.firstResponder === promptResponder
+            return true
+        }
+        #expect(closed)
+        #expect(responderStayedWithPrompt)
+        #expect(controller.rootView.promptOverlay.isHidden)
+        #expect(controller.window?.firstResponder === fixture.origin.focusView)
+    }
+
 
     private func splitFixture(originPage: Int = 1, duplicatePage: Int = 1) -> (
         coordinator: PaneCoordinator,

@@ -1,8 +1,10 @@
-import Testing
+import AppKit
 import Foundation
-@testable import PDFReaderApp
+import PDFKit
 import PDFReaderCore
-
+import PDFReaderTestSupport
+import Testing
+@testable import PDFReaderApp
 @Suite("Single-pane coordinator")
 @MainActor
 struct PaneCoordinatorTests {
@@ -132,6 +134,68 @@ struct PaneCoordinatorTests {
         #expect(coordinator.snapshot.layout != .empty)
         #expect(coordinator.activeSession?.id == reopened.id)
     }
+
+    @Test("collapse and unsplit release closed PDFKit sessions and search owners")
+    func projectedPaneTeardownReleasesAllOwnedObjects() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1)
+            for path in [ClosePath.collapse, .unsplit] {
+                var weakSession: WeakObject<ReaderSession>?
+                var weakView: WeakObject<PDFView>?
+                var weakDocument: WeakObject<PDFDocument>?
+                var weakSearch: WeakObject<PaneSearchLifecycleSpy>?
+                autoreleasepool {
+                    let coordinator = PaneCoordinator()
+                    #expect(coordinator.insert(try! PDFOpenService().open(url: url), into: .createIfEmpty))
+                    coordinator.configureDuplication { _ in
+                        let document = PDFDocument(url: url)!
+                        let search = PaneSearchLifecycleSpy()
+                        let session = ReaderSession(sourceURL: url, document: document, searchLifecycle: search)
+                        weakSession = WeakObject(session)
+                        weakView = WeakObject(descendantPDFViews(in: session.contentView).only!)
+                        weakDocument = WeakObject(document)
+                        weakSearch = WeakObject(search)
+                        return session
+                    }
+                    #expect(coordinator.split(direction: .sideBySide) != nil)
+
+                    switch path {
+                    case .collapse:
+                        #expect(coordinator.closeActiveTab())
+                    case .unsplit:
+                        #expect(coordinator.focus(.left))
+                        #expect(coordinator.unsplit())
+                    }
+                    while coordinator.closeActiveTab() {}
+                }
+                drainPDFKit()
+                #expect(weakSession?.value == nil)
+                #expect(weakView?.value == nil)
+                #expect(weakDocument?.value == nil)
+                #expect(weakSearch?.value == nil)
+            }
+        }
+    }
+
+    private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pdf-reader-pane-coordinator-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: url) }
+        try body(url)
+    }
+
+    private func descendantPDFViews(in view: NSView) -> [PDFView] {
+        let own = (view as? PDFView).map { [$0] } ?? []
+        return own + view.subviews.flatMap(descendantPDFViews(in:))
+    }
+
+    private func drainPDFKit() {
+        autoreleasepool {}
+        for _ in 0..<3 {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
+    }
 }
 
 
@@ -145,4 +209,28 @@ extension StubReaderSession: ReaderDuplicationSnapshotProviding {
             scaleFactor: zoom
         )
     }
+}
+
+private enum ClosePath {
+    case collapse
+    case unsplit
+}
+
+private final class WeakObject<Value: AnyObject> {
+    weak var value: Value?
+
+    init(_ value: Value?) {
+        self.value = value
+    }
+}
+
+@MainActor
+private final class PaneSearchLifecycleSpy: ReaderSearchLifecycle {
+    func requestCancellation() {}
+    func detachCallbacks() {}
+    func clearHighlights() {}
+}
+
+private extension Array {
+    var only: Element? { count == 1 ? self[0] : nil }
 }

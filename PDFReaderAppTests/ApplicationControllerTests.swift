@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import PDFReaderCore
+import PDFReaderTestSupport
 import Testing
 @testable import PDFReaderApp
 
@@ -73,6 +74,62 @@ struct ApplicationControllerTests {
         #expect(sessionStore.activeSession?.id == first.id)
         controller.dispatch(.appQuit)
         #expect(quit)
+    }
+
+    @Test("pane-scoped deferred open rejects a disappeared target without inserting elsewhere")
+    func deferredPaneOpenRejectsDisappearedTarget() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1)
+            let store = ReaderSessionStore()
+            #expect(store.insert(try PDFOpenService().open(url: url)))
+            let metrics = ControllerRecordingMetrics()
+            let openPanel = CapturingOpenPanelStub()
+            let controller = ApplicationController(
+                configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                sessionStore: store,
+                openMetrics: metrics,
+                openPanelPresenter: openPanel,
+                terminationHandler: {}
+            )
+            defer {
+                while store.closeActive() {}
+                controller.mainWindowController.close()
+            }
+
+            controller.dispatch(.paneSplitRight)
+            let targetPane = try #require(descendantPaneViews(in: controller.mainWindowController.rootView).last)
+            targetPane.tabBar.onNewTab?()
+            #expect(openPanel.presentCount == 1)
+            #expect(openPanel.capturedCompletion != nil)
+
+            controller.dispatch(.paneFocusLeft)
+            controller.dispatch(.paneUnsplit)
+            #expect(store.sessionCount == 1)
+
+            openPanel.complete(with: url)
+
+            #expect(store.sessionCount == 1)
+            #expect(controller.mainWindowController.rootView.statusBar.presentation.tone == .error)
+            #expect(controller.mainWindowController.rootView.statusBar.presentation.detail.contains("Could not create a PDF tab"))
+            #expect(metrics.events.suffix(3).map(\.signature) == [
+                "session.closed.point.insertionRejected",
+                "open.failed.point.insertionRejected",
+                "open.total.end.insertionRejected",
+            ])
+        }
+    }
+
+    private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pdf-reader-controller-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: url) }
+        try body(url)
+    }
+
+    private func descendantPaneViews(in view: NSView) -> [PaneView] {
+        let own = (view as? PaneView).map { [$0] } ?? []
+        return own + view.subviews.flatMap(descendantPaneViews(in:))
     }
 
     @Test("startup presents every configuration error and warning with actionable metadata")
@@ -182,5 +239,37 @@ private final class ControllerStubSession: ReaderSessionPresenting {
 
     func prepareForClose() {
         prepareForCloseCount += 1
+    }
+}
+
+@MainActor
+private final class CapturingOpenPanelStub: PDFOpenPanelPresenting {
+    private(set) var presentCount = 0
+    private(set) var capturedCompletion: ((URL?) -> Void)?
+
+    func present(attachedTo window: NSWindow?, completion: @escaping (URL?) -> Void) {
+        presentCount += 1
+        capturedCompletion = completion
+    }
+
+    func complete(with url: URL?) {
+        let completion = capturedCompletion
+        capturedCompletion = nil
+        completion?(url)
+    }
+}
+
+@MainActor
+private final class ControllerRecordingMetrics: PDFOpenMetrics {
+    private(set) var events: [PDFOpenMetricEvent] = []
+
+    func record(_ event: PDFOpenMetricEvent) {
+        events.append(event)
+    }
+}
+
+private extension PDFOpenMetricEvent {
+    var signature: String {
+        "\(name.rawValue).\(boundary.rawValue).\(outcome?.rawValue ?? "-")"
     }
 }
