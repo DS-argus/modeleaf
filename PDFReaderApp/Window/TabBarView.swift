@@ -29,7 +29,8 @@ private final class TabItemView: NSView {
     private var closeTrailingConstraint: NSLayoutConstraint!
     private var trackingAreaReference: NSTrackingArea?
     private var itemLayout = TabItemLayout.regular
-    private var active = false
+    private var selected = false
+    private var paneIsActive = true
     private var hovering = false
     private var theme: AppKitTheme?
 
@@ -38,12 +39,13 @@ private final class TabItemView: NSView {
     fileprivate var orderedKeyViews: [NSView] { [selectButton, closeButton] }
     override var mouseDownCanMoveWindow: Bool { false }
 
-    init(tab: ReaderTabSnapshot, index: Int, count: Int, active: Bool) {
+    init(tab: ReaderTabSnapshot, index: Int, count: Int, selected: Bool, paneIsActive: Bool) {
         self.id = tab.id
         self.displayTitle = Self.displayTitle(for: tab.title)
         self.index = index
         self.count = count
-        self.active = active
+        self.selected = selected
+        self.paneIsActive = paneIsActive
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerRadius = WindowVisualMetrics.compactCornerRadius
@@ -52,15 +54,15 @@ private final class TabItemView: NSView {
         selectButton.isBordered = false
         selectButton.alignment = .left
         selectButton.lineBreakMode = .byTruncatingTail
-        selectButton.font = .systemFont(ofSize: 12, weight: active ? .semibold : .regular)
-        selectButton.state = active ? .on : .off
+        selectButton.font = .systemFont(ofSize: 12, weight: selected && paneIsActive ? .semibold : .regular)
+        selectButton.state = selected ? .on : .off
         selectButton.handler = { [weak self] in
             guard let self else { return }
             self.onSelect?(self.id)
         }
         selectButton.setAccessibilityRole(.radioButton)
         selectButton.setAccessibilityLabel("\(tab.title), tab \(index + 1) of \(count)")
-        selectButton.setAccessibilityValue(active ? "selected" : "not selected")
+        selectButton.setAccessibilityValue(selected ? "selected" : "not selected")
         selectButton.setAccessibilityIdentifier("tab.\(Self.identifierComponent(tab.id))")
 
         closeButton.isBordered = false
@@ -136,6 +138,12 @@ private final class TabItemView: NSView {
         self.theme = theme
         refreshAppearance()
     }
+    func setPaneActive(_ active: Bool) {
+        guard paneIsActive != active else { return }
+        paneIsActive = active
+        selectButton.font = .systemFont(ofSize: 12, weight: selected && active ? .semibold : .regular)
+        refreshAppearance()
+    }
 
     @discardableResult
     func apply(itemLayout: TabItemLayout) -> Bool {
@@ -170,7 +178,7 @@ private final class TabItemView: NSView {
     private func refreshAppearance() {
         guard let theme else { return }
         let background: NSColor
-        if active {
+        if selected && paneIsActive {
             background = theme[.activeTab]
         } else if hovering {
             background = theme.hover
@@ -178,7 +186,7 @@ private final class TabItemView: NSView {
             background = theme[.inactiveTab]
         }
         layer?.backgroundColor = background.cgColor
-        if active {
+        if selected && paneIsActive {
             layer?.borderWidth = 1
             layer?.borderColor = theme[.accent].withAlphaComponent(0.48).cgColor
         } else if itemLayout == .compactInactive {
@@ -190,9 +198,9 @@ private final class TabItemView: NSView {
             layer?.borderWidth = 0
             layer?.borderColor = NSColor.clear.cgColor
         }
-        selectButton.contentTintColor = active ? theme[.foreground] : theme[.mutedText]
-        closeButton.contentTintColor = active || hovering ? theme[.foreground] : theme[.mutedText]
-        closeButton.alphaValue = active || hovering ? 0.92 : 0.48
+        selectButton.contentTintColor = selected && paneIsActive ? theme[.foreground] : theme[.mutedText]
+        closeButton.contentTintColor = selected && paneIsActive || hovering ? theme[.foreground] : theme[.mutedText]
+        closeButton.alphaValue = selected && paneIsActive || hovering ? 0.92 : 0.48
     }
 
     private static func identifierComponent(_ id: TabID) -> String {
@@ -215,6 +223,7 @@ final class TabBarView: NSView {
     private weak var activeItemView: TabItemView?
     private var theme: AppKitTheme?
     private(set) var usesCompactLayout = false
+    private var paneIsActive: Bool?
 
     var onSelect: ((TabID) -> Void)?
     var onClose: ((TabID) -> Void)?
@@ -354,7 +363,8 @@ final class TabBarView: NSView {
                 tab: tab,
                 index: index,
                 count: snapshot.tabs.count,
-                active: snapshot.activeID == tab.id
+                selected: snapshot.activeID == tab.id,
+                paneIsActive: paneIsActive ?? true
             )
             item.onSelect = { [weak self] id in self?.onSelect?(id) }
             item.onClose = { [weak self] id in self?.onClose?(id) }
@@ -376,12 +386,30 @@ final class TabBarView: NSView {
         }
         needsLayout = true
     }
+    func setPaneActive(_ active: Bool) {
+        guard paneIsActive != active else { return }
+        paneIsActive = active
+        refreshPaneAppearance()
+        for item in itemViews { item.setPaneActive(active) }
+    }
 
     func apply(theme: AppKitTheme) {
         self.theme = theme
-        layer?.backgroundColor = theme.tabBarBackground.cgColor
+        refreshPaneAppearance()
         newTabButton.contentTintColor = theme[.mutedText]
         for item in itemViews { item.apply(theme: theme) }
+    }
+
+    private func refreshPaneAppearance() {
+        guard let theme else { return }
+        layer?.backgroundColor = theme.tabBarBackground.cgColor
+        if let paneIsActive {
+            layer?.borderWidth = paneIsActive ? WindowVisualMetrics.focusIndicatorWidth : 0
+            layer?.borderColor = paneIsActive ? theme.focusRing.cgColor : NSColor.clear.cgColor
+        } else {
+            layer?.borderWidth = 0
+            layer?.borderColor = NSColor.clear.cgColor
+        }
     }
 
     @discardableResult

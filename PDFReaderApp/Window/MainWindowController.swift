@@ -48,12 +48,18 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             inputRouter?.handle(event) ?? false
         }
         window.delegate = self
+        window.mouseDownHandler = { [weak self] event in
+            self?.rootView.activatePane(atWindowPoint: event.locationInWindow)
+        }
         rootView.apply(theme: theme)
         rootView.setInputContext(.navigation)
         rootView.emptyState.openButton.handler = { [weak self] in self?.actionHandler(.documentOpen) }
         rootView.tabBar.onSelect = { [weak self] id in self?.dispatchTabSelection(to: id) }
         rootView.tabBar.onClose = { [weak self] id in self?.dispatchTabClose(id) }
         rootView.tabBar.onNewTab = { [weak self] in self?.actionHandler(.documentOpen) }
+        rootView.onPaneActivate = { [weak self] paneID in
+            _ = self?.coordinator.activatePane(paneID)
+        }
         rootView.onPaneSelect = { [weak self] paneID, tabID in
             guard let self else { return }
             self.coordinator.activatePane(paneID)

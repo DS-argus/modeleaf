@@ -9,17 +9,28 @@ final class PaneView: NSView {
     private weak var presentedContentView: NSView?
     private var tabBarHeightConstraint: NSLayoutConstraint!
 
-    var onSelect: ((TabID) -> Void)? { didSet { tabBar.onSelect = onSelect } }
-    var onClose: ((TabID) -> Void)? { didSet { tabBar.onClose = onClose } }
-    var onNewTab: (() -> Void)? { didSet { tabBar.onNewTab = onNewTab } }
+    var onActivate: (() -> Void)?
+    var onSelect: ((TabID) -> Void)?
+    var onClose: ((TabID) -> Void)?
+    var onNewTab: (() -> Void)?
     var orderedKeyViews: [NSView] { tabBar.orderedKeyViews }
 
     init(id: PaneID, trafficLightInset: CGFloat) {
         self.id = id
         super.init(frame: .zero)
         setAccessibilityIdentifier("pane.\(id.rawValue.uuidString.lowercased())")
+        setAccessibilityRole(.group)
         tabBar.accessibilityScope = "pane.\(id.rawValue.uuidString.lowercased())"
         tabBar.trafficLightInset = trafficLightInset
+        tabBar.onSelect = { [weak self] tabID in
+            self?.activateThen { self?.onSelect?(tabID) }
+        }
+        tabBar.onClose = { [weak self] tabID in
+            self?.activateThen { self?.onClose?(tabID) }
+        }
+        tabBar.onNewTab = { [weak self] in
+            self?.activateThen { self?.onNewTab?() }
+        }
         for view in [tabBar, contentHost] {
             view.prepareForAutoLayout()
             addSubview(view)
@@ -45,11 +56,25 @@ final class PaneView: NSView {
         tabBar.apply(theme: theme)
     }
 
+    func setActive(_ active: Bool) {
+        setAccessibilityValue(active ? "active" : "inactive")
+        tabBar.setPaneActive(active)
+    }
+
+    func activateForPointerEvent() {
+        onActivate?()
+    }
+
     func render(snapshot: ReaderSessionStoreSnapshot, contentView: NSView?) {
         tabBar.render(snapshot)
         tabBarHeightConstraint.constant = snapshot.isEmpty ? 0 : WindowVisualMetrics.tabBarHeight
         tabBar.isHidden = snapshot.isEmpty
         setPresentedContentView(contentView)
+    }
+
+    private func activateThen(_ operation: () -> Void) {
+        onActivate?()
+        operation()
     }
 
     private func setPresentedContentView(_ view: NSView?) {

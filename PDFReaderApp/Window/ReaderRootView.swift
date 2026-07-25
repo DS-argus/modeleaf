@@ -20,6 +20,7 @@ final class ReaderRootView: NSView {
     var onPaneNewTab: ((PaneID) -> Void)?
     private var renderedSessionSnapshot: ReaderSessionStoreSnapshot?
 
+    var onPaneActivate: ((PaneID) -> Void)?
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
@@ -137,6 +138,8 @@ final class ReaderRootView: NSView {
             leading.render(snapshot: snapshot.panes[leadingOrTop]!, contentView: snapshot.paneContentViews[leadingOrTop])
             trailing.render(snapshot: snapshot.panes[trailingOrBottom]!, contentView: snapshot.paneContentViews[trailingOrBottom])
             paneContainer.install(leadingOrTop: leading, trailingOrBottom: trailing, orientation: orientation)
+            leading.setActive(snapshot.activePaneID == leadingOrTop)
+            trailing.setActive(snapshot.activePaneID == trailingOrBottom)
             if let sessionStatus = snapshot.activeStatus {
                 currentStatus.context = readerInputContext.map(Self.statusLabel(for:)) ?? sessionStatus.context
                 currentStatus.page = sessionStatus.page
@@ -156,10 +159,27 @@ final class ReaderRootView: NSView {
         paneViews[id] = pane
         pane.onSelect = { [weak self] tabID in self?.onPaneSelect?(id, tabID) }
         pane.onClose = { [weak self] tabID in self?.onPaneClose?(id, tabID) }
+        pane.onActivate = { [weak self] in self?.onPaneActivate?(id) }
         pane.onNewTab = { [weak self] in self?.onPaneNewTab?(id) }
         return pane
     }
 
+
+    func paneViewForTesting(_ id: PaneID) -> PaneView? {
+        paneViews[id]
+    }
+
+    func activatePane(atWindowPoint point: NSPoint) {
+        let localPoint = convert(point, from: nil)
+        var view = hitTest(localPoint)
+        while let candidate = view {
+            if let pane = candidate as? PaneView {
+                pane.activateForPointerEvent()
+                return
+            }
+            view = candidate.superview
+        }
+    }
     func setInputContext(_ context: InputContext) {
         readerInputContext = context
         currentStatus.context = Self.statusLabel(for: context)
