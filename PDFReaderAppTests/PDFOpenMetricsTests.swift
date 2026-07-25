@@ -104,7 +104,7 @@ struct PDFOpenMetricsTests {
                 metrics: metrics
             )
             defer {
-                while store.closeActive() {}
+                while controller.coordinator.closeActiveTab() {}
                 controller.mainWindowController.close()
             }
 
@@ -140,7 +140,7 @@ struct PDFOpenMetricsTests {
                 metrics: metrics
             )
             defer {
-                _ = store.closeActive()
+                while controller.coordinator.closeActiveTab() {}
                 controller.mainWindowController.close()
             }
 

@@ -225,7 +225,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
                     rootView.promptOverlay.cancelButton,
                 ])
             }
-            if case .split = snapshot.layout, let paneID = snapshot.activePaneID {
+            if snapshot.layout.isMultiPane, let paneID = snapshot.activePaneID {
                 views.append(contentsOf: rootView.paneViewForTesting(paneID)?.orderedKeyViews ?? [])
             } else {
                 views.append(contentsOf: rootView.tabBar.orderedKeyViews)

@@ -14,24 +14,14 @@ struct PaneCoordinatorSnapshot {
     let inputContext: InputContext
 
     func assertCardinality() {
+        let ids = Set(layout.paneIDs)
         switch layout {
         case .empty:
-            precondition(
-                panes.isEmpty && activePaneID == nil && activeContentView == nil && activeFocusView == nil && activeStatus == nil,
-                "empty cardinality violated: panes=\(panes.count) activePaneID=\(String(describing: activePaneID)) contentView=\(activeContentView != nil) focusView=\(activeFocusView != nil) status=\(activeStatus != nil)"
-            )
-        case let .single(id):
-            precondition(
-                panes.count == 1 && panes[id]?.isEmpty == false && activePaneID == id && activeContentView != nil && activeFocusView != nil && activeStatus != nil,
-                "single cardinality violated: pane=\(id) panes=\(panes.map { "\($0.key): \($0.value.tabs.count) tabs" }.sorted()) activePaneID=\(String(describing: activePaneID)) contentView=\(activeContentView != nil) focusView=\(activeFocusView != nil) status=\(activeStatus != nil)"
-            )
-        case let .split(_, leadingOrTop, trailingOrBottom):
-            precondition(
-                panes.count == 2 && panes[leadingOrTop]?.isEmpty == false && panes[trailingOrBottom]?.isEmpty == false,
-                "split cardinality violated: leading=\(leadingOrTop) trailing=\(trailingOrBottom) panes=\(panes.map { "\($0.key): \($0.value.tabs.count) tabs" }.sorted())"
-            )
-            precondition(activePaneID == leadingOrTop || activePaneID == trailingOrBottom, "split active pane \(String(describing: activePaneID)) is not a member pane")
-            precondition(activeContentView != nil && activeFocusView != nil && activeStatus != nil, "split snapshot is missing active view/status fields")
+            precondition(panes.isEmpty && activePaneID == nil && activeContentView == nil && activeFocusView == nil && activeStatus == nil && paneContentViews.isEmpty && paneFocusViews.isEmpty, "empty cardinality violated: layout=\(layout) panes=\(panes.keys) content=\(paneContentViews.keys) focus=\(paneFocusViews.keys)")
+        case .single, .split:
+            precondition(Set(panes.keys) == ids && Set(paneContentViews.keys) == ids && Set(paneFocusViews.keys) == ids, "layout/key-set mismatch: layout=\(layout) panes=\(panes.keys) content=\(paneContentViews.keys) focus=\(paneFocusViews.keys)")
+            precondition(panes.values.allSatisfy { !$0.isEmpty }, "non-empty layout contains empty store: layout=\(layout)")
+            precondition(activePaneID.map(ids.contains) == true && activeContentView != nil && activeFocusView != nil && activeStatus != nil, "non-empty cardinality violated: layout=\(layout) active=\(String(describing: activePaneID))")
         }
     }
 }
@@ -62,13 +52,12 @@ final class PaneCoordinator {
     private var duplicationCompletion: ((any ReaderSessionPresenting, Bool) -> Void)?
 
     init(initialStore: ReaderSessionStore) {
-        if initialStore.snapshot.isEmpty {
-            bootstrapStore = initialStore
-        } else {
+        if initialStore.snapshot.isEmpty { bootstrapStore = initialStore }
+        else {
             let id = PaneID()
             stores[id] = initialStore
-            layout = .single(id)
-            activePaneID = id
+            layout = .single(.one(id))
+            setActivePane(id)
         }
         initialStore.registerChangeHandler { [weak self] _ in self?.storeDidChange() }
     }
@@ -78,7 +67,6 @@ final class PaneCoordinator {
     func configureDuplication(_ handler: @escaping (ReaderDuplicationSnapshot) -> (any ReaderSessionPresenting)?) { duplicateSession = handler }
     func configureDuplicationCompletion(_ handler: @escaping (any ReaderSessionPresenting, Bool) -> Void) { duplicationCompletion = handler }
     func configureCloseStaging(_ handler: @escaping (PaneCoordinatorSnapshot) -> Bool) { closeStagingHandler = handler }
-
     var snapshot: PaneCoordinatorSnapshot { makeSnapshot() }
     private var activeStore: ReaderSessionStore? { activePaneID.flatMap { stores[$0] } ?? bootstrapStore }
     var activeSession: (any ReaderSessionPresenting)? { activeStore?.activeSession }
@@ -87,44 +75,22 @@ final class PaneCoordinator {
 
     @discardableResult
     func insert(_ session: any ReaderSessionPresenting, into target: PaneOpenTarget) -> Bool {
-        let previousSuppression = suppressCallbacks
-        suppressCallbacks = true
-        var didMutate = false
-        defer {
-            suppressCallbacks = previousSuppression
-            if didMutate { publish() }
-        }
-
+        let previous = suppressCallbacks; suppressCallbacks = true; var mutated = false
+        defer { suppressCallbacks = previous; if mutated { publish() } }
         switch target {
         case .createIfEmpty:
-            switch layout {
-            case .empty:
-                let id = PaneID()
-                let store = bootstrapStore ?? ReaderSessionStore()
-                if store.onChange == nil {
-                    store.registerChangeHandler { [weak self] _ in self?.storeDidChange() }
-                }
-                let wasBootstrapStore = bootstrapStore === store
-                if wasBootstrapStore { bootstrapStore = nil }
-                guard store.insert(session) else {
-                    if wasBootstrapStore { bootstrapStore = store }
-                    return false
-                }
-                stores[id] = store
-                layout = .single(id)
-                activePaneID = id
-                didMutate = true
-                return true
-            case .single, .split:
-                guard let store = activeStore, store.insert(session) else { return false }
-                didMutate = true
-                return true
+            if case .empty = layout {
+                let id = PaneID(); let store = bootstrapStore ?? ReaderSessionStore()
+                if store.onChange == nil { store.registerChangeHandler { [weak self] _ in self?.storeDidChange() } }
+                let wasBootstrap = bootstrapStore === store
+                if wasBootstrap { bootstrapStore = nil }
+                guard store.insert(session) else { if wasBootstrap { bootstrapStore = store }; return false }
+                stores[id] = store; layout = .single(.one(id)); setActivePane(id); mutated = true; return true
             }
+            guard let store = activeStore, store.insert(session) else { return false }; mutated = true; return true
         case let .existing(id):
             guard let store = stores[id], !store.snapshot.isEmpty, store.insert(session) else { return false }
-            activePaneID = id
-            didMutate = true
-            return true
+            setActivePane(id); mutated = true; return true
         }
     }
 
@@ -133,143 +99,104 @@ final class PaneCoordinator {
     @discardableResult func activateNext() -> TabID? { activeStore?.activateNext() }
     @discardableResult func activatePrevious() -> TabID? { activeStore?.activatePrevious() }
 
-    @discardableResult
-    func activatePane(_ id: PaneID) -> Bool {
-        guard stores[id] != nil, activePaneID != id else { return stores[id] != nil }
-        activePaneID = id
-        publish()
-        return true
+    @discardableResult func activatePane(_ id: PaneID) -> Bool {
+        guard stores[id] != nil else { return false }
+        guard activePaneID != id else { return true }
+        setActivePane(id); publish(); return true
     }
 
     @discardableResult
     func split(direction: PaneOrientation) -> PaneID? {
-        guard case let .single(originID) = layout,
+        guard case let .single(.one(originID)) = layout,
               let source = activeSession as? any ReaderDuplicationSnapshotProviding,
               let candidate = duplicateSession?(source.duplicationSnapshot)
         else { return nil }
-
-        let previousSuppression = suppressCallbacks
-        suppressCallbacks = true
-        defer { suppressCallbacks = previousSuppression }
-        let destinationID = PaneID()
-        let destination = ReaderSessionStore()
+        let previous = suppressCallbacks; suppressCallbacks = true
+        defer { suppressCallbacks = previous }
+        let destinationID = PaneID(); let destination = ReaderSessionStore()
         destination.registerChangeHandler { [weak self] _ in self?.storeDidChange() }
-        guard destination.insert(candidate) else {
-            candidate.prepareForClose()
-            duplicationCompletion?(candidate, false)
-            return nil
-        }
+        guard destination.insert(candidate) else { candidate.prepareForClose(); duplicationCompletion?(candidate, false); return nil }
         stores[destinationID] = destination
-        layout = .split(orientation: direction, leadingOrTop: originID, trailingOrBottom: destinationID)
-        activePaneID = destinationID
-        suppressCallbacks = previousSuppression
-        publish()
-        suppressCallbacks = true
+        layout = direction == .sideBySide
+            ? .split(leading: .one(originID), trailing: .one(destinationID))
+            : .single(.two(top: originID, bottom: destinationID))
+        setActivePane(destinationID)
+        suppressCallbacks = previous; publish(); suppressCallbacks = true
         duplicationCompletion?(candidate, true)
         return destinationID
     }
 
     @discardableResult
     func focus(_ direction: PaneFocusDirection) -> Bool {
-        guard case let .split(orientation, leadingOrTop, trailingOrBottom) = layout,
-              let activePaneID
-        else { return false }
+        guard let activePaneID else { return false }
         let target: PaneID?
-        switch (orientation, activePaneID, direction) {
-        case (.sideBySide, leadingOrTop, .right), (.sideBySide, trailingOrBottom, .left),
-             (.stacked, leadingOrTop, .down), (.stacked, trailingOrBottom, .up):
-            target = activePaneID == leadingOrTop ? trailingOrBottom : leadingOrTop
-        default:
-            target = nil
+        switch layout {
+        case let .split(leading, trailing):
+            switch (direction, leading.contains(activePaneID), trailing.contains(activePaneID)) {
+            case (.right, true, _): target = trailing.paneIDs.first
+            case (.left, _, true): target = leading.paneIDs.first
+            default: target = nil
+            }
+        case let .single(.two(top, bottom)):
+            switch (direction, activePaneID) {
+            case (.down, top), (.up, bottom): target = activePaneID == top ? bottom : top
+            default: target = nil
+            }
+        default: target = nil
         }
         guard let target else { return false }
-        self.activePaneID = target
-        publish()
-        return true
+        setActivePane(target); publish(); return true
     }
 
     @discardableResult
     func unsplit(stage: ((PaneCoordinatorSnapshot) -> Bool)? = nil) -> Bool {
-        guard case let .split(_, leadingOrTop, trailingOrBottom) = layout,
-              let activePaneID,
-              let removedID = [leadingOrTop, trailingOrBottom].first(where: { $0 != activePaneID }),
-              let removedStore = stores[removedID]
-        else { return false }
-        let projected = makeSnapshot(layout: .single(activePaneID), activePaneID: activePaneID, stores: stores.filter { $0.key != removedID })
+        guard layout.isMultiPane, let activePaneID else { return false }
+        let removed = layout.paneIDs.filter { $0 != activePaneID }
+        let projected = makeSnapshot(layout: .single(.one(activePaneID)), activePaneID: activePaneID, stores: stores.filter { $0.key == activePaneID })
         guard (stage ?? closeStagingHandler ?? { _ in true })(projected) else { publish(); return false }
-        let previousSuppression = suppressCallbacks
-        suppressCallbacks = true
-        defer { suppressCallbacks = previousSuppression }
-        for tab in removedStore.snapshot.tabs {
-            guard let token = removedStore.beginClose(tab.id), removedStore.commitClose(token) else {
-                preconditionFailure("ReaderSessionStore cannot commit unsplit teardown")
-            }
+        let previous = suppressCallbacks; suppressCallbacks = true
+        defer { suppressCallbacks = previous }
+        for id in removed {
+            guard let store = stores[id] else { continue }
+            for tab in store.snapshot.tabs { guard let token = store.beginClose(tab.id), store.commitClose(token) else { preconditionFailure("ReaderSessionStore cannot commit unsplit teardown") } }
+            stores.removeValue(forKey: id)
         }
-        stores.removeValue(forKey: removedID)
-        layout = .single(activePaneID)
-        suppressCallbacks = previousSuppression
-        publish()
-        suppressCallbacks = true
+        layout = .single(.one(activePaneID)); setActivePane(activePaneID)
+        suppressCallbacks = previous; publish(); suppressCallbacks = true
         return true
     }
 
     @discardableResult
     func closeActiveTab(stage: ((PaneCoordinatorSnapshot) -> Bool)? = nil) -> Bool {
-        guard let paneID = activePaneID,
-              let store = stores[paneID],
-              let id = store.snapshot.activeID,
-              let token = store.beginClose(id)
-        else { return false }
+        guard let paneID = activePaneID, let store = stores[paneID], let id = store.snapshot.activeID, let token = store.beginClose(id) else { return false }
         let transition: PaneCloseTransition
         let projected: PaneCoordinatorSnapshot
-        if token.projectedSelection != nil {
-            transition = .tabSuccessor(pane: paneID, tab: token.projectedSelection!)
-            projected = makeSnapshot()
-        } else if case let .split(_, leadingOrTop, trailingOrBottom) = layout,
-                  let survivor = [leadingOrTop, trailingOrBottom].first(where: { $0 != paneID }) {
+        if let successor = token.projectedSelection { transition = .tabSuccessor(pane: paneID, tab: successor); projected = makeSnapshot() }
+        else if let survivor = layout.paneIDs.first(where: { $0 != paneID }) {
             transition = .paneCollapse(survivor: survivor)
-            projected = makeSnapshot(layout: .single(survivor), activePaneID: survivor, stores: stores.filter { $0.key != paneID })
-        } else {
-            transition = .windowEmpty
-            projected = makeEmptySnapshot()
-        }
-        guard (stage ?? closeStagingHandler ?? { _ in true })(projected) else {
-            store.rollbackClose(token)
-            publish()
-            return false
-        }
-        let previousSuppression = suppressCallbacks
-        suppressCallbacks = true
-        defer { suppressCallbacks = previousSuppression }
-        guard store.commitClose(token) else {
-            store.rollbackClose(token)
-            publish()
-            return false
-        }
+            projected = makeSnapshot(layout: .single(.one(survivor)), activePaneID: survivor, stores: stores.filter { $0.key != paneID })
+        } else { transition = .windowEmpty; projected = makeEmptySnapshot() }
+        guard (stage ?? closeStagingHandler ?? { _ in true })(projected) else { store.rollbackClose(token); publish(); return false }
+        let previous = suppressCallbacks; suppressCallbacks = true
+        defer { suppressCallbacks = previous }
+        guard store.commitClose(token) else { store.rollbackClose(token); publish(); return false }
         switch transition {
         case .tabSuccessor: break
-        case let .paneCollapse(survivor):
-            stores.removeValue(forKey: paneID)
-            layout = .single(survivor)
-            activePaneID = survivor
-        case .windowEmpty:
-            stores.removeValue(forKey: paneID)
-            layout = .empty
-            activePaneID = nil
+        case let .paneCollapse(survivor): stores.removeValue(forKey: paneID); layout = .single(.one(survivor)); setActivePane(survivor)
+        case .windowEmpty: stores.removeValue(forKey: paneID); layout = .empty; activePaneID = nil
         }
-        suppressCallbacks = previousSuppression
-        publish()
-        suppressCallbacks = true
+        suppressCallbacks = previous; publish(); suppressCallbacks = true
         return true
+    }
+
+    private func setActivePane(_ id: PaneID) {
+        precondition(layout.contains(id), "cannot activate pane outside installed layout: \(id) in \(layout)")
+        activePaneID = id
     }
 
     private func storeDidChange() {
         if case .empty = layout, let bootstrapStore, !bootstrapStore.snapshot.isEmpty {
-            let id = PaneID()
-            stores[id] = bootstrapStore
-            self.bootstrapStore = nil
-            layout = .single(id)
-            activePaneID = id
+            let id = PaneID(); stores[id] = bootstrapStore; self.bootstrapStore = nil; layout = .single(.one(id)); setActivePane(id)
         }
         if !suppressCallbacks { publish() }
     }
@@ -280,16 +207,25 @@ final class PaneCoordinator {
 
     private func makeSnapshot(layout: PaneLayout? = nil, activePaneID: PaneID? = nil, stores sourceStores: [PaneID: ReaderSessionStore]? = nil) -> PaneCoordinatorSnapshot {
         let effectiveLayout = layout ?? self.layout
-        let effectiveActivePaneID = activePaneID ?? self.activePaneID
+        guard effectiveLayout != .empty else { return makeEmptySnapshot() }
+        let effectiveActiveID = activePaneID ?? self.activePaneID
         let effectiveStores = sourceStores ?? stores
-        guard let effectiveActivePaneID, let activeStore = effectiveStores[effectiveActivePaneID], !activeStore.snapshot.isEmpty else { return makeEmptySnapshot() }
-        let panes = Dictionary(uniqueKeysWithValues: effectiveStores.map { ($0.key, $0.value.snapshot) })
-        let paneContentViews = Dictionary(uniqueKeysWithValues: effectiveStores.compactMap { id, store in store.activeSession.map { (id, $0.contentView) } })
-        let paneFocusViews = Dictionary(uniqueKeysWithValues: effectiveStores.compactMap { id, store in store.activeSession.map { (id, $0.focusView) } })
-        let active = activeStore.activeSession
-        let result = PaneCoordinatorSnapshot(layout: effectiveLayout, panes: panes, activePaneID: effectiveActivePaneID, activeContentView: active?.contentView, paneContentViews: paneContentViews, paneFocusViews: paneFocusViews, activeFocusView: active?.focusView, activeStatus: active?.statusSnapshot, windowTitle: active.map { "\($0.title) — Modeleaf" } ?? "Modeleaf", inputContext: active?.preferredInputContext ?? .navigation)
-        result.assertCardinality()
-        return result
+        let ids = Set(effectiveLayout.paneIDs)
+        let storeKeys = Set(effectiveStores.keys)
+        precondition(storeKeys == ids, "snapshot store/layout key mismatch: layout=\(effectiveLayout) layoutIDs=\(ids) stores=\(storeKeys)")
+        precondition(effectiveActiveID.map(ids.contains) == true, "snapshot active/layout mismatch: layout=\(effectiveLayout) active=\(String(describing: effectiveActiveID))")
+        let panes = Dictionary(uniqueKeysWithValues: effectiveLayout.paneIDs.map { ($0, effectiveStores[$0]!.snapshot) })
+        let paneContentViews = Dictionary(uniqueKeysWithValues: effectiveLayout.paneIDs.map { id in
+            guard let content = effectiveStores[id]?.activeSession?.contentView else { preconditionFailure("snapshot missing content view: layout=\(effectiveLayout) pane=\(id) stores=\(storeKeys)") }
+            return (id, content)
+        })
+        let paneFocusViews = Dictionary(uniqueKeysWithValues: effectiveLayout.paneIDs.map { id in
+            guard let focus = effectiveStores[id]?.activeSession?.focusView else { preconditionFailure("snapshot missing focus view: layout=\(effectiveLayout) pane=\(id) stores=\(storeKeys)") }
+            return (id, focus)
+        })
+        guard let activeID = effectiveActiveID, let active = effectiveStores[activeID]?.activeSession else { preconditionFailure("snapshot missing active session: layout=\(effectiveLayout) active=\(String(describing: effectiveActiveID))") }
+        let result = PaneCoordinatorSnapshot(layout: effectiveLayout, panes: panes, activePaneID: activeID, activeContentView: active.contentView, paneContentViews: paneContentViews, paneFocusViews: paneFocusViews, activeFocusView: active.focusView, activeStatus: active.statusSnapshot, windowTitle: "\(active.title) — Modeleaf", inputContext: active.preferredInputContext)
+        result.assertCardinality(); return result
     }
 
     private func publish() { onSnapshot?(snapshot) }

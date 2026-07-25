@@ -92,8 +92,9 @@ struct ThemeAndShellTests {
             )
         )
         let store = ReaderSessionStore()
+        let coordinator = PaneCoordinator(initialStore: store)
         let controller = MainWindowController(
-            coordinator: PaneCoordinator(initialStore: store),
+            coordinator: coordinator,
             theme: theme,
             actionHandler: { _ in }
         )
@@ -104,7 +105,7 @@ struct ThemeAndShellTests {
         session.applyTheme(theme)
         #expect(store.insert(session))
         defer {
-            _ = store.close(session.id)
+            while coordinator.closeActiveTab() {}
             controller.close()
         }
 
@@ -134,8 +135,9 @@ struct ThemeAndShellTests {
     @Test("unbound Tab and Backtab move the real PDF canvas through the AppKit key-view loop")
     func readerCanvasStartsKeyViewTraversal() throws {
         let store = ReaderSessionStore()
+        let coordinator = PaneCoordinator(initialStore: store)
         let controller = MainWindowController(
-            coordinator: PaneCoordinator(initialStore: store),
+            coordinator: coordinator,
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
             actionHandler: { _ in }
         )
@@ -145,7 +147,7 @@ struct ThemeAndShellTests {
         )
         #expect(store.insert(session))
         defer {
-            _ = store.close(session.id)
+            while coordinator.closeActiveTab() {}
             controller.close()
         }
 
@@ -192,8 +194,9 @@ struct ThemeAndShellTests {
     func shellStatesExposeStableAccessibilityIdentifiers() {
         let store = ReaderSessionStore()
         var actions: [ActionID] = []
+        let coordinator = PaneCoordinator(initialStore: store)
         let controller = MainWindowController(
-            coordinator: PaneCoordinator(initialStore: store),
+            coordinator: coordinator,
             theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
             actionHandler: { actions.append($0) }
         )
@@ -291,8 +294,7 @@ struct ThemeAndShellTests {
         let diagnostic = findDescendant(in: controller.rootView.statusBar, identifier: "status.diagnostic")
         #expect(diagnostic?.accessibilityValue() as? String == "Malformed configuration")
 
-        #expect(store.close(first.id))
-        #expect(store.close(second.id))
+        while coordinator.closeActiveTab() {}
         #expect(controller.rootView.emptyState.isHidden == false)
         #expect(controller.window != nil)
     }

@@ -149,6 +149,25 @@ struct PaneShellTests {
             #expect([leading, trailing].filter { $0.accessibilityValue() as? String == "active" }.count == 1)
         }
     }
+    @Test("stacked single-column layouts use pane chrome and stacked key-loop controls")
+    func stackedSingleColumnChromeAndKeyLoop() throws {
+        let coordinator = PaneCoordinator()
+        let origin = StubReaderSession(id: TabID(), title: "Origin.pdf")
+        let duplicate = StubReaderSession(id: TabID(), title: "Duplicate.pdf")
+        coordinator.configureDuplication { _ in duplicate }
+        #expect(coordinator.insert(origin, into: .createIfEmpty))
+        let bottom = try #require(coordinator.split(direction: .stacked))
+        let top = try #require(coordinator.snapshot.panes.keys.first { $0 != bottom })
+        let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(configuration: BuiltInDefaults.config.theme), actionHandler: { _ in })
+        defer { controller.close() }
+
+        #expect(coordinator.snapshot.layout == .single(.two(top: top, bottom: bottom)))
+        #expect(controller.rootView.tabBar.isHidden)
+        #expect(controller.rootView.paneViewForTesting(bottom)?.tabBar.isHidden == false)
+        #expect(duplicate.focusView.nextKeyView === controller.rootView.paneViewForTesting(bottom)?.orderedKeyViews.first)
+        #expect(coordinator.focus(.up))
+        #expect(coordinator.activePaneID == top)
+    }
     @Test("collapse stages the survivor responder and clears the removed pane from the key loop")
     func collapseStagesResponderAndKeyLoop() throws {
         let fixture = splitFixture()
@@ -162,7 +181,7 @@ struct PaneShellTests {
         #expect(fixture.coordinator.closeActiveTab())
         #expect(controller.window?.firstResponder === fixture.origin.focusView)
         #expect(removedFocus.nextKeyView == nil)
-        #expect(fixture.coordinator.snapshot.layout == .single(fixture.leading))
+        #expect(fixture.coordinator.snapshot.layout == .single(.one(fixture.leading)))
     }
 
     @Test("dismissed prompt collapse stages the survivor focus and removes the closed pane key loop")
@@ -183,7 +202,7 @@ struct PaneShellTests {
         #expect(fixture.coordinator.closeActiveTab())
         #expect(controller.window?.firstResponder === fixture.origin.focusView)
         #expect(removedFocus.nextKeyView == nil)
-        #expect(fixture.coordinator.snapshot.layout == .single(fixture.leading))
+        #expect(fixture.coordinator.snapshot.layout == .single(.one(fixture.leading)))
     }
 
     @Test("active prompt owns focus through close staging before post-commit refresh")
@@ -281,7 +300,7 @@ struct PaneShellTests {
         defer { controller.close() }
 
         #expect(coordinator.unsplit())
-        #expect(coordinator.snapshot.layout == .single(trailing))
+        #expect(coordinator.snapshot.layout == .single(.one(trailing)))
         let newTrailing = try #require(coordinator.split(direction: .sideBySide))
         let leading = try #require(coordinator.snapshot.panes.keys.first { $0 != newTrailing })
         let leadingPane = try #require(controller.rootView.paneViewForTesting(leading))
@@ -393,10 +412,12 @@ struct PaneShellTests {
         readerWindow.layoutIfNeeded()
         let tab = try #require(firstDescendant(of: controller.rootView, identifier: "tab.\(trailing.id.rawValue.uuidString.lowercased())"))
         // Real event delivery: the production window handler must activate the
-        // clicked pane. Headless NSButton tracking cannot complete the action
-        // send, so the selection chain itself is exercised through AppKit's
-        // action path below.
-        sendClick(to: tab, in: readerWindow)
+        // pane for a click anywhere in its tab bar. The click lands on the tab
+        // bar background (not a button) because headless NSButton tracking
+        // blocks in its mouse-tracking loop; the button selection chain itself
+        // is exercised through AppKit's action path below.
+        let barPoint = NSPoint(x: pane.tabBar.bounds.maxX - 40, y: pane.tabBar.bounds.midY)
+        sendMouseDown(to: pane.tabBar, at: barPoint, in: readerWindow)
         #expect(coordinator.activePaneID == trailingID)
 
         #expect(coordinator.activatePane(leadingID))

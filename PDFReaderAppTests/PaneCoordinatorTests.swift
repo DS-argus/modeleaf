@@ -115,7 +115,7 @@ struct PaneCoordinatorTests {
         }
         #expect(coordinator.insert(origin, into: .createIfEmpty))
         let destination = try! #require(coordinator.split(direction: .sideBySide))
-        #expect(coordinator.snapshot.layout == .split(orientation: .sideBySide, leadingOrTop: coordinator.snapshot.panes.keys.first(where: { $0 != destination })!, trailingOrBottom: destination))
+        #expect(coordinator.snapshot.layout == .split(leading: .one(coordinator.snapshot.panes.keys.first(where: { $0 != destination })!), trailing: .one(destination)))
         #expect(coordinator.activePaneID == destination)
         #expect(coordinator.store(for: destination)?.snapshot.tabs.map(\.id) == [duplicate.id])
         #expect(coordinator.split(direction: .stacked) == nil)
@@ -151,9 +151,9 @@ struct PaneCoordinatorTests {
         #expect(coordinator.activatePane(closingPane))
 
         #expect(coordinator.closeActiveTab { snapshot in
-            snapshot.layout == .single(survivor) && snapshot.activeID == origin.id
+            snapshot.layout == .single(.one(survivor)) && snapshot.activeID == origin.id
         })
-        #expect(coordinator.snapshot.layout == .single(survivor))
+        #expect(coordinator.snapshot.layout == .single(.one(survivor)))
         #expect(coordinator.activePaneID == survivor)
         #expect(coordinator.activeSession?.id == origin.id)
     }

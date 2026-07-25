@@ -18,7 +18,7 @@ struct PaneRedTeamTests {
                 #expect(fixture.coordinator.split(direction: .sideBySide) == nil)
                 #expect(fixture.coordinator.split(direction: .stacked) == nil)
             }
-            #expect(fixture.coordinator.snapshot.layout == .split(orientation: orientation, leadingOrTop: fixture.leading, trailingOrBottom: fixture.trailing))
+            #expect(fixture.coordinator.snapshot.layout == (orientation == .sideBySide ? .split(leading: .one(fixture.leading), trailing: .one(fixture.trailing)) : .single(.two(top: fixture.leading, bottom: fixture.trailing))))
             #expect(fixture.coordinator.snapshot.panes.count == 2)
             #expect(fixture.emissions.count == settled)
         }
@@ -27,7 +27,7 @@ struct PaneRedTeamTests {
         for _ in 0..<2 {
             let fixture = makeFixture(orientation: .sideBySide)
             #expect(fixture.coordinator.closeActiveTab())
-            #expect(fixture.coordinator.snapshot.layout == .single(fixture.leading))
+            #expect(fixture.coordinator.snapshot.layout == .single(.one(fixture.leading)))
             #expect(fixture.coordinator.snapshot.panes.count == 1)
             #expect(fixture.coordinator.closeActiveTab())
             #expect(fixture.coordinator.snapshot.layout == .empty)
@@ -50,8 +50,8 @@ struct PaneRedTeamTests {
         #expect(rollback.coordinator.activatePane(rollback.trailing))
         #expect(rollback.coordinator.snapshot.panes[rollback.leading] == originalLeading)
         #expect(extra.prepareForCloseCount == 0)
-        #expect(rollback.coordinator.unsplit(stage: { $0.layout == .single(rollback.trailing) }))
-        #expect(rollback.coordinator.snapshot.layout == .single(rollback.trailing))
+        #expect(rollback.coordinator.unsplit(stage: { $0.layout == .single(.one(rollback.trailing)) }))
+        #expect(rollback.coordinator.snapshot.layout == .single(.one(rollback.trailing)))
         #expect(rollback.origin.prepareForCloseCount == 1)
         #expect(extra.prepareForCloseCount == 1)
 
