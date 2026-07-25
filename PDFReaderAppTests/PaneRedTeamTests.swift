@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import PDFReaderCore
+import PDFReaderTestSupport
 import Testing
 @testable import PDFReaderApp
 
@@ -106,7 +107,7 @@ struct PaneRedTeamTests {
         #expect(cleanDuplicate.searchQuery.isEmpty)
         #expect(cleanDuplicate.selection == nil)
 
-        writeArtifacts()
+        try writeArtifacts()
     }
 
     @Test("prompt focus is not stolen during rejected pane mutations")
@@ -140,20 +141,52 @@ struct PaneRedTeamTests {
         return (coordinator, leading, trailing, origin, duplicate, emissions)
     }
 
-    private func writeArtifacts() {
+    private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pdf-reader-red-team-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: url) }
+        try body(url)
+    }
+
+    private func writeArtifacts() throws {
         guard let directory = ProcessInfo.processInfo.environment["PDF_READER_SNAPSHOT_DIR"] else { return }
         let output = URL(fileURLWithPath: directory, isDirectory: true)
-        try! FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
-        for (orientation, name) in [(PaneOrientation.sideBySide, "side-by-side.png"), (.stacked, "stacked.png")] {
-            let fixture = makeFixture(orientation: orientation)
-            let controller = MainWindowController(coordinator: fixture.coordinator, theme: AppKitTheme(configuration: BuiltInDefaults.config.theme), actionHandler: { _ in })
-            controller.rootView.frame = NSRect(x: 0, y: 0, width: 760, height: 520)
-            controller.rootView.layoutSubtreeIfNeeded()
-            let root = controller.rootView
-            let representation = root.bitmapImageRepForCachingDisplay(in: root.bounds)!
-            root.cacheDisplay(in: root.bounds, to: representation)
-            try! representation.representation(using: .png, properties: [:])!.write(to: output.appendingPathComponent(name))
-            controller.close()
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        // Evidence renders use the REAL application pipeline: real fixture
+        // PDFs opened through PDFOpenService, split via dispatched pane
+        // actions, and PDFKit-rendered page content in both panes.
+        for (action, name) in [(ActionID.paneSplitRight, "side-by-side.png"), (.paneSplitDown, "stacked.png")] {
+            try withTemporaryDirectory { fixtures in
+                let url = try PDFFixtureFactory.makeTextPDF(in: fixtures, name: "pane-evidence.pdf", pageCount: 9)
+                let controller = ApplicationController(
+                    configService: ConfigService(source: ConfigFileSource(url: fixtures.appendingPathComponent("missing-config.toml"))),
+                    sessionStore: ReaderSessionStore(),
+                    terminationHandler: {}
+                )
+                defer {
+                    while controller.coordinator.closeActiveTab() {}
+                    controller.mainWindowController.close()
+                }
+                _ = controller.mainWindowController
+                #expect(controller.openDocument(at: url))
+                #expect((controller.coordinator.activeSession as? ReaderSession)?.goToPage(2) == true)
+                controller.dispatch(action)
+                guard case .split = controller.coordinator.snapshot.layout else {
+                    Issue.record("Expected a committed split for \(name)")
+                    return
+                }
+                #expect((controller.coordinator.activeSession as? ReaderSession)?.goToPage(7) == true)
+                let root = controller.mainWindowController.rootView
+                root.frame = NSRect(x: 0, y: 0, width: 900, height: 640)
+                root.needsLayout = true
+                root.layoutSubtreeIfNeeded()
+                let representation = try #require(root.bitmapImageRepForCachingDisplay(in: root.bounds))
+                root.cacheDisplay(in: root.bounds, to: representation)
+                let png = try #require(representation.representation(using: .png, properties: [:]))
+                #expect(png.count > 50_000)
+                try png.write(to: output.appendingPathComponent(name))
+            }
         }
         let cases = [
             "AC-2 split ceiling both directions / rapid repeat",
