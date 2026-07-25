@@ -25,7 +25,7 @@ large_scroll_viewport_fraction = 0.8
 zoom_factor = 1.1
 
 [input]
-prefix_timeout_ms = 300
+prefix_timeout_ms = 800
 
 [theme]
 built_in = "catppuccin-mocha"
@@ -102,7 +102,7 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 - Small scroll: `48 pt` (valid `1...512`).
 - Large scroll: `0.8 × viewport` (valid `0.1...2.0`).
 - Zoom factor: `1.10` (valid `1.01...2.0`).
-- Prefix timeout: `300 ms` (valid `100...2000`).
+- Prefix timeout: `800 ms` (valid `100...2000`).
 - Initial theme: `catppuccin-mocha`.
 - Themes: `catppuccin-mocha`, `tokyo-night`, `gruvbox-dark`, `nord`.
 
