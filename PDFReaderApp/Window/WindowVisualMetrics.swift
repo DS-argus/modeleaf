@@ -2,11 +2,12 @@ import AppKit
 
 enum WindowVisualMetrics {
     static let initialSize = NSSize(width: 1_040, height: 760)
-    static let minimumSize = NSSize(width: 720, height: 480)
+    static let minimumSize = NSSize(width: 480, height: 360)
     static let tabBarHeight: CGFloat = 34
     static let tabHeight: CGFloat = 26
     static let statusBarHeight: CGFloat = 26
     static let trafficLightInset: CGFloat = 78
+    static let promptPreferredWidth: CGFloat = 480
     static let promptMaximumWidth: CGFloat = 520
     static let promptHeight: CGFloat = 42
     static let cornerRadius: CGFloat = 8
@@ -17,6 +18,7 @@ enum WindowVisualMetrics {
 @MainActor
 final class ClosureButton: NSButton {
     override var acceptsFirstResponder: Bool { true }
+    override var mouseDownCanMoveWindow: Bool { false }
 
     var handler: (() -> Void)? {
         didSet {

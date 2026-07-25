@@ -17,7 +17,7 @@ struct ValidatedMenuBuilderTests {
         #expect(open.keyEquivalent == "o")
         #expect(open.keyEquivalentModifierMask == NSEvent.ModifierFlags.command)
 
-        let quit = try #require(menu.descendant(title: "Quit PDF Reader"))
+        let quit = try #require(menu.descendant(title: "Quit Modeleaf"))
         #expect(quit.keyEquivalent == "q")
         #expect(quit.keyEquivalentModifierMask == NSEvent.ModifierFlags.command)
 

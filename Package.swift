@@ -3,14 +3,15 @@
 import PackageDescription
 
 let package = Package(
-    name: "PDFReader",
+    name: "Modeleaf",
     platforms: [
         .macOS(.v14),
     ],
     products: [
         .library(name: "PDFReaderCore", targets: ["PDFReaderCore"]),
         .library(name: "PDFReaderTestSupport", targets: ["PDFReaderTestSupport"]),
-        .executable(name: "PDFReader", targets: ["PDFReaderApp"]),
+        .executable(name: "Modeleaf", targets: ["PDFReaderApp"]),
+        .executable(name: "PDFReaderOpenProbe", targets: ["PDFReaderOpenProbe"]),
         .executable(name: "step0-probe", targets: ["Step0Probe"]),
     ],
     dependencies: [
@@ -49,6 +50,11 @@ let package = Package(
             name: "PDFReaderAppTests",
             dependencies: ["PDFReaderApp", "PDFReaderCore", "PDFReaderTestSupport"],
             path: "PDFReaderAppTests"
+        ),
+        .executableTarget(
+            name: "PDFReaderOpenProbe",
+            dependencies: ["PDFReaderTestSupport"],
+            path: "Tools/PDFReaderOpenProbe"
         ),
         .target(
             name: "Step0ProbeSupport",

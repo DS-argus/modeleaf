@@ -189,6 +189,9 @@ private enum ExactPrefixSafetyPolicy {
              .searchCancel:
             true
         case .tabNext, .tabPrevious,
+             .tabSelect1, .tabSelect2, .tabSelect3,
+             .tabSelect4, .tabSelect5, .tabSelect6,
+             .tabSelect7, .tabSelect8, .tabSelect9,
              .scrollLeft, .scrollDown, .scrollUp, .scrollRight,
              .scrollLargeDown, .scrollLargeUp,
              .pageNext, .pagePrevious, .pageFirst, .pageLast, .pagePrompt,

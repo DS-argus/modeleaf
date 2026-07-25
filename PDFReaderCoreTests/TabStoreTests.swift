@@ -66,6 +66,25 @@ struct TabStoreTests {
         #expect(store.activeIndex == 0)
     }
 
+    @Test("U-TAB-02 zero-based ordinal activation is bounded and reports actual changes")
+    func ordinalActivationIsBounded() {
+        let first = fixedID(1)
+        let second = fixedID(2)
+        let third = fixedID(3)
+        var store = TabStore(orderedIDs: [first, second, third], activeID: third)
+
+        let selectedFirst = store.activate(at: 0)
+        #expect(selectedFirst)
+        #expect(store.activeID == first)
+        let sameSelection = store.activate(at: 0)
+        let negativeSelection = store.activate(at: -1)
+        let outOfRangeSelection = store.activate(at: 3)
+        #expect(!sameSelection)
+        #expect(!negativeSelection)
+        #expect(!outOfRangeSelection)
+        #expect(store.activeID == first)
+    }
+
     @Test("U-TAB-02 closing a non-active tab preserves the active tab")
     func closeNonActivePreservesSelection() {
         let first = fixedID(1)

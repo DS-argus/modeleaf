@@ -15,7 +15,7 @@ public enum BuiltInDefaults {
             largeScrollViewportFraction: 0.8,
             zoomFactor: 1.10
         ),
-        input: InputConfiguration(prefixTimeoutMilliseconds: 500),
+        input: InputConfiguration(prefixTimeoutMilliseconds: 300),
         theme: ThemeConfiguration(builtIn: .catppuccinMocha)
     )
 
@@ -24,8 +24,17 @@ public enum BuiltInDefaults {
         .documentClose: sequences("<D-w>"),
         .appQuit: sequences("<D-q>"),
 
-        .tabNext: sequences("gt"),
-        .tabPrevious: sequences("gT"),
+        .tabNext: sequences("N"),
+        .tabPrevious: sequences("P"),
+        .tabSelect1: sequences("<D-1>"),
+        .tabSelect2: sequences("<D-2>"),
+        .tabSelect3: sequences("<D-3>"),
+        .tabSelect4: sequences("<D-4>"),
+        .tabSelect5: sequences("<D-5>"),
+        .tabSelect6: sequences("<D-6>"),
+        .tabSelect7: sequences("<D-7>"),
+        .tabSelect8: sequences("<D-8>"),
+        .tabSelect9: sequences("<D-9>"),
 
         .scrollLeft: sequences("h"),
         .scrollDown: sequences("j"),
@@ -48,9 +57,9 @@ public enum BuiltInDefaults {
         .searchPrevious: sequences("<S-CR>"),
         .searchCancel: sequences("<Esc>"),
 
-        .viewZoomIn: sequences("+"),
+        .viewZoomIn: sequences("="),
         .viewZoomOut: sequences("-"),
-        .viewZoomReset: sequences("="),
+        .viewZoomReset: [],
         .viewFitWidth: sequences("w"),
         .viewFitPage: sequences("f"),
     ]
@@ -58,7 +67,7 @@ public enum BuiltInDefaults {
     public static var defaultConfigTOML: String {
         var lines = [
             "# Generated from PDFReaderCore.BuiltInDefaults. Do not edit this bundled copy.",
-            "# Copy it to ~/.config/pdf-reader/config.toml and edit the copy.",
+            "# Copy it to ~/.config/modeleaf/config.toml and edit the copy.",
             "",
             "[keymap]",
         ]

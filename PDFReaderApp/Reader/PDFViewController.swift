@@ -9,19 +9,31 @@ enum ReaderViewMode: String, Equatable, Sendable {
     case fitPage
 }
 
+enum InitialPDFPresentationState: String, Equatable, Sendable {
+    case pending
+    case applying
+    case applied
+    case supersededByUser
+}
+
 @MainActor
 final class PDFViewController: NSViewController {
     private let readerView: ReaderPDFView
     private let initialDocument: PDFDocument
+    private let openTraceID: OpenTraceID
+    private let openMetrics: any PDFOpenMetrics
     private var canvasBackground: NSColor
     private var focusIndicator: NSColor
-    private(set) var viewMode: ReaderViewMode = .fitWidth
+    private(set) var viewMode: ReaderViewMode = .fitPage
+    private(set) var initialPresentationState: InitialPDFPresentationState = .pending
     private var searchPalette = SearchHighlightPalette.default
     private var searchSelections: [PDFSelection] = []
     private var activeSearchIndex: Int?
 
-    init(document: PDFDocument) {
+    init(document: PDFDocument, traceID: OpenTraceID, metrics: any PDFOpenMetrics) {
         self.initialDocument = document
+        self.openTraceID = traceID
+        self.openMetrics = metrics
         self.readerView = ReaderPDFView(frame: .zero)
         let defaultTheme = AppKitTheme(configuration: BuiltInDefaults.config.theme)
         self.canvasBackground = defaultTheme.canvasBackground
@@ -51,10 +63,18 @@ final class PDFViewController: NSViewController {
             readerView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             readerView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
-        readerView.document = initialDocument
-        readerView.displayMode = .singlePageContinuous
+        readerView.displayMode = .singlePage
         readerView.autoScales = true
+        openMetrics.record(.begin(.pdfViewDocumentAttach, traceID: openTraceID))
+        readerView.document = initialDocument
+        readerView.enforceReadOnlyDocumentConfiguration()
+        openMetrics.record(.end(.pdfViewDocumentAttach, traceID: openTraceID, outcome: .success))
         view = container
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        applyInitialPresentationIfReady()
     }
 
     var focusView: NSView {
@@ -75,6 +95,11 @@ final class PDFViewController: NSViewController {
         return readerView.scaleFactor
     }
 
+    var usesSinglePageLayout: Bool {
+        loadViewIfNeeded()
+        return readerView.displayMode == .singlePage
+    }
+
     var isDocumentAttached: Bool {
         loadViewIfNeeded()
         return readerView.document === initialDocument
@@ -89,30 +114,50 @@ final class PDFViewController: NSViewController {
             return false
         }
         loadViewIfNeeded()
+        supersedePendingInitialPresentation()
         readerView.go(to: page)
         return true
     }
 
     func scrollBy(xPoints: Double, yPoints: Double) {
         loadViewIfNeeded()
+        supersedePendingInitialPresentation()
         readerView.scrollBy(xPoints: xPoints, yPoints: yPoints)
     }
 
-    func scrollVerticallyByViewportFraction(_ fraction: Double) {
+    @discardableResult
+    func scrollVertically(byPoints points: Double) -> ReaderVerticalScrollOutcome {
         loadViewIfNeeded()
-        readerView.scrollVerticallyByViewportFraction(fraction)
+        supersedePendingInitialPresentation()
+        return readerView.scrollVertically(byPoints: points)
+    }
+
+    @discardableResult
+    func scrollVerticallyByViewportFraction(_ fraction: Double) -> ReaderVerticalScrollOutcome {
+        loadViewIfNeeded()
+        supersedePendingInitialPresentation()
+        return readerView.scrollVerticallyByViewportFraction(fraction)
+    }
+
+    func scrollToVerticalBoundary(_ boundary: ReaderVerticalBoundary) {
+        loadViewIfNeeded()
+        readerView.layoutDocumentView()
+        readerView.scrollToVerticalBoundary(boundary)
     }
 
     func zoom(by factor: Double) {
         guard factor.isFinite, factor > 0 else { return }
         loadViewIfNeeded()
+        supersedePendingInitialPresentation()
         readerView.autoScales = false
         viewMode = .manual
         readerView.scaleFactor = min(readerView.maxScaleFactor, max(readerView.minScaleFactor, readerView.scaleFactor * factor))
+        readerView.layoutDocumentView()
     }
 
     func resetZoom() {
         loadViewIfNeeded()
+        supersedePendingInitialPresentation()
         readerView.autoScales = false
         readerView.scaleFactor = 1
         viewMode = .actualSize
@@ -120,6 +165,7 @@ final class PDFViewController: NSViewController {
 
     func fitWidth() {
         loadViewIfNeeded()
+        supersedePendingInitialPresentation()
         readerView.displayMode = .singlePageContinuous
         readerView.autoScales = true
         viewMode = .fitWidth
@@ -127,8 +173,10 @@ final class PDFViewController: NSViewController {
 
     func fitPage() {
         loadViewIfNeeded()
+        supersedePendingInitialPresentation()
         readerView.displayMode = .singlePage
         readerView.autoScales = true
+        readerView.layoutDocumentView()
         viewMode = .fitPage
     }
 
@@ -170,6 +218,31 @@ final class PDFViewController: NSViewController {
         loadViewIfNeeded()
         readerView.removeFromSuperview()
         view.removeFromSuperview()
+    }
+
+    private func applyInitialPresentationIfReady() {
+        guard initialPresentationState == .pending,
+              readerView.window != nil,
+              readerView.bounds.width > 1,
+              readerView.bounds.height > 1,
+              let firstPage = initialDocument.page(at: 0)
+        else {
+            return
+        }
+
+        initialPresentationState = .applying
+        readerView.displayMode = .singlePage
+        readerView.autoScales = true
+        readerView.go(to: firstPage)
+        readerView.layoutDocumentView()
+        viewMode = .fitPage
+        initialPresentationState = .applied
+    }
+
+    private func supersedePendingInitialPresentation() {
+        if initialPresentationState == .pending {
+            initialPresentationState = .supersededByUser
+        }
     }
 
     private func renderSearchResults() {

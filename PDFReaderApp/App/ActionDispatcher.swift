@@ -74,19 +74,37 @@ final class ActionDispatcher {
             _ = sessionStore.activateNext()
         case .tabPrevious:
             _ = sessionStore.activatePrevious()
+        case .tabSelect1:
+            _ = sessionStore.activateTab(atOneBasedOrdinal: 1)
+        case .tabSelect2:
+            _ = sessionStore.activateTab(atOneBasedOrdinal: 2)
+        case .tabSelect3:
+            _ = sessionStore.activateTab(atOneBasedOrdinal: 3)
+        case .tabSelect4:
+            _ = sessionStore.activateTab(atOneBasedOrdinal: 4)
+        case .tabSelect5:
+            _ = sessionStore.activateTab(atOneBasedOrdinal: 5)
+        case .tabSelect6:
+            _ = sessionStore.activateTab(atOneBasedOrdinal: 6)
+        case .tabSelect7:
+            _ = sessionStore.activateTab(atOneBasedOrdinal: 7)
+        case .tabSelect8:
+            _ = sessionStore.activateTab(atOneBasedOrdinal: 8)
+        case .tabSelect9:
+            _ = sessionStore.activateTab(atOneBasedOrdinal: 9)
 
         case .scrollLeft:
-            activeSession?.scrollBy(xPoints: -navigation.smallScrollPoints, yPoints: 0)
+            activeSession?.moveHorizontally(byPoints: -navigation.smallScrollPoints)
         case .scrollDown:
-            activeSession?.scrollBy(xPoints: 0, yPoints: navigation.smallScrollPoints)
+            activeSession?.moveVertically(byPoints: navigation.smallScrollPoints)
         case .scrollUp:
-            activeSession?.scrollBy(xPoints: 0, yPoints: -navigation.smallScrollPoints)
+            activeSession?.moveVertically(byPoints: -navigation.smallScrollPoints)
         case .scrollRight:
-            activeSession?.scrollBy(xPoints: navigation.smallScrollPoints, yPoints: 0)
+            activeSession?.moveHorizontally(byPoints: navigation.smallScrollPoints)
         case .scrollLargeDown:
-            activeSession?.scrollVerticallyByViewportFraction(navigation.largeScrollViewportFraction)
+            activeSession?.moveVertically(byViewportFraction: navigation.largeScrollViewportFraction)
         case .scrollLargeUp:
-            activeSession?.scrollVerticallyByViewportFraction(-navigation.largeScrollViewportFraction)
+            activeSession?.moveVertically(byViewportFraction: -navigation.largeScrollViewportFraction)
 
         case .pageNext:
             _ = activeSession?.goToNextPage()

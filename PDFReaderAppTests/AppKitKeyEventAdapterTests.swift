@@ -10,11 +10,58 @@ struct AppKitKeyEventAdapterTests {
     func uppercaseCandidates() throws {
         let event = try #require(makeKeyEvent(
             characters: "G",
-            charactersIgnoringModifiers: "g",
-            modifiers: [.shift]
+            charactersIgnoringModifiers: "G",
+            modifiers: [.shift],
+            keyCode: 5
         ))
 
         #expect(AppKitKeyEventAdapter.tokens(for: event).map(\.description) == ["G", "<S-g>"])
+    }
+
+    @Test("real AppKit Shift semantics still produce literal uppercase Vim keys")
+    func uppercaseCandidatesWithShiftPreservedInCharactersIgnoringModifiers() throws {
+        let event = try #require(makeKeyEvent(
+            characters: "N",
+            charactersIgnoringModifiers: "N",
+            modifiers: [.shift],
+            keyCode: 45
+        ))
+
+        let candidates = AppKitKeyEventAdapter.tokens(for: event).map(\.description)
+        #expect(candidates.first == "N")
+        #expect(candidates.contains("<S-n>"))
+    }
+
+    @Test("Shift-produced punctuation is preferred before the physical key chord")
+    func shiftedPunctuationCandidates() throws {
+        let event = try #require(makeKeyEvent(
+            characters: "+",
+            charactersIgnoringModifiers: "+",
+            modifiers: [.shift],
+            keyCode: 24
+        ))
+
+        #expect(
+            AppKitKeyEventAdapter.tokens(for: event).map(\.description)
+                == ["+", "<S-=>", "<S-Equal>"]
+        )
+    }
+
+    @Test("Option and Command chords do not become produced-character literals")
+    func modifiedPunctuationStaysAChord() throws {
+        let option = try #require(makeKeyEvent(
+            characters: "≠",
+            charactersIgnoringModifiers: "=",
+            modifiers: [.option]
+        ))
+        let command = try #require(makeKeyEvent(
+            characters: "=",
+            charactersIgnoringModifiers: "=",
+            modifiers: [.command]
+        ))
+
+        #expect(AppKitKeyEventAdapter.tokens(for: option).map(\.description) == ["<A-=>", "<A-Equal>"])
+        #expect(AppKitKeyEventAdapter.tokens(for: command).map(\.description) == ["<D-=>", "<D-Equal>"])
     }
 
     @Test("command and shifted return chords preserve only supported modifiers")

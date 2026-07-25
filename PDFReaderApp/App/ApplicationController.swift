@@ -8,6 +8,7 @@ final class ApplicationController {
     private let application: NSApplication
     private let terminationHandler: () -> Void
     private let pdfOpenService: PDFOpenService
+    private let openMetrics: any PDFOpenMetrics
     private let openPanelPresenter: any PDFOpenPanelPresenting
     private let actionDispatcher: ActionDispatcher
     private(set) var menuBuilder: ValidatedMenuBuilder?
@@ -29,6 +30,7 @@ final class ApplicationController {
         configService: ConfigService = ConfigService(),
         sessionStore: ReaderSessionStore = ReaderSessionStore(),
         pdfOpenService: PDFOpenService = PDFOpenService(),
+        openMetrics: any PDFOpenMetrics = OSLogPDFOpenMetrics(),
         openPanelPresenter: any PDFOpenPanelPresenting = NativePDFOpenPanelPresenter(),
         terminationHandler: (() -> Void)? = nil
     ) {
@@ -37,6 +39,7 @@ final class ApplicationController {
         self.configResult = configResult
         self.sessionStore = sessionStore
         self.pdfOpenService = pdfOpenService
+        self.openMetrics = openMetrics
         self.openPanelPresenter = openPanelPresenter
         self.terminationHandler = terminationHandler ?? { application.terminate(nil) }
         self.actionDispatcher = ActionDispatcher(
@@ -77,22 +80,32 @@ final class ApplicationController {
 
     @discardableResult
     func openDocument(at url: URL) -> Bool {
+        let traceID = OpenTraceID()
+        openMetrics.record(.point(.openRequested, traceID: traceID))
+        openMetrics.record(.begin(.openTotal, traceID: traceID))
+
         do {
-            let session = try pdfOpenService.open(url: url)
+            let session = try pdfOpenService.open(url: url, traceID: traceID, metrics: openMetrics)
             session.applyTheme(
                 AppKitTheme(configuration: configResult.activeConfig.config.theme)
             )
             guard sessionStore.insert(session) else {
+                session.prepareForClose(reason: .insertionRejected)
                 mainWindowController.showDiagnostic("Could not create a PDF tab for \(url.lastPathComponent)")
+                recordOpenFailure(traceID: traceID, outcome: .insertionRejected)
                 return false
             }
             mainWindowController.clearDiagnostic()
+            openMetrics.record(.point(.openReady, traceID: traceID, outcome: .success))
+            openMetrics.record(.end(.openTotal, traceID: traceID, outcome: .success))
             return true
         } catch let error as PDFOpenError {
             mainWindowController.showDiagnostic(error.presentation)
+            recordOpenFailure(traceID: traceID, outcome: error.metricOutcome)
             return false
         } catch {
             mainWindowController.showDiagnostic("Could not open PDF: \(error.localizedDescription)")
+            recordOpenFailure(traceID: traceID, outcome: .unexpectedFailure)
             return false
         }
     }
@@ -108,6 +121,11 @@ final class ApplicationController {
             guard let self, let url else { return }
             _ = self.openDocument(at: url)
         }
+    }
+
+    private func recordOpenFailure(traceID: OpenTraceID, outcome: PDFOpenMetricOutcome) {
+        openMetrics.record(.point(.openFailed, traceID: traceID, outcome: outcome))
+        openMetrics.record(.end(.openTotal, traceID: traceID, outcome: outcome))
     }
 }
 

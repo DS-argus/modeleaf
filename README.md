@@ -1,4 +1,4 @@
-# PDF Reader
+# Modeleaf
 
 A native, read-only macOS PDF viewer with a compact Vim-style command model, first-class tabs, and strict TOML customization.
 
@@ -13,7 +13,8 @@ The interaction design takes one focused idea from [Sioyek](https://github.com/a
 ## What it does
 
 - opens local PDFs from the app, Finder/Open With, or the default `⌘O` binding;
-- keeps multiple documents in independent tabs;
+- keeps multiple documents in independent tabs, with clickable tab controls and a `+` button that opens another PDF;
+- opens each document on page 1 fitted inside the visible canvas;
 - scrolls, changes pages, jumps to a numbered page, zooms, and fits the view;
 - searches embedded PDF text with per-tab result state and highlighting;
 - routes every app-owned command through one stable action registry;
@@ -29,14 +30,19 @@ The shipped bindings stay deliberately small:
 | next / previous page | `n` / `p` |
 | first / last page | `gg` / `G` |
 | page 12 | `g12`, then `Enter` |
-| next / previous tab | `gt` / `gT` |
+| next / previous tab | `N` / `P` |
+| select tab 1…9 | `⌘1` … `⌘9` |
 | search | `/`, then `Enter` |
 | next / previous match | `Enter` / `Shift-Enter` |
 | clear search | `Esc` |
-| zoom / reset | `+` / `-` / `=` |
+| zoom in / out | `=` / `-` |
 | fit width / page | `w` / `f` |
 
-See [CONFIG.md](CONFIG.md) for the exhaustive 27-action registry, key-token grammar, validation rules, numeric bounds, and generated default file.
+In fit-page mode, `j`/`d` move to the next page and `k`/`u` to the previous page. After manual zoom, each scroll key moves only along an axis where the page exceeds the viewport; Modeleaf does not inflate the configured zoom or pan into blank space. Actual Size remains in the View menu and is configurable as `view.zoomReset`, but has no default key.
+
+Tabs remain keyboard-first, but can also be selected and closed with the pointer. Their compact fixed-width labels omit `.pdf` and truncate at the end when necessary. The right-side `+` button dispatches the same read-only PDF open action as `⌘O`.
+
+See [CONFIG.md](CONFIG.md) for the exhaustive 36-action registry, key-token grammar, validation rules, numeric bounds, and generated default file.
 
 ## Explicit v1 boundary
 
@@ -58,41 +64,58 @@ The four bundled dark themes are **Catppuccin Mocha**, **Tokyo Night**, **Gruvbo
 
 ## Build and run
 
+### Recommended local Release app
+
+For normal reading and performance checks, build the signed Release app rather
+than using the SwiftPM debug runner:
+
+```sh
+APP=$(Tools/build_release_app.sh | tail -n 1)
+open "$APP"
+```
+
+The helper regenerates and validates the Xcode project, builds a local Release
+bundle, applies an ad-hoc signature, and verifies that signature. It does not
+need an Apple Developer account, Accessibility, Input Monitoring, Automation,
+or Screen Recording permission.
+
 ### Xcode app
 
 ```sh
 python3 Tools/generate_xcode_project.py
 python3 Tools/validate_xcode_project.py
-open PDFReader.xcodeproj
+open Modeleaf.xcodeproj
 ```
 
-Select the shared `PDFReader` scheme and run it on **My Mac**. The generated project targets macOS 14+ and contains the app, core, support, unit, integration, and UI-test targets.
+Select the shared `Modeleaf` scheme and run it on **My Mac**. The generated project targets macOS 14+ and contains the app, core, support, unit, integration, and UI-test targets.
 
 ### SwiftPM development harness
 
 ```sh
 swift package resolve
 swift build -c debug
-swift run PDFReader
+swift run Modeleaf
 ```
 
-After `Build of product 'PDFReader' complete!` appears, the terminal remains attached while the GUI app runs; this is normal. The **PDF Reader** window should open automatically. Use `⌘O` to choose a PDF, `⌘Q` to quit normally, or `Control-C` to stop the development process from the terminal.
+After `Build of product 'Modeleaf' complete!` appears, the terminal remains attached while the GUI app runs; this is normal. The **Modeleaf** window should open automatically. Use `⌘O` to choose a PDF, `⌘Q` to quit normally, or `Control-C` to stop the development process from the terminal.
 
 The Swift package is retained as a deterministic command-line build/test harness for the same production sources. `Package.resolved` pins the only third-party dependency.
+Because this path runs an unoptimized development build under SwiftPM, startup
+and first-PDF rendering can feel slower than the Release app above.
 
 ## Configuration
 
 The app reads configuration once at launch from:
 
 ```text
-~/.config/pdf-reader/config.toml
+~/.config/modeleaf/config.toml
 ```
 
 It does not create or rewrite that file. To start customizing it:
 
 ```sh
-mkdir -p ~/.config/pdf-reader
-cp PDFReaderApp/Resources/DefaultConfig.toml ~/.config/pdf-reader/config.toml
+mkdir -p ~/.config/modeleaf
+cp PDFReaderApp/Resources/DefaultConfig.toml ~/.config/modeleaf/config.toml
 ```
 
 Example:
@@ -103,8 +126,9 @@ Example:
 "scroll.up" = ["k", "<Up>"]
 "page.next" = ["n"]
 "page.previous" = ["p"]
-"tab.next" = ["gt"]
-"tab.previous" = ["gT"]
+"tab.next" = ["N"]
+"tab.previous" = ["P"]
+"tab.select.1" = ["<D-1>"]
 
 [navigation]
 small_scroll_points = 56.0
@@ -112,7 +136,7 @@ large_scroll_viewport_fraction = 0.85
 zoom_factor = 1.12
 
 [input]
-prefix_timeout_ms = 600
+prefix_timeout_ms = 350
 
 [theme]
 built_in = "tokyo-night"
@@ -141,7 +165,7 @@ ReaderSessionStore     sole owner of one isolated session per tab
 - Invalid config never partially activates.
 - PDFKit mutation, print, link-action, and inherited editing capabilities are blocked at the app boundary and regression-tested.
 
-The deterministic Xcode graph is generated by `Tools/generate_xcode_project.py`; do not hand-edit `PDFReader.xcodeproj/project.pbxproj`.
+The deterministic Xcode graph is generated by `Tools/generate_xcode_project.py`; do not hand-edit `Modeleaf.xcodeproj/project.pbxproj`.
 
 ## Verification
 
@@ -154,6 +178,29 @@ swift build -c release
 swift test
 swift test -Xswiftc -warnings-as-errors
 ```
+
+The crash-containment and Release-build checks can also be run without GUI
+automation permissions:
+
+```sh
+Tools/evaluate_pdfkit_fast_open.sh \
+  --manifest artifacts/verification/pdfkit-fast-open/reproducer-manifest.json \
+  --implementation-only
+```
+
+To reproduce the original `hh` path manually against a signed Release build:
+
+```sh
+APP=artifacts/verification/pdfkit-fast-open/local/DerivedData/Build/Products/Release/Modeleaf.app
+Tools/run_manual_pdfkit_stress.sh \
+  --app "$APP" \
+  --pdf "/path/to/Sample Document.pdf" \
+  --runs 10
+```
+
+The script launches the app and records your pass/fail input; it never injects
+keys or captures the screen. The original PDF, generated fixtures, and local
+run evidence are excluded from Git.
 
 The final verification workflow additionally performs source/interface scope audits, source-PDF hash checks, read-only form/annotation probes, 15 signed-GUI workflow definitions, and a deterministic 24-image visual matrix covering six UI states across all four themes. The machine-readable summary is retained in [artifacts/verification/final/verification-summary.json](artifacts/verification/final/verification-summary.json).
 

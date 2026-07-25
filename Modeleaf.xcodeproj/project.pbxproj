@@ -69,7 +69,7 @@
 
 /* Begin PBXFileReference section */
 		2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PDFReaderCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		57627DBA3634259684E38C8B /* PDFReader.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PDFReader.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		57627DBA3634259684E38C8B /* Modeleaf.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Modeleaf.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C70AF9CD6A05F9871BF0721A /* PDFReaderTestSupport.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PDFReaderTestSupport.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C44B5EE66DCFBB36F4265D67 /* PDFReaderCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PDFReaderCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D0F8ABEDA3041AC0459241E /* PDFReaderAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PDFReaderAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -205,7 +205,7 @@
 			isa = PBXGroup;
 			children = (
 				2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */,
-				57627DBA3634259684E38C8B /* PDFReader.app */,
+				57627DBA3634259684E38C8B /* Modeleaf.app */,
 				C70AF9CD6A05F9871BF0721A /* PDFReaderTestSupport.framework */,
 				C44B5EE66DCFBB36F4265D67 /* PDFReaderCoreTests.xctest */,
 				2D0F8ABEDA3041AC0459241E /* PDFReaderAppTests.xctest */,
@@ -259,7 +259,7 @@
 				72ED85A22FC6BDB47FF1AE81 /* TOMLDecoder */,
 			);
 			productName = PDFReaderApp;
-			productReference = 57627DBA3634259684E38C8B /* PDFReader.app */;
+			productReference = 57627DBA3634259684E38C8B /* Modeleaf.app */;
 			productType = "com.apple.product-type.application";
 		};
 		40C2AD90F2AA40999071909A /* PDFReaderTestSupport */ = {
@@ -362,7 +362,7 @@
 				LastSwiftUpdateCheck = 2660;
 				LastUpgradeCheck = 2660;
 			};
-			buildConfigurationList = FCBE72429C0B1B8B87DC8CC9 /* Build configuration list for PBXProject "PDFReader" */;
+			buildConfigurationList = FCBE72429C0B1B8B87DC8CC9 /* Build configuration list for PBXProject "Modeleaf" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (en, Base);
@@ -544,7 +544,7 @@
 		47001AC50483674873310B75 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.core;
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.modeleaf.core;
 				GENERATE_INFOPLIST_FILE = YES;
 				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -560,7 +560,7 @@
 		F5B7075F88D462EEE7834F80 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.core;
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.modeleaf.core;
 				GENERATE_INFOPLIST_FILE = YES;
 				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -575,13 +575,13 @@
 		AA8DF525F31ACFF09B3E6D8C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader;
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.modeleaf;
 				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PDFReaderApp/Info.plist;
-				PRODUCT_NAME = PDFReader;
+				PRODUCT_NAME = Modeleaf;
 				PRODUCT_MODULE_NAME = PDFReaderApp;
 				CODE_SIGN_STYLE = Automatic;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
@@ -592,13 +592,13 @@
 		4E0F9E840F15A9A911F2E110 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader;
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.modeleaf;
 				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PDFReaderApp/Info.plist;
-				PRODUCT_NAME = PDFReader;
+				PRODUCT_NAME = Modeleaf;
 				PRODUCT_MODULE_NAME = PDFReaderApp;
 				CODE_SIGN_STYLE = Automatic;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
@@ -608,7 +608,7 @@
 		E5D68B690F23D77126995141 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.testsupport;
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.modeleaf.testsupport;
 				GENERATE_INFOPLIST_FILE = YES;
 				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -624,7 +624,7 @@
 		D85D62732C1BB2AE98FAF6F2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.testsupport;
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.modeleaf.testsupport;
 				GENERATE_INFOPLIST_FILE = YES;
 				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -639,7 +639,7 @@
 		78F4248AACF17D73542B0082 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.coretests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.modeleaf.coretests;
 				GENERATE_INFOPLIST_FILE = YES;
 				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -654,7 +654,7 @@
 		B38F3D3E0C4EA9BE50583AFB /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.coretests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.modeleaf.coretests;
 				GENERATE_INFOPLIST_FILE = YES;
 				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -668,7 +668,7 @@
 		C0B9E38F88D1767441A6F794 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.apptests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.modeleaf.apptests;
 				GENERATE_INFOPLIST_FILE = YES;
 				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -676,7 +676,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @loader_path/Frameworks @loader_path/../Frameworks";
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PDFReader.app/Contents/MacOS/PDFReader";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Modeleaf.app/Contents/MacOS/Modeleaf";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 			};
 			name = Debug;
@@ -684,7 +684,7 @@
 		75E1CA607E59D513653255C4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.apptests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.modeleaf.apptests;
 				GENERATE_INFOPLIST_FILE = YES;
 				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -692,14 +692,14 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @loader_path/Frameworks @loader_path/../Frameworks";
 				BUNDLE_LOADER = "$(TEST_HOST)";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PDFReader.app/Contents/MacOS/PDFReader";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Modeleaf.app/Contents/MacOS/Modeleaf";
 			};
 			name = Release;
 		};
 		7D277F9C789F44376C269D93 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.modeleaf.uitests;
 				GENERATE_INFOPLIST_FILE = YES;
 				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -714,7 +714,7 @@
 		0B2F0CB63B5EDB90154F6B06 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_BUNDLE_IDENTIFIER = com.argus.pdfreader.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.modeleaf.uitests;
 				GENERATE_INFOPLIST_FILE = YES;
 				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
@@ -728,7 +728,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		FCBE72429C0B1B8B87DC8CC9 /* Build configuration list for PBXProject "PDFReader" */ = {
+		FCBE72429C0B1B8B87DC8CC9 /* Build configuration list for PBXProject "Modeleaf" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (877A6BA951A2EA0025A2ABE8 /* Debug */, 959134B361DD7E21ADEA3164 /* Release */);
 			defaultConfigurationIsVisible = 0;

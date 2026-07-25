@@ -26,6 +26,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             pendingHandler: { [weak rootView] prefix in rootView?.setPendingPrefix(prefix) },
             dispatchHandler: keyDispatchHandler ?? { actionHandler($0.actionID) }
         )
+        rootView.emptyState.setOpenBinding(config.keymap.bindings(for: .documentOpen).first)
 
         let window = ReaderWindow(
             contentRect: NSRect(origin: .zero, size: WindowVisualMetrics.initialSize),
@@ -33,10 +34,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "PDF Reader"
+        window.title = "Modeleaf"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        window.isMovableByWindowBackground = true
+        window.isMovableByWindowBackground = false
         window.autorecalculatesKeyViewLoop = false
         window.minSize = WindowVisualMetrics.minimumSize
         window.contentView = rootView
@@ -52,6 +53,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.emptyState.openButton.handler = { [weak self] in self?.actionHandler(.documentOpen) }
         rootView.tabBar.onSelect = { [weak self] id in self?.dispatchTabSelection(to: id) }
         rootView.tabBar.onClose = { [weak self] id in self?.dispatchTabClose(id) }
+        rootView.tabBar.onNewTab = { [weak self] in self?.actionHandler(.documentOpen) }
         rootView.promptOverlay.commitButton.handler = { [weak self] in self?.actionHandler(.promptCommit) }
         rootView.promptOverlay.cancelButton.handler = { [weak self] in self?.actionHandler(.promptCancel) }
         sessionStore.onChange = { [weak self] _ in self?.refresh() }
@@ -172,7 +174,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             sessionStatus: active?.statusSnapshot
         )
         rebuildKeyViewLoop()
-        window?.title = active.map { "\($0.title) — PDF Reader" } ?? "PDF Reader"
+        window?.title = active.map { "\($0.title) — Modeleaf" } ?? "Modeleaf"
         focusActiveSurface()
     }
 

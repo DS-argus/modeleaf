@@ -52,6 +52,24 @@ struct ReaderSessionStoreTests {
         #expect(snapshots.last == snapshot)
     }
 
+    @Test("one-based tab ordinals activate existing tabs and ignore missing ordinals")
+    func activatesTabOrdinal() {
+        let store = ReaderSessionStore()
+        let first = StubReaderSession(id: fixedID(1), title: "First.pdf")
+        let second = StubReaderSession(id: fixedID(2), title: "Second.pdf")
+        let third = StubReaderSession(id: fixedID(3), title: "Third.pdf")
+        #expect(store.insert(first))
+        #expect(store.insert(second))
+        #expect(store.insert(third))
+
+        #expect(store.activateTab(atOneBasedOrdinal: 1))
+        #expect(store.activeSession?.id == first.id)
+        #expect(!store.activateTab(atOneBasedOrdinal: 1))
+        #expect(!store.activateTab(atOneBasedOrdinal: 0))
+        #expect(!store.activateTab(atOneBasedOrdinal: 4))
+        #expect(store.activeSession?.id == first.id)
+    }
+
     @Test("closing calls ordered teardown once and final close returns the store to empty")
     func closeOrdersTeardownAndReturnsEmpty() {
         let store = ReaderSessionStore()

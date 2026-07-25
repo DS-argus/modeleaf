@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import PDFKit
+import PDFReaderCore
 import UniformTypeIdentifiers
 
 enum PDFOpenError: Error, Equatable, LocalizedError {
@@ -27,6 +28,23 @@ enum PDFOpenError: Error, Equatable, LocalizedError {
             "Password-protected PDFs are not supported yet: \(path)"
         case let .emptyDocument(path):
             "PDF contains no pages: \(path)"
+        }
+    }
+
+    var metricOutcome: PDFOpenMetricOutcome {
+        switch self {
+        case .unsupportedLocation:
+            .unsupportedLocation
+        case .missingFile:
+            .missingFile
+        case .unreadableFile:
+            .unreadableFile
+        case .malformedDocument:
+            .malformedDocument
+        case .lockedDocument:
+            .lockedDocument
+        case .emptyDocument:
+            .emptyDocument
         }
     }
 }
@@ -66,17 +84,26 @@ final class NativePDFOpenPanelPresenter: PDFOpenPanelPresenting {
 final class PDFOpenService {
     private let fileManager: FileManager
     private let documentLoader: (URL) -> PDFDocument?
+    private let sessionIDFactory: () -> TabID
 
     init(
         fileManager: FileManager = .default,
-        documentLoader: @escaping (URL) -> PDFDocument? = { PDFDocument(url: $0) }
+        documentLoader: @escaping (URL) -> PDFDocument? = { PDFDocument(url: $0) },
+        sessionIDFactory: @escaping () -> TabID = { TabID() }
     ) {
         self.fileManager = fileManager
         self.documentLoader = documentLoader
+        self.sessionIDFactory = sessionIDFactory
     }
 
-    func open(url: URL) throws -> ReaderSession {
+    func open(
+        url: URL,
+        traceID: OpenTraceID = OpenTraceID(),
+        metrics: any PDFOpenMetrics = NoopPDFOpenMetrics()
+    ) throws -> ReaderSession {
+        metrics.record(.begin(.filePreflight, traceID: traceID))
         guard url.isFileURL else {
+            metrics.record(.end(.filePreflight, traceID: traceID, outcome: .unsupportedLocation))
             throw PDFOpenError.unsupportedLocation(url.absoluteString)
         }
 
@@ -84,20 +111,39 @@ final class PDFOpenService {
         let path = fileURL.path
         var isDirectory = ObjCBool(false)
         guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory), !isDirectory.boolValue else {
+            metrics.record(.end(.filePreflight, traceID: traceID, outcome: .missingFile))
             throw PDFOpenError.missingFile(path)
         }
         guard fileManager.isReadableFile(atPath: path) else {
+            metrics.record(.end(.filePreflight, traceID: traceID, outcome: .unreadableFile))
             throw PDFOpenError.unreadableFile(path)
         }
+        metrics.record(.end(.filePreflight, traceID: traceID, outcome: .success))
+
+        metrics.record(.begin(.pdfDocumentInit, traceID: traceID))
         guard let document = documentLoader(fileURL) else {
+            metrics.record(.end(.pdfDocumentInit, traceID: traceID, outcome: .malformedDocument))
             throw PDFOpenError.malformedDocument(path)
         }
+        metrics.record(.end(.pdfDocumentInit, traceID: traceID, outcome: .success))
+
+        metrics.record(.begin(.documentPolicyValidation, traceID: traceID))
         guard !document.isLocked else {
+            metrics.record(.end(.documentPolicyValidation, traceID: traceID, outcome: .lockedDocument))
             throw PDFOpenError.lockedDocument(path)
         }
         guard document.pageCount > 0 else {
+            metrics.record(.end(.documentPolicyValidation, traceID: traceID, outcome: .emptyDocument))
             throw PDFOpenError.emptyDocument(path)
         }
-        return ReaderSession(sourceURL: fileURL, document: document)
+        metrics.record(.end(.documentPolicyValidation, traceID: traceID, outcome: .success))
+
+        return ReaderSession(
+            id: sessionIDFactory(),
+            sourceURL: fileURL,
+            document: document,
+            traceID: traceID,
+            metrics: metrics
+        )
     }
 }

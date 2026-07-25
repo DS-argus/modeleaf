@@ -24,10 +24,19 @@ public struct ActionRegistry: Sendable {
     private static let v1Descriptors: [ActionDescriptor] = [
         ActionDescriptor(id: .documentOpen, title: "Open PDF…", scope: .global),
         ActionDescriptor(id: .documentClose, title: "Close PDF", scope: .contexts(readerContexts)),
-        ActionDescriptor(id: .appQuit, title: "Quit PDF Reader", scope: .global),
+        ActionDescriptor(id: .appQuit, title: "Quit Modeleaf", scope: .global),
 
         ActionDescriptor(id: .tabNext, title: "Next Tab", scope: .contexts(readerContexts)),
         ActionDescriptor(id: .tabPrevious, title: "Previous Tab", scope: .contexts(readerContexts)),
+        ActionDescriptor(id: .tabSelect1, title: "Select Tab 1", scope: .contexts(readerContexts)),
+        ActionDescriptor(id: .tabSelect2, title: "Select Tab 2", scope: .contexts(readerContexts)),
+        ActionDescriptor(id: .tabSelect3, title: "Select Tab 3", scope: .contexts(readerContexts)),
+        ActionDescriptor(id: .tabSelect4, title: "Select Tab 4", scope: .contexts(readerContexts)),
+        ActionDescriptor(id: .tabSelect5, title: "Select Tab 5", scope: .contexts(readerContexts)),
+        ActionDescriptor(id: .tabSelect6, title: "Select Tab 6", scope: .contexts(readerContexts)),
+        ActionDescriptor(id: .tabSelect7, title: "Select Tab 7", scope: .contexts(readerContexts)),
+        ActionDescriptor(id: .tabSelect8, title: "Select Tab 8", scope: .contexts(readerContexts)),
+        ActionDescriptor(id: .tabSelect9, title: "Select Tab 9", scope: .contexts(readerContexts)),
 
         ActionDescriptor(id: .scrollLeft, title: "Scroll Left", scope: .contexts(readerContexts), repeatPolicy: .allowed),
         ActionDescriptor(id: .scrollDown, title: "Scroll Down", scope: .contexts(readerContexts), repeatPolicy: .allowed),

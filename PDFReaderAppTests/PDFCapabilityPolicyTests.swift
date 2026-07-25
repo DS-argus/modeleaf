@@ -32,6 +32,7 @@ struct PDFCapabilityPolicyTests {
             let note = try #require(page.annotations.first(where: { $0.contents == fixture.noteContents }))
             let view = ReaderPDFView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
             view.document = document
+            view.enforceReadOnlyDocumentConfiguration()
 
             let originalWidget = widget.widgetStringValue
             let originalNote = note.contents
@@ -80,6 +81,7 @@ struct PDFCapabilityPolicyTests {
             let document = try #require(PDFDocument(url: url))
             let view = ReaderPDFView(frame: NSRect(x: 0, y: 0, width: 640, height: 480))
             view.document = document
+            view.enforceReadOnlyDocumentConfiguration()
             view.currentSelection = document.selectionForEntireDocument
             var routedCharacters: [String] = []
             view.keyEventHandler = { event in

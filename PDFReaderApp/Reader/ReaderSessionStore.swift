@@ -29,6 +29,9 @@ protocol ReaderSessionPresenting: AnyObject {
     func setPresentationChangeHandler(_ handler: (() -> Void)?)
     func scrollBy(xPoints: Double, yPoints: Double)
     func scrollVerticallyByViewportFraction(_ fraction: Double)
+    func moveHorizontally(byPoints points: Double)
+    func moveVertically(byPoints points: Double)
+    func moveVertically(byViewportFraction fraction: Double)
     @discardableResult func goToPage(_ oneBasedPage: Int) -> Bool
     @discardableResult func goToNextPage() -> Bool
     @discardableResult func goToPreviousPage() -> Bool
@@ -54,6 +57,15 @@ extension ReaderSessionPresenting {
     func setPresentationChangeHandler(_ handler: (() -> Void)?) {}
     func scrollBy(xPoints: Double, yPoints: Double) {}
     func scrollVerticallyByViewportFraction(_ fraction: Double) {}
+    func moveHorizontally(byPoints points: Double) {
+        scrollBy(xPoints: points, yPoints: 0)
+    }
+    func moveVertically(byPoints points: Double) {
+        scrollBy(xPoints: 0, yPoints: points)
+    }
+    func moveVertically(byViewportFraction fraction: Double) {
+        scrollVerticallyByViewportFraction(fraction)
+    }
     func goToPage(_ oneBasedPage: Int) -> Bool { false }
     func goToNextPage() -> Bool { false }
     func goToPreviousPage() -> Bool { false }
@@ -121,6 +133,13 @@ final class ReaderSessionStore {
     @discardableResult
     func activate(_ id: TabID) -> Bool {
         guard tabStore.activate(id) else { return false }
+        publishChange()
+        return true
+    }
+
+    @discardableResult
+    func activateTab(atOneBasedOrdinal ordinal: Int) -> Bool {
+        guard ordinal > 0, tabStore.activate(at: ordinal - 1) else { return false }
         publishChange()
         return true
     }

@@ -17,7 +17,7 @@ struct ConfigFileSource: Sendable {
     static func defaultURL(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) -> URL {
         homeDirectory
             .appendingPathComponent(".config", isDirectory: true)
-            .appendingPathComponent("pdf-reader", isDirectory: true)
+            .appendingPathComponent("modeleaf", isDirectory: true)
             .appendingPathComponent("config.toml", isDirectory: false)
     }
 

@@ -61,6 +61,19 @@ public struct TabStore: Equatable, Sendable {
         return true
     }
 
+    /// Activates a tab by its zero-based visual position.
+    ///
+    /// Returns `true` only when the active tab actually changes. Invalid
+    /// positions and re-selecting the active tab are intentional no-ops.
+    @discardableResult
+    public mutating func activate(at zeroBasedIndex: Int) -> Bool {
+        guard orderedIDs.indices.contains(zeroBasedIndex) else { return false }
+        let id = orderedIDs[zeroBasedIndex]
+        guard activeID != id else { return false }
+        activeID = id
+        return true
+    }
+
     @discardableResult
     public mutating func close(_ id: TabID) -> Bool {
         guard let closingIndex = orderedIDs.firstIndex(of: id) else { return false }

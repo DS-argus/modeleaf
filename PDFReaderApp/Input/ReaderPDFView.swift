@@ -1,16 +1,20 @@
 import AppKit
 import PDFKit
 
+enum ReaderVerticalScrollOutcome: Equatable {
+    case moved
+    case atBoundary
+    case notScrollable
+}
+
+enum ReaderVerticalBoundary {
+    case start
+    case end
+}
+
 @MainActor
 final class ReaderPDFView: PDFView {
     var keyEventHandler: ((NSEvent) -> Bool)?
-
-    override var document: PDFDocument? {
-        didSet {
-            enableDataDetectors = false
-            isInMarkupMode = false
-        }
-    }
 
     private lazy var readOnlyDelegate = ReaderPDFViewDelegate(owner: self)
 
@@ -160,6 +164,11 @@ final class ReaderPDFView: PDFView {
         document = nil
     }
 
+    func enforceReadOnlyDocumentConfiguration() {
+        enableDataDetectors = false
+        isInMarkupMode = false
+    }
+
     func applyCanvasBackground(_ color: NSColor) {
         backgroundColor = color
     }
@@ -188,9 +197,55 @@ final class ReaderPDFView: PDFView {
         scrollView.reflectScrolledClipView(clipView)
     }
 
-    func scrollVerticallyByViewportFraction(_ fraction: Double) {
-        guard fraction.isFinite, let scrollView = documentScrollView else { return }
-        scrollBy(xPoints: 0, yPoints: scrollView.contentView.bounds.height * fraction)
+    @discardableResult
+    func scrollVertically(byPoints points: Double) -> ReaderVerticalScrollOutcome {
+        guard points.isFinite, points != 0,
+              let scrollView = documentScrollView,
+              let documentView = scrollView.documentView
+        else {
+            return .notScrollable
+        }
+
+        let clipView = scrollView.contentView
+        let tolerance: CGFloat = 0.5
+        guard documentView.bounds.height > clipView.bounds.height + tolerance else {
+            return .notScrollable
+        }
+
+        let initialOrigin = clipView.bounds.origin
+        let isFlipped = documentView.isFlipped
+        let proposedOrigin = NSPoint(
+            x: initialOrigin.x,
+            y: initialOrigin.y + (isFlipped ? points : -points)
+        )
+        let constrained = clipView.constrainBoundsRect(
+            NSRect(origin: proposedOrigin, size: clipView.bounds.size)
+        )
+        guard abs(constrained.origin.y - initialOrigin.y) > tolerance else {
+            return .atBoundary
+        }
+
+        clipView.scroll(to: constrained.origin)
+        scrollView.reflectScrolledClipView(clipView)
+        return .moved
+    }
+
+    @discardableResult
+    func scrollVerticallyByViewportFraction(_ fraction: Double) -> ReaderVerticalScrollOutcome {
+        guard fraction.isFinite, let scrollView = documentScrollView else {
+            return .notScrollable
+        }
+        return scrollVertically(byPoints: scrollView.contentView.bounds.height * fraction)
+    }
+
+    func scrollToVerticalBoundary(_ boundary: ReaderVerticalBoundary) {
+        guard let scrollView = documentScrollView,
+              let documentView = scrollView.documentView
+        else {
+            return
+        }
+        let fullTraversal = Double(documentView.bounds.height + scrollView.contentView.bounds.height)
+        _ = scrollVertically(byPoints: boundary == .start ? -fullTraversal : fullTraversal)
     }
 
     private func performAllowedSystemKeyEquivalent(_ event: NSEvent) -> Bool {

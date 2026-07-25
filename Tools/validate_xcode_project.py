@@ -10,9 +10,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROJECT = ROOT / "PDFReader.xcodeproj"
+PROJECT = ROOT / "Modeleaf.xcodeproj"
 PBXPROJ = PROJECT / "project.pbxproj"
-SCHEME = PROJECT / "xcshareddata" / "xcschemes" / "PDFReader.xcscheme"
+SCHEME = PROJECT / "xcshareddata" / "xcschemes" / "Modeleaf.xcscheme"
 LOCK = PROJECT / "project.xcworkspace" / "xcshareddata" / "swiftpm" / "Package.resolved"
 
 EXPECTED_TARGETS = {
@@ -143,6 +143,11 @@ def main() -> None:
             settings.get("PRODUCT_MODULE_NAME") == "PDFReaderApp",
             "PDFReaderApp must expose one module name across SwiftPM and Xcode",
         )
+        require(settings.get("PRODUCT_NAME") == "Modeleaf", "application product must be named Modeleaf")
+        require(
+            settings.get("PRODUCT_BUNDLE_IDENTIFIER") == "com.argus.modeleaf",
+            "application bundle identifier must use the Modeleaf identity",
+        )
         require(settings.get("GENERATE_INFOPLIST_FILE") == "NO", "PDFReaderApp must use its checked-in Info.plist")
         require(settings.get("INFOPLIST_FILE") == "PDFReaderApp/Info.plist", "PDFReaderApp Info.plist path is invalid")
 
@@ -162,6 +167,7 @@ def main() -> None:
     scheme_text = SCHEME.read_text(encoding="utf-8")
     for name in EXPECTED_TARGETS:
         require(f'BlueprintName = "{name}"' in scheme_text, f"shared scheme omits {name}")
+    require('BuildableName = "Modeleaf.app"' in scheme_text, "shared scheme must launch Modeleaf.app")
 
     lock = json.loads(LOCK.read_text(encoding="utf-8"))
     pins = {pin["identity"]: pin for pin in lock["pins"]}
@@ -177,6 +183,7 @@ def main() -> None:
                 "deploymentTarget": "14.0",
                 "frameworkInstallName": "@rpath",
                 "appModuleName": "PDFReaderApp",
+                "appProductName": "Modeleaf",
                 "debugArchitectures": "active only",
                 "dependency": "TOMLDecoder@0.4.5 exact",
                 "sharedScheme": str(SCHEME.relative_to(ROOT)),

@@ -28,13 +28,67 @@ public struct InteractivePDFFixture: Sendable {
     }
 }
 
+public enum PerformancePDFFixtureKind: String, CaseIterable, Codable, Sendable {
+    case S
+    case L
+    case F
+    case B
+
+    public var fileName: String {
+        switch self {
+        case .S: "fixture-S-text-10.pdf"
+        case .L: "fixture-L-text-300.pdf"
+        case .F: "fixture-F-raster-12.pdf"
+        case .B: "fixture-B-blank.pdf"
+        }
+    }
+
+    public var pageCount: Int {
+        switch self {
+        case .S: 10
+        case .L: 300
+        case .F: 12
+        case .B: 1
+        }
+    }
+
+    public var sentinelPattern: String? {
+        switch self {
+        case .S: "s-magenta-lime-diagonal-v1"
+        case .L: "l-lime-magenta-columns-v1"
+        case .F: "f-magenta-lime-frame-v1"
+        case .B: nil
+        }
+    }
+}
+
+public struct PerformancePDFSentinel: Codable, Equatable, Sendable {
+    public let x: Double
+    public let y: Double
+    public let width: Double
+    public let height: Double
+    public let pattern: String
+
+    public init(x: Double, y: Double, width: Double, height: Double, pattern: String) {
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.pattern = pattern
+    }
+}
+
 @MainActor
 public enum PDFFixtureFactory {
+    public static let performanceFixtureGeneratorVersion = "1"
+    public static let performanceSentinelBounds = CGRect(x: 48, y: 568, width: 192, height: 128)
+
     @discardableResult
     public static func makeTextPDF(
         in directory: URL,
         name: String = "text-3-page.pdf",
         pageCount: Int = 3,
+        pageSize: CGSize = CGSize(width: 612, height: 792),
         repeatedText: String = "copyable needle"
     ) throws -> URL {
         let url = directory.appendingPathComponent(name)
@@ -42,7 +96,7 @@ public enum PDFFixtureFactory {
             throw PDFFixtureError.couldNotCreateConsumer
         }
 
-        var mediaBox = CGRect(x: 0, y: 0, width: 612, height: 792)
+        var mediaBox = CGRect(origin: .zero, size: pageSize)
         guard let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else {
             throw PDFFixtureError.couldNotCreateContext
         }
@@ -52,7 +106,7 @@ public enum PDFFixtureFactory {
             context.beginPDFPage(nil)
             context.saveGState()
             context.textMatrix = .identity
-            context.textPosition = CGPoint(x: 48, y: 720)
+            context.textPosition = CGPoint(x: 48, y: max(20, pageSize.height - 72))
             let text = "Page \(pageIndex + 1) unique-page-\(pageIndex + 1) \(repeatedText)"
             let attributes: [NSAttributedString.Key: Any] = [
                 NSAttributedString.Key(kCTFontAttributeName as String): font,
@@ -227,8 +281,190 @@ public enum PDFFixtureFactory {
         )
     }
 
+    @discardableResult
+    public static func makePerformancePDF(
+        _ kind: PerformancePDFFixtureKind,
+        in directory: URL
+    ) throws -> URL {
+        switch kind {
+        case .S, .L:
+            return try makePerformanceTextPDF(kind, in: directory)
+        case .F:
+            return try makePerformanceRasterPDF(in: directory)
+        case .B:
+            return try makeEmptyPDF(in: directory, name: kind.fileName, pageCount: kind.pageCount)
+        }
+    }
+
+    public static func performanceSentinel(
+        for kind: PerformancePDFFixtureKind
+    ) -> PerformancePDFSentinel? {
+        guard let pattern = kind.sentinelPattern else { return nil }
+        let bounds = performanceSentinelBounds
+        return PerformancePDFSentinel(
+            x: bounds.origin.x,
+            y: bounds.origin.y,
+            width: bounds.width,
+            height: bounds.height,
+            pattern: pattern
+        )
+    }
+
     public static func sha256(of url: URL) throws -> String {
         let digest = SHA256.hash(data: try Data(contentsOf: url))
         return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func makePerformanceTextPDF(
+        _ kind: PerformancePDFFixtureKind,
+        in directory: URL
+    ) throws -> URL {
+        let url = directory.appendingPathComponent(kind.fileName)
+        guard let consumer = CGDataConsumer(url: url as CFURL) else {
+            throw PDFFixtureError.couldNotCreateConsumer
+        }
+
+        var mediaBox = CGRect(x: 0, y: 0, width: 612, height: 792)
+        guard let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else {
+            throw PDFFixtureError.couldNotCreateContext
+        }
+
+        let font = CTFontCreateWithName("Menlo" as CFString, 14, nil)
+        for pageIndex in 0..<kind.pageCount {
+            context.beginPDFPage(nil)
+            context.setFillColor(NSColor.white.cgColor)
+            context.fill(mediaBox)
+            context.saveGState()
+            context.textMatrix = .identity
+            context.textPosition = CGPoint(x: 48, y: 720)
+            let label = "PDFReader performance fixture \(kind.rawValue) page \(pageIndex + 1) of \(kind.pageCount)"
+            let attributes: [NSAttributedString.Key: Any] = [
+                NSAttributedString.Key(kCTFontAttributeName as String): font,
+                NSAttributedString.Key(kCTForegroundColorAttributeName as String): NSColor.black.cgColor,
+            ]
+            CTLineDraw(
+                CTLineCreateWithAttributedString(NSAttributedString(string: label, attributes: attributes)),
+                context
+            )
+            context.restoreGState()
+            if pageIndex == 0 {
+                drawPerformanceSentinel(kind, in: context)
+            }
+            context.endPDFPage()
+        }
+        context.closePDF()
+        return url
+    }
+
+    private static func makePerformanceRasterPDF(in directory: URL) throws -> URL {
+        let kind = PerformancePDFFixtureKind.F
+        let url = directory.appendingPathComponent(kind.fileName)
+        guard let consumer = CGDataConsumer(url: url as CFURL) else {
+            throw PDFFixtureError.couldNotCreateConsumer
+        }
+
+        var mediaBox = CGRect(x: 0, y: 0, width: 612, height: 792)
+        guard let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else {
+            throw PDFFixtureError.couldNotCreateContext
+        }
+
+        for pageIndex in 0..<kind.pageCount {
+            guard let image = makeDeterministicRasterImage(seed: UInt64(pageIndex + 1)) else {
+                throw PDFFixtureError.couldNotCreateRasterImage
+            }
+            context.beginPDFPage(nil)
+            context.draw(image, in: mediaBox)
+            if pageIndex == 0 {
+                drawPerformanceSentinel(kind, in: context)
+            }
+            context.endPDFPage()
+        }
+        context.closePDF()
+        return url
+    }
+
+    private static func makeDeterministicRasterImage(seed: UInt64) -> CGImage? {
+        let width = 850
+        let height = 1_100
+        let bytesPerRow = width * 3
+        var generator = DeterministicByteGenerator(seed: 0x50444652_0000_0000 ^ seed)
+        var bytes = [UInt8](repeating: 0, count: bytesPerRow * height)
+        for index in bytes.indices {
+            bytes[index] = generator.next()
+        }
+        guard let provider = CGDataProvider(data: Data(bytes) as CFData) else { return nil }
+        return CGImage(
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bitsPerPixel: 24,
+            bytesPerRow: bytesPerRow,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue),
+            provider: provider,
+            decode: nil,
+            shouldInterpolate: false,
+            intent: .defaultIntent
+        )
+    }
+
+    private static func drawPerformanceSentinel(
+        _ kind: PerformancePDFFixtureKind,
+        in context: CGContext
+    ) {
+        let bounds = performanceSentinelBounds
+        let black = NSColor.black.cgColor
+        let white = NSColor.white.cgColor
+        let magenta = NSColor(deviceRed: 1, green: 0, blue: 1, alpha: 1).cgColor
+        let lime = NSColor(deviceRed: 0, green: 1, blue: 0, alpha: 1).cgColor
+        let colors: [CGColor]
+        switch kind {
+        case .S:
+            colors = [magenta, black, lime, white, black, lime, white, magenta]
+        case .L:
+            colors = [lime, lime, black, magenta, white, black, magenta, white]
+        case .F:
+            colors = [black, magenta, black, lime, white, lime, white, magenta]
+        case .B:
+            return
+        }
+
+        context.saveGState()
+        context.setFillColor(black)
+        context.fill(bounds)
+        let columns = 4
+        let rows = 2
+        let cellWidth = bounds.width / CGFloat(columns)
+        let cellHeight = bounds.height / CGFloat(rows)
+        for row in 0..<rows {
+            for column in 0..<columns {
+                let color = colors[(row * columns) + column]
+                context.setFillColor(color)
+                context.fill(
+                    CGRect(
+                        x: bounds.minX + CGFloat(column) * cellWidth + 4,
+                        y: bounds.minY + CGFloat(row) * cellHeight + 4,
+                        width: cellWidth - 8,
+                        height: cellHeight - 8
+                    )
+                )
+            }
+        }
+        context.restoreGState()
+    }
+}
+
+private struct DeterministicByteGenerator {
+    private var state: UInt64
+
+    init(seed: UInt64) {
+        state = seed == 0 ? 0x9e37_79b9_7f4a_7c15 : seed
+    }
+
+    mutating func next() -> UInt8 {
+        state ^= state << 13
+        state ^= state >> 7
+        state ^= state << 17
+        return UInt8(truncatingIfNeeded: state >> 24)
     }
 }

@@ -410,7 +410,7 @@ final class ReaderWorkflowUITests: XCTestCase {
         in directory: URL,
         name: String,
         pages: Int,
-        text: String = "PDF Reader fixture"
+        text: String = "Modeleaf fixture"
     ) throws -> URL {
         let url = directory.appendingPathComponent(name)
         var mediaBox = CGRect(x: 0, y: 0, width: 612, height: 792)
@@ -441,11 +441,11 @@ private struct UITestEnvironment {
 
     init(config: String?) throws {
         home = FileManager.default.temporaryDirectory
-            .appendingPathComponent("pdf-reader-ui-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("modeleaf-ui-\(UUID().uuidString)", isDirectory: true)
         fixtures = home.appendingPathComponent("fixtures", isDirectory: true)
         try FileManager.default.createDirectory(at: fixtures, withIntermediateDirectories: true)
         if let config {
-            let directory = home.appendingPathComponent(".config/pdf-reader", isDirectory: true)
+            let directory = home.appendingPathComponent(".config/modeleaf", isDirectory: true)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try Data(config.utf8).write(to: directory.appendingPathComponent("config.toml"))
         }

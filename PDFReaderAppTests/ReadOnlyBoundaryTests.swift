@@ -4,6 +4,19 @@ import Testing
 
 @Suite("Read-only production boundary")
 struct ReadOnlyBoundaryTests {
+    @Test("PDFView document access stays owned by PDFKit")
+    func readerPDFViewDoesNotOverrideDocument() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: root.appendingPathComponent("PDFReaderApp/Input/ReaderPDFView.swift"),
+            encoding: .utf8
+        )
+
+        #expect(source.range(of: #"\boverride\s+var\s+document\b"#, options: .regularExpression) == nil)
+    }
+
     @Test("I-PDF-09 session and view source expose no PDF mutation implementation")
     func productionSourceHasNoMutationImplementation() throws {
         let root = URL(fileURLWithPath: #filePath)

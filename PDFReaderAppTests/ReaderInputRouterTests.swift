@@ -104,18 +104,23 @@ struct ReaderInputRouterTests {
 
         #expect(router.handle(try #require(makeKeyEvent(
             characters: "G",
-            charactersIgnoringModifiers: "g",
-            modifiers: [.shift]
+            charactersIgnoringModifiers: "G",
+            modifiers: [.shift],
+            keyCode: 5
         ))))
         #expect(router.handle(try #require(makeKeyEvent(characters: "j", isRepeat: true))))
-        #expect(router.handle(try #require(makeKeyEvent(characters: "g"))))
         #expect(router.handle(try #require(makeKeyEvent(
-            characters: "T",
-            charactersIgnoringModifiers: "t",
-            modifiers: [.shift]
+            characters: "P",
+            charactersIgnoringModifiers: "P",
+            modifiers: [.shift],
+            keyCode: 35
+        ))))
+        #expect(router.handle(try #require(makeKeyEvent(
+            characters: "1",
+            modifiers: [.command]
         ))))
 
-        #expect(actions == [.pageLast, .scrollDown, .tabPrevious])
+        #expect(actions == [.pageLast, .scrollDown, .tabPrevious, .tabSelect1])
     }
 
     @Test("prompt digits, backspace, dead keys, and IME remain native while CR and Esc dispatch")

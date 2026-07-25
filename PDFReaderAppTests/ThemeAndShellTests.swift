@@ -19,6 +19,8 @@ struct ThemeAndShellTests {
             #expect(theme.focusRing.alphaComponent > 0)
             #expect(theme.hover.alphaComponent > 0)
             #expect(theme.searchHighlightPalette.activeResult.alphaComponent > 0)
+            #expect(theme.tabBarBackground.hexRGB != theme.canvasBackground.hexRGB)
+            #expect(theme[.statusline].hexRGB != theme.tabBarBackground.hexRGB)
         }
         #expect(ThemeAttributions.bundledPaletteNames.count == 4)
     }
@@ -174,7 +176,7 @@ struct ThemeAndShellTests {
 
         #expect(window.makeFirstResponder(readerView))
         let backwardTarget = try #require(readerView.previousKeyView)
-        #expect(backwardTarget.accessibilityIdentifier().hasPrefix("tab.close."))
+        #expect(backwardTarget.accessibilityIdentifier() == "tab.new")
         let backtab = try #require(makeKeyEvent(
             characters: "\t",
             modifiers: [.shift],
@@ -198,12 +200,32 @@ struct ThemeAndShellTests {
 
         #expect(controller.rootView.emptyState.isHidden == false)
         #expect(controller.rootView.tabBar.isHidden)
+        #expect(controller.window?.title == "Modeleaf")
+        #expect(controller.window?.minSize == NSSize(width: 480, height: 360))
         #expect(controller.window?.accessibilityIdentifier() == "mainWindow")
+        #expect(controller.window?.isMovableByWindowBackground == false)
         #expect(controller.rootView.emptyState.accessibilityIdentifier() == "emptyState")
         #expect(controller.rootView.emptyState.accessibilityRole() == .group)
         #expect(controller.rootView.emptyState.openButton.accessibilityRole() == .button)
         #expect(controller.rootView.emptyState.openButton.accessibilityLabel() == "Open PDF")
         #expect(controller.rootView.emptyState.openButton.keyEquivalent.isEmpty)
+        #expect(controller.rootView.emptyState.openButton.focusRingType == .none)
+        #expect(controller.rootView.emptyState.openButton.layer?.borderWidth == 0)
+        let openShortcut = findDescendant(
+            in: controller.rootView.emptyState,
+            identifier: "empty.openShortcut"
+        ) as? NSTextField
+        #expect(openShortcut?.stringValue == "⌘O")
+        #expect(
+            openShortcut?.textColor?.hexRGB
+                == AppKitTheme(configuration: BuiltInDefaults.config.theme)[.accent].hexRGB
+        )
+        let openShortcutBadge = findDescendant(
+            in: controller.rootView.emptyState,
+            identifier: "empty.openShortcutBadge"
+        )
+        #expect(openShortcutBadge?.layer?.borderWidth == 1)
+        #expect(openShortcutBadge?.layer?.backgroundColor != nil)
         #expect(controller.rootView.statusBar.accessibilityIdentifier() == "statusBar")
         #expect(controller.rootView.statusBar.accessibilityRole() == .group)
 
@@ -217,18 +239,28 @@ struct ThemeAndShellTests {
         #expect(!controller.rootView.tabBar.isHidden)
         #expect(store.insert(second))
         #expect(store.snapshot.tabs.count == 2)
+        #expect(controller.window?.title == "Two.pdf — Modeleaf")
         #expect(controller.rootView.tabBar.accessibilityRole() == .group)
         let activeTabID = "tab.\(second.id.rawValue.uuidString.lowercased())"
         let activeTab = findDescendant(in: controller.rootView.tabBar, identifier: activeTabID)
         #expect(activeTab?.accessibilityRole() == .radioButton)
         #expect(activeTab?.accessibilityValue() as? String == "selected")
         #expect(activeTab?.accessibilityLabel()?.contains("tab 2 of 2") == true)
+        #expect((activeTab as? NSButton)?.title == "Two")
+        #expect((activeTab as? NSButton)?.lineBreakMode == .byTruncatingTail)
+        #expect(activeTab?.toolTip == nil)
+        #expect(activeTab?.superview?.toolTip == nil)
+        #expect(activeTab?.superview?.mouseDownCanMoveWindow == false)
         second.page = 2
         second.publishPresentationChange()
         #expect(findDescendant(in: controller.rootView.tabBar, identifier: activeTabID) === activeTab)
         #expect(controller.rootView.statusBar.presentation.page == "2 / 10")
         let closeID = "tab.close.\(second.id.rawValue.uuidString.lowercased())"
         #expect(findDescendant(in: controller.rootView.tabBar, identifier: closeID)?.accessibilityRole() == .button)
+        let newTab = findDescendant(in: controller.rootView.tabBar, identifier: "tab.new")
+        #expect(newTab?.accessibilityRole() == .button)
+        #expect(newTab?.accessibilityLabel() == "Open PDF in New Tab")
+        #expect(newTab?.toolTip == "Open PDF in New Tab")
 
         controller.presentPrompt(PromptPresentation(kind: .page, text: "12", validationMessage: nil))
         #expect(!controller.rootView.promptOverlay.isHidden)
@@ -265,6 +297,262 @@ struct ThemeAndShellTests {
         #expect(controller.window != nil)
     }
 
+    @Test("prompt controls remain inside the overlay at the minimum window width")
+    func promptControlsDoNotOverflow() throws {
+        let store = ReaderSessionStore()
+        let session = StubReaderSession(
+            id: TabID(),
+            title: "Sample Document.pdf"
+        )
+        let controller = MainWindowController(
+            sessionStore: store,
+            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            actionHandler: { _ in }
+        )
+        #expect(store.insert(session))
+        defer { controller.close() }
+
+        let window = try #require(controller.window)
+        window.setFrame(
+            NSRect(origin: .zero, size: WindowVisualMetrics.minimumSize),
+            display: false
+        )
+        controller.presentPrompt(
+            PromptPresentation(
+                kind: .search,
+                text: String(repeating: "very-long-query-", count: 20),
+                validationMessage: "A deliberately long validation message that must truncate."
+            )
+        )
+        let root = controller.rootView
+        root.layoutSubtreeIfNeeded()
+
+        let overlayBounds = root.promptOverlay.bounds.insetBy(dx: -0.5, dy: -0.5)
+        let commitFrame = root.promptOverlay.convert(
+            root.promptOverlay.commitButton.bounds,
+            from: root.promptOverlay.commitButton
+        )
+        let cancelFrame = root.promptOverlay.convert(
+            root.promptOverlay.cancelButton.bounds,
+            from: root.promptOverlay.cancelButton
+        )
+        let tabButton = try #require(
+            findDescendant(
+                in: root.tabBar,
+                identifier: "tab.\(session.id.rawValue.uuidString.lowercased())"
+            )
+        )
+        let tabCenter = root.convert(
+            NSPoint(x: tabButton.bounds.midX, y: tabButton.bounds.midY),
+            from: tabButton
+        )
+        let newTabCenter = root.convert(
+            NSPoint(
+                x: root.tabBar.newTabButton.bounds.midX,
+                y: root.tabBar.newTabButton.bounds.midY
+            ),
+            from: root.tabBar.newTabButton
+        )
+
+        #expect(window.frame.size == NSSize(width: 480, height: 360))
+        #expect(root.bounds.width == 480)
+        #expect(root.bounds.height <= 360)
+        #expect(root.promptOverlay.frame.width <= WindowVisualMetrics.promptMaximumWidth)
+        #expect(root.promptOverlay.frame.width >= 360)
+        #expect(root.promptOverlay.frame.minX >= 0)
+        #expect(root.promptOverlay.frame.maxX <= root.bounds.maxX)
+        #expect(root.promptOverlay.frame.minY >= root.statusBar.frame.maxY)
+        #expect(root.promptOverlay.frame.maxY <= root.tabBar.frame.minY)
+        #expect(overlayBounds.contains(commitFrame))
+        #expect(overlayBounds.contains(cancelFrame))
+        #expect(root.bounds.contains(tabCenter))
+        #expect(root.bounds.contains(newTabCenter))
+    }
+
+    @Test("the active tab remains pointer reachable after shrinking a multi-tab window")
+    func activeTabRemainsVisibleAtMinimumWidth() throws {
+        let store = ReaderSessionStore()
+        let controller = MainWindowController(
+            sessionStore: store,
+            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            actionHandler: { _ in }
+        )
+        let first = StubReaderSession(id: TabID(), title: "First.pdf")
+        let second = StubReaderSession(id: TabID(), title: "Second.pdf")
+        let third = StubReaderSession(id: TabID(), title: "Third.pdf")
+        #expect(store.insert(first))
+        #expect(store.insert(second))
+        #expect(store.insert(third))
+        defer { controller.close() }
+
+        let window = try #require(controller.window)
+        window.setFrame(
+            NSRect(origin: .zero, size: WindowVisualMetrics.minimumSize),
+            display: false
+        )
+        let root = controller.rootView
+        root.layoutSubtreeIfNeeded()
+
+        let activeTab = try #require(
+            findDescendant(
+                in: root.tabBar,
+                identifier: "tab.\(third.id.rawValue.uuidString.lowercased())"
+            )
+        )
+        let activeClose = try #require(
+            findDescendant(
+                in: root.tabBar,
+                identifier: "tab.close.\(third.id.rawValue.uuidString.lowercased())"
+            )
+        )
+
+        #expect(pointerTarget(for: activeTab, in: root) === activeTab)
+        #expect(pointerTarget(for: activeClose, in: root) === activeClose)
+        #expect(pointerTarget(for: root.tabBar.newTabButton, in: root) === root.tabBar.newTabButton)
+
+        #expect(store.activate(first.id))
+        root.layoutSubtreeIfNeeded()
+        let firstTab = try #require(
+            findDescendant(
+                in: root.tabBar,
+                identifier: "tab.\(first.id.rawValue.uuidString.lowercased())"
+            )
+        )
+        let firstClose = try #require(
+            findDescendant(
+                in: root.tabBar,
+                identifier: "tab.close.\(first.id.rawValue.uuidString.lowercased())"
+            )
+        )
+        #expect(pointerTarget(for: firstTab, in: root) === firstTab)
+        #expect(pointerTarget(for: firstClose, in: root) === firstClose)
+    }
+
+    @Test("overflow compacts inactive tab labels while preserving active position and pointer controls")
+    func adaptiveCompactTabsPreserveIdentityAndControls() throws {
+        let store = ReaderSessionStore()
+        let controller = MainWindowController(
+            sessionStore: store,
+            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            actionHandler: { _ in }
+        )
+        let sessions = [
+            StubReaderSession(id: TabID(), title: "First.pdf"),
+            StubReaderSession(id: TabID(), title: "Second.pdf"),
+            StubReaderSession(id: TabID(), title: "Third.pdf"),
+            StubReaderSession(id: TabID(), title: "Fourth.pdf"),
+        ]
+        for session in sessions {
+            #expect(store.insert(session))
+        }
+        defer { controller.close() }
+
+        let window = try #require(controller.window)
+        let root = controller.rootView
+        root.layoutSubtreeIfNeeded()
+
+        #expect(!root.tabBar.usesCompactLayout)
+        for (index, session) in sessions.enumerated() {
+            let button = try #require(
+                findDescendant(
+                    in: root.tabBar,
+                    identifier: "tab.\(session.id.rawValue.uuidString.lowercased())"
+                ) as? NSButton
+            )
+            #expect(button.title == ["First", "Second", "Third", "Fourth"][index])
+        }
+
+        window.setFrame(
+            NSRect(origin: .zero, size: WindowVisualMetrics.minimumSize),
+            display: false
+        )
+        root.layoutSubtreeIfNeeded()
+
+        #expect(root.tabBar.usesCompactLayout)
+        for (index, session) in sessions.enumerated() {
+            let select = try #require(
+                findDescendant(
+                    in: root.tabBar,
+                    identifier: "tab.\(session.id.rawValue.uuidString.lowercased())"
+                ) as? NSButton
+            )
+            let close = try #require(
+                findDescendant(
+                    in: root.tabBar,
+                    identifier: "tab.close.\(session.id.rawValue.uuidString.lowercased())"
+                )
+            )
+            if index == sessions.count - 1 {
+                #expect(select.title == "4/4  Fourth")
+            } else {
+                #expect(select.title.isEmpty)
+                #expect(select.superview?.bounds.width == 40)
+                #expect(select.superview?.layer?.borderWidth == 1)
+                #expect(select.superview?.layer?.borderColor != NSColor.clear.cgColor)
+            }
+            let selectionTarget = pointerTarget(for: select, in: root)
+            #expect(selectionTarget === select || selectionTarget === select.superview)
+            #expect(pointerTarget(for: close, in: root) === close)
+        }
+        #expect(pointerTarget(for: root.tabBar.newTabButton, in: root) === root.tabBar.newTabButton)
+        #expect(root.tabBar.accessibilityValue() as? String == "4 tabs, active 4 of 4")
+
+        #expect(store.activate(sessions[1].id))
+        root.layoutSubtreeIfNeeded()
+        let second = try #require(
+            findDescendant(
+                in: root.tabBar,
+                identifier: "tab.\(sessions[1].id.rawValue.uuidString.lowercased())"
+            ) as? NSButton
+        )
+        let fourth = try #require(
+            findDescendant(
+                in: root.tabBar,
+                identifier: "tab.\(sessions[3].id.rawValue.uuidString.lowercased())"
+            ) as? NSButton
+        )
+        #expect(second.title == "2/4  Second")
+        #expect(fourth.title.isEmpty)
+
+        window.setFrame(
+            NSRect(origin: .zero, size: WindowVisualMetrics.initialSize),
+            display: false
+        )
+        root.layoutSubtreeIfNeeded()
+        #expect(!root.tabBar.usesCompactLayout)
+        #expect(second.title == "Second")
+        #expect(fourth.title == "Fourth")
+        #expect(fourth.superview?.layer?.borderWidth == 0)
+    }
+
+    @Test("empty-state shortcut follows the effective configurable open binding")
+    func emptyStateShortcutUsesEffectiveBinding() throws {
+        let config = try #require(
+            ConfigValidator.validate(
+                SparseAppConfig(
+                    keymap: [ActionID.documentOpen.rawValue: ["<D-S-o>"]]
+                )
+            ).validatedConfig
+        )
+        let store = ReaderSessionStore()
+        let controller = MainWindowController(
+            sessionStore: store,
+            theme: AppKitTheme(configuration: config.config.theme),
+            actionHandler: { _ in },
+            validatedConfig: config
+        )
+        defer { controller.close() }
+
+        let shortcut = try #require(
+            findDescendant(
+                in: controller.rootView.emptyState,
+                identifier: "empty.openShortcut"
+            ) as? NSTextField
+        )
+        #expect(shortcut.stringValue == "⇧⌘O")
+        #expect(!shortcut.isHidden)
+    }
+
     @Test("tab pointer controls compose only stable tab and document actions")
     func tabPointerControlsUseDispatcherActions() throws {
         let store = ReaderSessionStore()
@@ -293,14 +581,20 @@ struct ThemeAndShellTests {
         let firstTab = try #require(
             findDescendant(in: controller.rootView.tabBar, identifier: firstTabID) as? NSButton
         )
+        controller.rootView.layoutSubtreeIfNeeded()
+        #expect(pointerTarget(for: firstTab, in: controller.rootView) === firstTab)
+        #expect(pointerTarget(for: firstTab, in: controller.rootView)?.toolTip == nil)
         firstTab.performClick(nil)
         #expect(actions == [.tabNext])
         #expect(store.activeSession?.id == first.id)
+        #expect(firstTab.superview?.mouseDownCanMoveWindow == false)
+        #expect(firstTab.superview?.toolTip == nil)
 
         let closeSecondID = "tab.close.\(second.id.rawValue.uuidString.lowercased())"
         let closeSecond = try #require(
             findDescendant(in: controller.rootView.tabBar, identifier: closeSecondID) as? NSButton
         )
+        #expect(pointerTarget(for: closeSecond, in: controller.rootView) === closeSecond)
         closeSecond.performClick(nil)
         #expect(actions == [.tabNext, .tabNext, .documentClose, .tabNext])
         #expect(store.session(for: second.id) == nil)
@@ -311,6 +605,40 @@ struct ThemeAndShellTests {
         )
         activeFirst.performClick(nil)
         #expect(actions == [.tabNext, .tabNext, .documentClose, .tabNext])
+
+        let newTab = try #require(
+            findDescendant(in: controller.rootView.tabBar, identifier: "tab.new") as? NSButton
+        )
+        #expect(pointerTarget(for: newTab, in: controller.rootView) === newTab)
+        newTab.performClick(nil)
+        #expect(actions == [.tabNext, .tabNext, .documentClose, .tabNext, .documentOpen])
+    }
+
+    @Test("tab labels hide the PDF extension and keep the complete filename accessible")
+    func tabLabelsAreCompactWithoutFilenameToolTips() throws {
+        let store = ReaderSessionStore()
+        let fullTitle = "Sample Document - A Very Long Document Name.pdf"
+        let session = StubReaderSession(id: TabID(), title: fullTitle)
+        let controller = MainWindowController(
+            sessionStore: store,
+            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            actionHandler: { _ in }
+        )
+        #expect(store.insert(session))
+        controller.rootView.layoutSubtreeIfNeeded()
+
+        let tabID = "tab.\(session.id.rawValue.uuidString.lowercased())"
+        let tabButton = try #require(
+            findDescendant(in: controller.rootView.tabBar, identifier: tabID) as? NSButton
+        )
+
+        #expect(tabButton.title == "Sample Document - A Very Long Document Name")
+        #expect(tabButton.lineBreakMode == .byTruncatingTail)
+        #expect(tabButton.toolTip == nil)
+        #expect(tabButton.superview?.toolTip == nil)
+        #expect(tabButton.superview?.frame.width == 184)
+        #expect(tabButton.accessibilityLabel()?.contains(fullTitle) == true)
+        #expect(controller.rootView.tabBar.trackingAreas.isEmpty)
     }
 
     @Test("V-THEME-01 four themes render the six required visual acceptance states")
@@ -558,6 +886,12 @@ struct ThemeAndShellTests {
             }
         }
         return nil
+    }
+
+    private func pointerTarget(for view: NSView, in root: NSView) -> NSView? {
+        root.layoutSubtreeIfNeeded()
+        let center = NSPoint(x: view.bounds.midX, y: view.bounds.midY)
+        return root.hitTest(view.convert(center, to: root))
     }
 }
 

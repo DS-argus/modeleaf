@@ -7,7 +7,11 @@ struct BuiltInDefaultsTests {
     @Test("Built-in keymap is complete and accepted by pure policies")
     func defaultKeymapIsCompleteAndValid() {
         #expect(Set(BuiltInDefaults.keymap.keys) == Set(ActionRegistry.v1.actionIDs))
-        #expect(BuiltInDefaults.keymap.values.allSatisfy { !$0.isEmpty })
+        #expect(
+            Set(BuiltInDefaults.keymap.compactMap { action, bindings in
+                bindings.isEmpty ? action : nil
+            }) == [.viewZoomReset]
+        )
         let report = ActionBindingPolicy.evaluateEffective(BuiltInDefaults.keymap)
         #expect(report.isValid)
         #expect(report.diagnostics.isEmpty)
@@ -17,13 +21,16 @@ struct BuiltInDefaultsTests {
     func exactDefaultVocabulary() throws {
         let expected: [ActionID: [String]] = [
             .documentOpen: ["<D-o>"], .documentClose: ["<D-w>"], .appQuit: ["<D-q>"],
-            .tabNext: ["gt"], .tabPrevious: ["gT"],
+            .tabNext: ["N"], .tabPrevious: ["P"],
+            .tabSelect1: ["<D-1>"], .tabSelect2: ["<D-2>"], .tabSelect3: ["<D-3>"],
+            .tabSelect4: ["<D-4>"], .tabSelect5: ["<D-5>"], .tabSelect6: ["<D-6>"],
+            .tabSelect7: ["<D-7>"], .tabSelect8: ["<D-8>"], .tabSelect9: ["<D-9>"],
             .scrollLeft: ["h"], .scrollDown: ["j"], .scrollUp: ["k"], .scrollRight: ["l"],
             .scrollLargeDown: ["d"], .scrollLargeUp: ["u"],
             .pageNext: ["n"], .pagePrevious: ["p"], .pageFirst: ["gg"], .pageLast: ["G"], .pagePrompt: ["g"],
             .promptCommit: ["<CR>"], .promptCancel: ["<Esc>"],
             .searchPrompt: ["/"], .searchNext: ["<CR>"], .searchPrevious: ["<S-CR>"], .searchCancel: ["<Esc>"],
-            .viewZoomIn: ["+"], .viewZoomOut: ["-"], .viewZoomReset: ["="],
+            .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [],
             .viewFitWidth: ["w"], .viewFitPage: ["f"],
         ]
         let actual = BuiltInDefaults.keymap.mapValues { $0.map(\.description) }
@@ -44,7 +51,7 @@ struct BuiltInDefaultsTests {
         #expect(config.navigation.smallScrollPoints == 48.0)
         #expect(config.navigation.largeScrollViewportFraction == 0.8)
         #expect(config.navigation.zoomFactor == 1.10)
-        #expect(config.input.prefixTimeoutMilliseconds == 500)
+        #expect(config.input.prefixTimeoutMilliseconds == 300)
         #expect(ConfigBounds.smallScrollPoints == 1.0...512.0)
         #expect(ConfigBounds.largeScrollViewportFraction == 0.1...2.0)
         #expect(ConfigBounds.zoomFactor == 1.01...2.0)

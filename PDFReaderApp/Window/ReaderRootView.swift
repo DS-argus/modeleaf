@@ -27,6 +27,10 @@ final class ReaderRootView: NSView {
         contentHost.addSubview(emptyState)
 
         tabBarHeightConstraint = tabBar.heightAnchor.constraint(equalToConstant: 0)
+        let preferredPromptWidth = promptOverlay.widthAnchor.constraint(
+            equalToConstant: WindowVisualMetrics.promptPreferredWidth
+        )
+        preferredPromptWidth.priority = .defaultLow
         NSLayoutConstraint.activate([
             tabBar.topAnchor.constraint(equalTo: topAnchor),
             tabBar.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -51,6 +55,7 @@ final class ReaderRootView: NSView {
             promptOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor),
             promptOverlay.bottomAnchor.constraint(equalTo: contentHost.bottomAnchor, constant: -16),
             promptOverlay.heightAnchor.constraint(equalToConstant: WindowVisualMetrics.promptHeight),
+            preferredPromptWidth,
             promptOverlay.widthAnchor.constraint(lessThanOrEqualToConstant: WindowVisualMetrics.promptMaximumWidth),
             promptOverlay.widthAnchor.constraint(greaterThanOrEqualToConstant: 360),
             promptOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 40),

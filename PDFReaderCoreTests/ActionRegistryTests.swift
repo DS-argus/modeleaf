@@ -8,6 +8,9 @@ struct ActionRegistryTests {
         let expected: Set<String> = [
             "document.open", "document.close", "app.quit",
             "tab.next", "tab.previous",
+            "tab.select.1", "tab.select.2", "tab.select.3",
+            "tab.select.4", "tab.select.5", "tab.select.6",
+            "tab.select.7", "tab.select.8", "tab.select.9",
             "scroll.left", "scroll.down", "scroll.up", "scroll.right", "scroll.largeDown", "scroll.largeUp",
             "page.next", "page.previous", "page.first", "page.last", "page.prompt",
             "prompt.commit", "prompt.cancel",
@@ -15,7 +18,7 @@ struct ActionRegistryTests {
             "view.zoomIn", "view.zoomOut", "view.zoomReset", "view.fitWidth", "view.fitPage",
         ]
         let registry = ActionRegistry.v1
-        #expect(registry.descriptors.count == 27)
+        #expect(registry.descriptors.count == 36)
         #expect(Set(registry.actionIDs.map(\.rawValue)) == expected)
         #expect(Set(registry.actionIDs).count == registry.actionIDs.count)
         #expect(Set(InputContext.allCases) == [.navigation, .pagePrompt, .searchPrompt, .searchResults])
@@ -28,7 +31,12 @@ struct ActionRegistryTests {
         #expect(report.diagnostics.isEmpty)
         let keymap = try #require(report.validatedKeymap)
 
-        for descriptor in registry.descriptors {
+        #expect(
+            Set(registry.actionIDs.filter { !keymap.isBound($0) })
+                == [.viewZoomReset]
+        )
+
+        for descriptor in registry.descriptors where keymap.isBound(descriptor.id) {
             let sequence = try #require(keymap.bindings(for: descriptor.id).first)
             let context = try #require(InputContext.allCases.first(where: descriptor.isActive))
             let dispatcher = RecordingDispatcher()
@@ -54,6 +62,13 @@ struct ActionRegistryTests {
                 #expect(menuAfter?.keyEquivalent == nil)
             }
         }
+
+        let actualSize = try sequence("0")
+        let reboundReport = keymap.replacingBindings(for: .viewZoomReset, with: [actualSize], registry: registry)
+        let rebound = try #require(reboundReport.validatedKeymap)
+        let dispatcher = RecordingDispatcher()
+        #expect(rebound.dispatchExact(actualSize, in: .navigation, using: dispatcher))
+        #expect(dispatcher.actions == [.viewZoomReset])
     }
 
     @Test("U-ACT-02 every declared UI surface is registry-backed")

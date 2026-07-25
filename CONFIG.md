@@ -1,6 +1,6 @@
-# PDF Reader configuration
+# Modeleaf configuration
 
-The optional user configuration lives at `~/.config/pdf-reader/config.toml`. A missing file uses the complete built-in configuration. Configuration is declarative data only: it cannot define actions, macros, scripts, shell commands, or plugins.
+The optional user configuration lives at `~/.config/modeleaf/config.toml`. A missing file uses the complete built-in configuration. Configuration is declarative data only: it cannot define actions, macros, scripts, shell commands, or plugins.
 
 ## Loading and activation
 
@@ -25,7 +25,7 @@ large_scroll_viewport_fraction = 0.8
 zoom_factor = 1.1
 
 [input]
-prefix_timeout_ms = 500
+prefix_timeout_ms = 300
 
 [theme]
 built_in = "catppuccin-mocha"
@@ -37,8 +37,8 @@ accent = "#89B4FA"
 ## Key grammar
 
 - Printable Unicode characters are logical keys: `j`, `G`, `/`, `한`.
-- Multi-key sequences concatenate tokens: `gt`, `gT`, `gg`.
-- Named keys and chords use angle brackets, for example `<Esc>`, `<CR>`, `<S-CR>`, `<D-o>`, and `<D-F12>`.
+- Multi-key sequences concatenate tokens: `gg`, `zx`, `g12`.
+- Named keys and chords use angle brackets, for example `<Esc>`, `<CR>`, `<S-CR>`, `<D-o>`, `<D-1>`, and `<D-F12>`.
 - Modifier order is normalized as `D` (Command), `C` (Control), `A` (Option), `S` (Shift).
 - Supported named keys are Esc, CR, BS, Del, Tab/Backtab, arrows, Home/End, PageUp/PageDown, Space, Backtick, LT/GT, Plus/Minus/Equal/Slash, and F1…F24.
 - Fn, Globe, media, power, raw key codes, action chains, and general Vim numeric counts are not part of the grammar.
@@ -56,8 +56,17 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `document.open` | `<D-o>` | global | `suppressed` |
 | `document.close` | `<D-w>` | `navigation`, `searchResults` | `suppressed` |
 | `app.quit` | `<D-q>` | global | `suppressed` |
-| `tab.next` | `gt` | `navigation`, `searchResults` | `suppressed` |
-| `tab.previous` | `gT` | `navigation`, `searchResults` | `suppressed` |
+| `tab.next` | `N` | `navigation`, `searchResults` | `suppressed` |
+| `tab.previous` | `P` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.1` | `<D-1>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.2` | `<D-2>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.3` | `<D-3>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.4` | `<D-4>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.5` | `<D-5>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.6` | `<D-6>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.7` | `<D-7>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.8` | `<D-8>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.9` | `<D-9>` | `navigation`, `searchResults` | `suppressed` |
 | `scroll.left` | `h` | `navigation`, `searchResults` | `allowed` |
 | `scroll.down` | `j` | `navigation`, `searchResults` | `allowed` |
 | `scroll.up` | `k` | `navigation`, `searchResults` | `allowed` |
@@ -75,9 +84,9 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `search.next` | `<CR>` | `searchResults` | `allowed` |
 | `search.previous` | `<S-CR>` | `searchResults` | `allowed` |
 | `search.cancel` | `<Esc>` | `searchResults` | `suppressed` |
-| `view.zoomIn` | `+` | `navigation`, `searchResults` | `allowed` |
+| `view.zoomIn` | `=` | `navigation`, `searchResults` | `allowed` |
 | `view.zoomOut` | `-` | `navigation`, `searchResults` | `allowed` |
-| `view.zoomReset` | `=` | `navigation`, `searchResults` | `suppressed` |
+| `view.zoomReset` | unbound | `navigation`, `searchResults` | `suppressed` |
 | `view.fitWidth` | `w` | `navigation`, `searchResults` | `suppressed` |
 | `view.fitPage` | `f` | `navigation`, `searchResults` | `suppressed` |
 
@@ -86,9 +95,11 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 - Small scroll: `48 pt` (valid `1...512`).
 - Large scroll: `0.8 × viewport` (valid `0.1...2.0`).
 - Zoom factor: `1.10` (valid `1.01...2.0`).
-- Prefix timeout: `500 ms` (valid `100...2000`).
+- Prefix timeout: `300 ms` (valid `100...2000`).
 - Initial theme: `catppuccin-mocha`.
 - Themes: `catppuccin-mocha`, `tokyo-night`, `gruvbox-dark`, `nord`.
+
+A newly opened document starts on page 1 in fit-page mode. In that mode, `j`/`d` advance a page and `k`/`u` go back. After manual zoom, each scroll action first moves within an overflowing axis. At a vertical edge, another downward action enters the next page at its top and another upward action enters the previous page at its bottom; vertical actions remain inert when the page overflows only horizontally. Actual Size remains available from the View menu and as `view.zoomReset`, but is intentionally unbound by default.
 
 Themes apply to application chrome, overlays, and the surrounding PDF canvas. They never alter PDF page pixels.
 Theme overrides use the semantic tokens `background` (the surrounding canvas and base chrome), `foreground`, `muted-text`, `border`, `accent`, `active-tab`, `inactive-tab`, `statusline`, `error`, `search-highlight`, `active-search-highlight`, and `focus-indicator`. Colors must use `#RRGGBB` or `#RRGGBBAA` hexadecimal form.
@@ -217,14 +228,23 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 
 ```toml
 # Generated from PDFReaderCore.BuiltInDefaults. Do not edit this bundled copy.
-# Copy it to ~/.config/pdf-reader/config.toml and edit the copy.
+# Copy it to ~/.config/modeleaf/config.toml and edit the copy.
 
 [keymap]
 "document.open" = ["<D-o>"]
 "document.close" = ["<D-w>"]
 "app.quit" = ["<D-q>"]
-"tab.next" = ["gt"]
-"tab.previous" = ["gT"]
+"tab.next" = ["N"]
+"tab.previous" = ["P"]
+"tab.select.1" = ["<D-1>"]
+"tab.select.2" = ["<D-2>"]
+"tab.select.3" = ["<D-3>"]
+"tab.select.4" = ["<D-4>"]
+"tab.select.5" = ["<D-5>"]
+"tab.select.6" = ["<D-6>"]
+"tab.select.7" = ["<D-7>"]
+"tab.select.8" = ["<D-8>"]
+"tab.select.9" = ["<D-9>"]
 "scroll.left" = ["h"]
 "scroll.down" = ["j"]
 "scroll.up" = ["k"]
@@ -242,9 +262,9 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 "search.next" = ["<CR>"]
 "search.previous" = ["<S-CR>"]
 "search.cancel" = ["<Esc>"]
-"view.zoomIn" = ["+"]
+"view.zoomIn" = ["="]
 "view.zoomOut" = ["-"]
-"view.zoomReset" = ["="]
+"view.zoomReset" = []
 "view.fitWidth" = ["w"]
 "view.fitPage" = ["f"]
 
@@ -254,7 +274,7 @@ large_scroll_viewport_fraction = 0.8
 zoom_factor = 1.1
 
 [input]
-prefix_timeout_ms = 500
+prefix_timeout_ms = 300
 
 [theme]
 built_in = "catppuccin-mocha"

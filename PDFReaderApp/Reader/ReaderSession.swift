@@ -11,6 +11,20 @@ enum ReaderTeardownStep: String, Equatable, Sendable {
     case contentViewRemoved
 }
 
+enum ReaderSessionCloseReason: Equatable, Sendable {
+    case userClose
+    case insertionRejected
+
+    var metricOutcome: PDFOpenMetricOutcome {
+        switch self {
+        case .userClose:
+            .userClose
+        case .insertionRejected:
+            .insertionRejected
+        }
+    }
+}
+
 @MainActor
 protocol ReaderSearchLifecycle: AnyObject {
     func requestCancellation()
@@ -28,6 +42,8 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
     private let viewController: PDFViewController
     private let searchLifecycle: any ReaderSearchLifecycle
     private let searchController: (any ReaderSearchControlling)?
+    private let openTraceID: OpenTraceID
+    private let openMetrics: any PDFOpenMetrics
     private var cachedSearchableTextPresence: Bool?
     private var notificationTokens: [NSObjectProtocol] = []
     private var presentationChangeHandler: (() -> Void)?
@@ -39,13 +55,18 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         id: TabID = TabID(),
         sourceURL: URL,
         document: PDFDocument,
-        searchLifecycle: (any ReaderSearchLifecycle)? = nil
+        searchLifecycle: (any ReaderSearchLifecycle)? = nil,
+        traceID: OpenTraceID = OpenTraceID(),
+        metrics: any PDFOpenMetrics = NoopPDFOpenMetrics()
     ) {
+        metrics.record(.begin(.sessionConstruct, traceID: traceID))
         self.id = id
         self.sourceURL = sourceURL
         self.title = sourceURL.lastPathComponent.isEmpty ? "Untitled.pdf" : sourceURL.lastPathComponent
         self.document = document
-        let viewController = PDFViewController(document: document)
+        self.openTraceID = traceID
+        self.openMetrics = metrics
+        let viewController = PDFViewController(document: document, traceID: traceID, metrics: metrics)
         self.viewController = viewController
         if let searchLifecycle {
             self.searchLifecycle = searchLifecycle
@@ -63,6 +84,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
             self?.publishPresentationChange()
         }
         installNotifications()
+        metrics.record(.end(.sessionConstruct, traceID: traceID, outcome: .success))
     }
 
     var contentView: NSView { viewController.view }
@@ -71,6 +93,9 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
     var currentPageNumber: Int? { viewController.currentPageNumber }
     var scaleFactor: Double { Double(viewController.scaleFactor) }
     var viewMode: ReaderViewMode { viewController.viewMode }
+    var initialPresentationState: InitialPDFPresentationState {
+        viewController.initialPresentationState
+    }
     var searchSnapshot: ReaderSearchSnapshot {
         var snapshot = searchController?.snapshot ?? .empty
         if snapshot.isActive, !snapshot.isRunning, snapshot.matchCount == 0 {
@@ -136,6 +161,37 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         viewController.scrollVerticallyByViewportFraction(fraction)
     }
 
+    func moveHorizontally(byPoints points: Double) {
+        guard !isClosed else { return }
+        viewController.scrollBy(xPoints: points, yPoints: 0)
+    }
+
+    func moveVertically(byPoints points: Double) {
+        guard !isClosed, points != 0 else { return }
+        if viewMode == .fitPage {
+            _ = points > 0 ? goToNextPage() : goToPreviousPage()
+            return
+        }
+
+        let outcome = viewController.scrollVertically(byPoints: points)
+        if viewController.usesSinglePageLayout, outcome == .atBoundary {
+            navigateAcrossVerticalBoundary(forward: points > 0)
+        }
+    }
+
+    func moveVertically(byViewportFraction fraction: Double) {
+        guard !isClosed, fraction != 0 else { return }
+        if viewMode == .fitPage {
+            _ = fraction > 0 ? goToNextPage() : goToPreviousPage()
+            return
+        }
+
+        let outcome = viewController.scrollVerticallyByViewportFraction(fraction)
+        if viewController.usesSinglePageLayout, outcome == .atBoundary {
+            navigateAcrossVerticalBoundary(forward: fraction > 0)
+        }
+    }
+
     func zoom(by factor: Double) {
         guard !isClosed else { return }
         viewController.zoom(by: factor)
@@ -158,6 +214,16 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         guard !isClosed else { return }
         viewController.fitPage()
         publishPresentationChange()
+    }
+
+    private func navigateAcrossVerticalBoundary(forward: Bool) {
+        if forward {
+            guard goToNextPage() else { return }
+            viewController.scrollToVerticalBoundary(.start)
+        } else {
+            guard goToPreviousPage() else { return }
+            viewController.scrollToVerticalBoundary(.end)
+        }
     }
 
     func applySearchPalette(_ palette: SearchHighlightPalette) {
@@ -193,6 +259,10 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
     }
 
     func prepareForClose() {
+        prepareForClose(reason: .userClose)
+    }
+
+    func prepareForClose(reason: ReaderSessionCloseReason) {
         guard !isClosed else { return }
 
         searchLifecycle.requestCancellation()
@@ -219,6 +289,9 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
 
         presentationChangeHandler = nil
         isClosed = true
+        openMetrics.record(
+            .point(.sessionClosed, traceID: openTraceID, outcome: reason.metricOutcome)
+        )
     }
 
     private func installNotifications() {

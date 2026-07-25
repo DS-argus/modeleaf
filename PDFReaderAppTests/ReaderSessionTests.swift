@@ -1,5 +1,6 @@
 import AppKit
 import PDFKit
+import PDFReaderCore
 import PDFReaderTestSupport
 import Testing
 @testable import PDFReaderApp
@@ -7,6 +8,61 @@ import Testing
 @Suite("Read-only PDF session lifecycle")
 @MainActor
 struct ReaderSessionTests {
+    @Test("a newly mounted PDF opens once on page one fitted inside the visible canvas")
+    func initialPresentationFitsFirstPageOnce() throws {
+        try withSession(pageCount: 3) { session, _ in
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 720, height: 480),
+                styleMask: [.titled],
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = session.contentView
+            session.contentView.frame = window.contentLayoutRect
+            session.contentView.layoutSubtreeIfNeeded()
+
+            let view = try #require(descendantPDFViews(in: session.contentView).only)
+            view.layoutDocumentView()
+
+            #expect(session.initialPresentationState == .applied)
+            #expect(session.currentPageNumber == 1)
+            #expect(session.viewMode == .fitPage)
+            #expect(view.displayMode == .singlePage)
+            #expect(view.autoScales)
+            #expect(abs(view.scaleFactor - view.scaleFactorForSizeToFit) < 0.01)
+
+            session.zoom(by: 1.25)
+            let manuallySelectedScale = session.scaleFactor
+            session.contentView.needsLayout = true
+            session.contentView.layoutSubtreeIfNeeded()
+
+            #expect(session.initialPresentationState == .applied)
+            #expect(session.viewMode == .manual)
+            #expect(abs(session.scaleFactor - manuallySelectedScale) < 0.0001)
+        }
+    }
+
+    @Test("an explicit view command before mounting supersedes the initial fit")
+    func explicitViewCommandSupersedesInitialPresentation() throws {
+        try withSession(pageCount: 2) { session, _ in
+            session.fitWidth()
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 720, height: 480),
+                styleMask: [.titled],
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = session.contentView
+            session.contentView.frame = window.contentLayoutRect
+            session.contentView.layoutSubtreeIfNeeded()
+
+            let view = try #require(descendantPDFViews(in: session.contentView).only)
+            #expect(session.initialPresentationState == .supersededByUser)
+            #expect(session.viewMode == .fitWidth)
+            #expect(view.displayMode == .singlePageContinuous)
+        }
+    }
+
     @Test("I-PDF-03 page navigation is one-based, directional, and explicit-range safe")
     func pageNavigation() throws {
         try withSession(pageCount: 3) { session, _ in
@@ -57,6 +113,7 @@ struct ReaderSessionTests {
     @Test("I-NAV-01 point and viewport scrolling move the real PDFKit document clip")
     func realPDFKitScrolling() throws {
         try withSession(pageCount: 5) { session, _ in
+            session.fitWidth()
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 640, height: 420),
                 styleMask: [.titled],
@@ -76,13 +133,248 @@ struct ReaderSessionTests {
             )
 
             let initial = scrollView.contentView.bounds.origin
-            session.scrollBy(xPoints: 0, yPoints: 48)
+            session.moveVertically(byPoints: 48)
             let afterPointScroll = scrollView.contentView.bounds.origin
-            session.scrollVerticallyByViewportFraction(0.8)
+            session.moveVertically(byViewportFraction: 0.8)
             let afterViewportScroll = scrollView.contentView.bounds.origin
 
             #expect(afterPointScroll != initial)
             #expect(afterViewportScroll != afterPointScroll)
+        }
+    }
+
+    @Test("fit-page followed by zoom-in scrolls an axis only when the page exceeds that viewport")
+    func zoomedFitPageUsesScrollSemantics() throws {
+        try withSession(pageCount: 3) { session, _ in
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 640, height: 420),
+                styleMask: [.titled],
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = session.contentView
+            session.contentView.frame = window.contentLayoutRect
+            session.contentView.layoutSubtreeIfNeeded()
+
+            let pdfView = try #require(descendantPDFViews(in: session.contentView).only)
+            session.fitPage()
+            pdfView.layoutDocumentView()
+            session.zoom(by: BuiltInDefaults.config.navigation.zoomFactor)
+
+            let scrollView = try #require(
+                descendantScrollViews(in: pdfView).first {
+                    guard let documentView = $0.documentView else { return false }
+                    return documentView.bounds.height > $0.contentView.bounds.height
+                }
+            )
+            let documentView = try #require(scrollView.documentView)
+            while documentView.bounds.height - scrollView.contentView.bounds.height
+                < scrollView.contentView.bounds.height
+            {
+                session.zoom(by: BuiltInDefaults.config.navigation.zoomFactor)
+            }
+            let initialPage = session.currentPageNumber
+            let initial = scrollView.contentView.bounds.origin
+
+            session.moveVertically(byPoints: 48)
+            let afterPointScroll = scrollView.contentView.bounds.origin
+            session.moveVertically(byViewportFraction: 0.8)
+            let afterViewportScroll = scrollView.contentView.bounds.origin
+
+            #expect(session.viewMode == .manual)
+            #expect(session.currentPageNumber == initialPage)
+            #expect(afterPointScroll != initial)
+            #expect(afterViewportScroll != afterPointScroll)
+        }
+    }
+
+    @Test("a wide page directly exercises horizontal-only overflow at the minimum window size")
+    func widePageFixtureUsesAxisBoundedMovement() throws {
+        try withSession(
+            pageCount: 3,
+            pageSize: CGSize(width: 1_200, height: 240)
+        ) { session, _ in
+            let window = NSWindow(
+                contentRect: NSRect(origin: .zero, size: WindowVisualMetrics.minimumSize),
+                styleMask: [.titled],
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = session.contentView
+            session.contentView.frame = window.contentLayoutRect
+            session.contentView.layoutSubtreeIfNeeded()
+
+            let pdfView = try #require(descendantPDFViews(in: session.contentView).only)
+            session.fitPage()
+            pdfView.layoutDocumentView()
+            let fittedScale = session.scaleFactor
+            session.zoom(by: BuiltInDefaults.config.navigation.zoomFactor)
+
+            let scrollView = try #require(descendantScrollViews(in: pdfView).first)
+            let clipView = scrollView.contentView
+            let documentView = try #require(scrollView.documentView)
+            #expect(documentView.bounds.width > clipView.bounds.width)
+            #expect(documentView.bounds.height <= clipView.bounds.height)
+            #expect(
+                abs(
+                    session.scaleFactor
+                        - fittedScale * BuiltInDefaults.config.navigation.zoomFactor
+                ) < 0.001
+            )
+
+            let initialPage = session.currentPageNumber
+            let initial = clipView.bounds.origin
+            session.moveVertically(byPoints: 48)
+            session.moveVertically(byViewportFraction: 0.8)
+            #expect(abs(clipView.bounds.origin.x - initial.x) < 0.001)
+            #expect(abs(clipView.bounds.origin.y - initial.y) < 0.001)
+            #expect(session.currentPageNumber == initialPage)
+
+            session.moveHorizontally(byPoints: 48)
+            #expect(clipView.bounds.origin.x != initial.x)
+
+            while documentView.bounds.height <= clipView.bounds.height {
+                session.zoom(by: BuiltInDefaults.config.navigation.zoomFactor)
+            }
+            let beforeVerticalMovement = clipView.bounds.origin
+            session.moveVertically(byPoints: 48)
+            #expect(clipView.bounds.origin.y != beforeVerticalMovement.y)
+            #expect(session.currentPageNumber == initialPage)
+        }
+    }
+
+    @Test("zoomed fit-page movement advances only after reaching a vertical page boundary")
+    func zoomedFitPageAdvancesAtVerticalBoundary() throws {
+        try withSession(pageCount: 3) { session, _ in
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 640, height: 420),
+                styleMask: [.titled],
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = session.contentView
+            session.contentView.frame = window.contentLayoutRect
+            session.contentView.layoutSubtreeIfNeeded()
+
+            let pdfView = try #require(descendantPDFViews(in: session.contentView).only)
+            session.fitPage()
+            pdfView.layoutDocumentView()
+            session.zoom(by: BuiltInDefaults.config.navigation.zoomFactor)
+
+            let scrollView = try #require(
+                descendantScrollViews(in: pdfView).first {
+                    guard let documentView = $0.documentView else { return false }
+                    return documentView.bounds.height > $0.contentView.bounds.height
+                }
+            )
+            let clipView = scrollView.contentView
+
+            session.moveVertically(byViewportFraction: 10)
+            let bottomOrigin = clipView.bounds.origin
+            #expect(session.currentPageNumber == 1)
+
+            session.moveVertically(byPoints: 48)
+            #expect(session.currentPageNumber == 2)
+
+            let nextPageStart = clipView.bounds.origin
+            session.moveVertically(byPoints: 48)
+            #expect(session.currentPageNumber == 2)
+            #expect(clipView.bounds.origin != nextPageStart)
+
+            session.moveVertically(byViewportFraction: -10)
+            let topOrigin = clipView.bounds.origin
+            #expect(topOrigin != bottomOrigin)
+            #expect(session.currentPageNumber == 2)
+
+            session.moveVertically(byPoints: -48)
+            #expect(session.currentPageNumber == 1)
+
+            let previousPageEnd = clipView.bounds.origin
+            session.moveVertically(byPoints: -48)
+            #expect(session.currentPageNumber == 1)
+            #expect(clipView.bounds.origin != previousPageEnd)
+        }
+    }
+
+    @Test("f then zoom-in routes j k d u to scrolling when the page vertically overflows")
+    func routedZoomedFitPageMovement() throws {
+        try withSession(pageCount: 3) { session, _ in
+            let validated = try #require(ConfigValidator.validate(SparseAppConfig()).validatedConfig)
+            let store = ReaderSessionStore()
+            let dispatcher = ActionDispatcher(
+                sessionStore: store,
+                navigation: BuiltInDefaults.config.navigation
+            )
+            let controller = MainWindowController(
+                sessionStore: store,
+                theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+                actionHandler: { dispatcher.dispatch($0) },
+                keyDispatchHandler: { dispatcher.dispatch($0) },
+                validatedConfig: validated
+            )
+            dispatcher.presentation = controller
+            #expect(store.insert(session))
+            defer { controller.close() }
+
+            controller.rootView.layoutSubtreeIfNeeded()
+            #expect(controller.routeKeyEventForTesting(
+                try #require(makeKeyEvent(characters: "f"))
+            ))
+            #expect(controller.routeKeyEventForTesting(
+                try #require(makeKeyEvent(characters: "=", keyCode: 24))
+            ))
+
+            let pdfView = try #require(descendantPDFViews(in: session.contentView).only)
+            let scrollView = try #require(
+                descendantScrollViews(in: pdfView).first {
+                    guard let documentView = $0.documentView else { return false }
+                    return documentView.bounds.height > $0.contentView.bounds.height
+                }
+            )
+            let initial = scrollView.contentView.bounds.origin
+            #expect(controller.routeKeyEventForTesting(
+                try #require(makeKeyEvent(characters: "j", keyCode: 38))
+            ))
+            let afterJ = scrollView.contentView.bounds.origin
+            #expect(controller.routeKeyEventForTesting(
+                try #require(makeKeyEvent(characters: "k", keyCode: 40))
+            ))
+            let afterK = scrollView.contentView.bounds.origin
+            #expect(controller.routeKeyEventForTesting(
+                try #require(makeKeyEvent(characters: "d", keyCode: 2))
+            ))
+            let afterD = scrollView.contentView.bounds.origin
+            #expect(controller.routeKeyEventForTesting(
+                try #require(makeKeyEvent(characters: "u", keyCode: 32))
+            ))
+            let afterU = scrollView.contentView.bounds.origin
+
+            #expect(session.viewMode == .manual)
+            #expect(afterJ != initial)
+            #expect(afterK != afterJ)
+            #expect(afterD != afterK)
+            #expect(afterU != afterD)
+        }
+    }
+
+    @Test("fit-page vertical movement advances pages while horizontal movement stays bounded")
+    func fitPageMovementUsesPageSemantics() throws {
+        try withSession(pageCount: 3) { session, _ in
+            session.fitPage()
+            #expect(session.currentPageNumber == 1)
+
+            session.moveHorizontally(byPoints: 48)
+            #expect(session.currentPageNumber == 1)
+            session.moveVertically(byPoints: 48)
+            #expect(session.currentPageNumber == 2)
+            session.moveVertically(byViewportFraction: 0.8)
+            #expect(session.currentPageNumber == 3)
+            session.moveVertically(byPoints: 48)
+            #expect(session.currentPageNumber == 3)
+            session.moveVertically(byViewportFraction: -0.8)
+            #expect(session.currentPageNumber == 2)
+            session.moveVertically(byPoints: -48)
+            #expect(session.currentPageNumber == 1)
         }
     }
 
@@ -186,9 +478,17 @@ struct ReaderSessionTests {
         }
     }
 
-    private func withSession(pageCount: Int, body: (ReaderSession, URL) throws -> Void) throws {
+    private func withSession(
+        pageCount: Int,
+        pageSize: CGSize = CGSize(width: 612, height: 792),
+        body: (ReaderSession, URL) throws -> Void
+    ) throws {
         try withTemporaryDirectory { directory in
-            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: pageCount)
+            let url = try PDFFixtureFactory.makeTextPDF(
+                in: directory,
+                pageCount: pageCount,
+                pageSize: pageSize
+            )
             let session = try PDFOpenService().open(url: url)
             defer { session.prepareForClose() }
             try body(session, url)

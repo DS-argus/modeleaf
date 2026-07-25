@@ -28,6 +28,9 @@ struct AppKitTheme {
     }
 
     var canvasBackground: NSColor { self[.background] }
+    var tabBarBackground: NSColor {
+        self[.inactiveTab].blended(withFraction: 0.28, of: self[.background]) ?? self[.inactiveTab]
+    }
     var focusRing: NSColor { self[.focusIndicator] }
 
     var hover: NSColor {

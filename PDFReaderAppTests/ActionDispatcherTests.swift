@@ -44,18 +44,24 @@ struct ActionDispatcherTests {
         let store = ReaderSessionStore()
         let first = RecordingReaderSession(title: "First.pdf")
         let second = RecordingReaderSession(title: "Second.pdf")
+        let third = RecordingReaderSession(title: "Third.pdf")
         #expect(store.insert(first))
         #expect(store.insert(second))
+        #expect(store.insert(third))
         let dispatcher = ActionDispatcher(sessionStore: store, navigation: BuiltInDefaults.config.navigation)
 
         dispatcher.dispatch(.tabPrevious)
-        #expect(store.activeSession?.id == first.id)
-        dispatcher.dispatch(.tabNext)
         #expect(store.activeSession?.id == second.id)
+        dispatcher.dispatch(.tabNext)
+        #expect(store.activeSession?.id == third.id)
+        dispatcher.dispatch(.tabSelect1)
+        #expect(store.activeSession?.id == first.id)
+        dispatcher.dispatch(.tabSelect9)
+        #expect(store.activeSession?.id == first.id)
         dispatcher.dispatch(.documentClose)
 
-        #expect(second.prepareForCloseCount == 1)
-        #expect(store.activeSession?.id == first.id)
+        #expect(first.prepareForCloseCount == 1)
+        #expect(store.activeSession?.id == second.id)
     }
 
     @Test("semantic page replay, validation, commit, and cancel restore reader focus")
@@ -176,7 +182,7 @@ struct ActionDispatcherTests {
             dispatcher.dispatch($0)
         }
         let menu = menuBuilder.makeMainMenu()
-        let quit = try #require(menu.descendantItem(title: "Quit PDF Reader"))
+        let quit = try #require(menu.descendantItem(title: "Quit Modeleaf"))
         let quitAction = try #require(quit.action)
         _ = quit.target?.perform(quitAction, with: quit)
 

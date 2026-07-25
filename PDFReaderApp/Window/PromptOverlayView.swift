@@ -40,15 +40,19 @@ final class PromptOverlayView: NSView {
 
         prefixLabel.font = .monospacedSystemFont(ofSize: 13, weight: .semibold)
         prefixLabel.setContentHuggingPriority(.required, for: .horizontal)
+        prefixLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         textField.isBezeled = false
         textField.drawsBackground = false
         textField.focusRingType = .none
         textField.font = .systemFont(ofSize: 13)
+        textField.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        textField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         textField.setAccessibilityIdentifier("prompt.textField")
 
         validationLabel.font = .systemFont(ofSize: 10, weight: .medium)
         validationLabel.lineBreakMode = .byTruncatingTail
+        validationLabel.maximumNumberOfLines = 1
         validationLabel.isHidden = true
         validationLabel.setAccessibilityIdentifier("prompt.validation")
         validationLabel.setAccessibilityLabel("Prompt validation")
@@ -57,6 +61,8 @@ final class PromptOverlayView: NSView {
             button.bezelStyle = .inline
             button.controlSize = .small
             button.font = .systemFont(ofSize: 10, weight: .medium)
+            button.setContentHuggingPriority(.required, for: .horizontal)
+            button.setContentCompressionResistancePriority(.required, for: .horizontal)
         }
         commitButton.setAccessibilityIdentifier("prompt.commitButton")
         commitButton.setAccessibilityLabel("Commit prompt")
@@ -84,7 +90,8 @@ final class PromptOverlayView: NSView {
             stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             stack.centerYAnchor.constraint(equalTo: centerYAnchor),
             inputRow.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            textField.widthAnchor.constraint(greaterThanOrEqualToConstant: 220),
+            validationLabel.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            textField.widthAnchor.constraint(greaterThanOrEqualToConstant: 80),
         ])
 
         isHidden = true

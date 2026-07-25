@@ -11,7 +11,7 @@ final class ValidatedMenuBuilder {
         self.actionTarget = MenuActionTarget(dispatch: dispatch)
     }
 
-    func makeMainMenu(applicationName: String = "PDF Reader") -> NSMenu {
+    func makeMainMenu(applicationName: String = "Modeleaf") -> NSMenu {
         let mainMenu = NSMenu(title: "Main Menu")
         for placement in MenuPlacement.allCases {
             let submenu = NSMenu(title: title(for: placement, applicationName: applicationName))

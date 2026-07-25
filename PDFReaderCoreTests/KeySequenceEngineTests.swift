@@ -26,13 +26,13 @@ struct KeySequenceEngineTests {
         #expect(pending.sequence.description == "g")
         #expect(pending.exactAction == .pagePrompt)
         #expect(pending.hasLongerMatches)
-        #expect(pending.timeoutMilliseconds == 500)
+        #expect(pending.timeoutMilliseconds == 300)
         #expect(pending.epoch == PrefixEpoch(rawValue: 1))
     }
 
     @Test("U-SEQ-03 a longer exact match wins once and clears pending state")
     func longerExactMatchWins() throws {
-        for (source, action) in [("gg", ActionID.pageFirst), ("gt", .tabNext), ("gT", .tabPrevious)] {
+        for (source, action) in [("gg", ActionID.pageFirst)] {
             var engine = try makeEngine()
             let characters = source.map(String.init)
             let first = engine.handle(try token(characters[0]))
@@ -325,9 +325,11 @@ struct KeySequenceEngineTests {
             ("h", .scrollLeft), ("j", .scrollDown), ("k", .scrollUp), ("l", .scrollRight),
             ("d", .scrollLargeDown), ("u", .scrollLargeUp),
             ("n", .pageNext), ("p", .pagePrevious),
+            ("N", .tabNext), ("P", .tabPrevious),
             ("G", .pageLast), ("/", .searchPrompt),
-            ("+", .viewZoomIn), ("-", .viewZoomOut),
-            ("=", .viewZoomReset), ("w", .viewFitWidth), ("f", .viewFitPage),
+            ("=", .viewZoomIn), ("-", .viewZoomOut),
+            ("w", .viewFitWidth), ("f", .viewFitPage),
+            ("<D-1>", .tabSelect1), ("<D-9>", .tabSelect9),
             ("<D-o>", .documentOpen), ("<D-w>", .documentClose), ("<D-q>", .appQuit),
         ]
         for (source, action) in expectations {

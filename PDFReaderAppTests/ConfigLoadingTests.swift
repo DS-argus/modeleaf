@@ -11,7 +11,7 @@ struct ConfigLoadingTests {
         defer { try? FileManager.default.removeItem(at: temporary) }
         let url = ConfigFileSource.defaultURL(homeDirectory: temporary)
 
-        #expect(url.path == temporary.appendingPathComponent(".config/pdf-reader/config.toml").path)
+        #expect(url.path == temporary.appendingPathComponent(".config/modeleaf/config.toml").path)
         #expect(!FileManager.default.fileExists(atPath: url.path))
 
         let result = ConfigService(
@@ -307,7 +307,7 @@ struct ConfigLoadingTests {
         let root = repositoryRoot()
         let resolvedPaths = [
             "Package.resolved",
-            "PDFReader.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+            "Modeleaf.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
         ]
 
         for path in resolvedPaths {

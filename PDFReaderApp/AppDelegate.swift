@@ -34,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let application = notification.object as? NSApplication ?? .shared
+        application.applicationIconImage = ApplicationIcon.load()
         let controller = ApplicationController(application: application)
         controller.start()
         applicationController = controller

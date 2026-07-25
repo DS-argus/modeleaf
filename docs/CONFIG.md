@@ -1,8 +1,8 @@
-# PDF Reader 설정 가이드
+# Modeleaf 설정 가이드
 
 [한국어 README](README.md) · [English configuration reference](../CONFIG.md) · [English README](../README.md)
 
-선택 사항인 사용자 설정 파일은 `~/.config/pdf-reader/config.toml`에 둡니다. 파일이 없으면 완전한 내장 기본 설정을 사용합니다. 설정은 선언형 데이터만 허용하며 액션, 매크로, 스크립트, 셸 명령, 플러그인을 정의할 수 없습니다.
+선택 사항인 사용자 설정 파일은 `~/.config/modeleaf/config.toml`에 둡니다. 파일이 없으면 완전한 내장 기본 설정을 사용합니다. 설정은 선언형 데이터만 허용하며 액션, 매크로, 스크립트, 셸 명령, 플러그인을 정의할 수 없습니다.
 
 ## 불러오기와 활성화
 
@@ -27,7 +27,7 @@ large_scroll_viewport_fraction = 0.8
 zoom_factor = 1.1
 
 [input]
-prefix_timeout_ms = 500
+prefix_timeout_ms = 300
 
 [theme]
 built_in = "catppuccin-mocha"
@@ -39,8 +39,8 @@ accent = "#89B4FA"
 ## 키 문법
 
 - 출력 가능한 Unicode 문자는 논리 키로 사용합니다: `j`, `G`, `/`, `한`.
-- 다중 키 시퀀스는 토큰을 이어 씁니다: `gt`, `gT`, `gg`.
-- 이름 있는 키와 조합 키는 `<Esc>`, `<CR>`, `<S-CR>`, `<D-o>`, `<D-F12>`처럼 꺾쇠괄호를 사용합니다.
+- 다중 키 시퀀스는 토큰을 이어 씁니다: `gg`, `zx`, `g12`.
+- 이름 있는 키와 조합 키는 `<Esc>`, `<CR>`, `<S-CR>`, `<D-o>`, `<D-1>`, `<D-F12>`처럼 꺾쇠괄호를 사용합니다.
 - modifier 순서는 `D`(Command), `C`(Control), `A`(Option), `S`(Shift) 순으로 정규화됩니다.
 - 지원하는 이름 있는 키: Esc, CR, BS, Del, Tab/Backtab, 방향키, Home/End, PageUp/PageDown, Space, Backtick, LT/GT, Plus/Minus/Equal/Slash, F1…F24.
 - Fn, Globe, 미디어 키, 전원 키, raw key code, 액션 체인, 일반적인 Vim 숫자 count는 문법에 포함되지 않습니다.
@@ -58,8 +58,17 @@ accent = "#89B4FA"
 | `document.open` | `<D-o>` | global | `suppressed` |
 | `document.close` | `<D-w>` | `navigation`, `searchResults` | `suppressed` |
 | `app.quit` | `<D-q>` | global | `suppressed` |
-| `tab.next` | `gt` | `navigation`, `searchResults` | `suppressed` |
-| `tab.previous` | `gT` | `navigation`, `searchResults` | `suppressed` |
+| `tab.next` | `N` | `navigation`, `searchResults` | `suppressed` |
+| `tab.previous` | `P` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.1` | `<D-1>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.2` | `<D-2>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.3` | `<D-3>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.4` | `<D-4>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.5` | `<D-5>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.6` | `<D-6>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.7` | `<D-7>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.8` | `<D-8>` | `navigation`, `searchResults` | `suppressed` |
+| `tab.select.9` | `<D-9>` | `navigation`, `searchResults` | `suppressed` |
 | `scroll.left` | `h` | `navigation`, `searchResults` | `allowed` |
 | `scroll.down` | `j` | `navigation`, `searchResults` | `allowed` |
 | `scroll.up` | `k` | `navigation`, `searchResults` | `allowed` |
@@ -77,9 +86,9 @@ accent = "#89B4FA"
 | `search.next` | `<CR>` | `searchResults` | `allowed` |
 | `search.previous` | `<S-CR>` | `searchResults` | `allowed` |
 | `search.cancel` | `<Esc>` | `searchResults` | `suppressed` |
-| `view.zoomIn` | `+` | `navigation`, `searchResults` | `allowed` |
+| `view.zoomIn` | `=` | `navigation`, `searchResults` | `allowed` |
 | `view.zoomOut` | `-` | `navigation`, `searchResults` | `allowed` |
-| `view.zoomReset` | `=` | `navigation`, `searchResults` | `suppressed` |
+| `view.zoomReset` | unbound | `navigation`, `searchResults` | `suppressed` |
 | `view.fitWidth` | `w` | `navigation`, `searchResults` | `suppressed` |
 | `view.fitPage` | `f` | `navigation`, `searchResults` | `suppressed` |
 
@@ -88,11 +97,13 @@ accent = "#89B4FA"
 - 작은 스크롤: `48 pt` (허용 범위 `1...512`)
 - 큰 스크롤: `0.8 × viewport` (허용 범위 `0.1...2.0`)
 - 확대·축소 배율: `1.10` (허용 범위 `1.01...2.0`)
-- prefix timeout: `500 ms` (허용 범위 `100...2000`)
+- prefix timeout: `300 ms` (허용 범위 `100...2000`)
 - 초기 테마: `catppuccin-mocha`
 - 테마: `catppuccin-mocha`, `tokyo-night`, `gruvbox-dark`, `nord`
 
 테마는 앱 UI, 오버레이, PDF 주변 캔버스에 적용되며 PDF 페이지 픽셀은 변경하지 않습니다.
+
+새 문서는 1페이지를 한 페이지 맞춤 상태로 엽니다. 이 상태에서는 `j`/`d`가 다음 페이지, `k`/`u`가 이전 페이지로 이동합니다. 수동 확대 후에는 페이지가 화면을 넘는 축에서 먼저 페이지 내부를 이동합니다. 세로 경계에서 아래 방향 키를 한 번 더 누르면 다음 페이지 상단으로, 위 방향 키를 한 번 더 누르면 이전 페이지 하단으로 이동합니다. 가로로만 화면을 넘는 경우에는 세로 이동 키가 페이지를 바꾸지 않습니다. 실제 크기는 View 메뉴와 `view.zoomReset` 액션으로 사용할 수 있지만 기본 키는 비어 있습니다.
 
 테마 override에서 사용할 수 있는 semantic token은 `background`(주변 캔버스와 기본 UI), `foreground`, `muted-text`, `border`, `accent`, `active-tab`, `inactive-tab`, `statusline`, `error`, `search-highlight`, `active-search-highlight`, `focus-indicator`입니다. 색상은 `#RRGGBB` 또는 `#RRGGBBAA` 16진수 형식이어야 합니다.
 
@@ -218,18 +229,27 @@ accent = "#89B4FA"
 
 ## 완전한 내장 TOML
 
-아래 내용은 `PDFReaderCore.BuiltInDefaults`에서 생성됩니다. 번들 파일을 직접 수정하지 말고 `~/.config/pdf-reader/config.toml`로 복사한 뒤 복사본을 수정하세요.
+아래 내용은 `PDFReaderCore.BuiltInDefaults`에서 생성됩니다. 번들 파일을 직접 수정하지 말고 `~/.config/modeleaf/config.toml`로 복사한 뒤 복사본을 수정하세요.
 
 ```toml
 # Generated from PDFReaderCore.BuiltInDefaults. Do not edit this bundled copy.
-# Copy it to ~/.config/pdf-reader/config.toml and edit the copy.
+# Copy it to ~/.config/modeleaf/config.toml and edit the copy.
 
 [keymap]
 "document.open" = ["<D-o>"]
 "document.close" = ["<D-w>"]
 "app.quit" = ["<D-q>"]
-"tab.next" = ["gt"]
-"tab.previous" = ["gT"]
+"tab.next" = ["N"]
+"tab.previous" = ["P"]
+"tab.select.1" = ["<D-1>"]
+"tab.select.2" = ["<D-2>"]
+"tab.select.3" = ["<D-3>"]
+"tab.select.4" = ["<D-4>"]
+"tab.select.5" = ["<D-5>"]
+"tab.select.6" = ["<D-6>"]
+"tab.select.7" = ["<D-7>"]
+"tab.select.8" = ["<D-8>"]
+"tab.select.9" = ["<D-9>"]
 "scroll.left" = ["h"]
 "scroll.down" = ["j"]
 "scroll.up" = ["k"]
@@ -247,9 +267,9 @@ accent = "#89B4FA"
 "search.next" = ["<CR>"]
 "search.previous" = ["<S-CR>"]
 "search.cancel" = ["<Esc>"]
-"view.zoomIn" = ["+"]
+"view.zoomIn" = ["="]
 "view.zoomOut" = ["-"]
-"view.zoomReset" = ["="]
+"view.zoomReset" = []
 "view.fitWidth" = ["w"]
 "view.fitPage" = ["f"]
 
@@ -259,7 +279,7 @@ large_scroll_viewport_fraction = 0.8
 zoom_factor = 1.1
 
 [input]
-prefix_timeout_ms = 500
+prefix_timeout_ms = 300
 
 [theme]
 built_in = "catppuccin-mocha"

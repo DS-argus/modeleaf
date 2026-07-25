@@ -7,6 +7,15 @@ public enum ActionID: String, CaseIterable, Codable, Hashable, Sendable {
 
     case tabNext = "tab.next"
     case tabPrevious = "tab.previous"
+    case tabSelect1 = "tab.select.1"
+    case tabSelect2 = "tab.select.2"
+    case tabSelect3 = "tab.select.3"
+    case tabSelect4 = "tab.select.4"
+    case tabSelect5 = "tab.select.5"
+    case tabSelect6 = "tab.select.6"
+    case tabSelect7 = "tab.select.7"
+    case tabSelect8 = "tab.select.8"
+    case tabSelect9 = "tab.select.9"
 
     case scrollLeft = "scroll.left"
     case scrollDown = "scroll.down"

@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROJECT_DIR = ROOT / "PDFReader.xcodeproj"
+PROJECT_DIR = ROOT / "Modeleaf.xcodeproj"
 
 
 def oid(name: str) -> str:
@@ -21,16 +21,16 @@ TARGETS = {
         "product": "PDFReaderCore.framework",
         "file_type": "wrapper.framework",
         "product_type": "com.apple.product-type.framework",
-        "bundle_id": "com.argus.pdfreader.core",
+        "bundle_id": "com.argus.modeleaf.core",
         "deps": [],
         "links": [],
         "package": False,
     },
     "PDFReaderApp": {
-        "product": "PDFReader.app",
+        "product": "Modeleaf.app",
         "file_type": "wrapper.application",
         "product_type": "com.apple.product-type.application",
-        "bundle_id": "com.argus.pdfreader",
+        "bundle_id": "com.argus.modeleaf",
         "deps": ["PDFReaderCore"],
         "links": ["PDFReaderCore"],
         "package": True,
@@ -39,7 +39,7 @@ TARGETS = {
         "product": "PDFReaderTestSupport.framework",
         "file_type": "wrapper.framework",
         "product_type": "com.apple.product-type.framework",
-        "bundle_id": "com.argus.pdfreader.testsupport",
+        "bundle_id": "com.argus.modeleaf.testsupport",
         "deps": ["PDFReaderCore"],
         "links": ["PDFReaderCore"],
         "package": False,
@@ -48,7 +48,7 @@ TARGETS = {
         "product": "PDFReaderCoreTests.xctest",
         "file_type": "wrapper.cfbundle",
         "product_type": "com.apple.product-type.bundle.unit-test",
-        "bundle_id": "com.argus.pdfreader.coretests",
+        "bundle_id": "com.argus.modeleaf.coretests",
         "deps": ["PDFReaderCore"],
         "links": ["PDFReaderCore"],
         "package": False,
@@ -57,7 +57,7 @@ TARGETS = {
         "product": "PDFReaderAppTests.xctest",
         "file_type": "wrapper.cfbundle",
         "product_type": "com.apple.product-type.bundle.unit-test",
-        "bundle_id": "com.argus.pdfreader.apptests",
+        "bundle_id": "com.argus.modeleaf.apptests",
         "deps": ["PDFReaderApp", "PDFReaderCore", "PDFReaderTestSupport"],
         "links": ["PDFReaderCore", "PDFReaderTestSupport"],
         "package": False,
@@ -66,7 +66,7 @@ TARGETS = {
         "product": "PDFReaderUITests.xctest",
         "file_type": "wrapper.cfbundle",
         "product_type": "com.apple.product-type.bundle.ui-testing",
-        "bundle_id": "com.argus.pdfreader.uitests",
+        "bundle_id": "com.argus.modeleaf.uitests",
         "deps": ["PDFReaderApp"],
         "links": [],
         "package": False,
@@ -137,7 +137,7 @@ def settings_lines(name: str, configuration: str) -> list[str]:
         lines += [
             "GENERATE_INFOPLIST_FILE = NO;",
             "INFOPLIST_FILE = PDFReaderApp/Info.plist;",
-            "PRODUCT_NAME = PDFReader;",
+            "PRODUCT_NAME = Modeleaf;",
             "PRODUCT_MODULE_NAME = PDFReaderApp;",
             "CODE_SIGN_STYLE = Automatic;",
             'LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";',
@@ -157,7 +157,7 @@ def settings_lines(name: str, configuration: str) -> list[str]:
         if name == "PDFReaderAppTests":
             lines += [
                 'BUNDLE_LOADER = "$(TEST_HOST)";',
-                'TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PDFReader.app/Contents/MacOS/PDFReader";',
+                'TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Modeleaf.app/Contents/MacOS/Modeleaf";',
             ]
         else:
             lines.append('BUNDLE_LOADER = "";')
@@ -355,7 +355,7 @@ def generate_pbxproj() -> str:
         "\t\t\t\tLastSwiftUpdateCheck = 2660;",
         "\t\t\t\tLastUpgradeCheck = 2660;",
         "\t\t\t};",
-        f"\t\t\tbuildConfigurationList = {PROJECT_CONFIG_LIST_ID} /* Build configuration list for PBXProject \"PDFReader\" */;",
+        f"\t\t\tbuildConfigurationList = {PROJECT_CONFIG_LIST_ID} /* Build configuration list for PBXProject \"Modeleaf\" */;",
         "\t\t\tdevelopmentRegion = en;",
         "\t\t\thasScannedForEncodings = 0;",
         "\t\t\tknownRegions = (en, Base);",
@@ -446,7 +446,7 @@ def generate_pbxproj() -> str:
     lines += ["/* End XCBuildConfiguration section */", "", "/* Begin XCConfigurationList section */"]
 
     lines += [
-        f"\t\t{PROJECT_CONFIG_LIST_ID} /* Build configuration list for PBXProject \"PDFReader\" */ = {{",
+        f"\t\t{PROJECT_CONFIG_LIST_ID} /* Build configuration list for PBXProject \"Modeleaf\" */ = {{",
         "\t\t\tisa = XCConfigurationList;",
         f"\t\t\tbuildConfigurations = ({config_id('project', 'Debug')} /* Debug */, {config_id('project', 'Release')} /* Release */);",
         "\t\t\tdefaultConfigurationIsVisible = 0;",
@@ -504,7 +504,7 @@ def generate_scheme() -> str:
                BlueprintIdentifier = "{target_id(name)}"
                BuildableName = "{TARGETS[name]['product']}"
                BlueprintName = "{name}"
-               ReferencedContainer = "container:PDFReader.xcodeproj">
+               ReferencedContainer = "container:Modeleaf.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>''')
 
@@ -516,16 +516,16 @@ def generate_scheme() -> str:
                BlueprintIdentifier = "{target_id(name)}"
                BuildableName = "{TARGETS[name]['product']}"
                BlueprintName = "{name}"
-               ReferencedContainer = "container:PDFReader.xcodeproj">
+               ReferencedContainer = "container:Modeleaf.xcodeproj">
             </BuildableReference>
          </TestableReference>''')
 
     app_ref = f'''      <BuildableReference
          BuildableIdentifier = "primary"
          BlueprintIdentifier = "{target_id('PDFReaderApp')}"
-         BuildableName = "PDFReader.app"
+         BuildableName = "Modeleaf.app"
          BlueprintName = "PDFReaderApp"
-         ReferencedContainer = "container:PDFReader.xcodeproj">
+         ReferencedContainer = "container:Modeleaf.xcodeproj">
       </BuildableReference>'''
 
     return f'''<?xml version="1.0" encoding="UTF-8"?>
@@ -564,13 +564,13 @@ def main() -> None:
     (PROJECT_DIR / "project.pbxproj").write_text(generate_pbxproj(), encoding="utf-8")
     scheme_dir = PROJECT_DIR / "xcshareddata" / "xcschemes"
     scheme_dir.mkdir(parents=True, exist_ok=True)
-    (scheme_dir / "PDFReader.xcscheme").write_text(generate_scheme(), encoding="utf-8")
+    (scheme_dir / "Modeleaf.xcscheme").write_text(generate_scheme(), encoding="utf-8")
     package_lock = ROOT / "Package.resolved"
     if package_lock.exists():
         swiftpm_dir = PROJECT_DIR / "project.xcworkspace" / "xcshareddata" / "swiftpm"
         swiftpm_dir.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(package_lock, swiftpm_dir / "Package.resolved")
-    print("generated PDFReader.xcodeproj")
+    print("generated Modeleaf.xcodeproj")
 
 
 if __name__ == "__main__":

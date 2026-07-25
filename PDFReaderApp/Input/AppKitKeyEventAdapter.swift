@@ -19,17 +19,23 @@ enum AppKitKeyEventAdapter {
         }
 
         var candidates: [KeyToken] = []
-        let value = String(character)
-        if (modifiers.isEmpty || modifiers == .shift),
+        if modifiers == .shift,
            let produced = event.characters,
-           produced.count == 1,
-           produced != produced.lowercased()
+           produced.count == 1
         {
             candidates.append(KeyToken(symbol: .character(produced)))
         }
+
+        let unmodifiedCharacters = modifiers.contains(.shift)
+            ? event.characters(byApplyingModifiers: [])
+            : nil
+        let chordCharacter = unmodifiedCharacters.flatMap {
+            $0.count == 1 ? $0.first : nil
+        } ?? character
+        let value = String(chordCharacter)
         candidates.append(KeyToken(symbol: .character(value), modifiers: modifiers))
 
-        if let alias = printableAlias(for: character) {
+        if let alias = printableAlias(for: chordCharacter) {
             candidates.append(KeyToken(symbol: .named(alias), modifiers: modifiers))
         }
         return candidates.removingDuplicates()
