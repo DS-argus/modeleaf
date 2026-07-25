@@ -29,9 +29,9 @@ Vim 스타일의 간결한 명령 체계, 독립적인 탭, 엄격한 TOML 사�
 | 12페이지로 이동 | `g12` 입력 후 `Enter` |
 | 다음/이전 탭 | `N` / `P` |
 | 1…9번 탭 직접 선택 | `⌘1` … `⌘9` |
-| 오른쪽/아래로 분할 | `Ctrl-w v` / `Ctrl-w s` |
+| 오른쪽/아래로 분할 | `Ctrl-Space \|` / `Ctrl-Space -` |
 | 왼쪽/아래/위/오른쪽 패널로 이동 | `Ctrl-h` / `Ctrl-j` / `Ctrl-k` / `Ctrl-l` |
-| 패널 합치기 | `Ctrl-w o` |
+| 패널 합치기 | `Ctrl-Space o` |
 | 검색 | `/` 입력 후 `Enter` |
 | 다음/이전 검색 결과 | `Enter` / `Shift-Enter` |
 | 검색 종료 | `Esc` |

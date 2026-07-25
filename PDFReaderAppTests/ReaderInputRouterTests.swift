@@ -161,8 +161,8 @@ struct ReaderInputRouterTests {
             )
             router.synchronizeContext(context)
             for event in [
-                try #require(makeKeyEvent(characters: "w", charactersIgnoringModifiers: "w", modifiers: [.control])),
-                try #require(makeKeyEvent(characters: "v")),
+                try #require(makeKeyEvent(characters: " ", charactersIgnoringModifiers: " ", modifiers: [.control])),
+                try #require(makeKeyEvent(characters: "|", charactersIgnoringModifiers: "|", modifiers: [.shift])),
                 try #require(makeKeyEvent(characters: "h", charactersIgnoringModifiers: "h", modifiers: [.control])),
             ] {
                 _ = router.handle(event)
@@ -188,8 +188,8 @@ struct ReaderInputRouterTests {
         router.synchronizeContext(.searchResults)
 
         for event in [
-            try #require(makeKeyEvent(characters: "w", charactersIgnoringModifiers: "w", modifiers: [.control])),
-            try #require(makeKeyEvent(characters: "v")),
+            try #require(makeKeyEvent(characters: " ", charactersIgnoringModifiers: " ", modifiers: [.control])),
+            try #require(makeKeyEvent(characters: "|", charactersIgnoringModifiers: "|", modifiers: [.shift])),
         ] {
             _ = router.handle(event)
         }

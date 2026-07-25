@@ -64,13 +64,16 @@ public enum BuiltInDefaults {
         .viewFitPage: sequences("f"),
 
 
-        .paneSplitRight: sequences("<C-w>v"),
-        .paneSplitDown: sequences("<C-w>s"),
+        // Pane prefix: Ctrl+Space, tmux-style split mnemonics (| splits
+        // side-by-side, - splits stacked). The prefix is user-configurable by
+        // rebinding these sequences in config.toml.
+        .paneSplitRight: sequences("<C-Space>|"),
+        .paneSplitDown: sequences("<C-Space>-"),
         .paneFocusLeft: sequences("<C-h>"),
         .paneFocusDown: sequences("<C-j>"),
         .paneFocusUp: sequences("<C-k>"),
         .paneFocusRight: sequences("<C-l>"),
-        .paneUnsplit: sequences("<C-w>o"),
+        .paneUnsplit: sequences("<C-Space>o"),
     ]
 
     public static var defaultConfigTOML: String {

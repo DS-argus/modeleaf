@@ -140,7 +140,7 @@ struct KeyGrammarAndPromptSafetyTests {
                 #expect(PromptSafeBindingPredicate.evaluate(
                     action: descriptor,
                     activeContexts: [context],
-                    sequence: try KeySequenceParser.parse("<C-w>v")
+                    sequence: try KeySequenceParser.parse("<C-Space>|")
                 ) == .valid)
             }
         }
@@ -154,7 +154,7 @@ struct KeyGrammarAndPromptSafetyTests {
         let decision = PromptSafeBindingPredicate.evaluate(
             action: synthetic,
             activeContexts: [.pagePrompt],
-            sequence: try KeySequenceParser.parse("<C-w>v")
+            sequence: try KeySequenceParser.parse("<C-Space>|")
         )
         #expect(decision.failure?.violation == .multipleTokens)
     }

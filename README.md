@@ -33,9 +33,9 @@ The shipped bindings stay deliberately small:
 | page 12 | `g12`, then `Enter` |
 | next / previous tab | `N` / `P` |
 | select tab 1…9 | `⌘1` … `⌘9` |
-| split right / down | `Ctrl-w v` / `Ctrl-w s` |
+| split right / down | `Ctrl-Space \|` / `Ctrl-Space -` |
 | focus left / down / up / right | `Ctrl-h` / `Ctrl-j` / `Ctrl-k` / `Ctrl-l` |
-| unsplit | `Ctrl-w o` |
+| unsplit | `Ctrl-Space o` |
 | search | `/`, then `Enter` |
 | next / previous match | `Enter` / `Shift-Enter` |
 | clear search | `Esc` |

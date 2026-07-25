@@ -89,13 +89,13 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `view.zoomReset` | unbound | `navigation`, `searchResults` | `suppressed` |
 | `view.fitWidth` | `w` | `navigation`, `searchResults` | `suppressed` |
 | `view.fitPage` | `f` | `navigation`, `searchResults` | `suppressed` |
-| `pane.splitRight` | `<C-w>v` | `navigation`, `searchResults` | `suppressed` |
-| `pane.splitDown` | `<C-w>s` | `navigation`, `searchResults` | `suppressed` |
+| `pane.splitRight` | `<C-Space>|` | `navigation`, `searchResults` | `suppressed` |
+| `pane.splitDown` | `<C-Space>-` | `navigation`, `searchResults` | `suppressed` |
 | `pane.focusLeft` | `<C-h>` | `navigation`, `searchResults` | `suppressed` |
 | `pane.focusDown` | `<C-j>` | `navigation`, `searchResults` | `suppressed` |
 | `pane.focusUp` | `<C-k>` | `navigation`, `searchResults` | `suppressed` |
 | `pane.focusRight` | `<C-l>` | `navigation`, `searchResults` | `suppressed` |
-| `pane.unsplit` | `<C-w>o` | `navigation`, `searchResults` | `suppressed` |
+| `pane.unsplit` | `<C-Space>o` | `navigation`, `searchResults` | `suppressed` |
 
 ## Built-in values
 
@@ -274,13 +274,13 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 "view.zoomReset" = []
 "view.fitWidth" = ["w"]
 "view.fitPage" = ["f"]
-"pane.splitRight" = ["<C-w>v"]
-"pane.splitDown" = ["<C-w>s"]
+"pane.splitRight" = ["<C-Space>|"]
+"pane.splitDown" = ["<C-Space>-"]
 "pane.focusLeft" = ["<C-h>"]
 "pane.focusDown" = ["<C-j>"]
 "pane.focusUp" = ["<C-k>"]
 "pane.focusRight" = ["<C-l>"]
-"pane.unsplit" = ["<C-w>o"]
+"pane.unsplit" = ["<C-Space>o"]
 
 [navigation]
 small_scroll_points = 48.0
