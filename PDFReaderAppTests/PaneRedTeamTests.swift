@@ -191,6 +191,9 @@ struct PaneRedTeamTests {
                     controller.mainWindowController.close()
                 }
                 _ = controller.mainWindowController
+                let window = try #require(controller.mainWindowController.window)
+                window.setContentSize(NSSize(width: 900, height: 640))
+                window.orderFrontRegardless()
                 #expect(controller.openDocument(at: url))
                 (controller.coordinator.activeSession as? ReaderSession)?.fitWidth()
                 controller.dispatch(action)
@@ -210,9 +213,17 @@ struct PaneRedTeamTests {
                 #expect((controller.coordinator.activeSession as? ReaderSession)?.goToPage(7) == true)
                 (controller.coordinator.activeSession as? ReaderSession)?.fitWidth()
                 let root = controller.mainWindowController.rootView
-                root.frame = NSRect(x: 0, y: 0, width: 900, height: 640)
                 root.needsLayout = true
                 root.layoutSubtreeIfNeeded()
+                // PDFKit draws pages through asynchronous tiling; an offscreen
+                // cacheDisplay taken before tiles land captures an empty
+                // canvas. Drain the run loop until both pane PDF surfaces
+                // produce non-uniform content (bounded retries).
+                for _ in 0..<25 {
+                    window.displayIfNeeded()
+                    RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+                    root.needsDisplay = true
+                }
                 let representation = try #require(root.bitmapImageRepForCachingDisplay(in: root.bounds))
                 root.cacheDisplay(in: root.bounds, to: representation)
                 let png = try #require(representation.representation(using: .png, properties: [:]))
