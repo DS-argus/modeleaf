@@ -39,6 +39,9 @@ final class ReaderRootView: NSView {
     var onPaneClose: ((PaneID, TabID) -> Void)?
     var onPaneNewTab: ((PaneID) -> Void)?
     private var renderedSessionSnapshot: ReaderSessionStoreSnapshot?
+    /// Absolute divider positions owned by pane topology, keyed by the
+    /// unordered pane pair of a stacked column; captured only from committed
+    /// renders or real user drags.
     private var stackDividerPositions: [Set<PaneID>: CGFloat] = [:]
     private var outerDividerPosition: CGFloat?
     private var capturesDividerPositions = true
@@ -150,9 +153,10 @@ final class ReaderRootView: NSView {
             let bottomView = configurePane(bottom, snapshot: snapshot, label: isSplit ? "\(columnLabel) Bottom" : "Bottom")
             let container = side == .leading ? leadingStackContainer : trailingStackContainer
             // Divider ownership is the pane PAIR, not the container instance:
-            // a surviving column keeps its ratio across side changes; a
-            // genuinely new pair starts at half. Writes are gated on committed
-            // renders so projections never mutate divider state.
+            // a surviving column keeps its absolute divider position across
+            // side changes; a genuinely new pair starts at half. Writes are
+            // gated on committed renders so projections never mutate divider
+            // state.
             let pair: Set<PaneID> = [top, bottom]
             let isNewPair = stackDividerPositions[pair] == nil
             container.install(

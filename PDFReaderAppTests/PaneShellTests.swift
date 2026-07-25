@@ -612,8 +612,8 @@ struct PaneShellTests {
 
     @Test("projected collapse rollback preserves outer and inner divider positions")
     func dividerRollbackMatrix() throws {
-        enum Collapse { case row, column }
-        for collapse in [Collapse.row, .column] {
+        // Row tier: reject removing one member of a .two stack in a 2x2.
+        do {
             let fixture = fourPaneShellFixture()
             let controller = makeController(fixture.coordinator)
             defer { controller.close() }
@@ -621,16 +621,14 @@ struct PaneShellTests {
             window.orderFrontRegardless()
             controller.rootView.layoutSubtreeIfNeeded()
             let outer = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
-            let innerID = collapse == .row ? "paneContainer.trailingStack" : "paneContainer.leadingStack"
-            let inner = try #require(firstDescendant(of: controller.rootView, identifier: innerID) as? PaneContainerView)
+            let inner = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingStack") as? PaneContainerView)
             outer.setPosition(280, ofDividerAt: 0)
             inner.setPosition(180, ofDividerAt: 0)
             outer.onDividerMoved?(outer.currentDividerPosition)
             inner.onDividerMoved?(inner.currentDividerPosition)
             controller.rootView.layoutSubtreeIfNeeded()
             let before = (outer.currentDividerPosition, inner.currentDividerPosition)
-            let closing = collapse == .row ? fixture.trailingBottom : fixture.leadingTop
-            #expect(fixture.coordinator.activatePane(closing))
+            #expect(fixture.coordinator.activatePane(fixture.trailingBottom))
             #expect(!fixture.coordinator.closeActiveTab { projected in
                 controller.rootView.render(snapshot: projected, isCommitted: false)
                 return false
@@ -639,7 +637,65 @@ struct PaneShellTests {
             controller.rootView.layoutSubtreeIfNeeded()
             #expect(abs(outer.currentDividerPosition - before.0) < 0.5)
             #expect(abs(inner.currentDividerPosition - before.1) < 0.5)
+            assertSplitChildrenLaidOut(inner)
+            assertSplitChildrenLaidOut(outer)
         }
+        // Column tier: commit a row collapse so the leading column is .one,
+        // then reject closing that last pane (a genuine .columnCollapse
+        // projection to .single(.two)) and require outer plus surviving
+        // trailing-pair divider state restored verbatim.
+        do {
+            let fixture = fourPaneShellFixture()
+            let controller = makeController(fixture.coordinator)
+            defer { controller.close() }
+            let window = try #require(controller.window as? ReaderWindow)
+            window.orderFrontRegardless()
+            controller.rootView.layoutSubtreeIfNeeded()
+            #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
+            #expect(fixture.coordinator.closeActiveTab())
+            guard case .split(.one, .two) = fixture.coordinator.snapshot.layout else {
+                Issue.record("Expected committed row collapse to .split(.one, .two)")
+                return
+            }
+            controller.rootView.layoutSubtreeIfNeeded()
+            let outer = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
+            let inner = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingStack") as? PaneContainerView)
+            outer.setPosition(280, ofDividerAt: 0)
+            inner.setPosition(180, ofDividerAt: 0)
+            outer.onDividerMoved?(outer.currentDividerPosition)
+            inner.onDividerMoved?(inner.currentDividerPosition)
+            controller.rootView.layoutSubtreeIfNeeded()
+            let before = (outer.currentDividerPosition, inner.currentDividerPosition)
+            #expect(fixture.coordinator.activatePane(fixture.leadingTop))
+            var sawColumnProjection = false
+            #expect(!fixture.coordinator.closeActiveTab { projected in
+                if case .single(.two) = projected.layout { sawColumnProjection = true }
+                controller.rootView.render(snapshot: projected, isCommitted: false)
+                return false
+            })
+            #expect(sawColumnProjection, "rejected close must project a column collapse to .single(.two)")
+            drainRunLoop()
+            controller.rootView.layoutSubtreeIfNeeded()
+            #expect(abs(outer.currentDividerPosition - before.0) < 0.5)
+            #expect(abs(inner.currentDividerPosition - before.1) < 0.5)
+            assertSplitChildrenLaidOut(inner)
+            assertSplitChildrenLaidOut(outer)
+        }
+    }
+
+    /// Rejected projections reparent panes through constraint-based hosts;
+    /// restored split children must be back on autoresizing with frames that
+    /// exactly tile the container, or the survivor renders at a stale
+    /// fitting size.
+    private func assertSplitChildrenLaidOut(_ container: PaneContainerView) {
+        #expect(container.subviews.count == 2)
+        var occupied: CGFloat = 0
+        for view in container.subviews {
+            #expect(view.translatesAutoresizingMaskIntoConstraints)
+            occupied += container.isVertical ? view.frame.width : view.frame.height
+        }
+        let total = container.isVertical ? container.bounds.width : container.bounds.height
+        #expect(abs(occupied + container.dividerThickness - total) < 0.5)
     }
 
     @Test("divider state is independent and follows surviving pane pairs")

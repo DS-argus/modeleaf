@@ -102,8 +102,8 @@ struct PaneCoordinatorTests {
     }
 
 
-    @Test("split creates and activates a duplicate pane, then enforces the two-pane limit")
-    func splitAndLimit() {
+    @Test("split creates and activates a duplicate pane and permits growth toward the four-pane ceiling")
+    func splitCreatesAndActivatesDuplicate() {
         let coordinator = PaneCoordinator()
         let origin = StubReaderSession(id: TabID(), title: "Origin.pdf", page: 4, zoom: 1.5)
         let duplicate = StubReaderSession(id: TabID(), title: "Origin.pdf", page: 4, zoom: 1.5)

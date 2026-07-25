@@ -40,7 +40,7 @@ struct PaneDuplicationMeasurementTests {
             "topologies": ["2x2", "2+1", "1+2"],
             "divider_extremes": "outer min/max crossed with every present inner min/max",
             "assertions": ["pane close button", "pane add button", "PDF surface", "shared status bar", "no ambiguous layout", "top-left-only traffic-light inset", "divider persistence"],
-            "evidence": "separately-run PaneShellTests.minimumWindowThreeDividerMatrix",
+            "evidence": "implemented separately in PaneShellTests.minimumWindowThreeDividerMatrix; this measurement does not run or assert that test and makes no claim about its result",
         ]
         let documentation: [String: Any] = [
             "README.md": [17, 50, 51, 52, 53, 54, 55],
@@ -63,7 +63,7 @@ struct PaneDuplicationMeasurementTests {
             "threshold": [
                 "four_pane_capacity": "stable RSS at four panes must not exceed 4x the one-pane baseline in every measured cycle",
                 "split_latency_ms": "each split must not exceed 250 ms",
-                "open_metric_balance": "every open metric begin/end pair must balance",
+                "open_metric_balance": "every open metric begin/end pair must balance and at least one trace must be recorded (zero telemetry is a failure, not a balanced run)",
                 "leaks_audit_when_run": "total leaked bytes must not exceed 65536",
                 "post_unsplit_rss_plateau": "informational only; excluded from the verdict gate",
             ],
@@ -106,7 +106,7 @@ struct PaneDuplicationMeasurementTests {
         |---|---|---|
         \(results.map(\.plateauMarkdownRow).joined(separator: "\n"))
 
-        Layout matrix is verified separately by `PaneShellTests.minimumWindowThreeDividerMatrix` at exactly 480×360 for 2×2, 2+1, and 1+2 layouts; this measurement does not assert that test's result.
+        Layout matrix coverage is implemented separately in `PaneShellTests.minimumWindowThreeDividerMatrix` at exactly 480×360 for 2×2, 2+1, and 1+2 layouts. This measurement does not run or assert that test; its result is proven only by the commit-bound full-suite run, not by this artifact.
 
         Documentation lines changed: `README.md` 17, 50–55; `docs/README.md` 13, 46–51. Binding tables are unchanged.
 
@@ -210,6 +210,9 @@ struct PaneDuplicationMeasurementTests {
             peakRSSBytes: peakRSSBytes,
             stableRSSBytes: stableRSSBytes,
             postUnsplitRSSBytes: postUnsplitRSSBytes,
+            openMetricTraceCount: metrics.traceCount,
+            openMetricBeginEventCount: metrics.beginEventCount,
+            openMetricEndEventCount: metrics.endEventCount,
             openMetricsBalanced: metrics.isBalanced
         )
     }
@@ -257,8 +260,15 @@ private final class MeasurementMetrics: PDFOpenMetrics {
         }
     }
 
+    var traceCount: Int { Set(beginnings.keys).union(endings.keys).count }
+    var beginEventCount: Int { beginnings.values.reduce(0) { $0 + $1.values.reduce(0, +) } }
+    var endEventCount: Int { endings.values.reduce(0) { $0 + $1.values.reduce(0, +) } }
+
+    /// Balance requires evidence of collection: zero recorded traces means a
+    /// telemetry regression, never a balanced run.
     var isBalanced: Bool {
-        Set(beginnings.keys).union(endings.keys).allSatisfy { beginnings[$0] == endings[$0] }
+        !beginnings.isEmpty
+            && Set(beginnings.keys).union(endings.keys).allSatisfy { beginnings[$0] == endings[$0] }
     }
 }
 
@@ -349,6 +359,9 @@ private struct MeasurementCycle {
     let peakRSSBytes: Int64
     let stableRSSBytes: Int64
     let postUnsplitRSSBytes: Int64
+    let openMetricTraceCount: Int
+    let openMetricBeginEventCount: Int
+    let openMetricEndEventCount: Int
     let openMetricsBalanced: Bool
 
     var capacityWithinBudget: Bool {
@@ -367,6 +380,9 @@ private struct MeasurementCycle {
             "peak_rss_bytes": peakRSSBytes,
             "stable_rss_bytes": stableRSSBytes,
             "post_unsplit_rss_bytes": postUnsplitRSSBytes,
+            "open_metric_trace_count": openMetricTraceCount,
+            "open_metric_begin_event_count": openMetricBeginEventCount,
+            "open_metric_end_event_count": openMetricEndEventCount,
             "capacity_within_budget": capacityWithinBudget,
             "split_latencies_within_budget": splitLatenciesWithinBudget,
             "open_metrics_balanced": openMetricsBalanced,

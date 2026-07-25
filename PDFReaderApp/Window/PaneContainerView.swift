@@ -31,6 +31,7 @@ final class PaneContainerView: NSSplitView, NSSplitViewDelegate {
         // translatesAutoresizingMaskIntoConstraints disabled; this split view
         // lays out via autoresizing, so restore it or reparented panes keep
         // their stale fitting-size frames forever.
+        for view in [leading, trailing] { view.translatesAutoresizingMaskIntoConstraints = true }
         addArrangedSubview(leading)
         addArrangedSubview(trailing)
         if resetDivider || (!hasInitializedDivider && initializesDivider) {

@@ -11,89 +11,102 @@ struct PaneRedTeamTests {
     @Test("adversarial pane state-machine matrix")
     func adversarialStateMachineMatrix() throws {
         var caseOutcomes: [String: Bool] = [:]
-        var splitCeilingPassed = true
+        // Every recorded condition folds into its case outcome so the durable
+        // artifact can never report a case PASS while any of its expectations
+        // failed. `check` both records the expectation and accumulates it.
+        var casePassed = true
+        func check(_ condition: Bool, _ comment: Comment? = nil) {
+            #expect(condition, comment)
+            casePassed = casePassed && condition
+        }
+        func beginCase() { casePassed = true }
+
+        beginCase()
         for orientation in [PaneOrientation.sideBySide, .stacked] {
             let fixture = makeFixture(orientation: orientation)
             if orientation == .sideBySide {
-                #expect(fixture.coordinator.split(direction: .sideBySide) == nil)
-                #expect(fixture.coordinator.split(direction: .stacked) != nil)
+                check(fixture.coordinator.split(direction: .sideBySide) == nil)
+                check(fixture.coordinator.split(direction: .stacked) != nil)
             } else {
-                #expect(fixture.coordinator.split(direction: .sideBySide) != nil)
-                #expect(fixture.coordinator.split(direction: .stacked) != nil)
+                check(fixture.coordinator.split(direction: .sideBySide) != nil)
+                check(fixture.coordinator.split(direction: .stacked) != nil)
             }
             let settledLayout = fixture.coordinator.snapshot.layout
             let expectedCount = orientation == .sideBySide ? 3 : 4
-            #expect(fixture.coordinator.snapshot.panes.count == expectedCount)
+            check(fixture.coordinator.snapshot.panes.count == expectedCount)
             for _ in 0..<20 {
-                #expect(fixture.coordinator.split(direction: .sideBySide) == nil)
-                #expect(fixture.coordinator.split(direction: .stacked) == nil)
+                check(fixture.coordinator.split(direction: .sideBySide) == nil)
+                check(fixture.coordinator.split(direction: .stacked) == nil)
             }
-            #expect(fixture.coordinator.snapshot.layout == settledLayout)
-            splitCeilingPassed = splitCeilingPassed && fixture.coordinator.snapshot.layout == settledLayout && fixture.coordinator.snapshot.panes.count == expectedCount
+            check(fixture.coordinator.snapshot.layout == settledLayout)
         }
-        caseOutcomes["AC-2 split ceiling both directions / rapid repeat"] = splitCeilingPassed
-        caseOutcomes["Constrained-tree max-four-pane ceiling"] = splitCeilingPassed
+        caseOutcomes["AC-2 split ceiling both directions / rapid repeat"] = casePassed
+        caseOutcomes["Constrained-tree max-four-pane ceiling"] = casePassed
 
-        var lifecyclePassed = true
+        beginCase()
         for _ in 0..<2 {
             let fixture = makeFixture(orientation: .sideBySide)
-            #expect(fixture.coordinator.closeActiveTab())
-            #expect(fixture.coordinator.snapshot.layout == .single(.one(fixture.leading)))
-            #expect(fixture.coordinator.snapshot.panes.count == 1)
-            #expect(fixture.coordinator.closeActiveTab())
-            #expect(fixture.coordinator.snapshot.layout == .empty)
-            #expect(fixture.coordinator.snapshot.panes.isEmpty)
+            check(fixture.coordinator.closeActiveTab())
+            check(fixture.coordinator.snapshot.layout == .single(.one(fixture.leading)))
+            check(fixture.coordinator.snapshot.panes.count == 1)
+            check(fixture.coordinator.closeActiveTab())
+            check(fixture.coordinator.snapshot.layout == .empty)
+            check(fixture.coordinator.snapshot.panes.isEmpty)
             let reopened = RedTeamSession(title: "Reopened.pdf", page: 9, color: .systemGreen)
-            #expect(fixture.coordinator.insert(reopened, into: .createIfEmpty))
+            check(fixture.coordinator.insert(reopened, into: .createIfEmpty))
             let replacement = RedTeamSession(title: "Reopened duplicate.pdf", page: 9, color: .systemPurple)
             fixture.coordinator.configureDuplication { _ in replacement }
-            #expect(fixture.coordinator.split(direction: .sideBySide) != nil)
-            #expect(fixture.coordinator.snapshot.panes.count == 2)
-            lifecyclePassed = lifecyclePassed && fixture.coordinator.snapshot.panes.count == 2
+            check(fixture.coordinator.split(direction: .sideBySide) != nil)
+            check(fixture.coordinator.snapshot.panes.count == 2)
         }
-        caseOutcomes["EF4 AC-6 close-collapse-empty-reopen-resplit twice"] = lifecyclePassed
+        caseOutcomes["EF4 AC-6 close-collapse-empty-reopen-resplit twice"] = casePassed
 
+        beginCase()
         let rollback = makeFixture(orientation: .sideBySide)
         let extra = RedTeamSession(title: "Opposite extra.pdf", page: 3, color: .brown)
-        #expect(rollback.coordinator.insert(extra, into: .existing(rollback.leading)))
+        check(rollback.coordinator.insert(extra, into: .existing(rollback.leading)))
         let originalLeading = rollback.coordinator.store(for: rollback.leading)!.snapshot
-        #expect(!rollback.coordinator.unsplit(stage: { _ in false }))
-        #expect(rollback.coordinator.activatePane(rollback.trailing))
-        #expect(rollback.coordinator.snapshot.panes[rollback.leading] == originalLeading)
-        #expect(extra.prepareForCloseCount == 0)
-        #expect(rollback.coordinator.unsplit(stage: { $0.layout == .single(.one(rollback.trailing)) }))
-        #expect(rollback.coordinator.snapshot.layout == .single(.one(rollback.trailing)))
-        #expect(rollback.origin.prepareForCloseCount == 1)
-        #expect(extra.prepareForCloseCount == 1)
-        caseOutcomes["AC-7 unsplit rollback then commit with multi-tab opposite pane"] = rollback.coordinator.snapshot.layout == .single(.one(rollback.trailing)) && rollback.origin.prepareForCloseCount == 1 && extra.prepareForCloseCount == 1
+        check(!rollback.coordinator.unsplit(stage: { _ in false }))
+        check(rollback.coordinator.activatePane(rollback.trailing))
+        check(rollback.coordinator.snapshot.panes[rollback.leading] == originalLeading)
+        check(extra.prepareForCloseCount == 0)
+        check(rollback.coordinator.unsplit(stage: { $0.layout == .single(.one(rollback.trailing)) }))
+        check(rollback.coordinator.snapshot.layout == .single(.one(rollback.trailing)))
+        check(rollback.origin.prepareForCloseCount == 1)
+        check(extra.prepareForCloseCount == 1)
+        caseOutcomes["AC-7 unsplit rollback then commit with multi-tab opposite pane"] = casePassed
 
+        beginCase()
         let stale = makeFixture(orientation: .sideBySide)
-        #expect(stale.coordinator.activatePane(stale.leading))
+        check(stale.coordinator.activatePane(stale.leading))
         let vanishedPane = stale.trailing
-        #expect(stale.coordinator.unsplit())
+        check(stale.coordinator.unsplit())
         let delayed = RedTeamSession(title: "Delayed.pdf", page: 4, color: .magenta)
-        #expect(!stale.coordinator.insert(delayed, into: .existing(vanishedPane)))
-        #expect(delayed.prepareForCloseCount == 0)
-        #expect(stale.coordinator.closeActiveTab())
+        check(!stale.coordinator.insert(delayed, into: .existing(vanishedPane)))
+        check(delayed.prepareForCloseCount == 0)
+        check(stale.coordinator.closeActiveTab())
         let fresh = RedTeamSession(title: "Fresh.pdf", page: 5, color: .cyan)
-        #expect(stale.coordinator.insert(fresh, into: .createIfEmpty))
-        caseOutcomes["AC-8 stale pane completion reject and empty createIfEmpty"] = delayed.prepareForCloseCount == 0 && stale.coordinator.snapshot.layout != .empty
+        check(stale.coordinator.insert(fresh, into: .createIfEmpty))
+        check(stale.coordinator.snapshot.layout != .empty)
+        caseOutcomes["AC-8 stale pane completion reject and empty createIfEmpty"] = casePassed
 
-        var focusSpamPassed = true
+        beginCase()
         for orientation in [PaneOrientation.sideBySide, .stacked] {
             let fixture = makeFixture(orientation: orientation)
             for direction in [PaneFocusDirection.left, .down, .up, .right] {
                 for _ in 0..<10 { _ = fixture.coordinator.focus(direction) }
             }
             fixture.coordinator.snapshot.assertCardinality()
-            #expect(fixture.coordinator.unsplit())
-            for direction in [PaneFocusDirection.left, .down, .up, .right] { #expect(!fixture.coordinator.focus(direction)) }
-            #expect(fixture.coordinator.closeActiveTab())
-            for direction in [PaneFocusDirection.left, .down, .up, .right] { #expect(!fixture.coordinator.focus(direction)) }
-            focusSpamPassed = focusSpamPassed && fixture.coordinator.snapshot.layout == .empty && fixture.coordinator.snapshot.panes.isEmpty
+            check(fixture.coordinator.unsplit())
+            for direction in [PaneFocusDirection.left, .down, .up, .right] { check(!fixture.coordinator.focus(direction)) }
+            check(fixture.coordinator.closeActiveTab())
+            for direction in [PaneFocusDirection.left, .down, .up, .right] { check(!fixture.coordinator.focus(direction)) }
+            check(fixture.coordinator.snapshot.layout == .empty)
+            check(fixture.coordinator.snapshot.panes.isEmpty)
         }
-        caseOutcomes["AC-4 boundary focus spam in both geometries and terminal layouts"] = focusSpamPassed
+        caseOutcomes["AC-4 boundary focus spam in both geometries and terminal layouts"] = casePassed
 
+        beginCase()
         let isolation = makeFixture(orientation: .sideBySide)
         for step in 1...30 {
             isolation.origin.page = step
@@ -104,18 +117,20 @@ struct PaneRedTeamTests {
             isolation.duplicate.zoom = Double(100 - step) / 10
             isolation.duplicate.searchQuery = "duplicate-\(step)"
             isolation.duplicate.publishPresentationChange()
-            #expect(isolation.origin.page == step)
-            #expect(isolation.duplicate.page == 100 - step)
-            #expect(isolation.origin.searchQuery != isolation.duplicate.searchQuery)
+            check(isolation.origin.page == step)
+            check(isolation.duplicate.page == 100 - step)
+            check(isolation.origin.searchQuery != isolation.duplicate.searchQuery)
         }
+        caseOutcomes["AC-3 interleaved page zoom search isolation"] = casePassed
+
+        beginCase()
         let cleanDuplicate = RedTeamSession(title: "Clean.pdf", page: 1, color: .gray)
         isolation.coordinator.configureDuplication { _ in cleanDuplicate }
-        #expect(isolation.coordinator.unsplit())
-        #expect(isolation.coordinator.split(direction: .sideBySide) != nil)
-        #expect(cleanDuplicate.searchQuery.isEmpty)
-        #expect(cleanDuplicate.selection == nil)
-        caseOutcomes["AC-3 interleaved page zoom search isolation"] = isolation.origin.page == 30 && isolation.duplicate.page == 70 && isolation.origin.searchQuery == "origin-30" && isolation.duplicate.searchQuery == "duplicate-30"
-        caseOutcomes["EF8 duplicate search and selection exclusion"] = cleanDuplicate.searchQuery.isEmpty && cleanDuplicate.selection == nil
+        check(isolation.coordinator.unsplit())
+        check(isolation.coordinator.split(direction: .sideBySide) != nil)
+        check(cleanDuplicate.searchQuery.isEmpty)
+        check(cleanDuplicate.selection == nil)
+        caseOutcomes["EF8 duplicate search and selection exclusion"] = casePassed
         try writeArtifacts(caseOutcomes: caseOutcomes)
     }
 
@@ -137,17 +152,15 @@ struct PaneRedTeamTests {
         #expect(controller.window?.firstResponder === responder)
     }
 
-    private func makeFixture(orientation: PaneOrientation) -> (coordinator: PaneCoordinator, leading: PaneID, trailing: PaneID, origin: RedTeamSession, duplicate: RedTeamSession, emissions: [PaneCoordinatorSnapshot]) {
+    private func makeFixture(orientation: PaneOrientation) -> (coordinator: PaneCoordinator, leading: PaneID, trailing: PaneID, origin: RedTeamSession, duplicate: RedTeamSession) {
         let coordinator = PaneCoordinator()
         let origin = RedTeamSession(title: "Origin.pdf", page: 2, color: .systemBlue)
         let duplicate = RedTeamSession(title: "Duplicate.pdf", page: 7, color: .systemOrange)
         coordinator.configureDuplication { _ in duplicate }
-        var emissions: [PaneCoordinatorSnapshot] = []
-        coordinator.onSnapshot = { emissions.append($0) }
         #expect(coordinator.insert(origin, into: .createIfEmpty))
         let trailing = try! #require(coordinator.split(direction: orientation))
         let leading = try! #require(coordinator.snapshot.panes.keys.first { $0 != trailing })
-        return (coordinator, leading, trailing, origin, duplicate, emissions)
+        return (coordinator, leading, trailing, origin, duplicate)
     }
 
     private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {

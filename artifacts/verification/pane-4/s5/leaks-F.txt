@@ -1,323 +1,323 @@
 Target process is an ancestor and permitting live process for ancestors so not generating a corpse to save resources by default.
-Process:         swiftpm-testing-helper [26413]
+Process:         swiftpm-testing-helper [84809]
 Path:            /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/libexec/swift/pm/swiftpm-testing-helper
-Load Address:    0x10461c000
+Load Address:    0x10408c000
 Identifier:      swiftpm-testing-helper
 Version:         24907
 Build Info:      IDEApplication-24959000000000000~2 (17F113)
 Code Type:       ARM64
 Platform:        macOS
-Parent Process:  swift-package [24126]
+Parent Process:  swift-package [82425]
 Target Type:     live task
 
-Date/Time:       2026-07-26 01:07:32.973 +0900
-Launch Time:     2026-07-26 01:07:16.451 +0900
+Date/Time:       2026-07-26 01:24:23.350 +0900
+Launch Time:     2026-07-26 01:24:07.405 +0900
 OS Version:      macOS 26.5.1 (25F80)
 Report Version:  7
 Analysis Tool:   /usr/bin/leaks
 
-Physical footprint:         162.5M
-Physical footprint (peak):  184.3M
+Physical footprint:         163.6M
+Physical footprint (peak):  186.0M
 Idle exit:                  untracked
 ----
 
 leaks Report Version: 4.0
-Process 26413: 654872 nodes malloced for 78571 KB
-Process 26413: 288 leaks for 14400 total leaked bytes.
+Process 84809: 654926 nodes malloced for 78603 KB
+Process 84809: 288 leaks for 14400 total leaked bytes.
 
     288 (14.1K) << TOTAL >>
 
-      96 (4.69K) ROOT CYCLE: <NSXPCConnection 0x875251400> [160]  Protocol: LNDaemonApplicationInterface  Connection: "com.apple.linkd.autoShortcut" [no process]
-         6 (752 bytes) _connection --> ROOT CYCLE: <xpc_connection_t 0x874e41180> [320]  "com.apple.linkd.autoShortcut" [no process]
-            4 (384 bytes) ROOT CYCLE: <dispatch_mach_t 0x875251360> [160]  "com.apple.linkd.autoShortcut"
-               1 (64 bytes) ROOT CYCLE: 0x875076a80 [64]
-               1 (128 bytes) 0x874c12180 [128]
-               1 (32 bytes) 0xd380301e0 [32]  length: 28  "com.apple.linkd.autoShortcut"
-            1 (48 bytes) ROOT CYCLE: <__NSMallocBlock__ 0x8750874b0> [48]  Foundation  __51-[NSXPCConnection initWithMachServiceName:options:]_block_invoke  0x18a6257f4
-               __strong [capture] --> CYCLE BACK TO <NSXPCConnection 0x875251400> [160]  Protocol: LNDaemonApplicationInterface  Connection: "com.apple.linkd.autoShortcut" [no process]
-         79 (3.22K) _remoteObjectInterface --> <NSXPCInterface 0x87583ff00> [64]  Protocol: LNDaemonApplicationInterface
-            78 (3.16K) _methodInfo --> <CFDictionary 0x875364980> [64]  item count: 15
-               76 (2.91K) <CFDictionary (Value Storage) 0x875248f00> [192]
-                  7 (320 bytes) 0x874840090 [48]
-                     3 (144 bytes) <NSArray 0x87525f510> [48]  item count: 3
-                        1 (48 bytes) <NSSet 0x87525f5a0> [48]  item count: 1
-                        1 (48 bytes) list --> <NSSet 0x87525f450> [48]  item count: 1
-                     3 (128 bytes) <NSArray 0x875817a80> [32]  item count: 2
-                        1 (48 bytes) <NSSet 0x87525f6f0> [48]  item count: 1
-                        1 (48 bytes) list --> <NSSet 0x87525f690> [48]  item count: 1
-                  7 (304 bytes) 0x8748400c0 [48]
-                     4 (192 bytes) <NSArray 0x87525fa50> [48]  item count: 4
-                        1 (48 bytes) <NSSet 0x87525fd50> [48]  item count: 1
-                        1 (48 bytes) <NSSet 0x87525fdb0> [48]  item count: 1
-                        1 (48 bytes) list --> <NSSet 0x87525f750> [48]  item count: 1
-                     2 (64 bytes) <NSArray 0x8752a0b80> [16]
-                        1 (48 bytes) __strong _object --> <NSSet 0x87525fe10> [48]  item count: 1
-                  7 (272 bytes) 0x874c87540 [48]
-                     4 (192 bytes) <NSArray 0x87525fba0> [48]  item count: 4
-                        1 (48 bytes) <NSSet 0x87525fbd0> [48]  item count: 2
-                        1 (48 bytes) <NSSet 0x87525fc30> [48]  item count: 2
-                        1 (48 bytes) list --> <NSSet 0x87525fb40> [48]  item count: 2
-                     2 (32 bytes) <NSArray 0x8752a0b00> [16]
-                        1 (16 bytes) __strong _object --> <NSSet 0x8752a0b10> [16]
-                  6 (272 bytes) 0x874840060 [48]
-                     3 (144 bytes) <NSArray 0x87525f1b0> [48]  item count: 3
-                        1 (48 bytes) <NSSet 0x87525f270> [48]  item count: 1
-                        1 (48 bytes) list --> <NSSet 0x87525f060> [48]  item count: 1
-                     2 (80 bytes) <NSArray 0x875817aa0> [32]  item count: 2
-                        1 (48 bytes) <NSSet 0x87525f360> [48]  item count: 1
-                  6 (256 bytes) 0x874840030 [48]
-                     3 (144 bytes) <NSArray 0x87525f000> [48]  item count: 3
-                        1 (48 bytes) <NSSet 0x87525efd0> [48]  item count: 1
-                        1 (48 bytes) list --> <NSSet 0x87525ebb0> [48]  item count: 2
-                     2 (64 bytes) <NSArray 0x8752a0b70> [16]
-                        1 (48 bytes) __strong _object --> <NSSet 0x87525eeb0> [48]  item count: 1
-                  5 (176 bytes) 0x874c86e80 [48]
-                     2 (96 bytes) <NSArray 0x87525f8a0> [48]  item count: 3
-                        1 (48 bytes) list --> <NSSet 0x87525f870> [48]  item count: 1
-                     2 (32 bytes) <NSArray 0x8752a0ad0> [16]
-                        1 (16 bytes) __strong _object --> <NSSet 0x8752a0af0> [16]
-                  5 (176 bytes) 0x874c875a0 [48]
-                     2 (96 bytes) <NSArray 0x87525fd20> [48]  item count: 3
-                        1 (48 bytes) list --> <NSSet 0x87525fcc0> [48]  item count: 2
-                     2 (32 bytes) <NSArray 0x8752a0b20> [16]
-                        1 (16 bytes) __strong _object --> <NSSet 0x8752a0b30> [16]
-                  4 (144 bytes) 0x874840000 [48]
-                     2 (80 bytes) <NSArray 0x875817ac0> [32]  item count: 2
-                        1 (48 bytes) list --> <NSSet 0x87525ee20> [48]  item count: 3
-                     1 (16 bytes) <NSArray 0x8752a0b60> [16]
-                  4 (128 bytes) 0x8748400f0 [48]
-                     2 (48 bytes) <NSArray 0x875817c60> [32]  item count: 2
-                        1 (16 bytes) list --> <NSSet 0x8752a0b90> [16]
-                     1 (32 bytes) <NSArray 0x875817240> [32]  item count: 2
-                  4 (128 bytes) 0x874840120 [48]
-                     2 (48 bytes) <NSArray 0x8758171c0> [32]  item count: 2
-                        1 (16 bytes) list --> <NSSet 0x8752a0ba0> [16]
-                     1 (32 bytes) <NSArray 0x875817200> [32]  item count: 2
-                  4 (128 bytes) 0x874840150 [48]
-                     2 (48 bytes) <NSArray 0x875817d00> [32]  item count: 2
-                        1 (16 bytes) list --> <NSSet 0x8752a0bb0> [16]
-                     1 (32 bytes) <NSArray 0x875817d20> [32]  item count: 2
-                  4 (128 bytes) 0x874840180 [48]
-                     2 (48 bytes) <NSArray 0x875817d40> [32]  item count: 2
-                        1 (16 bytes) list --> <NSSet 0x8752a0bc0> [16]
-                     1 (32 bytes) <NSArray 0x875817d60> [32]  item count: 2
-                  4 (128 bytes) 0x8748401b0 [48]
-                     2 (48 bytes) <NSArray 0x875817d80> [32]  item count: 2
-                        1 (16 bytes) list --> <NSSet 0x8752a0bd0> [16]
-                     1 (32 bytes) <NSArray 0x875817da0> [32]  item count: 2
-                  4 (128 bytes) 0x874c87600 [48]
-                     2 (64 bytes) <NSArray 0x87525e9d0> [48]  item count: 3
-                        1 (16 bytes) <NSSet 0x8752a0b40> [16]
-                     1 (16 bytes) <NSArray 0x8752a0b50> [16]
-                  4 (96 bytes) 0x874c875d0 [48]
-                     2 (32 bytes) <NSArray 0x8752a0ab0> [16]
-                        1 (16 bytes) __strong _object --> <NSSet 0x8752a0aa0> [16]
-                     1 (16 bytes) <NSArray 0x8752a0ac0> [16]
-               1 (192 bytes) <CFDictionary (Key Storage) 0x875248fc0> [192]
-         2 (192 bytes) _userQueue --> <dispatch_queue_t (serial) 0x875263a00> [128]  "com.apple.appintents.process-instance-registry-client.retry-0"  QOS utility
-            1 (64 bytes) 0xd38098280 [64]  length: 61  "com.apple.appintents.process-instance-registry-client.retry-0"
-         2 (160 bytes) _exportInfo --> <_NSXPCConnectionExportedObjectTable 0x8752fd180> [80]
-            1 (80 bytes) _replyGroup --> <dispatch_group_t 0x8752fd1d0> [80]
-         1 (48 bytes) _importInfo --> <_NSXPCConnectionImportInfo 0x87525f9c0> [48]
-         1 (48 bytes) _interruptionHandler --> <__NSMallocBlock__ 0x875864000> [48]  AppIntents  __52-[LNProcessInstanceRegistryClient makeXPCConnection]_block_invoke  0x22eed4404
-         1 (48 bytes) _repliesRequested --> <_NSXPCConnectionRequestedReplies 0x87525f9f0> [48]
-         1 (32 bytes) _dCache --> <_NSXPCConnectionClassCache 0x875817b00> [32]
-         1 (32 bytes) _eCache --> <_NSXPCConnectionClassCache 0x875817b40> [32]
-         1 (32 bytes) _repliesExpected --> <_NSXPCConnectionExpectedReplies 0x875817b20> [32]
+      96 (4.69K) ROOT CYCLE: <NSXPCConnection 0x7b9245400> [160]  Protocol: LNDaemonApplicationInterface  Connection: "com.apple.linkd.autoShortcut" [no process]
+         6 (752 bytes) _connection --> ROOT CYCLE: <xpc_connection_t 0x7b8e41180> [320]  "com.apple.linkd.autoShortcut" [no process]
+            4 (384 bytes) ROOT CYCLE: <dispatch_mach_t 0x7b9245360> [160]  "com.apple.linkd.autoShortcut"
+               1 (64 bytes) ROOT CYCLE: 0x7b9076a80 [64]
+               1 (128 bytes) 0x7b8c12080 [128]
+               1 (32 bytes) 0xbf00301e0 [32]  length: 28  "com.apple.linkd.autoShortcut"
+            1 (48 bytes) ROOT CYCLE: <__NSMallocBlock__ 0x7b93e9560> [48]  Foundation  __51-[NSXPCConnection initWithMachServiceName:options:]_block_invoke  0x18a6257f4
+               __strong [capture] --> CYCLE BACK TO <NSXPCConnection 0x7b9245400> [160]  Protocol: LNDaemonApplicationInterface  Connection: "com.apple.linkd.autoShortcut" [no process]
+         79 (3.22K) _remoteObjectInterface --> <NSXPCInterface 0x7b93f0840> [64]  Protocol: LNDaemonApplicationInterface
+            78 (3.16K) _methodInfo --> <CFDictionary 0x7b9c20880> [64]  item count: 15
+               76 (2.91K) <CFDictionary (Value Storage) 0x7b923cf00> [192]
+                  7 (320 bytes) 0x7b8f787b0 [48]
+                     3 (144 bytes) <NSArray 0x7b9257150> [48]  item count: 3
+                        1 (48 bytes) <NSSet 0x7b9257210> [48]  item count: 1
+                        1 (48 bytes) list --> <NSSet 0x7b9256f10> [48]  item count: 1
+                     3 (128 bytes) <NSArray 0x7b93b9380> [32]  item count: 2
+                        1 (48 bytes) <NSSet 0x7b92574b0> [48]  item count: 1
+                        1 (48 bytes) list --> <NSSet 0x7b9257360> [48]  item count: 1
+                  7 (304 bytes) 0x7b8f787e0 [48]
+                     4 (192 bytes) <NSArray 0x7b9257660> [48]  item count: 4
+                        1 (48 bytes) <NSSet 0x7b9257690> [48]  item count: 1
+                        1 (48 bytes) <NSSet 0x7b92576f0> [48]  item count: 1
+                        1 (48 bytes) list --> <NSSet 0x7b92575a0> [48]  item count: 1
+                     2 (64 bytes) <NSArray 0x7b929cb80> [16]
+                        1 (48 bytes) __strong _object --> <NSSet 0x7b9257750> [48]  item count: 1
+                  7 (272 bytes) 0x7b8f78630 [48]
+                     4 (192 bytes) <NSArray 0x7b9257bd0> [48]  item count: 4
+                        1 (48 bytes) <NSSet 0x7b9257c30> [48]  item count: 2
+                        1 (48 bytes) <NSSet 0x7b9257c90> [48]  item count: 2
+                        1 (48 bytes) list --> <NSSet 0x7b9257b70> [48]  item count: 2
+                     2 (32 bytes) <NSArray 0x7b929cb00> [16]
+                        1 (16 bytes) __strong _object --> <NSSet 0x7b929cb10> [16]
+                  6 (272 bytes) 0x7b8f78810 [48]
+                     3 (144 bytes) <NSArray 0x7b9256e20> [48]  item count: 3
+                        1 (48 bytes) <NSSet 0x7b9256d90> [48]  item count: 1
+                        1 (48 bytes) list --> <NSSet 0x7b9257000> [48]  item count: 1
+                     2 (80 bytes) <NSArray 0x7b93ba4e0> [32]  item count: 2
+                        1 (48 bytes) <NSSet 0x7b9257090> [48]  item count: 1
+                  6 (256 bytes) 0x7b8f78780 [48]
+                     3 (144 bytes) <NSArray 0x7b9256ca0> [48]  item count: 3
+                        1 (48 bytes) <NSSet 0x7b9255a70> [48]  item count: 1
+                        1 (48 bytes) list --> <NSSet 0x7b9257a80> [48]  item count: 2
+                     2 (64 bytes) <NSArray 0x7b929cb70> [16]
+                        1 (48 bytes) __strong _object --> <NSSet 0x7b9256c10> [48]  item count: 1
+                  5 (176 bytes) 0x7b8f78690 [48]
+                     2 (96 bytes) <NSArray 0x7b9257d80> [48]  item count: 3
+                        1 (48 bytes) list --> <NSSet 0x7b9257d20> [48]  item count: 2
+                     2 (32 bytes) <NSArray 0x7b929cb20> [16]
+                        1 (16 bytes) __strong _object --> <NSSet 0x7b929cb30> [16]
+                  5 (176 bytes) 0x7b8f786c0 [48]
+                     2 (96 bytes) <NSArray 0x7b9257870> [48]  item count: 3
+                        1 (48 bytes) list --> <NSSet 0x7b9257b10> [48]  item count: 1
+                     2 (32 bytes) <NSArray 0x7b929cae0> [16]
+                        1 (16 bytes) __strong _object --> <NSSet 0x7b929caf0> [16]
+                  4 (144 bytes) 0x7b8f78840 [48]
+                     2 (80 bytes) <NSArray 0x7b93b9340> [32]  item count: 2
+                        1 (48 bytes) list --> <NSSet 0x7b9257e40> [48]  item count: 3
+                     1 (16 bytes) <NSArray 0x7b929cb60> [16]
+                  4 (128 bytes) 0x7b8f78720 [48]
+                     2 (64 bytes) <NSArray 0x7b9257e10> [48]  item count: 3
+                        1 (16 bytes) <NSSet 0x7b929cb40> [16]
+                     1 (16 bytes) <NSArray 0x7b929cb50> [16]
+                  4 (128 bytes) 0x7b8f78870 [48]
+                     2 (48 bytes) <NSArray 0x7b93b93a0> [32]  item count: 2
+                        1 (16 bytes) list --> <NSSet 0x7b929cb90> [16]
+                     1 (32 bytes) <NSArray 0x7b93b93c0> [32]  item count: 2
+                  4 (128 bytes) 0x7b8f788a0 [48]
+                     2 (48 bytes) <NSArray 0x7b93b93e0> [32]  item count: 2
+                        1 (16 bytes) list --> <NSSet 0x7b929cba0> [16]
+                     1 (32 bytes) <NSArray 0x7b93b9400> [32]  item count: 2
+                  4 (128 bytes) 0x7b8f788d0 [48]
+                     2 (48 bytes) <NSArray 0x7b93b9420> [32]  item count: 2
+                        1 (16 bytes) list --> <NSSet 0x7b929cbb0> [16]
+                     1 (32 bytes) <NSArray 0x7b93b9440> [32]  item count: 2
+                  4 (128 bytes) 0x7b8f78900 [48]
+                     2 (48 bytes) <NSArray 0x7b93b9460> [32]  item count: 2
+                        1 (16 bytes) list --> <NSSet 0x7b929cbc0> [16]
+                     1 (32 bytes) <NSArray 0x7b93b9480> [32]  item count: 2
+                  4 (128 bytes) 0x7b8f78930 [48]
+                     2 (48 bytes) <NSArray 0x7b93b94a0> [32]  item count: 2
+                        1 (16 bytes) list --> <NSSet 0x7b929cbd0> [16]
+                     1 (32 bytes) <NSArray 0x7b93b94c0> [32]  item count: 2
+                  4 (96 bytes) 0x7b8f78750 [48]
+                     2 (32 bytes) <NSArray 0x7b929cac0> [16]
+                        1 (16 bytes) __strong _object --> <NSSet 0x7b929cab0> [16]
+                     1 (16 bytes) <NSArray 0x7b929cad0> [16]
+               1 (192 bytes) <CFDictionary (Key Storage) 0x7b923cfc0> [192]
+         2 (192 bytes) _userQueue --> <dispatch_queue_t (serial) 0x7b925ba00> [128]  "com.apple.appintents.process-instance-registry-client.retry-0"  QOS utility
+            1 (64 bytes) 0xbf0098280 [64]  length: 61  "com.apple.appintents.process-instance-registry-client.retry-0"
+         2 (160 bytes) _exportInfo --> <_NSXPCConnectionExportedObjectTable 0x7b92fd1d0> [80]
+            1 (80 bytes) _replyGroup --> <dispatch_group_t 0x7b92fd220> [80]
+         1 (48 bytes) _importInfo --> <_NSXPCConnectionImportInfo 0x7b9257a20> [48]
+         1 (48 bytes) _interruptionHandler --> <__NSMallocBlock__ 0x7b93e9380> [48]  AppIntents  __52-[LNProcessInstanceRegistryClient makeXPCConnection]_block_invoke  0x22eed4404
+         1 (48 bytes) _repliesRequested --> <_NSXPCConnectionRequestedReplies 0x7b9257a50> [48]
+         1 (32 bytes) _dCache --> <_NSXPCConnectionClassCache 0x7b93b9300> [32]
+         1 (32 bytes) _eCache --> <_NSXPCConnectionClassCache 0x7b93b92e0> [32]
+         1 (32 bytes) _repliesExpected --> <_NSXPCConnectionExpectedReplies 0x7b93b92c0> [32]
 
-      96 (4.69K) ROOT CYCLE: <NSXPCConnection 0x875251680> [160]  Protocol: LNDaemonApplicationInterface  Connection: "com.apple.linkd.autoShortcut" [no process]
-         6 (752 bytes) _connection --> ROOT CYCLE: <xpc_connection_t 0x874e41400> [320]  "com.apple.linkd.autoShortcut" [no process]
-            4 (384 bytes) ROOT CYCLE: <dispatch_mach_t 0x875251720> [160]  "com.apple.linkd.autoShortcut"
-               1 (64 bytes) ROOT CYCLE: 0x875076e40 [64]
-               1 (128 bytes) 0x874c13000 [128]
-               1 (32 bytes) 0xd380301a0 [32]  length: 28  "com.apple.linkd.autoShortcut"
-            1 (48 bytes) ROOT CYCLE: <__NSMallocBlock__ 0x875389920> [48]  Foundation  __51-[NSXPCConnection initWithMachServiceName:options:]_block_invoke  0x18a6257f4
-               __strong [capture] --> CYCLE BACK TO <NSXPCConnection 0x875251680> [160]  Protocol: LNDaemonApplicationInterface  Connection: "com.apple.linkd.autoShortcut" [no process]
-         79 (3.22K) _remoteObjectInterface --> <NSXPCInterface 0x8753ac940> [64]  Protocol: LNDaemonApplicationInterface
-            78 (3.16K) _methodInfo --> <CFDictionary 0x8753e8080> [64]  item count: 15
-               76 (2.91K) <CFDictionary (Value Storage) 0x875249380> [192]
-                  7 (320 bytes) 0x874f4c8d0 [48]
-                     3 (144 bytes) <NSArray 0x87586ca50> [48]  item count: 3
-                        1 (48 bytes) <NSSet 0x87586ca80> [48]  item count: 1
-                        1 (48 bytes) list --> <NSSet 0x87586c9f0> [48]  item count: 1
-                     3 (128 bytes) <NSArray 0x87537d9e0> [32]  item count: 2
-                        1 (48 bytes) <NSSet 0x87586cb40> [48]  item count: 1
-                        1 (48 bytes) list --> <NSSet 0x87586cae0> [48]  item count: 1
-                  7 (304 bytes) 0x874f4c900 [48]
-                     4 (192 bytes) <NSArray 0x87586cc00> [48]  item count: 4
-                        1 (48 bytes) <NSSet 0x87586cc30> [48]  item count: 1
-                        1 (48 bytes) <NSSet 0x87586cc90> [48]  item count: 1
-                        1 (48 bytes) list --> <NSSet 0x87586cba0> [48]  item count: 1
-                     2 (64 bytes) <NSArray 0x8752a0e30> [16]
-                        1 (48 bytes) __strong _object --> <NSSet 0x87586ccf0> [48]  item count: 1
-                  7 (272 bytes) 0x874f4c780 [48]
-                     4 (192 bytes) <NSArray 0x87586c4b0> [48]  item count: 4
-                        1 (48 bytes) <NSSet 0x87586c4e0> [48]  item count: 2
-                        1 (48 bytes) <NSSet 0x87586c540> [48]  item count: 2
-                        1 (48 bytes) list --> <NSSet 0x87586c420> [48]  item count: 2
-                     2 (32 bytes) <NSArray 0x8752a0db0> [16]
-                        1 (16 bytes) __strong _object --> <NSSet 0x8752a0dc0> [16]
-                  6 (272 bytes) 0x874f4c8a0 [48]
-                     3 (144 bytes) <NSArray 0x87586c900> [48]  item count: 3
-                        1 (48 bytes) <NSSet 0x87586c930> [48]  item count: 1
-                        1 (48 bytes) list --> <NSSet 0x87586c8a0> [48]  item count: 1
-                     2 (80 bytes) <NSArray 0x87537d9c0> [32]  item count: 2
-                        1 (48 bytes) <NSSet 0x87586c990> [48]  item count: 1
-                  6 (256 bytes) 0x874f4c870 [48]
-                     3 (144 bytes) <NSArray 0x87586c7b0> [48]  item count: 3
-                        1 (48 bytes) <NSSet 0x87586c7e0> [48]  item count: 1
-                        1 (48 bytes) list --> <NSSet 0x87586c750> [48]  item count: 2
-                     2 (64 bytes) <NSArray 0x8752a0e20> [16]
-                        1 (48 bytes) __strong _object --> <NSSet 0x87586c840> [48]  item count: 1
-                  5 (176 bytes) 0x874f4c810 [48]
-                     2 (96 bytes) <NSArray 0x87586c630> [48]  item count: 3
-                        1 (48 bytes) list --> <NSSet 0x87586c5d0> [48]  item count: 2
-                     2 (32 bytes) <NSArray 0x8752a0dd0> [16]
-                        1 (16 bytes) __strong _object --> <NSSet 0x8752a0de0> [16]
-                  5 (176 bytes) 0x874f4c840 [48]
-                     2 (96 bytes) <NSArray 0x87586c330> [48]  item count: 3
-                        1 (48 bytes) list --> <NSSet 0x87586c3c0> [48]  item count: 1
-                     2 (32 bytes) <NSArray 0x8752a0d90> [16]
-                        1 (16 bytes) __strong _object --> <NSSet 0x8752a0da0> [16]
-                  4 (144 bytes) 0x874f4c7e0 [48]
-                     2 (80 bytes) <NSArray 0x87537d980> [32]  item count: 2
-                        1 (48 bytes) list --> <NSSet 0x87586c6f0> [48]  item count: 3
-                     1 (16 bytes) <NSArray 0x8752a0e10> [16]
-                  4 (128 bytes) 0x874f4c7b0 [48]
-                     2 (64 bytes) <NSArray 0x87586c6c0> [48]  item count: 3
-                        1 (16 bytes) <NSSet 0x8752a0df0> [16]
-                     1 (16 bytes) <NSArray 0x8752a0e00> [16]
-                  4 (128 bytes) 0x874f4c930 [48]
-                     2 (48 bytes) <NSArray 0x87537da00> [32]  item count: 2
-                        1 (16 bytes) list --> <NSSet 0x8752a0e40> [16]
-                     1 (32 bytes) <NSArray 0x87537da20> [32]  item count: 2
-                  4 (128 bytes) 0x874f4c960 [48]
-                     2 (48 bytes) <NSArray 0x87537da40> [32]  item count: 2
-                        1 (16 bytes) list --> <NSSet 0x8752a0e50> [16]
-                     1 (32 bytes) <NSArray 0x87537da60> [32]  item count: 2
-                  4 (128 bytes) 0x874f4c990 [48]
-                     2 (48 bytes) <NSArray 0x87537da80> [32]  item count: 2
-                        1 (16 bytes) list --> <NSSet 0x8752a0e60> [16]
-                     1 (32 bytes) <NSArray 0x87537daa0> [32]  item count: 2
-                  4 (128 bytes) 0x874f4c9c0 [48]
-                     2 (48 bytes) <NSArray 0x87537dac0> [32]  item count: 2
-                        1 (16 bytes) list --> <NSSet 0x8752a0e70> [16]
-                     1 (32 bytes) <NSArray 0x87537dae0> [32]  item count: 2
-                  4 (128 bytes) 0x874f4c9f0 [48]
-                     2 (48 bytes) <NSArray 0x87537db00> [32]  item count: 2
-                        1 (16 bytes) list --> <NSSet 0x8752a0e80> [16]
-                     1 (32 bytes) <NSArray 0x87537db20> [32]  item count: 2
-                  4 (96 bytes) 0x874f4c720 [48]
-                     2 (32 bytes) <NSArray 0x8752a0d70> [16]
-                        1 (16 bytes) __strong _object --> <NSSet 0x8752a0d60> [16]
-                     1 (16 bytes) <NSArray 0x8752a0d80> [16]
-               1 (192 bytes) <CFDictionary (Key Storage) 0x875249440> [192]
-         2 (192 bytes) _userQueue --> <dispatch_queue_t (serial) 0x875263c00> [128]  "com.apple.appintents.process-instance-registry-client.retry-0"  QOS utility
-            1 (64 bytes) 0xd38098100 [64]  length: 61  "com.apple.appintents.process-instance-registry-client.retry-0"
-         2 (160 bytes) _exportInfo --> <_NSXPCConnectionExportedObjectTable 0x8752fd3b0> [80]
-            1 (80 bytes) _replyGroup --> <dispatch_group_t 0x8752fd400> [80]
-         1 (48 bytes) _importInfo --> <_NSXPCConnectionImportInfo 0x87586c270> [48]
-         1 (48 bytes) _interruptionHandler --> <__NSMallocBlock__ 0x875389560> [48]  AppIntents  __52-[LNProcessInstanceRegistryClient makeXPCConnection]_block_invoke  0x22eed4404
-         1 (48 bytes) _repliesRequested --> <_NSXPCConnectionRequestedReplies 0x87586c2a0> [48]
-         1 (32 bytes) _dCache --> <_NSXPCConnectionClassCache 0x87537d920> [32]
-         1 (32 bytes) _eCache --> <_NSXPCConnectionClassCache 0x87537d900> [32]
-         1 (32 bytes) _repliesExpected --> <_NSXPCConnectionExpectedReplies 0x87537d8e0> [32]
+      96 (4.69K) ROOT CYCLE: <NSXPCConnection 0x7b9245720> [160]  Protocol: LNDaemonApplicationInterface  Connection: "com.apple.linkd.autoShortcut" [no process]
+         6 (752 bytes) _connection --> ROOT CYCLE: <xpc_connection_t 0x7b8e41400> [320]  "com.apple.linkd.autoShortcut" [no process]
+            4 (384 bytes) ROOT CYCLE: <dispatch_mach_t 0x7b9245680> [160]  "com.apple.linkd.autoShortcut"
+               1 (64 bytes) ROOT CYCLE: 0x7b9076e40 [64]
+               1 (128 bytes) 0x7b8c13080 [128]
+               1 (32 bytes) 0xbf00301a0 [32]  length: 28  "com.apple.linkd.autoShortcut"
+            1 (48 bytes) ROOT CYCLE: <__NSMallocBlock__ 0x7b93e9ad0> [48]  Foundation  __51-[NSXPCConnection initWithMachServiceName:options:]_block_invoke  0x18a6257f4
+               __strong [capture] --> CYCLE BACK TO <NSXPCConnection 0x7b9245720> [160]  Protocol: LNDaemonApplicationInterface  Connection: "com.apple.linkd.autoShortcut" [no process]
+         79 (3.22K) _remoteObjectInterface --> <NSXPCInterface 0x7b93f0940> [64]  Protocol: LNDaemonApplicationInterface
+            78 (3.16K) _methodInfo --> <CFDictionary 0x7b9c20b40> [64]  item count: 15
+               76 (2.91K) <CFDictionary (Value Storage) 0x7b923d200> [192]
+                  7 (320 bytes) 0x7b8f78ea0 [48]
+                     3 (144 bytes) <NSArray 0x7b9c50960> [48]  item count: 3
+                        1 (48 bytes) <NSSet 0x7b9c509f0> [48]  item count: 1
+                        1 (48 bytes) list --> <NSSet 0x7b9c50870> [48]  item count: 1
+                     3 (128 bytes) <NSArray 0x7b93b9a40> [32]  item count: 2
+                        1 (48 bytes) <NSSet 0x7b9c50ab0> [48]  item count: 1
+                        1 (48 bytes) list --> <NSSet 0x7b9c50a50> [48]  item count: 1
+                  7 (304 bytes) 0x7b8f78ed0 [48]
+                     4 (192 bytes) <NSArray 0x7b9c51110> [48]  item count: 4
+                        1 (48 bytes) <NSSet 0x7b9c51140> [48]  item count: 1
+                        1 (48 bytes) <NSSet 0x7b9c511a0> [48]  item count: 1
+                        1 (48 bytes) list --> <NSSet 0x7b9c50e10> [48]  item count: 1
+                     2 (64 bytes) <NSArray 0x7b929ce30> [16]
+                        1 (48 bytes) __strong _object --> <NSSet 0x7b9c51200> [48]  item count: 1
+                  7 (272 bytes) 0x7b8f78c90 [48]
+                     4 (192 bytes) <NSArray 0x7b9c50f60> [48]  item count: 4
+                        1 (48 bytes) <NSSet 0x7b9c50f90> [48]  item count: 2
+                        1 (48 bytes) <NSSet 0x7b9c50ff0> [48]  item count: 2
+                        1 (48 bytes) list --> <NSSet 0x7b9c50ed0> [48]  item count: 2
+                     2 (32 bytes) <NSArray 0x7b929cd90> [16]
+                        1 (16 bytes) __strong _object --> <NSSet 0x7b929cda0> [16]
+                  6 (272 bytes) 0x7b8f78e70 [48]
+                     3 (144 bytes) <NSArray 0x7b9c50600> [48]  item count: 3
+                        1 (48 bytes) <NSSet 0x7b9c50660> [48]  item count: 1
+                        1 (48 bytes) list --> <NSSet 0x7b9c50510> [48]  item count: 1
+                     2 (80 bytes) <NSArray 0x7b93b9a00> [32]  item count: 2
+                        1 (48 bytes) <NSSet 0x7b9c507b0> [48]  item count: 1
+                  6 (256 bytes) 0x7b8f78e40 [48]
+                     3 (144 bytes) <NSArray 0x7b9c50330> [48]  item count: 3
+                        1 (48 bytes) <NSSet 0x7b9c50750> [48]  item count: 1
+                        1 (48 bytes) list --> <NSSet 0x7b9c50210> [48]  item count: 2
+                     2 (64 bytes) <NSArray 0x7b929ce10> [16]
+                        1 (48 bytes) __strong _object --> <NSSet 0x7b9c50420> [48]  item count: 1
+                  5 (176 bytes) 0x7b8f78cc0 [48]
+                     2 (96 bytes) <NSArray 0x7b9c50e70> [48]  item count: 3
+                        1 (48 bytes) list --> <NSSet 0x7b9c50b70> [48]  item count: 1
+                     2 (32 bytes) <NSArray 0x7b929cd70> [16]
+                        1 (16 bytes) __strong _object --> <NSSet 0x7b929cd80> [16]
+                  5 (176 bytes) 0x7b8f78db0 [48]
+                     2 (96 bytes) <NSArray 0x7b9c50060> [48]  item count: 3
+                        1 (48 bytes) list --> <NSSet 0x7b9c510b0> [48]  item count: 2
+                     2 (32 bytes) <NSArray 0x7b929cdb0> [16]
+                        1 (16 bytes) __strong _object --> <NSSet 0x7b929cdc0> [16]
+                  4 (144 bytes) 0x7b8f78e10 [48]
+                     2 (80 bytes) <NSArray 0x7b93b98a0> [32]  item count: 2
+                        1 (48 bytes) list --> <NSSet 0x7b9c50120> [48]  item count: 3
+                     1 (16 bytes) <NSArray 0x7b929ce00> [16]
+                  4 (128 bytes) 0x7b8f78de0 [48]
+                     2 (64 bytes) <NSArray 0x7b9c500c0> [48]  item count: 3
+                        1 (16 bytes) <NSSet 0x7b929cdd0> [16]
+                     1 (16 bytes) <NSArray 0x7b929cde0> [16]
+                  4 (128 bytes) 0x7b8f78f00 [48]
+                     2 (48 bytes) <NSArray 0x7b93b9a60> [32]  item count: 2
+                        1 (16 bytes) list --> <NSSet 0x7b929ce40> [16]
+                     1 (32 bytes) <NSArray 0x7b93b9a80> [32]  item count: 2
+                  4 (128 bytes) 0x7b8f78f30 [48]
+                     2 (48 bytes) <NSArray 0x7b93b9aa0> [32]  item count: 2
+                        1 (16 bytes) list --> <NSSet 0x7b929ce50> [16]
+                     1 (32 bytes) <NSArray 0x7b93b9ac0> [32]  item count: 2
+                  4 (128 bytes) 0x7b8f78f60 [48]
+                     2 (48 bytes) <NSArray 0x7b93b9ae0> [32]  item count: 2
+                        1 (16 bytes) list --> <NSSet 0x7b929ce60> [16]
+                     1 (32 bytes) <NSArray 0x7b93b9b00> [32]  item count: 2
+                  4 (128 bytes) 0x7b8f78f90 [48]
+                     2 (48 bytes) <NSArray 0x7b93b9b20> [32]  item count: 2
+                        1 (16 bytes) list --> <NSSet 0x7b929ce70> [16]
+                     1 (32 bytes) <NSArray 0x7b93b9b40> [32]  item count: 2
+                  4 (128 bytes) 0x7b8f78fc0 [48]
+                     2 (48 bytes) <NSArray 0x7b93b9b60> [32]  item count: 2
+                        1 (16 bytes) list --> <NSSet 0x7b929ce80> [16]
+                     1 (32 bytes) <NSArray 0x7b93b9b80> [32]  item count: 2
+                  4 (96 bytes) 0x7b8f78c30 [48]
+                     2 (32 bytes) <NSArray 0x7b929cd50> [16]
+                        1 (16 bytes) __strong _object --> <NSSet 0x7b929cd40> [16]
+                     1 (16 bytes) <NSArray 0x7b929cd60> [16]
+               1 (192 bytes) <CFDictionary (Key Storage) 0x7b923d2c0> [192]
+         2 (192 bytes) _userQueue --> <dispatch_queue_t (serial) 0x7b925bc00> [128]  "com.apple.appintents.process-instance-registry-client.retry-0"  QOS utility
+            1 (64 bytes) 0xbf00980c0 [64]  length: 61  "com.apple.appintents.process-instance-registry-client.retry-0"
+         2 (160 bytes) _exportInfo --> <_NSXPCConnectionExportedObjectTable 0x7b92fd400> [80]
+            1 (80 bytes) _replyGroup --> <dispatch_group_t 0x7b92fd450> [80]
+         1 (48 bytes) _importInfo --> <_NSXPCConnectionImportInfo 0x7b9c50d80> [48]
+         1 (48 bytes) _interruptionHandler --> <__NSMallocBlock__ 0x7b93e97a0> [48]  AppIntents  __52-[LNProcessInstanceRegistryClient makeXPCConnection]_block_invoke  0x22eed4404
+         1 (48 bytes) _repliesRequested --> <_NSXPCConnectionRequestedReplies 0x7b9c50db0> [48]
+         1 (32 bytes) _dCache --> <_NSXPCConnectionClassCache 0x7b93b99c0> [32]
+         1 (32 bytes) _eCache --> <_NSXPCConnectionClassCache 0x7b93b99a0> [32]
+         1 (32 bytes) _repliesExpected --> <_NSXPCConnectionExpectedReplies 0x7b93b9980> [32]
 
-      96 (4.69K) ROOT CYCLE: <NSXPCConnection 0x875251ae0> [160]  Protocol: LNDaemonApplicationInterface  Connection: "com.apple.linkd.autoShortcut" [no process]
-         6 (752 bytes) _connection --> ROOT CYCLE: <xpc_connection_t 0x874e41680> [320]  "com.apple.linkd.autoShortcut" [no process]
-            4 (384 bytes) ROOT CYCLE: <dispatch_mach_t 0x875251b80> [160]  "com.apple.linkd.autoShortcut"
-               1 (64 bytes) ROOT CYCLE: 0x875076d40 [64]
-               1 (128 bytes) 0x874c13180 [128]
-               1 (32 bytes) 0xd38030220 [32]  length: 28  "com.apple.linkd.autoShortcut"
-            1 (48 bytes) ROOT CYCLE: <__NSMallocBlock__ 0x875389a70> [48]  Foundation  __51-[NSXPCConnection initWithMachServiceName:options:]_block_invoke  0x18a6257f4
-               __strong [capture] --> CYCLE BACK TO <NSXPCConnection 0x875251ae0> [160]  Protocol: LNDaemonApplicationInterface  Connection: "com.apple.linkd.autoShortcut" [no process]
-         79 (3.22K) _remoteObjectInterface --> <NSXPCInterface 0x8753acb00> [64]  Protocol: LNDaemonApplicationInterface
-            78 (3.16K) _methodInfo --> <CFDictionary 0x8753e83c0> [64]  item count: 15
-               76 (2.91K) <CFDictionary (Value Storage) 0x875249740> [192]
-                  7 (320 bytes) 0x874f4cf00 [48]
-                     3 (144 bytes) <NSArray 0x87586cbd0> [48]  item count: 3
-                        1 (48 bytes) <NSSet 0x87586cc60> [48]  item count: 1
-                        1 (48 bytes) list --> <NSSet 0x87586cab0> [48]  item count: 1
-                     3 (128 bytes) <NSArray 0x87537dde0> [32]  item count: 2
-                        1 (48 bytes) <NSSet 0x87586cd80> [48]  item count: 1
-                        1 (48 bytes) list --> <NSSet 0x87586ce10> [48]  item count: 1
-                  7 (304 bytes) 0x874f4cf30 [48]
-                     4 (192 bytes) <NSArray 0x87586cf60> [48]  item count: 4
-                        1 (48 bytes) <NSSet 0x87586cfc0> [48]  item count: 1
-                        1 (48 bytes) <NSSet 0x87586d140> [48]  item count: 1
-                        1 (48 bytes) list --> <NSSet 0x87586cde0> [48]  item count: 1
-                     2 (64 bytes) <NSArray 0x8752a10a0> [16]
-                        1 (48 bytes) __strong _object --> <NSSet 0x87586d1d0> [48]  item count: 1
-                  7 (272 bytes) 0x874f4cd80 [48]
-                     4 (192 bytes) <NSArray 0x87586d860> [48]  item count: 4
-                        1 (48 bytes) <NSSet 0x87586d800> [48]  item count: 2
-                        1 (48 bytes) <NSSet 0x87586d8f0> [48]  item count: 2
-                        1 (48 bytes) list --> <NSSet 0x87586dd10> [48]  item count: 2
-                     2 (32 bytes) <NSArray 0x8752a1020> [16]
-                        1 (16 bytes) __strong _object --> <NSSet 0x8752a1030> [16]
-                  6 (272 bytes) 0x874f4ced0 [48]
-                     3 (144 bytes) <NSArray 0x87586c810> [48]  item count: 3
-                        1 (48 bytes) <NSSet 0x87586c8d0> [48]  item count: 1
-                        1 (48 bytes) list --> <NSSet 0x87586c720> [48]  item count: 1
-                     2 (80 bytes) <NSArray 0x87537dba0> [32]  item count: 2
-                        1 (48 bytes) <NSSet 0x87586c9c0> [48]  item count: 1
-                  6 (256 bytes) 0x874f4cea0 [48]
-                     3 (144 bytes) <NSArray 0x87586c570> [48]  item count: 3
-                        1 (48 bytes) <NSSet 0x87586c660> [48]  item count: 1
-                        1 (48 bytes) list --> <NSSet 0x87586c300> [48]  item count: 2
-                     2 (64 bytes) <NSArray 0x8752a1090> [16]
-                        1 (48 bytes) __strong _object --> <NSSet 0x87586c600> [48]  item count: 1
-                  5 (176 bytes) 0x874f4ccf0 [48]
-                     2 (96 bytes) <NSArray 0x87586dcb0> [48]  item count: 3
-                        1 (48 bytes) list --> <NSSet 0x87586d9e0> [48]  item count: 1
-                     2 (32 bytes) <NSArray 0x8752a1000> [16]
-                        1 (16 bytes) __strong _object --> <NSSet 0x8752a1010> [16]
-                  5 (176 bytes) 0x874f4cd50 [48]
-                     2 (96 bytes) <NSArray 0x87586cb10> [48]  item count: 3
-                        1 (48 bytes) list --> <NSSet 0x87586d0b0> [48]  item count: 2
-                     2 (32 bytes) <NSArray 0x8752a1040> [16]
-                        1 (16 bytes) __strong _object --> <NSSet 0x8752a1050> [16]
-                  4 (144 bytes) 0x874f4ce70 [48]
-                     2 (80 bytes) <NSArray 0x87537d960> [32]  item count: 2
-                        1 (48 bytes) list --> <NSSet 0x87586c390> [48]  item count: 3
-                     1 (16 bytes) <NSArray 0x8752a1080> [16]
-                  4 (128 bytes) 0x874f4ce40 [48]
-                     2 (64 bytes) <NSArray 0x87586c510> [48]  item count: 3
-                        1 (16 bytes) <NSSet 0x8752a1060> [16]
-                     1 (16 bytes) <NSArray 0x8752a1070> [16]
-                  4 (128 bytes) 0x874f4cf60 [48]
-                     2 (48 bytes) <NSArray 0x87537de00> [32]  item count: 2
-                        1 (16 bytes) list --> <NSSet 0x8752a10b0> [16]
-                     1 (32 bytes) <NSArray 0x87537e140> [32]  item count: 2
-                  4 (128 bytes) 0x874f4cf90 [48]
-                     2 (48 bytes) <NSArray 0x87537e160> [32]  item count: 2
-                        1 (16 bytes) list --> <NSSet 0x8752a10c0> [16]
-                     1 (32 bytes) <NSArray 0x87537e180> [32]  item count: 2
-                  4 (128 bytes) 0x874f4cfc0 [48]
-                     2 (48 bytes) <NSArray 0x87537e1a0> [32]  item count: 2
-                        1 (16 bytes) list --> <NSSet 0x8752a10d0> [16]
-                     1 (32 bytes) <NSArray 0x87537e1c0> [32]  item count: 2
-                  4 (128 bytes) 0x874f4cff0 [48]
-                     2 (48 bytes) <NSArray 0x87537e1e0> [32]  item count: 2
-                        1 (16 bytes) list --> <NSSet 0x8752a10e0> [16]
-                     1 (32 bytes) <NSArray 0x87537e200> [32]  item count: 2
-                  4 (128 bytes) 0x874f4d020 [48]
-                     2 (48 bytes) <NSArray 0x87537e220> [32]  item count: 2
-                        1 (16 bytes) list --> <NSSet 0x8752a10f0> [16]
-                     1 (32 bytes) <NSArray 0x87537e240> [32]  item count: 2
-                  4 (96 bytes) 0x874f4ce10 [48]
-                     2 (32 bytes) <NSArray 0x8752a0fe0> [16]
-                        1 (16 bytes) __strong _object --> <NSSet 0x8752a0fd0> [16]
-                     1 (16 bytes) <NSArray 0x8752a0ff0> [16]
-               1 (192 bytes) <CFDictionary (Key Storage) 0x875249800> [192]
-         2 (192 bytes) _userQueue --> <dispatch_queue_t (serial) 0x875263d00> [128]  "com.apple.appintents.process-instance-registry-client.retry-1"  QOS utility
-            1 (64 bytes) 0xd38098380 [64]  length: 61  "com.apple.appintents.process-instance-registry-client.retry-1"
-         2 (160 bytes) _exportInfo --> <_NSXPCConnectionExportedObjectTable 0x8752fd590> [80]
-            1 (80 bytes) _replyGroup --> <dispatch_group_t 0x8752fd5e0> [80]
-         1 (48 bytes) _importInfo --> <_NSXPCConnectionImportInfo 0x87586dbf0> [48]
-         1 (48 bytes) _interruptionHandler --> <__NSMallocBlock__ 0x875389860> [48]  AppIntents  __52-[LNProcessInstanceRegistryClient makeXPCConnection]_block_invoke  0x22eed4404
-         1 (48 bytes) _repliesRequested --> <_NSXPCConnectionRequestedReplies 0x87586dc20> [48]
-         1 (32 bytes) _dCache --> <_NSXPCConnectionClassCache 0x87537e0c0> [32]
-         1 (32 bytes) _eCache --> <_NSXPCConnectionClassCache 0x87537e0a0> [32]
-         1 (32 bytes) _repliesExpected --> <_NSXPCConnectionExpectedReplies 0x87537e080> [32]
+      96 (4.69K) ROOT CYCLE: <NSXPCConnection 0x7b9245a40> [160]  Protocol: LNDaemonApplicationInterface  Connection: "com.apple.linkd.autoShortcut" [no process]
+         6 (752 bytes) _connection --> ROOT CYCLE: <xpc_connection_t 0x7b8e41680> [320]  "com.apple.linkd.autoShortcut" [no process]
+            4 (384 bytes) ROOT CYCLE: <dispatch_mach_t 0x7b9245ae0> [160]  "com.apple.linkd.autoShortcut"
+               1 (64 bytes) ROOT CYCLE: 0x7b9076d40 [64]
+               1 (128 bytes) 0x7b8c12f80 [128]
+               1 (32 bytes) 0xbf0030220 [32]  length: 28  "com.apple.linkd.autoShortcut"
+            1 (48 bytes) ROOT CYCLE: <__NSMallocBlock__ 0x7b93e9950> [48]  Foundation  __51-[NSXPCConnection initWithMachServiceName:options:]_block_invoke  0x18a6257f4
+               __strong [capture] --> CYCLE BACK TO <NSXPCConnection 0x7b9245a40> [160]  Protocol: LNDaemonApplicationInterface  Connection: "com.apple.linkd.autoShortcut" [no process]
+         79 (3.22K) _remoteObjectInterface --> <NSXPCInterface 0x7b93f0a40> [64]  Protocol: LNDaemonApplicationInterface
+            78 (3.16K) _methodInfo --> <CFDictionary 0x7b9c20ec0> [64]  item count: 15
+               76 (2.91K) <CFDictionary (Value Storage) 0x7b923d680> [192]
+                  7 (320 bytes) 0x7b8f794d0 [48]
+                     3 (144 bytes) <NSArray 0x7b9c515f0> [48]  item count: 3
+                        1 (48 bytes) <NSSet 0x7b9c51620> [48]  item count: 1
+                        1 (48 bytes) list --> <NSSet 0x7b9c519e0> [48]  item count: 1
+                     3 (128 bytes) <NSArray 0x7b93ba080> [32]  item count: 2
+                        1 (48 bytes) <NSSet 0x7b9c517a0> [48]  item count: 1
+                        1 (48 bytes) list --> <NSSet 0x7b9c516e0> [48]  item count: 1
+                  7 (304 bytes) 0x7b8f79500 [48]
+                     4 (192 bytes) <NSArray 0x7b9c51950> [48]  item count: 4
+                        1 (48 bytes) <NSSet 0x7b9c51aa0> [48]  item count: 1
+                        1 (48 bytes) <NSSet 0x7b9c51f50> [48]  item count: 1
+                        1 (48 bytes) list --> <NSSet 0x7b9c51890> [48]  item count: 1
+                     2 (64 bytes) <NSArray 0x7b929d0a0> [16]
+                        1 (48 bytes) __strong _object --> <NSSet 0x7b9c51b90> [48]  item count: 1
+                  7 (272 bytes) 0x7b8f79320 [48]
+                     4 (192 bytes) <NSArray 0x7b9c50f30> [48]  item count: 4
+                        1 (48 bytes) <NSSet 0x7b9c50fc0> [48]  item count: 2
+                        1 (48 bytes) <NSSet 0x7b9c51050> [48]  item count: 2
+                        1 (48 bytes) list --> <NSSet 0x7b9c50e40> [48]  item count: 2
+                     2 (32 bytes) <NSArray 0x7b929d020> [16]
+                        1 (16 bytes) __strong _object --> <NSSet 0x7b929d030> [16]
+                  6 (272 bytes) 0x7b8f794a0 [48]
+                     3 (144 bytes) <NSArray 0x7b9c51350> [48]  item count: 3
+                        1 (48 bytes) <NSSet 0x7b9c51bf0> [48]  item count: 1
+                        1 (48 bytes) list --> <NSSet 0x7b9c512f0> [48]  item count: 1
+                     2 (80 bytes) <NSArray 0x7b93b9c00> [32]  item count: 2
+                        1 (48 bytes) <NSSet 0x7b9c514a0> [48]  item count: 1
+                  6 (256 bytes) 0x7b8f79470 [48]
+                     3 (144 bytes) <NSArray 0x7b9c510e0> [48]  item count: 3
+                        1 (48 bytes) <NSSet 0x7b9c51170> [48]  item count: 1
+                        1 (48 bytes) list --> <NSSet 0x7b9c50a80> [48]  item count: 2
+                     2 (64 bytes) <NSArray 0x7b929d090> [16]
+                        1 (48 bytes) __strong _object --> <NSSet 0x7b9c51230> [48]  item count: 1
+                  5 (176 bytes) 0x7b8f79350 [48]
+                     2 (96 bytes) <NSArray 0x7b9c50000> [48]  item count: 3
+                        1 (48 bytes) list --> <NSSet 0x7b9c51290> [48]  item count: 1
+                     2 (32 bytes) <NSArray 0x7b929d000> [16]
+                        1 (16 bytes) __strong _object --> <NSSet 0x7b929d010> [16]
+                  5 (176 bytes) 0x7b8f793e0 [48]
+                     2 (96 bytes) <NSArray 0x7b9c503c0> [48]  item count: 3
+                        1 (48 bytes) list --> <NSSet 0x7b9c501b0> [48]  item count: 2
+                     2 (32 bytes) <NSArray 0x7b929d040> [16]
+                        1 (16 bytes) __strong _object --> <NSSet 0x7b929d050> [16]
+                  4 (144 bytes) 0x7b8f79440 [48]
+                     2 (80 bytes) <NSArray 0x7b93b99e0> [32]  item count: 2
+                        1 (48 bytes) list --> <NSSet 0x7b9c50810> [48]  item count: 3
+                     1 (16 bytes) <NSArray 0x7b929d080> [16]
+                  4 (128 bytes) 0x7b8f79410 [48]
+                     2 (64 bytes) <NSArray 0x7b9c506c0> [48]  item count: 3
+                        1 (16 bytes) <NSSet 0x7b929d060> [16]
+                     1 (16 bytes) <NSArray 0x7b929d070> [16]
+                  4 (128 bytes) 0x7b8f79530 [48]
+                     2 (48 bytes) <NSArray 0x7b93b9e60> [32]  item count: 2
+                        1 (16 bytes) list --> <NSSet 0x7b929d0b0> [16]
+                     1 (32 bytes) <NSArray 0x7b93ba0a0> [32]  item count: 2
+                  4 (128 bytes) 0x7b8f79560 [48]
+                     2 (48 bytes) <NSArray 0x7b93ba0c0> [32]  item count: 2
+                        1 (16 bytes) list --> <NSSet 0x7b929d0c0> [16]
+                     1 (32 bytes) <NSArray 0x7b93ba320> [32]  item count: 2
+                  4 (128 bytes) 0x7b8f79590 [48]
+                     2 (48 bytes) <NSArray 0x7b93ba900> [32]  item count: 2
+                        1 (16 bytes) list --> <NSSet 0x7b929d0d0> [16]
+                     1 (32 bytes) <NSArray 0x7b93ba920> [32]  item count: 2
+                  4 (128 bytes) 0x7b8f795c0 [48]
+                     2 (48 bytes) <NSArray 0x7b93ba940> [32]  item count: 2
+                        1 (16 bytes) list --> <NSSet 0x7b929d0e0> [16]
+                     1 (32 bytes) <NSArray 0x7b93ba960> [32]  item count: 2
+                  4 (128 bytes) 0x7b8f795f0 [48]
+                     2 (48 bytes) <NSArray 0x7b93ba980> [32]  item count: 2
+                        1 (16 bytes) list --> <NSSet 0x7b929d0f0> [16]
+                     1 (32 bytes) <NSArray 0x7b93ba9a0> [32]  item count: 2
+                  4 (96 bytes) 0x7b8f792c0 [48]
+                     2 (32 bytes) <NSArray 0x7b929cfe0> [16]
+                        1 (16 bytes) __strong _object --> <NSSet 0x7b929cfd0> [16]
+                     1 (16 bytes) <NSArray 0x7b929cff0> [16]
+               1 (192 bytes) <CFDictionary (Key Storage) 0x7b923d740> [192]
+         2 (192 bytes) _userQueue --> <dispatch_queue_t (serial) 0x7b925bd00> [128]  "com.apple.appintents.process-instance-registry-client.retry-1"  QOS utility
+            1 (64 bytes) 0xbf0098380 [64]  length: 61  "com.apple.appintents.process-instance-registry-client.retry-1"
+         2 (160 bytes) _exportInfo --> <_NSXPCConnectionExportedObjectTable 0x7b92fd540> [80]
+            1 (80 bytes) _replyGroup --> <dispatch_group_t 0x7b92fd590> [80]
+         1 (48 bytes) _importInfo --> <_NSXPCConnectionImportInfo 0x7b9c52010> [48]
+         1 (48 bytes) _interruptionHandler --> <__NSMallocBlock__ 0x7b93e9a10> [48]  AppIntents  __52-[LNProcessInstanceRegistryClient makeXPCConnection]_block_invoke  0x22eed4404
+         1 (48 bytes) _repliesRequested --> <_NSXPCConnectionRequestedReplies 0x7b9c52040> [48]
+         1 (32 bytes) _dCache --> <_NSXPCConnectionClassCache 0x7b93ba040> [32]
+         1 (32 bytes) _eCache --> <_NSXPCConnectionClassCache 0x7b93b9fc0> [32]
+         1 (32 bytes) _repliesExpected --> <_NSXPCConnectionExpectedReplies 0x7b93b9fe0> [32]
 

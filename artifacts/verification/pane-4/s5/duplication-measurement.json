@@ -32,124 +32,148 @@
       "capacity_within_budget" : true,
       "cycles" : [
         {
-          "baseline_rss_bytes" : 154796032,
+          "baseline_rss_bytes" : 155025408,
           "capacity_within_budget" : true,
           "cycle" : 1,
+          "open_metric_begin_event_count" : 50,
+          "open_metric_end_event_count" : 50,
+          "open_metric_trace_count" : 10,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 175833088,
-          "post_unsplit_rss_bytes" : 174571520,
+          "peak_rss_bytes" : 179224576,
+          "post_unsplit_rss_bytes" : 177160192,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            5.6170225143432617,
-            4.0489435195922852,
-            4.7140121459960938
+            4.3349266052246094,
+            4.4130086898803711,
+            4.8000812530517578
           ],
-          "stable_rss_bytes" : 175833088
+          "stable_rss_bytes" : 179224576
         },
         {
-          "baseline_rss_bytes" : 171655168,
+          "baseline_rss_bytes" : 175013888,
           "capacity_within_budget" : true,
           "cycle" : 2,
+          "open_metric_begin_event_count" : 65,
+          "open_metric_end_event_count" : 65,
+          "open_metric_trace_count" : 13,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 178896896,
-          "post_unsplit_rss_bytes" : 163266560,
+          "peak_rss_bytes" : 183107584,
+          "post_unsplit_rss_bytes" : 178814976,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            4.3829679489135742,
-            4.1879415512084961,
+            4.1800737380981445,
+            4.2380094528198242,
             4.3579339981079102
           ],
-          "stable_rss_bytes" : 175128576
+          "stable_rss_bytes" : 183107584
         },
         {
-          "baseline_rss_bytes" : 163266560,
+          "baseline_rss_bytes" : 177995776,
           "capacity_within_budget" : true,
           "cycle" : 3,
+          "open_metric_begin_event_count" : 80,
+          "open_metric_end_event_count" : 80,
+          "open_metric_trace_count" : 16,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 183320576,
-          "post_unsplit_rss_bytes" : 181272576,
+          "peak_rss_bytes" : 187105280,
+          "post_unsplit_rss_bytes" : 184926208,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            10.222077369689941,
-            4.1370391845703125,
-            4.7550201416015625
+            4.9469470977783203,
+            4.5080184936523438,
+            4.7889947891235352
           ],
-          "stable_rss_bytes" : 183320576
+          "stable_rss_bytes" : 187105280
         },
         {
-          "baseline_rss_bytes" : 179159040,
+          "baseline_rss_bytes" : 182763520,
           "capacity_within_budget" : true,
           "cycle" : 4,
+          "open_metric_begin_event_count" : 95,
+          "open_metric_end_event_count" : 95,
+          "open_metric_trace_count" : 19,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 188760064,
-          "post_unsplit_rss_bytes" : 184401920,
+          "peak_rss_bytes" : 189579264,
+          "post_unsplit_rss_bytes" : 175177728,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            4.528045654296875,
+            4.2130947113037109,
+            4.3020248413085938
+          ],
+          "stable_rss_bytes" : 186974208
+        },
+        {
+          "baseline_rss_bytes" : 175177728,
+          "capacity_within_budget" : true,
+          "cycle" : 5,
+          "open_metric_begin_event_count" : 110,
+          "open_metric_end_event_count" : 110,
+          "open_metric_trace_count" : 22,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 195231744,
+          "post_unsplit_rss_bytes" : 194134016,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            10.101079940795898,
+            4.1599273681640625,
+            4.8990249633789062
+          ],
+          "stable_rss_bytes" : 195231744
+        },
+        {
+          "baseline_rss_bytes" : 191660032,
+          "capacity_within_budget" : true,
+          "cycle" : 6,
+          "open_metric_begin_event_count" : 125,
+          "open_metric_end_event_count" : 125,
+          "open_metric_trace_count" : 25,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 198082560,
+          "post_unsplit_rss_bytes" : 185729024,
+          "split_latencies_within_budget" : true,
+          "split_latency_ms" : [
+            4.4280290603637695,
+            4.4839382171630859,
+            4.4609308242797852
+          ],
+          "stable_rss_bytes" : 185745408
+        },
+        {
+          "baseline_rss_bytes" : 185729024,
+          "capacity_within_budget" : true,
+          "cycle" : 7,
+          "open_metric_begin_event_count" : 140,
+          "open_metric_end_event_count" : 140,
+          "open_metric_trace_count" : 28,
+          "open_metrics_balanced" : true,
+          "peak_rss_bytes" : 205586432,
+          "post_unsplit_rss_bytes" : 203292672,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
             4.0640830993652344,
-            3.9260387420654297,
-            4.0689706802368164
+            4.0050745010375977,
+            4.9740076065063477
           ],
-          "stable_rss_bytes" : 188760064
+          "stable_rss_bytes" : 205586432
         },
         {
-          "baseline_rss_bytes" : 183517184,
-          "capacity_within_budget" : true,
-          "cycle" : 5,
-          "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 192479232,
-          "post_unsplit_rss_bytes" : 193396736,
-          "split_latencies_within_budget" : true,
-          "split_latency_ms" : [
-            4.490971565246582,
-            4.5430660247802734,
-            4.0270090103149414
-          ],
-          "stable_rss_bytes" : 192479232
-        },
-        {
-          "baseline_rss_bytes" : 189054976,
-          "capacity_within_budget" : true,
-          "cycle" : 6,
-          "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 197148672,
-          "post_unsplit_rss_bytes" : 195805184,
-          "split_latencies_within_budget" : true,
-          "split_latency_ms" : [
-            4.1720867156982422,
-            3.9590597152709961,
-            4.0290355682373047
-          ],
-          "stable_rss_bytes" : 197148672
-        },
-        {
-          "baseline_rss_bytes" : 193691648,
-          "capacity_within_budget" : true,
-          "cycle" : 7,
-          "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 201654272,
-          "post_unsplit_rss_bytes" : 198557696,
-          "split_latencies_within_budget" : true,
-          "split_latency_ms" : [
-            4.3039321899414062,
-            4.1230916976928711,
-            4.279017448425293
-          ],
-          "stable_rss_bytes" : 201654272
-        },
-        {
-          "baseline_rss_bytes" : 197754880,
+          "baseline_rss_bytes" : 201310208,
           "capacity_within_budget" : true,
           "cycle" : 8,
+          "open_metric_begin_event_count" : 155,
+          "open_metric_end_event_count" : 155,
+          "open_metric_trace_count" : 31,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 206635008,
-          "post_unsplit_rss_bytes" : 203358208,
+          "peak_rss_bytes" : 207912960,
+          "post_unsplit_rss_bytes" : 193200128,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            4.0639638900756836,
-            4.0400028228759766,
-            4.0580034255981445
+            4.3228864669799805,
+            4.3780803680419922,
+            4.2279958724975586
           ],
-          "stable_rss_bytes" : 206635008
+          "stable_rss_bytes" : 201080832
         }
       ],
       "fixture" : "L",
@@ -161,124 +185,148 @@
       "capacity_within_budget" : true,
       "cycles" : [
         {
-          "baseline_rss_bytes" : 249085952,
+          "baseline_rss_bytes" : 250953728,
           "capacity_within_budget" : true,
           "cycle" : 1,
+          "open_metric_begin_event_count" : 50,
+          "open_metric_end_event_count" : 50,
+          "open_metric_trace_count" : 10,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 268075008,
-          "post_unsplit_rss_bytes" : 260521984,
+          "peak_rss_bytes" : 270336000,
+          "post_unsplit_rss_bytes" : 263700480,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            7.5449943542480469,
-            1.6050338745117188,
-            1.5439987182617188
+            2.1669864654541016,
+            1.6230344772338867,
+            1.7260313034057617
           ],
-          "stable_rss_bytes" : 263585792
+          "stable_rss_bytes" : 263700480
         },
         {
-          "baseline_rss_bytes" : 260521984,
+          "baseline_rss_bytes" : 263700480,
           "capacity_within_budget" : true,
           "cycle" : 2,
+          "open_metric_begin_event_count" : 65,
+          "open_metric_end_event_count" : 65,
+          "open_metric_trace_count" : 13,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 279363584,
-          "post_unsplit_rss_bytes" : 272531456,
+          "peak_rss_bytes" : 284884992,
+          "post_unsplit_rss_bytes" : 277315584,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            3.7800073623657227,
-            1.6750097274780273,
-            1.7230510711669922
+            4.799962043762207,
+            1.6840696334838867,
+            1.6440153121948242
           ],
-          "stable_rss_bytes" : 275595264
+          "stable_rss_bytes" : 280379392
         },
         {
-          "baseline_rss_bytes" : 272531456,
+          "baseline_rss_bytes" : 277315584,
           "capacity_within_budget" : true,
           "cycle" : 3,
+          "open_metric_begin_event_count" : 80,
+          "open_metric_end_event_count" : 80,
+          "open_metric_trace_count" : 16,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 291995648,
-          "post_unsplit_rss_bytes" : 285048832,
+          "peak_rss_bytes" : 297091072,
+          "post_unsplit_rss_bytes" : 290373632,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            4.756927490234375,
-            1.5469789505004883,
-            1.6480684280395508
+            8.1110000610351562,
+            1.835942268371582,
+            1.9719600677490234
           ],
-          "stable_rss_bytes" : 285048832
+          "stable_rss_bytes" : 296501248
         },
         {
-          "baseline_rss_bytes" : 285048832,
+          "baseline_rss_bytes" : 290373632,
           "capacity_within_budget" : true,
           "cycle" : 4,
+          "open_metric_begin_event_count" : 95,
+          "open_metric_end_event_count" : 95,
+          "open_metric_trace_count" : 19,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 305414144,
-          "post_unsplit_rss_bytes" : 298762240,
+          "peak_rss_bytes" : 308559872,
+          "post_unsplit_rss_bytes" : 301039616,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            8.9050531387329102,
-            1.6390085220336914,
-            1.5329122543334961
+            4.6949386596679688,
+            1.768946647644043,
+            1.7589330673217773
           ],
-          "stable_rss_bytes" : 298745856
+          "stable_rss_bytes" : 307150848
         },
         {
-          "baseline_rss_bytes" : 298762240,
+          "baseline_rss_bytes" : 301039616,
           "capacity_within_budget" : true,
           "cycle" : 5,
+          "open_metric_begin_event_count" : 110,
+          "open_metric_end_event_count" : 110,
+          "open_metric_trace_count" : 22,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 318275584,
-          "post_unsplit_rss_bytes" : 311099392,
+          "peak_rss_bytes" : 323059712,
+          "post_unsplit_rss_bytes" : 315850752,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            4.1749477386474609,
-            1.6109943389892578,
-            1.7199516296386719
+            1.6950368881225586,
+            1.8889904022216797,
+            2.0029544830322266
           ],
-          "stable_rss_bytes" : 311099392
+          "stable_rss_bytes" : 315850752
         },
         {
-          "baseline_rss_bytes" : 310984704,
+          "baseline_rss_bytes" : 315801600,
           "capacity_within_budget" : true,
           "cycle" : 6,
+          "open_metric_begin_event_count" : 125,
+          "open_metric_end_event_count" : 125,
+          "open_metric_trace_count" : 25,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 331300864,
-          "post_unsplit_rss_bytes" : 324108288,
+          "peak_rss_bytes" : 336052224,
+          "post_unsplit_rss_bytes" : 328728576,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            7.1349143981933594,
-            1.6520023345947266,
-            1.6019344329833984
+            4.449009895324707,
+            1.6760826110839844,
+            1.5860795974731445
           ],
-          "stable_rss_bytes" : 327172096
+          "stable_rss_bytes" : 328728576
         },
         {
-          "baseline_rss_bytes" : 324108288,
+          "baseline_rss_bytes" : 328728576,
           "capacity_within_budget" : true,
           "cycle" : 7,
+          "open_metric_begin_event_count" : 140,
+          "open_metric_end_event_count" : 140,
+          "open_metric_trace_count" : 28,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 344129536,
-          "post_unsplit_rss_bytes" : 337903616,
+          "peak_rss_bytes" : 348798976,
+          "post_unsplit_rss_bytes" : 341393408,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            8.4009170532226562,
-            1.6590356826782227,
-            1.6889572143554688
+            8.4511041641235352,
+            1.6990900039672852,
+            1.7060041427612305
           ],
-          "stable_rss_bytes" : 337903616
+          "stable_rss_bytes" : 341377024
         },
         {
-          "baseline_rss_bytes" : 337903616,
+          "baseline_rss_bytes" : 341393408,
           "capacity_within_budget" : true,
           "cycle" : 8,
+          "open_metric_begin_event_count" : 155,
+          "open_metric_end_event_count" : 155,
+          "open_metric_trace_count" : 31,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 357711872,
-          "post_unsplit_rss_bytes" : 350748672,
+          "peak_rss_bytes" : 359120896,
+          "post_unsplit_rss_bytes" : 351879168,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            2.2209882736206055,
-            1.623988151550293,
-            1.484990119934082
+            1.9090175628662109,
+            1.9429922103881836,
+            1.8639564514160156
           ],
-          "stable_rss_bytes" : 350748672
+          "stable_rss_bytes" : 351879168
         }
       ],
       "fixture" : "F",
@@ -298,7 +346,7 @@
       "divider persistence"
     ],
     "divider_extremes" : "outer min\/max crossed with every present inner min\/max",
-    "evidence" : "separately-run PaneShellTests.minimumWindowThreeDividerMatrix",
+    "evidence" : "implemented separately in PaneShellTests.minimumWindowThreeDividerMatrix; this measurement does not run or assert that test and makes no claim about its result",
     "test" : "PaneShellTests.minimumWindowThreeDividerMatrix",
     "topologies" : [
       "2x2",
@@ -333,7 +381,7 @@
   "threshold" : {
     "four_pane_capacity" : "stable RSS at four panes must not exceed 4x the one-pane baseline in every measured cycle",
     "leaks_audit_when_run" : "total leaked bytes must not exceed 65536",
-    "open_metric_balance" : "every open metric begin\/end pair must balance",
+    "open_metric_balance" : "every open metric begin\/end pair must balance and at least one trace must be recorded (zero telemetry is a failure, not a balanced run)",
     "post_unsplit_rss_plateau" : "informational only; excluded from the verdict gate",
     "split_latency_ms" : "each split must not exceed 250 ms"
   },
