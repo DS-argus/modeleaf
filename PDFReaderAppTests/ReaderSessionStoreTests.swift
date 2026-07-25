@@ -92,6 +92,7 @@ struct ReaderSessionStoreTests {
     func closedSessionCanDeallocate() {
         let store = ReaderSessionStore()
         var session: StubReaderSession? = StubReaderSession(id: fixedID(1), title: "Ephemeral.pdf")
+
         let weakBox = WeakBox(session)
         #expect(store.insert(session!))
 
@@ -99,6 +100,23 @@ struct ReaderSessionStoreTests {
         session = nil
 
         #expect(weakBox.value == nil)
+    }
+
+    @Test("rollback restores the closing tab at its original visual position")
+    func rollbackRestoresOriginalPosition() {
+        let store = ReaderSessionStore()
+        let first = StubReaderSession(id: fixedID(1), title: "First.pdf")
+        let second = StubReaderSession(id: fixedID(2), title: "Second.pdf")
+        let third = StubReaderSession(id: fixedID(3), title: "Third.pdf")
+        #expect(store.insert(first))
+        #expect(store.insert(second))
+        #expect(store.insert(third))
+        #expect(store.activate(second.id))
+        let before = store.snapshot
+        let token = store.beginClose(second.id)!
+        store.rollbackClose(token)
+        #expect(store.snapshot == before)
+        #expect(second.prepareForCloseCount == 0)
     }
 
     private func fixedID(_ value: Int) -> TabID {

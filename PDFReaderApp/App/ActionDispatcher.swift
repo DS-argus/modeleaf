@@ -73,7 +73,7 @@ final class ActionDispatcher {
             presentation?.prepareForGlobalAction()
             openDocumentHandler()
         case .documentClose:
-            _ = coordinator?.closeActiveTab(stage: { _ in true })
+            _ = coordinator?.closeActiveTab()
         case .appQuit:
             presentation?.prepareForGlobalAction()
             terminationHandler()

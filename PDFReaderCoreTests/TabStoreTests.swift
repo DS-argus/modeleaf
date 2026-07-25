@@ -140,6 +140,25 @@ struct TabStoreTests {
         let missingCloseRejected = !store.close(only)
         #expect(missingCloseRejected)
     }
+    @Test("positional restore preserves order and duplicate-free selection invariants")
+    func positionalRestore() {
+        let first = fixedID(1)
+        let second = fixedID(2)
+        let third = fixedID(3)
+        var store = TabStore(orderedIDs: [first, second, third], activeID: third)
+
+        let closed = store.close(second)
+        #expect(closed)
+        let restored = store.insert(second, at: 1)
+        #expect(restored)
+        #expect(store.orderedIDs == [first, second, third])
+        #expect(store.activeID == third)
+        let duplicateInsert = store.insert(second, at: 1)
+        #expect(!duplicateInsert)
+        let invalidInsert = store.insert(fixedID(4), at: 4)
+        #expect(!invalidInsert)
+    }
+
 
     @Test("U-TAB-02 next and previous activation wrap around the ordered tabs")
     func nextPreviousWrapAround() {

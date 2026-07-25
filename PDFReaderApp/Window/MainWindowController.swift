@@ -7,6 +7,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let actionHandler: (ActionID) -> Void
     private let inputRouter: ReaderInputRouter
     private var lastActiveSessionID: TabID?
+    private let openPaneHandler: ((PaneID) -> Void)?
     private var installedKeyViewLoop: [NSView] = []
     let rootView: ReaderRootView
 
@@ -15,10 +16,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         theme: AppKitTheme,
         actionHandler: @escaping (ActionID) -> Void,
         keyDispatchHandler: ((KeyActionDispatch) -> Void)? = nil,
-        validatedConfig: ValidatedAppConfig? = nil
+        validatedConfig: ValidatedAppConfig? = nil,
+        openPaneHandler: ((PaneID) -> Void)? = nil,
     ) {
         self.coordinator = coordinator
         self.actionHandler = actionHandler
+        self.openPaneHandler = openPaneHandler
         self.rootView = ReaderRootView(frame: NSRect(origin: .zero, size: WindowVisualMetrics.initialSize))
         let config = validatedConfig ?? Self.builtInValidatedConfig()
         self.inputRouter = ReaderInputRouter(
@@ -71,12 +74,18 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             self.dispatchTabClose(tabID)
         }
         rootView.onPaneNewTab = { [weak self] paneID in
-            self?.coordinator.activatePane(paneID)
-            self?.actionHandler(.documentOpen)
+            guard let self else { return }
+            self.coordinator.activatePane(paneID)
+            if let openPaneHandler = self.openPaneHandler {
+                openPaneHandler(paneID)
+            } else {
+                self.actionHandler(.documentOpen)
+            }
         }
         rootView.promptOverlay.commitButton.handler = { [weak self] in self?.actionHandler(.promptCommit) }
         rootView.promptOverlay.cancelButton.handler = { [weak self] in self?.actionHandler(.promptCancel) }
         coordinator.onSnapshot = { [weak self] _ in self?.refresh() }
+        coordinator.configureCloseStaging { [weak self] projected in self?.stageClose(projected) ?? false }
         refresh()
     }
 
@@ -204,15 +213,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window?.title = snapshot.windowTitle
         focusActiveSurface()
     }
-
-    private func rebuildKeyViewLoop() {
+    private func rebuildKeyViewLoop(snapshot: PaneCoordinatorSnapshot? = nil) {
         for view in installedKeyViewLoop {
             view.nextKeyView = nil
         }
 
+        let snapshot = snapshot ?? coordinator.snapshot
         var views: [NSView] = []
-        if let active = coordinator.activeSession {
-            views.append(active.focusView)
+        if let activeFocusView = snapshot.activeFocusView {
+            views.append(activeFocusView)
             if !rootView.promptOverlay.isHidden {
                 views.append(contentsOf: [
                     rootView.promptOverlay.textField,
@@ -220,7 +229,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
                     rootView.promptOverlay.cancelButton,
                 ])
             }
-            views.append(contentsOf: rootView.tabBar.orderedKeyViews)
+            if case .split = snapshot.layout, let paneID = snapshot.activePaneID {
+                views.append(contentsOf: rootView.paneViewForTesting(paneID)?.orderedKeyViews ?? [])
+            } else {
+                views.append(contentsOf: rootView.tabBar.orderedKeyViews)
+            }
         } else {
             views.append(rootView.emptyState.openButton)
         }
@@ -230,11 +243,26 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             window?.initialFirstResponder = nil
             return
         }
-        for (view, next) in zip(views, views.dropFirst() + [first]) {
-            view.nextKeyView = next
+        for index in views.indices {
+            views[index].nextKeyView = views[(index + 1) % views.count]
         }
         window?.initialFirstResponder = first
     }
+
+    private func stageClose(_ projected: PaneCoordinatorSnapshot) -> Bool {
+        guard let window else { return false }
+        guard window.isVisible else { return true }
+        let target = projected.activeFocusView ?? projected.activeContentView ?? rootView.emptyState.openButton
+        guard rootView.promptOverlay.isHidden, window.attachedSheet == nil else { return true }
+        rootView.render(snapshot: projected)
+        rebuildKeyViewLoop(snapshot: projected)
+        guard target.acceptsFirstResponder,
+              window.makeFirstResponder(target),
+              window.firstResponder === target
+        else { return false }
+        return true
+    }
+
 
     private func focusActiveSurface() {
         guard rootView.promptOverlay.isHidden else { return }

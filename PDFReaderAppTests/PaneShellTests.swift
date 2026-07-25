@@ -116,6 +116,22 @@ struct PaneShellTests {
         #expect(controller.rootView.statusBar.presentation.page == "2 / 10")
         #expect(controller.window?.firstResponder === fixture.origin.focusView)
     }
+    @Test("collapse stages the survivor responder and clears the removed pane from the key loop")
+    func collapseStagesResponderAndKeyLoop() throws {
+        let fixture = splitFixture()
+        let controller = MainWindowController(
+            coordinator: fixture.coordinator,
+            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            actionHandler: { _ in }
+        )
+        defer { controller.close() }
+        let removedFocus = fixture.duplicate.focusView
+        #expect(fixture.coordinator.closeActiveTab())
+        #expect(controller.window?.firstResponder === fixture.origin.focusView)
+        #expect(removedFocus.nextKeyView == nil)
+        #expect(fixture.coordinator.snapshot.layout == .single(fixture.leading))
+    }
+
 
     private func splitFixture(originPage: Int = 1, duplicatePage: Int = 1) -> (
         coordinator: PaneCoordinator,

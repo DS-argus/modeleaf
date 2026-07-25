@@ -16,7 +16,7 @@ final class ApplicationController {
     private(set) var menuBuilder: ValidatedMenuBuilder?
 
     lazy var mainWindowController: MainWindowController = {
-        let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(configuration: configResult.activeConfig.config.theme), actionHandler: { [weak self] action in self?.actionDispatcher.dispatch(action) }, keyDispatchHandler: { [weak self] dispatch in self?.actionDispatcher.dispatch(dispatch) }, validatedConfig: configResult.activeConfig)
+        let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(configuration: configResult.activeConfig.config.theme), actionHandler: { [weak self] action in self?.actionDispatcher.dispatch(action) }, keyDispatchHandler: { [weak self] dispatch in self?.actionDispatcher.dispatch(dispatch) }, validatedConfig: configResult.activeConfig, openPaneHandler: { [weak self] paneID in self?.presentOpenPanel(target: .existing(paneID)) })
         actionDispatcher.presentation = controller
         return controller
     }()
@@ -34,17 +34,17 @@ final class ApplicationController {
 
     func start() { let menuBuilder = ValidatedMenuBuilder(descriptors: configResult.activeConfig.menuDescriptors, dispatch: { [weak self] action in self?.dispatch(action) }); self.menuBuilder = menuBuilder; application.mainMenu = menuBuilder.makeMainMenu(); mainWindowController.showWindow(nil); if !configResult.diagnostics.isEmpty { let presentation = ConfigDiagnosticPresentation(diagnostics: configResult.diagnostics, usedFallback: configResult.usedFallback); mainWindowController.showDiagnostic(presentation.summary, expandedDetail: presentation.details, isError: presentation.hasErrors) } }
     func dispatch(_ action: ActionID) { actionDispatcher.dispatch(action) }
-    @discardableResult func openDocument(at url: URL) -> Bool {
+    @discardableResult func openDocument(at url: URL, target: PaneOpenTarget = .createIfEmpty) -> Bool {
         let traceID = OpenTraceID(); openMetrics.record(.point(.openRequested, traceID: traceID)); openMetrics.record(.begin(.openTotal, traceID: traceID))
         do {
             let session = try pdfOpenService.open(url: url, traceID: traceID, metrics: openMetrics); session.applyTheme(AppKitTheme(configuration: configResult.activeConfig.config.theme))
-            guard coordinator.insert(session, into: .createIfEmpty) else { session.prepareForClose(reason: .insertionRejected); mainWindowController.showDiagnostic("Could not create a PDF tab for \(url.lastPathComponent)"); recordOpenFailure(traceID: traceID, outcome: .insertionRejected); return false }
+            guard coordinator.insert(session, into: target) else { session.prepareForClose(reason: .insertionRejected); mainWindowController.showDiagnostic("Could not create a PDF tab for \(url.lastPathComponent)"); recordOpenFailure(traceID: traceID, outcome: .insertionRejected); return false }
             mainWindowController.clearDiagnostic(); openMetrics.record(.point(.openReady, traceID: traceID, outcome: .success)); openMetrics.record(.end(.openTotal, traceID: traceID, outcome: .success)); return true
         } catch let error as PDFOpenError { mainWindowController.showDiagnostic(error.presentation); recordOpenFailure(traceID: traceID, outcome: error.metricOutcome); return false
         } catch { mainWindowController.showDiagnostic("Could not open PDF: \(error.localizedDescription)"); recordOpenFailure(traceID: traceID, outcome: .unexpectedFailure); return false }
     }
     func openExternalDocuments(_ urls: [URL]) { for url in urls { _ = openDocument(at: url) } }
-    private func presentOpenPanel() { openPanelPresenter.present(attachedTo: mainWindowController.window) { [weak self] url in guard let self, let url else { return }; _ = self.openDocument(at: url) } }
+    private func presentOpenPanel(target: PaneOpenTarget = .createIfEmpty) { openPanelPresenter.present(attachedTo: mainWindowController.window) { [weak self] url in guard let self, let url else { return }; _ = self.openDocument(at: url, target: target) } }
     private func recordOpenFailure(traceID: OpenTraceID, outcome: PDFOpenMetricOutcome) { openMetrics.record(.point(.openFailed, traceID: traceID, outcome: outcome)); openMetrics.record(.end(.openTotal, traceID: traceID, outcome: outcome)) }
 
     private func makeDuplicate(from snapshot: ReaderDuplicationSnapshot) -> (any ReaderSessionPresenting)? {

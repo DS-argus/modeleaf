@@ -54,6 +54,20 @@ public struct TabStore: Equatable, Sendable {
         return true
     }
 
+
+    /// Inserts a unique tab at a zero-based visual position without changing
+    /// an existing active selection. This supports transactional rollback.
+    @discardableResult
+    public mutating func insert(_ id: TabID, at zeroBasedIndex: Int) -> Bool {
+        guard !orderedIDs.contains(id), (0...orderedIDs.count).contains(zeroBasedIndex) else {
+            return false
+        }
+        orderedIDs.insert(id, at: zeroBasedIndex)
+        if activeID == nil {
+            activeID = id
+        }
+        return true
+    }
     @discardableResult
     public mutating func activate(_ id: TabID) -> Bool {
         guard orderedIDs.contains(id) else { return false }

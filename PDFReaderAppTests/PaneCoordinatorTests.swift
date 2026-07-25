@@ -97,8 +97,43 @@ struct PaneCoordinatorTests {
         #expect(!coordinator.focus(.up))
         #expect(coordinator.unsplit())
         #expect(duplicate.prepareForCloseCount == 1)
+}
+    @Test("closing a pane's last tab collapses onto the survivor without changing its active tab")
+    func collapseKeepsSurvivorSelection() throws {
+        let coordinator = PaneCoordinator()
+        let origin = StubReaderSession(id: TabID(), title: "Origin.pdf")
+        let extra = StubReaderSession(id: TabID(), title: "Extra.pdf")
+        let duplicate = StubReaderSession(id: TabID(), title: "Duplicate.pdf")
+        coordinator.configureDuplication { _ in duplicate }
+        #expect(coordinator.insert(origin, into: .createIfEmpty))
+        #expect(coordinator.insert(extra, into: .createIfEmpty))
+        let closingPane = try #require(coordinator.split(direction: .sideBySide))
+        let survivor = try #require(coordinator.snapshot.panes.keys.first { $0 != closingPane })
+        #expect(coordinator.activatePane(survivor))
+        #expect(coordinator.store(for: survivor)?.activate(origin.id) == true)
+        #expect(coordinator.activatePane(closingPane))
+
+        #expect(coordinator.closeActiveTab { snapshot in
+            snapshot.layout == .single(survivor) && snapshot.activeID == origin.id
+        })
+        #expect(coordinator.snapshot.layout == .single(survivor))
+        #expect(coordinator.activePaneID == survivor)
+        #expect(coordinator.activeSession?.id == origin.id)
+    }
+
+    @Test("empty terminal state recreates its first pane through createIfEmpty")
+    func emptyReopens() {
+        let coordinator = PaneCoordinator()
+        let first = StubReaderSession(id: TabID(), title: "First.pdf")
+        let reopened = StubReaderSession(id: TabID(), title: "Reopened.pdf")
+        #expect(coordinator.insert(first, into: .createIfEmpty))
+        #expect(coordinator.closeActiveTab { $0.layout == .empty })
+        #expect(coordinator.insert(reopened, into: .createIfEmpty))
+        #expect(coordinator.snapshot.layout != .empty)
+        #expect(coordinator.activeSession?.id == reopened.id)
     }
 }
+
 
 
 extension StubReaderSession: ReaderDuplicationSnapshotProviding {
