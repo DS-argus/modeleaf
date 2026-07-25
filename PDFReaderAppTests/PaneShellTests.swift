@@ -179,6 +179,96 @@ struct PaneShellTests {
     }
 
 
+    @Test("480 by 360 split panes preserve reachable controls at both divider limits")
+    func minimumWindowSplitLayout() throws {
+        for orientation in [PaneOrientation.sideBySide, .stacked] {
+            let coordinator = PaneCoordinator()
+            let leadingSession = StubReaderSession(id: TabID(), title: "Leading.pdf")
+            let trailingSession = StubReaderSession(id: TabID(), title: "Trailing.pdf")
+            coordinator.configureDuplication { _ in trailingSession }
+            #expect(coordinator.insert(leadingSession, into: .createIfEmpty))
+            let trailingID = try #require(coordinator.split(direction: orientation))
+            let leadingID = try #require(coordinator.snapshot.panes.keys.first { $0 != trailingID })
+            let controller = MainWindowController(
+                coordinator: coordinator,
+                theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+                actionHandler: { _ in }
+            )
+            defer { controller.close() }
+            let window = try #require(controller.window)
+            window.setContentSize(WindowVisualMetrics.minimumSize)
+            controller.rootView.layoutSubtreeIfNeeded()
+
+            let container = try #require(firstDescendant(of: controller.rootView, as: PaneContainerView.self))
+            let leading = try #require(controller.rootView.paneViewForTesting(leadingID))
+            let trailing = try #require(controller.rootView.paneViewForTesting(trailingID))
+            #expect(leading.tabBar.trafficLightInset == WindowVisualMetrics.trafficLightInset)
+            #expect(trailing.tabBar.trafficLightInset == 0)
+
+            let totalThickness = orientation == .sideBySide ? container.bounds.width : container.bounds.height
+            let defaultLeadingThickness = orientation == .sideBySide ? leading.frame.width : leading.frame.height
+            #expect(abs(defaultLeadingThickness - (totalThickness - container.dividerThickness) / 2) < 1)
+
+            for requestedDivider in [-1_000 as CGFloat, 1_000 as CGFloat] {
+                container.setPosition(requestedDivider, ofDividerAt: 0)
+                controller.rootView.layoutSubtreeIfNeeded()
+                let leadingThickness = orientation == .sideBySide ? leading.frame.width : leading.frame.height
+                let trailingThickness = orientation == .sideBySide ? trailing.frame.width : trailing.frame.height
+                #expect(leadingThickness >= 160)
+                #expect(trailingThickness >= 160)
+
+                let activePane = try #require(controller.rootView.paneViewForTesting(trailingID))
+                let closeID = "tab.close.\(trailingSession.id.rawValue.uuidString.lowercased())"
+                let close = try #require(firstDescendant(of: activePane, identifier: closeID))
+                assertReachable(close, in: controller.rootView)
+                assertReachable(activePane.tabBar.newTabButton, in: controller.rootView)
+                assertReachable(trailingSession.contentView, in: controller.rootView)
+                assertReachable(controller.rootView.statusBar, in: controller.rootView)
+                assertNoAmbiguousLayout(in: controller.rootView)
+            }
+        }
+    }
+
+    private func firstDescendant<T: NSView>(of view: NSView, as type: T.Type) -> T? {
+        if let matched = view as? T { return matched }
+        for subview in view.subviews {
+            if let matched = firstDescendant(of: subview, as: type) { return matched }
+        }
+        return nil
+    }
+
+    private func firstDescendant(of view: NSView, identifier: String) -> NSView? {
+        if view.accessibilityIdentifier() == identifier { return view }
+        for subview in view.subviews {
+            if let matched = firstDescendant(of: subview, identifier: identifier) { return matched }
+        }
+        return nil
+    }
+
+    private func assertReachable(_ view: NSView, in root: NSView) {
+        #expect(view.window != nil)
+        #expect(!view.isHidden)
+        #expect(!view.bounds.isEmpty)
+        let point = view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: root)
+        let hit = root.hitTest(point)
+        #expect(hit.map { isDescendant($0, of: view) } == true, "unreachable \(view.accessibilityIdentifier()) frame=\(view.frame) hit=\(String(describing: hit))")
+    }
+
+    private func isDescendant(_ view: NSView, of ancestor: NSView) -> Bool {
+        var candidate: NSView? = view
+        while let current = candidate {
+            if current === ancestor { return true }
+            candidate = current.superview
+        }
+        return false
+    }
+
+    private func assertNoAmbiguousLayout(in view: NSView) {
+        #expect(!view.hasAmbiguousLayout, "ambiguous \(type(of: view)) id=\(view.accessibilityIdentifier()) frame=\(view.frame)")
+        guard !(view is NSScrollView) else { return }
+        for subview in view.subviews { assertNoAmbiguousLayout(in: subview) }
+    }
+
     private func splitFixture(originPage: Int = 1, duplicatePage: Int = 1) -> (
         coordinator: PaneCoordinator,
         leading: PaneID,

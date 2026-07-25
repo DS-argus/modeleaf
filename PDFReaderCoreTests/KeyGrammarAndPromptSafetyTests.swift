@@ -124,6 +124,39 @@ struct KeyGrammarAndPromptSafetyTests {
         ).isValid)
     }
 
+    @Test("pane descriptors exclude all prompt contexts while prompt-scoped multi-token variants are rejected")
+    func panePromptSafetyBoundary() throws {
+        let paneActions: [ActionID] = [
+            .paneSplitRight, .paneSplitDown, .paneFocusLeft, .paneFocusDown,
+            .paneFocusUp, .paneFocusRight, .paneUnsplit,
+        ]
+        let promptContexts: Set<InputContext> = [.pagePrompt, .searchPrompt]
+        for actionID in paneActions {
+            let descriptor = try #require(ActionRegistry.v1.descriptor(for: actionID))
+            #expect(descriptor.activeContexts == [.navigation])
+            for context in promptContexts {
+                #expect(PromptSafeBindingPredicate.evaluate(
+                    action: descriptor,
+                    activeContexts: [context],
+                    sequence: try KeySequenceParser.parse("<C-w>v")
+                ) == .valid)
+            }
+        }
+
+        let synthetic = ActionDescriptor(
+            id: .paneSplitRight,
+            title: "Synthetic prompt pane action",
+            scope: .contexts([.pagePrompt]),
+            repeatPolicy: .suppressed
+        )
+        let decision = PromptSafeBindingPredicate.evaluate(
+            action: synthetic,
+            activeContexts: [.pagePrompt],
+            sequence: try KeySequenceParser.parse("<C-w>v")
+        )
+        #expect(decision.failure?.violation == .multipleTokens)
+    }
+
     @Test("Reservation tables match their independent v1 snapshots")
     func reservationSnapshots() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()

@@ -342,6 +342,32 @@ struct ConfigLoadingTests {
         #expect(oversizedResult.activeConfig.config == BuiltInDefaults.config)
     }
 
+    @Test("pane actions are independently TOML-rebindable and dispatch only in navigation")
+    func paneActionRebindingsDispatchInNavigationOnly() throws {
+        let actions: [ActionID] = [
+            .paneSplitRight, .paneSplitDown, .paneFocusLeft, .paneFocusDown,
+            .paneFocusUp, .paneFocusRight, .paneUnsplit,
+        ]
+        let bindings = ["<C-w>r", "<C-w>d", "<C-a>", "<C-b>", "<C-c>", "<C-e>", "<C-w>q"]
+        let source = "[keymap]\n" + zip(actions, bindings)
+            .map { "\"\($0.rawValue)\" = [\"\($1)\"]" }
+            .joined(separator: "\n")
+        let document = try #require(decode(source).document)
+        let validation = ConfigValidator.validate(document.sparseConfig, source: document.source)
+        let config = try #require(validation.validatedConfig)
+
+        #expect(validation.diagnostics.isEmpty)
+        for (action, source) in zip(actions, bindings) {
+            let sequence = try KeySequenceParser.parse(source)
+            #expect(config.keymap.bindings(for: action) == [sequence])
+            var engine = config.makeKeyEngine(context: .navigation)
+            for token in sequence.tokens.dropLast() {
+                _ = engine.handle(token)
+            }
+            #expect(engine.handle(try #require(sequence.tokens.last)) == .dispatch(KeyActionDispatch(actionID: action)))
+        }
+    }
+
     private func decode(_ source: String, path: String = "/tmp/config.toml") -> ConfigDecodeReport {
         TOMLConfigDecoder().decode(Data(source.utf8), sourcePath: path)
     }

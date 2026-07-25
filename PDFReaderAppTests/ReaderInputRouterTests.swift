@@ -143,4 +143,33 @@ struct ReaderInputRouterTests {
         #expect(router.handle(try #require(makeKeyEvent(characters: "\u{1B}", keyCode: 53))))
         #expect(actions == [.promptCommit, .promptCancel])
     }
+    @Test("pane bindings never dispatch from page or search prompts while prompt text remains native")
+    func paneBindingsAreExcludedFromPromptRouting() throws {
+        let validated = try #require(ConfigValidator.validate(SparseAppConfig()).validatedConfig)
+        let paneActions: Set<ActionID> = [
+            .paneSplitRight, .paneSplitDown, .paneFocusLeft, .paneFocusDown,
+            .paneFocusUp, .paneFocusRight, .paneUnsplit,
+        ]
+
+        for context in [InputContext.pagePrompt, .searchPrompt] {
+            var dispatches: [ActionID] = []
+            let router = ReaderInputRouter(
+                config: validated,
+                automaticallySchedulesTimeouts: false,
+                pendingHandler: { _ in },
+                dispatchHandler: { dispatches.append($0.actionID) }
+            )
+            router.synchronizeContext(context)
+            for event in [
+                try #require(makeKeyEvent(characters: "w", charactersIgnoringModifiers: "w", modifiers: [.control])),
+                try #require(makeKeyEvent(characters: "v")),
+                try #require(makeKeyEvent(characters: "h", charactersIgnoringModifiers: "h", modifiers: [.control])),
+            ] {
+                _ = router.handle(event)
+            }
+            #expect(Set(dispatches).isDisjoint(with: paneActions))
+            #expect(router.context == context)
+            #expect(!router.handle(try #require(makeKeyEvent(characters: context == .pagePrompt ? "7" : "x"))))
+        }
+    }
 }
