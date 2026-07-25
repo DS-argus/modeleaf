@@ -274,6 +274,29 @@ struct PaneCoordinatorTests {
         }
     }
 
+    @Test("cross-column focus remembers each column row while vertical focus stays column-internal")
+    func rememberedFocusRows() throws {
+        let coordinator = PaneCoordinator()
+        var duplicates = (1...3).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }
+        coordinator.configureDuplication { _ in duplicates.removeFirst() }
+        #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Origin.pdf"), into: .createIfEmpty))
+        let trailingTop = try #require(coordinator.split(direction: .sideBySide))
+        let leadingTop = try #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailingTop })
+        #expect(coordinator.activatePane(leadingTop))
+        let leadingBottom = try #require(coordinator.split(direction: .stacked))
+        #expect(coordinator.focus(.right))
+        let trailingBottom = try #require(coordinator.split(direction: .stacked))
+        #expect(coordinator.focus(.left))
+        #expect(coordinator.activePaneID == leadingBottom)
+        #expect(coordinator.focus(.up))
+        #expect(coordinator.activePaneID == leadingTop)
+        #expect(coordinator.focus(.right))
+        #expect(coordinator.activePaneID == trailingBottom)
+        #expect(!coordinator.focus(.right))
+        #expect(coordinator.focus(.left))
+        #expect(coordinator.activePaneID == leadingTop)
+        #expect(!coordinator.focus(.up))
+    }
     private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("pdf-reader-pane-coordinator-\(UUID().uuidString)", isDirectory: true)
