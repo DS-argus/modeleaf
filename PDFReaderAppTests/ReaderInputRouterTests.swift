@@ -191,6 +191,10 @@ struct ReaderInputRouterTests {
             )
             router.synchronizeContext(context)
 
+            // Prompt-safety is proven by dispatch isolation: pressing the
+            // picker binding in a typing context never opens the picker. (The
+            // router's own consume/return semantics for a bound key are a
+            // separate, pre-existing concern and not the safety signal here.)
             _ = router.handle(themePickerKey)
             #expect(Set(dispatches).isDisjoint(with: [.themePicker]))
             #expect(router.context == context)

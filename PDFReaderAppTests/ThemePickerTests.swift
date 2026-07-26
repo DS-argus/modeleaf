@@ -145,6 +145,53 @@ struct ThemePickerTests {
         }
     }
 
+    @Test("AC-7 operational state read failure launches on default and surfaces a diagnostic")
+    func startupIOErrorSurfacesDiagnostic() throws {
+        try withTemporaryDirectory { dir in
+            // A directory at the state-file path is an operational I/O failure,
+            // NOT one of the silent absent/invalid cases.
+            let stateURL = dir.appendingPathComponent("state.json")
+            try FileManager.default.createDirectory(at: stateURL, withIntermediateDirectories: true)
+            let controller = ApplicationController(
+                configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
+                sessionStore: ReaderSessionStore(),
+                themeStore: ThemeSelectionStore(fileURL: stateURL),
+                terminationHandler: {}
+            )
+            #expect(controller.currentThemeID == .catppuccinMocha)   // launch continuity
+            controller.start()
+            let status = controller.mainWindowController.rootView.statusBar.presentation
+            #expect(status.detail.contains("Could not read the saved theme"))
+            controller.mainWindowController.close()
+        }
+    }
+
+    @Test("AC-4/AC-7 a failed durable commit still applies the theme but reports the save failure")
+    func commitPersistFailureIsReported() throws {
+        let e = try keys()
+        try withTemporaryDirectory { dir in
+            // Make the state parent a FILE so persist() cannot create it.
+            let parent = dir.appendingPathComponent("blocked", isDirectory: false)
+            try Data("x".utf8).write(to: parent)
+            let stateURL = parent.appendingPathComponent("state.json")
+            let controller = ApplicationController(
+                configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
+                sessionStore: ReaderSessionStore(),
+                themeStore: ThemeSelectionStore(fileURL: stateURL),
+                terminationHandler: {}
+            )
+            _ = controller.mainWindowController
+            controller.mainWindowController.presentThemePicker()
+            let overlay = controller.mainWindowController.rootView.themePickerOverlay
+            #expect(overlay.handleKeyDown(e.down))   // -> tokyoNight
+            #expect(overlay.handleKeyDown(e.ret))     // commit (persist fails)
+            #expect(controller.currentThemeID == .tokyoNight)   // applied for this session
+            let status = controller.mainWindowController.rootView.statusBar.presentation
+            #expect(status.detail.contains("could not be saved"))
+            controller.mainWindowController.close()
+        }
+    }
+
     @Test("AC-5 theme.picker is prompt-safe, navigation-scoped, default T, and rebindable")
     func actionSurfaceAndPromptSafety() throws {
         let descriptor = try #require(ActionRegistry.v1.descriptor(for: .themePicker))

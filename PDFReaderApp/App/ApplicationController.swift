@@ -15,6 +15,7 @@ final class ApplicationController {
     private var pendingDuplicateTraces: [TabID: OpenTraceID] = [:]
     private let themeStore: ThemeSelectionStore
     private(set) var currentThemeID: ThemeID
+    private let themeStartupDiagnostic: String?
     private(set) var menuBuilder: ValidatedMenuBuilder?
 
     lazy var mainWindowController: MainWindowController = {
@@ -27,14 +28,20 @@ final class ApplicationController {
         let configResult = configService.load()
         self.application = application; self.configResult = configResult; self.sessionStore = sessionStore
         self.coordinator = PaneCoordinator(initialStore: sessionStore)
-        self.pdfOpenService = pdfOpenService; self.openMetrics = openMetrics; self.openPanelPresenter = openPanelPresenter; self.themeStore = themeStore; self.currentThemeID = themeStore.resolvedTheme(); self.terminationHandler = terminationHandler ?? { application.terminate(nil) }
+        self.pdfOpenService = pdfOpenService; self.openMetrics = openMetrics; self.openPanelPresenter = openPanelPresenter; self.themeStore = themeStore
+        switch themeStore.load() {
+        case let .selected(id): self.currentThemeID = id; self.themeStartupDiagnostic = nil
+        case .absent, .invalid: self.currentThemeID = ThemeSelectionStore.productDefault; self.themeStartupDiagnostic = nil
+        case let .ioError(message): self.currentThemeID = ThemeSelectionStore.productDefault; self.themeStartupDiagnostic = "Could not read the saved theme (\(message)); using the default."
+        }
+        self.terminationHandler = terminationHandler ?? { application.terminate(nil) }
         self.actionDispatcher = ActionDispatcher(coordinator: coordinator, navigation: configResult.activeConfig.config.navigation)
         self.actionDispatcher.configureLifecycleHandlers(openDocument: { [weak self] in self?.presentOpenPanel() }, terminate: { [weak self] in self?.terminationHandler() })
         coordinator.configureDuplication { [weak self] snapshot in self?.makeDuplicate(from: snapshot) }
         coordinator.configureDuplicationCompletion { [weak self] session, committed in self?.completeDuplicate(session, committed: committed) }
     }
 
-    func start() { let menuBuilder = ValidatedMenuBuilder(descriptors: configResult.activeConfig.menuDescriptors, dispatch: { [weak self] action in self?.dispatch(action) }); self.menuBuilder = menuBuilder; application.mainMenu = menuBuilder.makeMainMenu(); mainWindowController.showWindow(nil); if !configResult.diagnostics.isEmpty { let presentation = ConfigDiagnosticPresentation(diagnostics: configResult.diagnostics, usedFallback: configResult.usedFallback); mainWindowController.showDiagnostic(presentation.summary, expandedDetail: presentation.details, isError: presentation.hasErrors) } }
+    func start() { let menuBuilder = ValidatedMenuBuilder(descriptors: configResult.activeConfig.menuDescriptors, dispatch: { [weak self] action in self?.dispatch(action) }); self.menuBuilder = menuBuilder; application.mainMenu = menuBuilder.makeMainMenu(); mainWindowController.showWindow(nil); if !configResult.diagnostics.isEmpty { let presentation = ConfigDiagnosticPresentation(diagnostics: configResult.diagnostics, usedFallback: configResult.usedFallback); mainWindowController.showDiagnostic(presentation.summary, expandedDetail: presentation.details, isError: presentation.hasErrors) } else if let themeStartupDiagnostic { mainWindowController.showDiagnostic(themeStartupDiagnostic, isError: false) } }
     func dispatch(_ action: ActionID) { actionDispatcher.dispatch(action) }
     @discardableResult func openDocument(at url: URL, target: PaneOpenTarget = .createIfEmpty) -> Bool {
         let traceID = OpenTraceID(); openMetrics.record(.point(.openRequested, traceID: traceID)); openMetrics.record(.begin(.openTotal, traceID: traceID))
