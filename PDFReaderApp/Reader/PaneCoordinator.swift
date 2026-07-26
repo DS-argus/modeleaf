@@ -180,7 +180,7 @@ final class PaneCoordinator {
             }
             return store.snapshot.tabs.map { tab in
                 guard let token = store.beginClose(tab.id) else {
-                    preconditionFailure("ReaderSessionStore cannot begin unsplit teardown")
+                    preconditionFailure("ReaderSessionStore cannot begin unsplit teardown: pane=\(id) tab=\(tab.id)")
                 }
                 return (id, token)
             }
@@ -193,7 +193,7 @@ final class PaneCoordinator {
         }
         for (id, token) in tokens {
             guard stores[id]?.commitClose(token) == true else {
-                preconditionFailure("ReaderSessionStore cannot commit unsplit teardown")
+                preconditionFailure("ReaderSessionStore cannot commit unsplit teardown: pane=\(id) closingTab=\(token.closingTab)")
             }
         }
         for id in removed { stores.removeValue(forKey: id) }
@@ -234,7 +234,7 @@ final class PaneCoordinator {
             return false
         }
         guard store.commitClose(token) else {
-            preconditionFailure("ReaderSessionStore cannot commit active-tab close")
+            preconditionFailure("ReaderSessionStore cannot commit active-tab close: pane=\(paneID) closingTab=\(token.closingTab)")
         }
         switch transition {
         case .tabSuccessor:

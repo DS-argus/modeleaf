@@ -538,7 +538,7 @@ struct PaneShellTests {
             coordinator.configureDuplication { _ in duplicates.removeFirst() }
             #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Origin.pdf"), into: .createIfEmpty))
 
-            let innerOrientation: PaneOrientation = outerOrientation == .sideBySide ? .stacked : .sideBySide
+            let innerOrientation = outerOrientation.perpendicular
             switch topology {
             case .twoBandPairs:
                 let trailing = try #require(coordinator.split(direction: outerOrientation))
@@ -906,9 +906,9 @@ struct PaneShellTests {
         let trailingFirst = try! #require(coordinator.split(direction: outer))
         let leadingFirst = try! #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailingFirst })
         #expect(coordinator.activatePane(leadingFirst))
-        let leadingSecond = try! #require(coordinator.split(direction: outer == .sideBySide ? .stacked : .sideBySide))
+        let leadingSecond = try! #require(coordinator.split(direction: outer.perpendicular))
         #expect(coordinator.activatePane(trailingFirst))
-        let trailingSecond = try! #require(coordinator.split(direction: outer == .sideBySide ? .stacked : .sideBySide))
+        let trailingSecond = try! #require(coordinator.split(direction: outer.perpendicular))
         return (coordinator, leadingFirst, leadingSecond, trailingFirst, trailingSecond)
     }
 

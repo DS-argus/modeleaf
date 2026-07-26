@@ -24,7 +24,7 @@ struct PaneRedTeamTests {
         beginCase()
         for orientation in [PaneOrientation.sideBySide, .stacked] {
             let fixture = makeFixture(orientation: orientation)
-            let perpendicular: PaneOrientation = orientation == .sideBySide ? .stacked : .sideBySide
+            let perpendicular = orientation.perpendicular
             check(fixture.coordinator.split(direction: orientation) == nil)
             check(fixture.coordinator.split(direction: perpendicular) != nil)
             let settledLayout = fixture.coordinator.snapshot.layout
@@ -51,7 +51,7 @@ struct PaneRedTeamTests {
             coordinator.onSnapshot = { _ in emissions += 1 }
             check(coordinator.insert(RedTeamSession(title: "Origin.pdf", page: 1, color: .systemBlue), into: .createIfEmpty))
             check(coordinator.split(direction: outerOrientation) != nil)
-            let perpendicular: PaneOrientation = outerOrientation == .sideBySide ? .stacked : .sideBySide
+            let perpendicular = outerOrientation.perpendicular
             check(coordinator.split(direction: perpendicular) != nil)
             let remainingOuterPane = try! #require(coordinator.snapshot.layout.paneIDs.first { coordinator.snapshot.layout.side(of: $0) == .leading })
             check(coordinator.activatePane(remainingOuterPane))
@@ -360,7 +360,7 @@ struct PaneRedTeamTests {
                     root.needsDisplay = true
                     let candidate = try #require(root.bitmapImageRepForCachingDisplay(in: root.bounds))
                     root.cacheDisplay(in: root.bounds, to: candidate)
-                    if contentFrames.allSatisfy({ hasNonUniformPixels(in: $0, representation: candidate, rootBounds: root.bounds) }) {
+                    if contentFrames.allSatisfy({ hasFixtureRasterPixels(in: $0, representation: candidate, rootBounds: root.bounds) }) {
                         representation = candidate
                         break
                     }
@@ -390,21 +390,79 @@ struct PaneRedTeamTests {
         try data.write(to: output.appendingPathComponent("adversarial-test-report.json"), options: .atomic)
     }
 
-    private func hasNonUniformPixels(in frame: NSRect, representation: NSBitmapImageRep, rootBounds: NSRect) -> Bool {
+    /// Fixture-specific raster proof: the `.F` fixture is high-entropy random
+    /// noise, so a rendered interior page region must contain MANY distinct
+    /// quantized colors. A blank page shell (white page + canvas + shadow)
+    /// yields only a handful of distinct quantized colors and fails. This is
+    /// what makes the published PNG evidence prove "fixture pixels rendered in
+    /// every pane" rather than "something varied somewhere".
+    private func hasFixtureRasterPixels(in frame: NSRect, representation: NSBitmapImageRep, rootBounds: NSRect) -> Bool {
+        distinctQuantizedColorCount(in: frame, representation: representation, rootBounds: rootBounds) >= 12
+    }
+
+    func distinctQuantizedColorCount(in frame: NSRect, representation: NSBitmapImageRep, rootBounds: NSRect) -> Int {
         let scaleX = CGFloat(representation.pixelsWide) / rootBounds.width
         let scaleY = CGFloat(representation.pixelsHigh) / rootBounds.height
-        let sampledFrame = frame.insetBy(dx: min(8, frame.width / 8), dy: min(8, frame.height / 8))
+        // Sample the interior third of the pane so chrome, page edges, and
+        // shadows are excluded; only page-content pixels count.
+        let sampledFrame = frame.insetBy(dx: frame.width / 3, dy: frame.height / 3)
         let minX = max(0, Int((sampledFrame.minX - rootBounds.minX) * scaleX))
         let maxX = min(representation.pixelsWide - 1, Int((sampledFrame.maxX - rootBounds.minX) * scaleX))
         let minY = max(0, Int((sampledFrame.minY - rootBounds.minY) * scaleY))
         let maxY = min(representation.pixelsHigh - 1, Int((sampledFrame.maxY - rootBounds.minY) * scaleY))
-        guard minX <= maxX, minY <= maxY, let baseline = representation.colorAt(x: minX, y: minY) else { return false }
-        for y in stride(from: minY, through: maxY, by: 4) {
-            for x in stride(from: minX, through: maxX, by: 4) {
-                if let color = representation.colorAt(x: x, y: y), !color.isEqual(baseline) { return true }
+        guard minX < maxX, minY < maxY else { return 0 }
+        var quantized = Set<UInt32>()
+        let strideX = max(1, (maxX - minX) / 16)
+        let strideY = max(1, (maxY - minY) / 16)
+        for y in stride(from: minY, through: maxY, by: strideY) {
+            for x in stride(from: minX, through: maxX, by: strideX) {
+                guard let color = representation.colorAt(x: x, y: y) else { continue }
+                let rgb = color.usingColorSpace(.deviceRGB) ?? color
+                // 4-bit-per-channel quantization: tolerant of AA/color-space
+                // jitter while keeping the noise fixture's diversity visible.
+                let r = UInt32((rgb.redComponent * 15).rounded())
+                let g = UInt32((rgb.greenComponent * 15).rounded())
+                let b = UInt32((rgb.blueComponent * 15).rounded())
+                quantized.insert(r << 8 | g << 4 | b)
             }
         }
-        return false
+        return quantized.count
+    }
+
+    @Test("fixture raster predicate rejects blank and uniform surfaces")
+    func fixtureRasterPredicateNegativeCase() throws {
+        // Negative proof for the render-evidence gate: a blank page shell
+        // (white page rectangle on a dark canvas — non-uniform but not
+        // fixture content) and a fully uniform fill must both FAIL the
+        // fixture predicate, while synthetic high-entropy noise passes.
+        let bounds = NSRect(x: 0, y: 0, width: 120, height: 120)
+        func bitmap(_ draw: (NSRect) -> Void) throws -> NSBitmapImageRep {
+            let view = NSImageView(frame: bounds)
+            let rep = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 120, pixelsHigh: 120, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
+            _ = view
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+            draw(bounds)
+            NSGraphicsContext.restoreGraphicsState()
+            return rep
+        }
+        let uniform = try bitmap { rect in NSColor.white.setFill(); rect.fill() }
+        #expect(!hasFixtureRasterPixels(in: bounds, representation: uniform, rootBounds: bounds))
+        let blankShell = try bitmap { rect in
+            NSColor.black.setFill(); rect.fill()
+            NSColor.white.setFill(); rect.insetBy(dx: 20, dy: 20).fill()
+        }
+        #expect(!hasFixtureRasterPixels(in: bounds, representation: blankShell, rootBounds: bounds))
+        var generator = SystemRandomNumberGenerator()
+        let noise = try bitmap { rect in
+            for x in stride(from: 0, to: Int(rect.width), by: 4) {
+                for y in stride(from: 0, to: Int(rect.height), by: 4) {
+                    NSColor(red: CGFloat.random(in: 0...1, using: &generator), green: CGFloat.random(in: 0...1, using: &generator), blue: CGFloat.random(in: 0...1, using: &generator), alpha: 1).setFill()
+                    NSRect(x: x, y: y, width: 4, height: 4).fill()
+                }
+            }
+        }
+        #expect(hasFixtureRasterPixels(in: bounds, representation: noise, rootBounds: bounds))
     }
 }
 

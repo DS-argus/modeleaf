@@ -350,6 +350,8 @@ struct PaneCoordinatorTests {
                     let active = coordinator.snapshot.layout.paneIDs[activeIndex]
                     #expect(coordinator.activatePane(active))
                     var duplications = 0, completions = 0, emissions = 0
+                    var duplicatedSessions: [StubReaderSession] = []
+                    var completionPayloads: [(session: ObjectIdentifier, success: Bool)] = []
                     if case let .split(_, leading, trailing) = coordinator.snapshot.layout {
                         let opposite = leading.contains(active) ? trailing : leading
                         if case .two = opposite {
@@ -359,9 +361,14 @@ struct PaneCoordinatorTests {
                     }
                     coordinator.configureDuplication { _ in
                         duplications += 1
-                        return StubReaderSession(id: TabID(), title: "Probe \(duplications).pdf")
+                        let session = StubReaderSession(id: TabID(), title: "Probe \(duplications).pdf")
+                        duplicatedSessions.append(session)
+                        return session
                     }
-                    coordinator.configureDuplicationCompletion { _, _ in completions += 1 }
+                    coordinator.configureDuplicationCompletion { session, success in
+                        completions += 1
+                        completionPayloads.append((ObjectIdentifier(session), success))
+                    }
                     coordinator.onSnapshot = { _ in emissions += 1 }
                     let before = coordinator.snapshot
                     let expectedSuccess = expectedLayout(after: direction, from: before.layout, active: active, destination: PaneID()) != nil
@@ -371,6 +378,15 @@ struct PaneCoordinatorTests {
                     #expect(duplications == (expectedSuccess ? 1 : 0))
                     #expect(completions == (expectedSuccess ? 1 : 0))
                     #expect(emissions == (expectedSuccess ? 1 : 0))
+                    if expectedSuccess {
+                        // Payload contract: exactly the duplicated candidate
+                        // completes, with success == true.
+                        #expect(completionPayloads.count == 1)
+                        #expect(completionPayloads.first?.session == duplicatedSessions.first.map(ObjectIdentifier.init))
+                        #expect(completionPayloads.first?.success == true)
+                    } else {
+                        #expect(completionPayloads.isEmpty)
+                    }
                     if let expected {
                         #expect(coordinator.snapshot.layout == expected)
                         #expect(coordinator.activePaneID == result)
@@ -662,8 +678,9 @@ struct PaneCoordinatorTests {
 
     @Test("focus memory carries, falls back, and survives deferred pane activation")
     func focusMemoryMatrix() throws {
-        // A trailing remembered bottom survives removal of the entire leading
-        // column, becomes the leading column on resplit, and remains the h/l target.
+        // A trailing band's remembered second slot survives removal of the
+        // entire leading band, becomes the leading band on resplit, and
+        // remains the cross-band target.
         let carried = fourPaneCoordinator()
         #expect(carried.coordinator.activatePane(carried.trailingBottom))
         #expect(carried.coordinator.activatePane(carried.leadingBottom))
@@ -679,7 +696,7 @@ struct PaneCoordinatorTests {
         #expect(carried.coordinator.focus(.right))
         #expect(carried.coordinator.activePaneID == resolvedNewTrailing)
 
-        // Removing the remembered row collapses to the top survivor; crossing
+        // Removing the remembered slot collapses to the first-slot survivor; crossing
         // into that column therefore has the top fallback rather than stale bottom.
         let fallback = fourPaneCoordinator()
         #expect(fallback.coordinator.activatePane(fallback.trailingBottom))
@@ -689,7 +706,7 @@ struct PaneCoordinatorTests {
         #expect(fallback.coordinator.activePaneID == fallback.trailingTop)
 
         // Both direct existing insertion and a delayed successful insertion
-        // activate their target pane, updating that column's remembered row.
+        // activate their target pane, updating that band's remembered slot.
         let insertion = fourPaneCoordinator()
         #expect(insertion.coordinator.activatePane(insertion.leadingTop))
         #expect(insertion.coordinator.insert(StubReaderSession(id: TabID(), title: "Existing.pdf"), into: .existing(insertion.trailingBottom)))
@@ -883,7 +900,7 @@ struct PaneCoordinatorTests {
         #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Origin.pdf"), into: .createIfEmpty))
         let trailingFirst = try! #require(coordinator.split(direction: outer))
         let leadingFirst = coordinator.snapshot.layout.paneIDs.first { $0 != trailingFirst }!
-        let inner = outer == .sideBySide ? PaneOrientation.stacked : .sideBySide
+        let inner = outer.perpendicular
         var leading = [leadingFirst]
         var trailing = [trailingFirst]
         if leadingTwo {
