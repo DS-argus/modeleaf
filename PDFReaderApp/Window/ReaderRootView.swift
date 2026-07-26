@@ -91,7 +91,12 @@ final class ReaderRootView: NSView {
     }
 
     func render(snapshot: PaneCoordinatorSnapshot, isCommitted: Bool = true) {
-        capturesDividerPositions = isCommitted
+        // Captures stay off for the whole render body: install/redistribution
+        // layout storms pass through transient (clamped) divider positions
+        // that must never overwrite the topology-owned saved values. After a
+        // committed render, display-cycle and user-drag resizes capture again.
+        capturesDividerPositions = false
+        defer { capturesDividerPositions = isCommitted }
         if isCommitted { prunePaneViews(absentFrom: snapshot.panes) }
         guard snapshot.layout.isMultiPane else {
             paneContainer.isHidden = true
@@ -122,6 +127,17 @@ final class ReaderRootView: NSView {
             leadingColumnHost.removeFromSuperview()
             leadingColumnHost.install(render(stack: leading, side: .leading, snapshot: snapshot, isCommitted: isCommitted))
             trailingColumnHost.install(render(stack: trailing, side: .trailing, snapshot: snapshot, isCommitted: isCommitted))
+            // The outer install below detaches and re-adds both columns;
+            // NSSplitView pins the inner dividers against the zero-height
+            // transients (minimum-thickness clamp) and nothing re-applies
+            // them afterwards. Snapshot each settled stack position now and
+            // re-assert it once column geometry is final. Containers with a
+            // pending adjustment are skipped: their layout() application at
+            // final geometry is already storm-proof.
+            let desiredStackPositions = [leadingStackContainer, trailingStackContainer].map { container -> CGFloat? in
+                guard container.subviews.count == 2, !container.hasPendingDividerAdjustment else { return nil }
+                return container.currentDividerPosition
+            }
             let isNewSplit = !hadCommittedSplit
             paneContainer.install(
                 leading: leadingColumnHost,
@@ -132,6 +148,9 @@ final class ReaderRootView: NSView {
             )
             if let saved = outerDividerPosition {
                 paneContainer.applyDividerPosition(saved)
+            }
+            for (container, desired) in zip([leadingStackContainer, trailingStackContainer], desiredStackPositions) {
+                if let desired { container.applyDividerPosition(desired) }
             }
             if isCommitted { hadCommittedSplit = true }
         case .empty: break

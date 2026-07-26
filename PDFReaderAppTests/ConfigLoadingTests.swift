@@ -348,7 +348,7 @@ struct ConfigLoadingTests {
             .paneSplitRight, .paneSplitDown, .paneFocusLeft, .paneFocusDown,
             .paneFocusUp, .paneFocusRight, .paneUnsplit,
         ]
-        let shippedBindings = ["<C-Space>|", "<C-Space>-", "<C-h>", "<C-j>", "<C-k>", "<C-l>", "<C-Space>o"]
+        let shippedBindings = ["<C-b>|", "<C-b>-", "<C-h>", "<C-j>", "<C-k>", "<C-l>", "<C-b>o"]
         for (action, binding) in zip(actions, shippedBindings) {
             #expect(ActionRegistry.v1.descriptor(for: action)?.activeContexts == [.navigation, .searchResults])
             #expect(BuiltInDefaults.keymap[action]?.map(\.description) == [binding])

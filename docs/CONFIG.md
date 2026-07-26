@@ -91,6 +91,13 @@ accent = "#89B4FA"
 | `view.zoomReset` | unbound | `navigation`, `searchResults` | `suppressed` |
 | `view.fitWidth` | `w` | `navigation`, `searchResults` | `suppressed` |
 | `view.fitPage` | `f` | `navigation`, `searchResults` | `suppressed` |
+| `pane.splitRight` | `<C-b>|` | `navigation`, `searchResults` | `suppressed` |
+| `pane.splitDown` | `<C-b>-` | `navigation`, `searchResults` | `suppressed` |
+| `pane.focusLeft` | `<C-h>` | `navigation`, `searchResults` | `suppressed` |
+| `pane.focusDown` | `<C-j>` | `navigation`, `searchResults` | `suppressed` |
+| `pane.focusUp` | `<C-k>` | `navigation`, `searchResults` | `suppressed` |
+| `pane.focusRight` | `<C-l>` | `navigation`, `searchResults` | `suppressed` |
+| `pane.unsplit` | `<C-b>o` | `navigation`, `searchResults` | `suppressed` |
 
 ## 내장 값
 
@@ -272,6 +279,13 @@ accent = "#89B4FA"
 "view.zoomReset" = []
 "view.fitWidth" = ["w"]
 "view.fitPage" = ["f"]
+"pane.splitRight" = ["<C-b>|"]
+"pane.splitDown" = ["<C-b>-"]
+"pane.focusLeft" = ["<C-h>"]
+"pane.focusDown" = ["<C-j>"]
+"pane.focusUp" = ["<C-k>"]
+"pane.focusRight" = ["<C-l>"]
+"pane.unsplit" = ["<C-b>o"]
 
 [navigation]
 small_scroll_points = 48.0

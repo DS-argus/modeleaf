@@ -48,6 +48,10 @@ final class PaneContainerView: NSSplitView, NSSplitViewDelegate {
 
     func removeAllPanes() { for view in subviews { removeArrangedSubview(view) } }
 
+    /// True while a divider position (saved or default) is queued for the
+    /// next layout pass; the visible position is not authoritative yet.
+    var hasPendingDividerAdjustment: Bool { pendingDividerPosition != nil || initializesDividerOnFirstLayout }
+
     var currentDividerPosition: CGFloat {
         guard subviews.count == 2 else { return 0 }
         return isVertical ? subviews[0].frame.width : subviews[0].frame.height

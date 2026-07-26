@@ -439,6 +439,55 @@ struct PaneCoordinatorTests {
         }
     }
 
+    @Test("staging-time session notifications never publish mid-transaction state")
+    func stagingReentrancyIsSuppressed() throws {
+        // Regression for a real-app SIGTRAP: closing the last tab of a pane
+        // begins the close (store already mutated), then the staging handler
+        // renders the projection, which unmounts/reflows PDF views and fires
+        // PDFKit presentation notifications. Those must not publish: the
+        // layout still contains the closing pane while its store has no
+        // active session, so strict makeSnapshot preconditions trap.
+        enum Tier { case rowCollapse, windowEmpty, unsplit }
+        for tier in [Tier.rowCollapse, .windowEmpty, .unsplit] {
+            for commit in [false, true] {
+                let coordinator = PaneCoordinator()
+                let origin = StubReaderSession(id: TabID(), title: "Origin.pdf")
+                let duplicate = StubReaderSession(id: TabID(), title: "Duplicate.pdf")
+                coordinator.configureDuplication { _ in duplicate }
+                #expect(coordinator.insert(origin, into: .createIfEmpty))
+                if tier != .windowEmpty { #expect(coordinator.split(direction: .sideBySide) != nil) }
+                var emissions = 0
+                coordinator.onSnapshot = { snapshot in
+                    snapshot.assertCardinality()
+                    emissions += 1
+                }
+                let fire = {
+                    // Both the closing and the surviving session may notify
+                    // while the projection render moves views around.
+                    origin.publishPresentationChange()
+                    duplicate.publishPresentationChange()
+                }
+                let result: Bool
+                switch tier {
+                case .rowCollapse, .windowEmpty:
+                    result = coordinator.closeActiveTab { _ in fire(); return commit }
+                case .unsplit:
+                    result = coordinator.unsplit { _ in fire(); return commit }
+                }
+                #expect(result == commit, "\(tier) commit=\(commit)")
+                // Exactly one settled emission per attempt: the commit or the
+                // rollback restoration. Staging-time notifications add none.
+                #expect(emissions == 1, "\(tier) commit=\(commit) emissions=\(emissions)")
+                coordinator.snapshot.assertCardinality()
+                // Post-transaction notifications publish normally again.
+                if !commit {
+                    origin.publishPresentationChange()
+                    #expect(emissions == 2, "\(tier) post-transaction emission")
+                }
+            }
+        }
+    }
+
     private func fourPaneCoordinator() -> (coordinator: PaneCoordinator, leadingTop: PaneID, leadingBottom: PaneID, trailingTop: PaneID, trailingBottom: PaneID) {
         let coordinator = PaneCoordinator()
         var duplicates = (1...5).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }

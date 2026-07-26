@@ -32,7 +32,7 @@ struct BuiltInDefaultsTests {
             .searchPrompt: ["/"], .searchNext: ["<CR>"], .searchPrevious: ["<S-CR>"], .searchCancel: ["<Esc>"],
             .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [],
             .viewFitWidth: ["w"], .viewFitPage: ["f"],
-            .paneSplitRight: ["<C-Space>|"], .paneSplitDown: ["<C-Space>-"], .paneUnsplit: ["<C-Space>o"],
+            .paneSplitRight: ["<C-b>|"], .paneSplitDown: ["<C-b>-"], .paneUnsplit: ["<C-b>o"],
             .paneFocusLeft: ["<C-h>"], .paneFocusDown: ["<C-j>"], .paneFocusUp: ["<C-k>"], .paneFocusRight: ["<C-l>"],
         ]
         let actual = BuiltInDefaults.keymap.mapValues { $0.map(\.description) }

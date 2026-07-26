@@ -160,6 +160,13 @@ final class PaneCoordinator {
     @discardableResult
     func unsplit(stage: ((PaneCoordinatorSnapshot) -> Bool)? = nil) -> Bool {
         guard layout.isMultiPane, let activePaneID else { return false }
+        // Same reentrancy boundary as closeActiveTab: begun closes make the
+        // removed panes' stores inconsistent with the still-installed layout
+        // until commit or rollback, so staging-time store changes must not
+        // publish.
+        let previous = suppressCallbacks
+        suppressCallbacks = true
+        defer { suppressCallbacks = previous }
         let oldLayout = layout
         let oldMemory = lastFocusedRowByColumn
         let removed = layout.paneIDs.filter { $0 != activePaneID }
@@ -175,11 +182,9 @@ final class PaneCoordinator {
         let projected = makeSnapshot(layout: .single(.one(activePaneID)), activePaneID: activePaneID, stores: stores.filter { $0.key == activePaneID })
         guard (stage ?? closeStagingHandler ?? { _ in true })(projected) else {
             for (id, token) in tokens.reversed() { stores[id]?.rollbackClose(token) }
-            publish()
+            suppressCallbacks = previous; publish(); suppressCallbacks = true
             return false
         }
-        let previous = suppressCallbacks; suppressCallbacks = true
-        defer { suppressCallbacks = previous }
         for (id, token) in tokens {
             guard stores[id]?.commitClose(token) == true else {
                 preconditionFailure("ReaderSessionStore cannot commit unsplit teardown")
@@ -195,6 +200,14 @@ final class PaneCoordinator {
     @discardableResult
     func closeActiveTab(stage: ((PaneCoordinatorSnapshot) -> Bool)? = nil) -> Bool {
         guard let paneID = activePaneID, let store = stores[paneID], let id = store.snapshot.activeID, let token = store.beginClose(id) else { return false }
+        // Suppress from here: beginClose already removed the tab from the
+        // store, so any store change published before commit/rollback (e.g.
+        // PDFKit notifications fired while the staging handler renders the
+        // projection and unmounts views) would snapshot a mid-transaction
+        // state and trap the strict makeSnapshot preconditions.
+        let previous = suppressCallbacks
+        suppressCallbacks = true
+        defer { suppressCallbacks = previous }
         let oldLayout = layout
         let oldMemory = lastFocusedRowByColumn
         let transition: PaneCloseTransition
@@ -209,10 +222,16 @@ final class PaneCoordinator {
             transition = .windowEmpty
             projected = makeEmptySnapshot()
         }
-        guard (stage ?? closeStagingHandler ?? { _ in true })(projected) else { store.rollbackClose(token); publish(); return false }
-        let previous = suppressCallbacks; suppressCallbacks = true
-        defer { suppressCallbacks = previous }
-        guard store.commitClose(token) else { store.rollbackClose(token); publish(); return false }
+        guard (stage ?? closeStagingHandler ?? { _ in true })(projected) else {
+            store.rollbackClose(token)
+            suppressCallbacks = previous; publish(); suppressCallbacks = true
+            return false
+        }
+        guard store.commitClose(token) else {
+            store.rollbackClose(token)
+            suppressCallbacks = previous; publish(); suppressCallbacks = true
+            return false
+        }
         switch transition {
         case .tabSuccessor:
             break

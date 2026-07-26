@@ -64,16 +64,18 @@ public enum BuiltInDefaults {
         .viewFitPage: sequences("f"),
 
 
-        // Pane prefix: Ctrl+Space, tmux-style split mnemonics (| splits
-        // side-by-side, - splits stacked). The prefix is user-configurable by
-        // rebinding these sequences in config.toml.
-        .paneSplitRight: sequences("<C-Space>|"),
-        .paneSplitDown: sequences("<C-Space>-"),
+        // Pane prefix: Ctrl+b (the tmux default), with tmux-style split
+        // mnemonics (| splits side-by-side, - splits stacked). Unlike
+        // Ctrl+Space it never collides with the macOS input-source switcher.
+        // The prefix is user-configurable by rebinding these sequences in
+        // config.toml.
+        .paneSplitRight: sequences("<C-b>|"),
+        .paneSplitDown: sequences("<C-b>-"),
         .paneFocusLeft: sequences("<C-h>"),
         .paneFocusDown: sequences("<C-j>"),
         .paneFocusUp: sequences("<C-k>"),
         .paneFocusRight: sequences("<C-l>"),
-        .paneUnsplit: sequences("<C-Space>o"),
+        .paneUnsplit: sequences("<C-b>o"),
     ]
 
     public static var defaultConfigTOML: String {

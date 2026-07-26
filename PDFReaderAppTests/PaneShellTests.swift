@@ -683,6 +683,43 @@ struct PaneShellTests {
         }
     }
 
+    @Test("fourth split preserves untouched column and outer divider positions")
+    func fourthSplitPreservesOtherDividers() throws {
+        // User-reported: growing 3-pane (2+1) to 2x2 visibly shifted the
+        // opposite column's divider. Custom outer and leading-stack positions
+        // must survive the trailing column's split verbatim; only the new
+        // trailing pair starts at half.
+        let fixture = paneShellFixture(.leadingStack)
+        let controller = makeController(fixture.coordinator)
+        defer { controller.close() }
+        let window = try #require(controller.window as? ReaderWindow)
+        window.orderFrontRegardless()
+        controller.rootView.layoutSubtreeIfNeeded()
+        let outer = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
+        let leading = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.leadingStack") as? PaneContainerView)
+        outer.setPosition(280, ofDividerAt: 0)
+        leading.setPosition(180, ofDividerAt: 0)
+        outer.onDividerMoved?(outer.currentDividerPosition)
+        leading.onDividerMoved?(leading.currentDividerPosition)
+        controller.rootView.layoutSubtreeIfNeeded()
+        let before = (outer.currentDividerPosition, leading.currentDividerPosition)
+
+        let trailingSolo = try #require(fixture.coordinator.snapshot.layout.paneIDs.first { fixture.coordinator.snapshot.layout.side(of: $0) == .trailing })
+        #expect(fixture.coordinator.activatePane(trailingSolo))
+        #expect(fixture.coordinator.split(direction: .stacked) != nil)
+        drainRunLoop()
+        controller.rootView.layoutSubtreeIfNeeded()
+
+        #expect(abs(outer.currentDividerPosition - before.0) < 0.5)
+        #expect(abs(leading.currentDividerPosition - before.1) < 0.5)
+        let trailing = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingStack") as? PaneContainerView)
+        let available = trailing.bounds.height - trailing.dividerThickness
+        #expect(abs(trailing.currentDividerPosition - available / 2) < 0.5)
+        assertSplitChildrenLaidOut(outer)
+        assertSplitChildrenLaidOut(leading)
+        assertSplitChildrenLaidOut(trailing)
+    }
+
     /// Rejected projections reparent panes through constraint-based hosts;
     /// restored split children must be back on autoresizing with frames that
     /// exactly tile the container, or the survivor renders at a stale
