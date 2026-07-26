@@ -707,6 +707,100 @@ struct PaneCoordinatorTests {
         }
     }
 
+    @Test("tmux-parity focus table is direction-absolute across every band shape")
+    func tmuxParityFocusTable() throws {
+        for outer in [PaneOrientation.sideBySide, .stacked] {
+            let directions: [PaneFocusDirection] = outer == .sideBySide ? [.left, .right, .up, .down] : [.up, .down, .left, .right]
+            withStackedOuterBands(true) {
+                for leadingTwo in [false, true] {
+                    for trailingTwo in [false, true] where leadingTwo || trailingTwo {
+                        for sourceIsLeading in [true, false] {
+                            let sourceCount = sourceIsLeading ? (leadingTwo ? 2 : 1) : (trailingTwo ? 2 : 1)
+                            for sourceIndex in 0..<sourceCount {
+                                for direction in directions {
+                                    let fixture = makeFocusFixture(outer: outer, leadingTwo: leadingTwo, trailingTwo: trailingTwo)
+                                    let source = sourceIsLeading ? fixture.leading : fixture.trailing
+                                    let destination = sourceIsLeading ? fixture.trailing : fixture.leading
+                                    #expect(fixture.coordinator.activatePane(source[sourceIndex]))
+                                    let crossesBand = outer == .sideBySide
+                                        ? (direction == .right && sourceIsLeading) || (direction == .left && !sourceIsLeading)
+                                        : (direction == .down && sourceIsLeading) || (direction == .up && !sourceIsLeading)
+                                    let movesWithinBand = source.count == 2 && (outer == .sideBySide
+                                        ? (direction == .down && sourceIndex == 0) || (direction == .up && sourceIndex == 1)
+                                        : (direction == .right && sourceIndex == 0) || (direction == .left && sourceIndex == 1))
+                                    let expected: PaneID?
+                                    if crossesBand {
+                                        expected = destination.count == 1 ? destination[0] : source.count == 2 ? destination[sourceIndex] : destination.last
+                                    } else if movesWithinBand {
+                                        expected = source[1 - sourceIndex]
+                                    } else {
+                                        expected = nil
+                                    }
+                                    #expect(fixture.coordinator.focus(direction) == (expected != nil), "outer=\(outer) leadingTwo=\(leadingTwo) trailingTwo=\(trailingTwo) sourceIsLeading=\(sourceIsLeading) sourceIndex=\(sourceIndex) direction=\(direction)")
+                                    #expect(fixture.coordinator.activePaneID == (expected ?? source[sourceIndex]))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test("full-span crossings use destination MRU on both axes")
+    func focusCrossBandMRUParity() throws {
+        for outer in [PaneOrientation.sideBySide, .stacked] {
+            withStackedOuterBands(true) {
+                let fixture = makeFocusFixture(outer: outer, leadingTwo: false, trailingTwo: true)
+                let toLeading: PaneFocusDirection = outer == .sideBySide ? .left : .up
+                let toTrailing: PaneFocusDirection = outer == .sideBySide ? .right : .down
+                for expected in [fixture.trailing[1], fixture.trailing[0]] {
+                    #expect(fixture.coordinator.activatePane(expected))
+                    #expect(fixture.coordinator.focus(toLeading))
+                    #expect(fixture.coordinator.activePaneID == fixture.leading[0])
+                    #expect(fixture.coordinator.focus(toTrailing))
+                    #expect(fixture.coordinator.activePaneID == expected)
+                }
+            }
+        }
+    }
+
+    @Test("rejected gated projection preserves focus memory")
+    func rejectedGatedProjectionPreservesFocusMemory() throws {
+        withStackedOuterBands(true) {
+            let fixture = makeFocusFixture(outer: .stacked, leadingTwo: false, trailingTwo: true)
+            #expect(fixture.coordinator.activatePane(fixture.trailing[1]))
+            #expect(!fixture.coordinator.closeActiveTab { _ in false })
+            #expect(fixture.coordinator.activatePane(fixture.leading[0]))
+            #expect(fixture.coordinator.focus(.down))
+            #expect(fixture.coordinator.activePaneID == fixture.trailing[1])
+        }
+    }
+
+    private func makeFocusFixture(outer: PaneOrientation, leadingTwo: Bool, trailingTwo: Bool) -> (coordinator: PaneCoordinator, leading: [PaneID], trailing: [PaneID]) {
+        let coordinator = PaneCoordinator()
+        var duplicateCount = 0
+        coordinator.configureDuplication { _ in
+            duplicateCount += 1
+            return StubReaderSession(id: TabID(), title: "Duplicate \(duplicateCount).pdf")
+        }
+        #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Origin.pdf"), into: .createIfEmpty))
+        let trailingFirst = try! #require(coordinator.split(direction: outer))
+        let leadingFirst = coordinator.snapshot.layout.paneIDs.first { $0 != trailingFirst }!
+        let inner = outer == .sideBySide ? PaneOrientation.stacked : .sideBySide
+        var leading = [leadingFirst]
+        var trailing = [trailingFirst]
+        if leadingTwo {
+            #expect(coordinator.activatePane(leadingFirst))
+            leading.append(try! #require(coordinator.split(direction: inner)))
+        }
+        if trailingTwo {
+            #expect(coordinator.activatePane(trailingFirst))
+            trailing.append(try! #require(coordinator.split(direction: inner)))
+        }
+        return (coordinator, leading, trailing)
+    }
+
     private func fourPaneCoordinator() -> (coordinator: PaneCoordinator, leadingTop: PaneID, leadingBottom: PaneID, trailingTop: PaneID, trailingBottom: PaneID) {
         let coordinator = PaneCoordinator()
         var duplicates = (1...5).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }

@@ -142,21 +142,23 @@ final class PaneCoordinator {
     @discardableResult
     func focus(_ direction: PaneFocusDirection) -> Bool {
         guard let activePaneID, case let .split(orientation, leading, trailing) = layout else { return false }
+        let isLeading = leading.contains(activePaneID)
+        let source = isLeading ? leading : trailing
+
         let target: PaneID?
         switch (orientation, direction) {
-        case (.sideBySide, .left) where trailing.contains(activePaneID):
-            target = focusTarget(in: leading, side: .leading, from: trailing)
-        case (.sideBySide, .right) where leading.contains(activePaneID):
-            target = focusTarget(in: trailing, side: .trailing, from: leading)
-        case (.stacked, .up) where trailing.contains(activePaneID):
-            target = focusTarget(in: leading, side: .leading, from: trailing)
-        case (.stacked, .down) where leading.contains(activePaneID):
-            target = focusTarget(in: trailing, side: .trailing, from: leading)
+        case (.sideBySide, .left) where !isLeading:
+            target = focusTarget(in: leading, side: .leading, from: source)
+        case (.sideBySide, .right) where isLeading:
+            target = focusTarget(in: trailing, side: .trailing, from: source)
+        case (.stacked, .up) where !isLeading:
+            target = focusTarget(in: leading, side: .leading, from: source)
+        case (.stacked, .down) where isLeading:
+            target = focusTarget(in: trailing, side: .trailing, from: source)
         case (.sideBySide, .up), (.sideBySide, .down), (.stacked, .left), (.stacked, .right):
-            guard let band = layout.band(containing: activePaneID), case let .two(first, second) = band else { return false }
-            switch (direction, activePaneID) {
-            case (.down, first), (.right, first): target = second
-            case (.up, second), (.left, second): target = first
+            switch (direction, source.slot(of: activePaneID)) {
+            case (.down, .first?), (.right, .first?): target = source.paneIDs.last
+            case (.up, .second?), (.left, .second?): target = source.paneIDs.first
             default: target = nil
             }
         default:
@@ -267,20 +269,19 @@ final class PaneCoordinator {
             preconditionFailure("non-terminal pane collapse has no source stack")
         }
     }
-    /// tmux crossing semantics (verified against tmux 3.6a): when the source
-    /// row is unambiguous — the active pane sits in a .two stack, so exactly
-    /// one destination row overlaps it geometrically — cross into the SAME
-    /// row. Only a full-height .one source overlaps both destination rows;
-    /// that ambiguous case uses the column's remembered (most recently
-    /// focused) row, falling back to the top.
+    /// tmux crossing semantics: a source `.two` crosses to the geometrically
+    /// overlapping slot. A full-span source uses the destination band's MRU
+    /// slot, falling back to its first member.
     private func focusTarget(in stack: PaneStack, side: PaneBandSide, from source: PaneStack) -> PaneID {
         switch stack {
-        case let .one(id): return id
-        case let .two(top, bottom):
-            if case .two = source, let activePaneID, let row = layout.slot(of: activePaneID) {
-                return row == .second ? bottom : top
+        case let .one(id):
+            return id
+        case let .two(first, second):
+            guard case .two = source else {
+                return lastFocusedSlotByBand[side] == .second ? second : first
             }
-            return lastFocusedSlotByBand[side] == .second ? bottom : top
+            guard let activePaneID, source.slot(of: activePaneID) == .second else { return first }
+            return second
         }
     }
 
