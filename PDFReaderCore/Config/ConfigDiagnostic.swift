@@ -23,7 +23,6 @@ public enum ConfigDiagnosticCode: String, Codable, Equatable, Sendable {
     case conflictingBinding
     case promptUnsafeBinding
     case invalidExactPrefix
-    case promptLifecycleUnbound
     case menuEquivalentOmitted
     case internalInvariant
     case reservedAction
