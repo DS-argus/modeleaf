@@ -31,6 +31,7 @@ public enum ConfigDocumentation {
             "",
             "[input]",
             "prefix_timeout_ms = 800",
+            "prefix = \"<C-b>\"",
             "",
             "```",
             "",
@@ -43,11 +44,12 @@ public enum ConfigDocumentation {
             "- Supported named keys are Esc, CR, BS, Del, Tab/Backtab, arrows, Home/End, PageUp/PageDown, Space, Backtick, LT/GT, Plus/Minus/Equal/Slash, and F1…F24.",
             "- Fn, Globe, media, power, raw key codes, action chains, and general Vim numeric counts are not part of the grammar.",
             "- An empty array unbinds an action. An empty sequence string is invalid.",
-            "- Unbinding both `prompt.commit` and `prompt.cancel` is valid and emits a usability warning; the visible prompt controls remain available.",
+            "- `prompt.commit`, `prompt.cancel`, `search.next`, and `search.previous` are fixed keys (Enter/Esc, Enter/Shift+Enter). They are not rebindable and are omitted from `[keymap]`; a `[keymap]` entry for them is ignored with a warning.",
+            "- `<prefix>` in any binding expands to the `[input] prefix` chord (default `<C-b>`). Rebind the prefix once and every `<prefix>` binding follows.",
             "",
             "## Input contexts",
             "",
-            "The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `searchResults`. Only `document.open` and `app.quit` are global. Contextual bindings may reuse a sequence only when their active contexts are disjoint.",
+            "The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `searchResults`. Only `document.open`, `app.new`, and `app.quit` are global. Contextual bindings may reuse a sequence only when their active contexts are disjoint.",
             "",
             "## Stable v1 actions and defaults",
             "",
@@ -55,7 +57,7 @@ public enum ConfigDocumentation {
             "|---|---|---|---|",
         ]
 
-        for descriptor in ActionRegistry.v1.descriptors {
+        for descriptor in ActionRegistry.v1.userConfigurableDescriptors {
             let defaults = BuiltInDefaults.keymap[descriptor.id, default: []]
                 .map { "`\($0.description)`" }
                 .joined(separator: ", ")
@@ -72,7 +74,8 @@ public enum ConfigDocumentation {
             "- Large scroll: `0.8 × viewport` (valid `0.1...2.0`).",
             "- Zoom factor: `1.10` (valid `1.01...2.0`).",
             "- Prefix timeout: `800 ms` (valid `100...2000`).",
-            "- Themes: `catppuccin-mocha`, `catppuccin-latte`, `tokyo-night`, `gruvbox-dark`, `nord`.",
+            "- Pane prefix: `<C-b>` (any single key chord; used by `<prefix>` bindings).",
+            "- Themes: `tokyo-night`, `gruvbox-dark`, `solarized-dark`, `dracula`, `everforest`, `catppuccin-latte`.",
             "- Themes are chosen in-app with the theme picker (`shift+t`) and persisted separately. 테마는 앱 내 테마 선택기(`shift+t`)에서 선택하며 별도로 저장됩니다.",
             "",
             "A newly opened document starts on page 1 in fit-page mode. In that mode, `j`/`d` advance a page and `k`/`u` go back. After manual zoom, each scroll action first moves within an overflowing axis. At a vertical edge, another downward action enters the next page at its top and another upward action enters the previous page at its bottom; vertical actions remain inert when the page overflows only horizontally. Actual Size remains available from the View menu and as `view.zoomReset`, but is intentionally unbound by default.",

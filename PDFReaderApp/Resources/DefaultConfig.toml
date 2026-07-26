@@ -1,51 +1,75 @@
-# Generated from PDFReaderCore.BuiltInDefaults. Do not edit this bundled copy.
-# Copy it to ~/.config/modeleaf/config.toml and edit the copy.
+# Modeleaf configuration — generated from PDFReaderCore.BuiltInDefaults.
+# Do not edit this bundled copy. Copy it to ~/.config/modeleaf/config.toml and edit the copy.
+#
+# Key notation (chords are wrapped in <...>):
+#   D = Command (Cmd)   C = Control (Ctrl)   A = Option (Alt)   S = Shift
+#   e.g. <D-o> = Cmd+O, <C-j> = Ctrl+J, <S-CR> = Shift+Enter.
+#   Plain characters are literal keys; concatenation is a multi-key sequence (gg = g then g).
+#   <prefix> expands to the pane prefix defined under [input] below. Rebind the prefix
+#   once and every <prefix> binding follows; <prefix> may be used in any binding.
+#
+# Enter/Esc prompt commit & cancel and search next/previous are fixed keys and are
+# intentionally omitted here — they cannot be rebound.
 
 [keymap]
-"document.open" = ["<D-o>"]
-"document.close" = ["<D-w>"]
-"app.quit" = ["<D-q>"]
-"tab.next" = ["N"]
-"tab.previous" = ["P"]
-"tab.select.1" = ["<D-1>"]
-"tab.select.2" = ["<D-2>"]
-"tab.select.3" = ["<D-3>"]
-"tab.select.4" = ["<D-4>"]
-"tab.select.5" = ["<D-5>"]
-"tab.select.6" = ["<D-6>"]
-"tab.select.7" = ["<D-7>"]
-"tab.select.8" = ["<D-8>"]
-"tab.select.9" = ["<D-9>"]
-"scroll.left" = ["h"]
-"scroll.down" = ["j"]
-"scroll.up" = ["k"]
-"scroll.right" = ["l"]
-"scroll.largeDown" = ["d"]
-"scroll.largeUp" = ["u"]
-"page.next" = ["n"]
-"page.previous" = ["p"]
-"page.first" = ["gg"]
-"page.last" = ["G"]
-"page.prompt" = ["g"]
-"prompt.commit" = ["<CR>"]
-"prompt.cancel" = ["<Esc>"]
-"search.prompt" = ["/"]
-"search.next" = ["<CR>"]
-"search.previous" = ["<S-CR>"]
-"search.cancel" = ["<Esc>"]
-"view.zoomIn" = ["="]
-"view.zoomOut" = ["-"]
-"view.zoomReset" = []
-"view.fitWidth" = ["w"]
-"view.fitPage" = ["f"]
-"theme.picker" = ["T"]
-"pane.splitRight" = ["<C-b>|"]
-"pane.splitDown" = ["<C-b>-"]
-"pane.focusLeft" = ["<C-h>"]
-"pane.focusDown" = ["<C-j>"]
-"pane.focusUp" = ["<C-k>"]
-"pane.focusRight" = ["<C-l>"]
-"pane.unsplit" = ["<C-b>o"]
+
+# --- Application ---
+"document.open"    = ["<D-o>"]  # Cmd+O
+"document.close"   = ["<D-w>"]  # Cmd+W
+"app.quit"         = ["<D-q>"]  # Cmd+Q
+"app.new"          = ["<D-n>"]  # Cmd+N
+
+# --- Tabs ---
+"tab.next"         = ["N"]  # N
+"tab.previous"     = ["P"]  # P
+"tab.select.1"     = ["<D-1>"]  # Cmd+1
+"tab.select.2"     = ["<D-2>"]  # Cmd+2
+"tab.select.3"     = ["<D-3>"]  # Cmd+3
+"tab.select.4"     = ["<D-4>"]  # Cmd+4
+"tab.select.5"     = ["<D-5>"]  # Cmd+5
+"tab.select.6"     = ["<D-6>"]  # Cmd+6
+"tab.select.7"     = ["<D-7>"]  # Cmd+7
+"tab.select.8"     = ["<D-8>"]  # Cmd+8
+"tab.select.9"     = ["<D-9>"]  # Cmd+9
+
+# --- Scroll ---
+"scroll.left"      = ["h"]  # h
+"scroll.down"      = ["j"]  # j
+"scroll.up"        = ["k"]  # k
+"scroll.right"     = ["l"]  # l
+"scroll.largeDown" = ["d"]  # d
+"scroll.largeUp"   = ["u"]  # u
+
+# --- Pages ---
+"page.next"        = ["n"]  # n
+"page.previous"    = ["p"]  # p
+"page.first"       = ["gg"]  # g g
+"page.last"        = ["G"]  # G
+"page.prompt"      = ["g"]  # g
+
+# --- Search ---
+"search.prompt"    = ["/"]  # /
+"search.cancel"    = ["<Esc>"]  # Esc
+
+# --- View / Zoom ---
+"view.zoomIn"      = ["="]  # =
+"view.zoomOut"     = ["-"]  # -
+"view.zoomReset"   = []
+"view.fitWidth"    = ["w"]  # w
+"view.fitPage"     = ["f"]  # f
+
+# --- Theme ---
+"theme.picker"     = ["T"]  # T
+
+# --- Panes ---
+# split/unsplit use <prefix>; focus keys are direct. Change the prefix under [input].
+"pane.splitRight"  = ["<prefix>|"]  # Ctrl+B |
+"pane.splitDown"   = ["<prefix>-"]  # Ctrl+B -
+"pane.focusLeft"   = ["<C-h>"]  # Ctrl+H
+"pane.focusDown"   = ["<C-j>"]  # Ctrl+J
+"pane.focusUp"     = ["<C-k>"]  # Ctrl+K
+"pane.focusRight"  = ["<C-l>"]  # Ctrl+L
+"pane.unsplit"     = ["<prefix>o"]  # Ctrl+B o
 
 [navigation]
 small_scroll_points = 48.0
@@ -54,3 +78,5 @@ zoom_factor = 1.1
 
 [input]
 prefix_timeout_ms = 800
+# Pane prefix chord. Every <prefix> binding above expands to this.
+prefix = "<C-b>"

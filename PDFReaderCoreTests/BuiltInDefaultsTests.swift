@@ -20,7 +20,7 @@ struct BuiltInDefaultsTests {
     @Test("Exact default vocabulary remains compact and viewer-first")
     func exactDefaultVocabulary() throws {
         let expected: [ActionID: [String]] = [
-            .documentOpen: ["<D-o>"], .documentClose: ["<D-w>"], .appQuit: ["<D-q>"],
+            .documentOpen: ["<D-o>"], .documentClose: ["<D-w>"], .appQuit: ["<D-q>"], .appNew: ["<D-n>"],
             .tabNext: ["N"], .tabPrevious: ["P"],
             .tabSelect1: ["<D-1>"], .tabSelect2: ["<D-2>"], .tabSelect3: ["<D-3>"],
             .tabSelect4: ["<D-4>"], .tabSelect5: ["<D-5>"], .tabSelect6: ["<D-6>"],
@@ -61,7 +61,7 @@ struct BuiltInDefaultsTests {
         #expect(ConfigBounds.prefixTimeoutMilliseconds == 100...2_000)
     }
 
-    @Test("Five built-in themes are complete and PDF-agnostic")
+    @Test("Six built-in themes are complete and PDF-agnostic")
     func builtInThemesAreComplete() {
         #expect(ThemeID.allCases.count == 6)
         #expect(BuiltInThemes.all.count == 6)
@@ -85,7 +85,10 @@ struct BuiltInDefaultsTests {
             encoding: .utf8
         )
         #expect(bundled == BuiltInDefaults.defaultConfigTOML)
-        #expect(bundled.contains("\"page.prompt\" = [\"g\"]"))
+        #expect(bundled.contains("page.prompt") && bundled.contains("[\"g\"]"))
+        #expect(bundled.contains("prefix = \"<C-b>\""))
+        #expect(bundled.contains("<prefix>|"))
+        #expect(!bundled.contains("prompt.commit"))
         #expect(!bundled.contains("[theme]"))
         #expect(!bundled.localizedCaseInsensitiveContains("script"))
     }

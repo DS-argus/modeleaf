@@ -26,6 +26,7 @@ zoom_factor = 1.1
 
 [input]
 prefix_timeout_ms = 800
+prefix = "<C-b>"
 
 ```
 
@@ -38,11 +39,12 @@ prefix_timeout_ms = 800
 - Supported named keys are Esc, CR, BS, Del, Tab/Backtab, arrows, Home/End, PageUp/PageDown, Space, Backtick, LT/GT, Plus/Minus/Equal/Slash, and F1…F24.
 - Fn, Globe, media, power, raw key codes, action chains, and general Vim numeric counts are not part of the grammar.
 - An empty array unbinds an action. An empty sequence string is invalid.
-- Unbinding both `prompt.commit` and `prompt.cancel` is valid and emits a usability warning; the visible prompt controls remain available.
+- `prompt.commit`, `prompt.cancel`, `search.next`, and `search.previous` are fixed keys (Enter/Esc, Enter/Shift+Enter). They are not rebindable and are omitted from `[keymap]`; a `[keymap]` entry for them is ignored with a warning.
+- `<prefix>` in any binding expands to the `[input] prefix` chord (default `<C-b>`). Rebind the prefix once and every `<prefix>` binding follows.
 
 ## Input contexts
 
-The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `searchResults`. Only `document.open` and `app.quit` are global. Contextual bindings may reuse a sequence only when their active contexts are disjoint.
+The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `searchResults`. Only `document.open`, `app.new`, and `app.quit` are global. Contextual bindings may reuse a sequence only when their active contexts are disjoint.
 
 ## Stable v1 actions and defaults
 
@@ -51,6 +53,7 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `document.open` | `<D-o>` | global | `suppressed` |
 | `document.close` | `<D-w>` | `navigation`, `searchResults` | `suppressed` |
 | `app.quit` | `<D-q>` | global | `suppressed` |
+| `app.new` | `<D-n>` | global | `suppressed` |
 | `tab.next` | `N` | `navigation`, `searchResults` | `suppressed` |
 | `tab.previous` | `P` | `navigation`, `searchResults` | `suppressed` |
 | `tab.select.1` | `<D-1>` | `navigation`, `searchResults` | `suppressed` |
@@ -73,11 +76,7 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `page.first` | `gg` | `navigation`, `searchResults` | `suppressed` |
 | `page.last` | `G` | `navigation`, `searchResults` | `suppressed` |
 | `page.prompt` | `g` | `navigation`, `searchResults` | `suppressed` |
-| `prompt.commit` | `<CR>` | `pagePrompt`, `searchPrompt` | `suppressed` |
-| `prompt.cancel` | `<Esc>` | `pagePrompt`, `searchPrompt` | `suppressed` |
 | `search.prompt` | `/` | `navigation`, `searchResults` | `suppressed` |
-| `search.next` | `<CR>` | `searchResults` | `allowed` |
-| `search.previous` | `<S-CR>` | `searchResults` | `allowed` |
 | `search.cancel` | `<Esc>` | `searchResults` | `suppressed` |
 | `view.zoomIn` | `=` | `navigation`, `searchResults` | `allowed` |
 | `view.zoomOut` | `-` | `navigation`, `searchResults` | `allowed` |
@@ -99,7 +98,8 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 - Large scroll: `0.8 × viewport` (valid `0.1...2.0`).
 - Zoom factor: `1.10` (valid `1.01...2.0`).
 - Prefix timeout: `800 ms` (valid `100...2000`).
-- Themes: `catppuccin-mocha`, `catppuccin-latte`, `tokyo-night`, `gruvbox-dark`, `nord`.
+- Pane prefix: `<C-b>` (any single key chord; used by `<prefix>` bindings).
+- Themes: `tokyo-night`, `gruvbox-dark`, `solarized-dark`, `dracula`, `everforest`, `catppuccin-latte`.
 - Themes are chosen in-app with the theme picker (`shift+t`) and persisted separately. 테마는 앱 내 테마 선택기(`shift+t`)에서 선택하며 별도로 저장됩니다.
 
 A newly opened document starts on page 1 in fit-page mode. In that mode, `j`/`d` advance a page and `k`/`u` go back. After manual zoom, each scroll action first moves within an overflowing axis. At a vertical edge, another downward action enters the next page at its top and another upward action enters the previous page at its bottom; vertical actions remain inert when the page overflows only horizontally. Actual Size remains available from the View menu and as `view.zoomReset`, but is intentionally unbound by default.
@@ -227,54 +227,78 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 ## Complete built-in TOML
 
 ```toml
-# Generated from PDFReaderCore.BuiltInDefaults. Do not edit this bundled copy.
-# Copy it to ~/.config/modeleaf/config.toml and edit the copy.
+# Modeleaf configuration — generated from PDFReaderCore.BuiltInDefaults.
+# Do not edit this bundled copy. Copy it to ~/.config/modeleaf/config.toml and edit the copy.
+#
+# Key notation (chords are wrapped in <...>):
+#   D = Command (Cmd)   C = Control (Ctrl)   A = Option (Alt)   S = Shift
+#   e.g. <D-o> = Cmd+O, <C-j> = Ctrl+J, <S-CR> = Shift+Enter.
+#   Plain characters are literal keys; concatenation is a multi-key sequence (gg = g then g).
+#   <prefix> expands to the pane prefix defined under [input] below. Rebind the prefix
+#   once and every <prefix> binding follows; <prefix> may be used in any binding.
+#
+# Enter/Esc prompt commit & cancel and search next/previous are fixed keys and are
+# intentionally omitted here — they cannot be rebound.
 
 [keymap]
-"document.open" = ["<D-o>"]
-"document.close" = ["<D-w>"]
-"app.quit" = ["<D-q>"]
-"tab.next" = ["N"]
-"tab.previous" = ["P"]
-"tab.select.1" = ["<D-1>"]
-"tab.select.2" = ["<D-2>"]
-"tab.select.3" = ["<D-3>"]
-"tab.select.4" = ["<D-4>"]
-"tab.select.5" = ["<D-5>"]
-"tab.select.6" = ["<D-6>"]
-"tab.select.7" = ["<D-7>"]
-"tab.select.8" = ["<D-8>"]
-"tab.select.9" = ["<D-9>"]
-"scroll.left" = ["h"]
-"scroll.down" = ["j"]
-"scroll.up" = ["k"]
-"scroll.right" = ["l"]
-"scroll.largeDown" = ["d"]
-"scroll.largeUp" = ["u"]
-"page.next" = ["n"]
-"page.previous" = ["p"]
-"page.first" = ["gg"]
-"page.last" = ["G"]
-"page.prompt" = ["g"]
-"prompt.commit" = ["<CR>"]
-"prompt.cancel" = ["<Esc>"]
-"search.prompt" = ["/"]
-"search.next" = ["<CR>"]
-"search.previous" = ["<S-CR>"]
-"search.cancel" = ["<Esc>"]
-"view.zoomIn" = ["="]
-"view.zoomOut" = ["-"]
-"view.zoomReset" = []
-"view.fitWidth" = ["w"]
-"view.fitPage" = ["f"]
-"theme.picker" = ["T"]
-"pane.splitRight" = ["<C-b>|"]
-"pane.splitDown" = ["<C-b>-"]
-"pane.focusLeft" = ["<C-h>"]
-"pane.focusDown" = ["<C-j>"]
-"pane.focusUp" = ["<C-k>"]
-"pane.focusRight" = ["<C-l>"]
-"pane.unsplit" = ["<C-b>o"]
+
+# --- Application ---
+"document.open"    = ["<D-o>"]  # Cmd+O
+"document.close"   = ["<D-w>"]  # Cmd+W
+"app.quit"         = ["<D-q>"]  # Cmd+Q
+"app.new"          = ["<D-n>"]  # Cmd+N
+
+# --- Tabs ---
+"tab.next"         = ["N"]  # N
+"tab.previous"     = ["P"]  # P
+"tab.select.1"     = ["<D-1>"]  # Cmd+1
+"tab.select.2"     = ["<D-2>"]  # Cmd+2
+"tab.select.3"     = ["<D-3>"]  # Cmd+3
+"tab.select.4"     = ["<D-4>"]  # Cmd+4
+"tab.select.5"     = ["<D-5>"]  # Cmd+5
+"tab.select.6"     = ["<D-6>"]  # Cmd+6
+"tab.select.7"     = ["<D-7>"]  # Cmd+7
+"tab.select.8"     = ["<D-8>"]  # Cmd+8
+"tab.select.9"     = ["<D-9>"]  # Cmd+9
+
+# --- Scroll ---
+"scroll.left"      = ["h"]  # h
+"scroll.down"      = ["j"]  # j
+"scroll.up"        = ["k"]  # k
+"scroll.right"     = ["l"]  # l
+"scroll.largeDown" = ["d"]  # d
+"scroll.largeUp"   = ["u"]  # u
+
+# --- Pages ---
+"page.next"        = ["n"]  # n
+"page.previous"    = ["p"]  # p
+"page.first"       = ["gg"]  # g g
+"page.last"        = ["G"]  # G
+"page.prompt"      = ["g"]  # g
+
+# --- Search ---
+"search.prompt"    = ["/"]  # /
+"search.cancel"    = ["<Esc>"]  # Esc
+
+# --- View / Zoom ---
+"view.zoomIn"      = ["="]  # =
+"view.zoomOut"     = ["-"]  # -
+"view.zoomReset"   = []
+"view.fitWidth"    = ["w"]  # w
+"view.fitPage"     = ["f"]  # f
+
+# --- Theme ---
+"theme.picker"     = ["T"]  # T
+
+# --- Panes ---
+# split/unsplit use <prefix>; focus keys are direct. Change the prefix under [input].
+"pane.splitRight"  = ["<prefix>|"]  # Ctrl+B |
+"pane.splitDown"   = ["<prefix>-"]  # Ctrl+B -
+"pane.focusLeft"   = ["<C-h>"]  # Ctrl+H
+"pane.focusDown"   = ["<C-j>"]  # Ctrl+J
+"pane.focusUp"     = ["<C-k>"]  # Ctrl+K
+"pane.focusRight"  = ["<C-l>"]  # Ctrl+L
+"pane.unsplit"     = ["<prefix>o"]  # Ctrl+B o
 
 [navigation]
 small_scroll_points = 48.0
@@ -283,4 +307,6 @@ zoom_factor = 1.1
 
 [input]
 prefix_timeout_ms = 800
+# Pane prefix chord. Every <prefix> binding above expands to this.
+prefix = "<C-b>"
 ```

@@ -88,17 +88,10 @@ struct ConfigValidatorTests {
         #expect(conflictDiagnostic?.actions == [ActionID.scrollDown.rawValue, ActionID.scrollUp.rawValue])
         #expect(conflictDiagnostic?.contexts == [.navigation, .searchResults])
 
-        let disjoint = ConfigValidator.validate(
-            SparseAppConfig(
-                keymap: [
-                    ActionID.promptCommit.rawValue: ["<D-F12>"],
-                    ActionID.searchNext.rawValue: ["<D-F12>"],
-                ]
-            )
-        )
+        let disjoint = ConfigValidator.validate(SparseAppConfig())
         #expect(disjoint.isValid)
-        #expect(disjoint.validatedConfig?.keymap.bindings(for: .promptCommit) == [try sequence("<D-F12>")])
-        #expect(disjoint.validatedConfig?.keymap.bindings(for: .searchNext) == [try sequence("<D-F12>")])
+        #expect(disjoint.validatedConfig?.keymap.bindings(for: .promptCommit) == [try sequence("<CR>")])
+        #expect(disjoint.validatedConfig?.keymap.bindings(for: .searchNext) == [try sequence("<CR>")])
 
         let invalidPrefix = ConfigValidator.validate(
             SparseAppConfig(
@@ -144,8 +137,8 @@ struct ConfigValidatorTests {
 
     @Test("U-CFG-13 every prompt-active action shares one strict binding predicate")
     func promptActiveActionsUseSharedPredicate() throws {
-        let promptActive = ActionRegistry.v1.descriptors.filter(\.isPromptActive)
-        #expect(promptActive.map(\.id) == [.documentOpen, .appQuit, .promptCommit, .promptCancel])
+        let promptActive = ActionRegistry.v1.descriptors.filter { $0.isPromptActive && !$0.isFixedBinding }
+        #expect(promptActive.map(\.id) == [.documentOpen, .appQuit, .appNew])
 
         for descriptor in promptActive {
             let unbound = validateBinding([], for: descriptor.id)
@@ -166,39 +159,65 @@ struct ConfigValidatorTests {
         }
     }
 
-    @Test("U-CFG-14 prompt lifecycle can be intentionally keyboard-unbound")
-    func promptLifecycleUnbindRemainsUsable() throws {
+    @Test("U-CFG-14 fixed prompt and search keys reject rebinding and keep defaults")
+    func fixedKeysRejectRebinding() throws {
         let report = ConfigValidator.validate(
             SparseAppConfig(
                 keymap: [
                     ActionID.promptCommit.rawValue: [],
-                    ActionID.promptCancel.rawValue: [],
+                    ActionID.promptCancel.rawValue: ["<D-F12>"],
+                    ActionID.searchNext.rawValue: ["x"],
+                    ActionID.searchPrevious.rawValue: [],
                 ]
             )
         )
         let active = try #require(report.validatedConfig)
-        let warnings = report.diagnostics.filter { $0.code == .promptLifecycleUnbound }
-
+        let warnings = report.diagnostics.filter { $0.code == .reservedAction }
         #expect(report.isValid)
-        #expect(warnings.count == 1)
-        #expect(warnings[0].severity == .warning)
+        #expect(warnings.count == 4)
+        #expect(warnings.allSatisfy { $0.severity == .warning })
         #expect(
-            Set(warnings[0].actions)
-                == [ActionID.promptCommit.rawValue, ActionID.promptCancel.rawValue]
+            Set(warnings.flatMap(\.actions)) == [
+                ActionID.promptCommit.rawValue, ActionID.promptCancel.rawValue,
+                ActionID.searchNext.rawValue, ActionID.searchPrevious.rawValue,
+            ]
         )
-        #expect(!active.keymap.isBound(.promptCommit))
-        #expect(!active.keymap.isBound(.promptCancel))
-
+        #expect(active.keymap.bindings(for: .promptCommit) == [try sequence("<CR>")])
+        #expect(active.keymap.bindings(for: .promptCancel) == [try sequence("<Esc>")])
+        #expect(active.keymap.bindings(for: .searchNext) == [try sequence("<CR>")])
+        #expect(active.keymap.bindings(for: .searchPrevious) == [try sequence("<S-CR>")])
         var engine = active.makeKeyEngine(context: .pagePrompt)
-        #expect(engine.handle(try token("<CR>")) == .ignored(.noBinding))
-        #expect(engine.handle(try token("<Esc>")) == .ignored(.noBinding))
+        #expect(engine.handle(try token("<CR>")) != .ignored(.noBinding))
+        #expect(engine.handle(try token("<Esc>")) != .ignored(.noBinding))
+    }
 
-        let promptControls = ActionSurfaceRegistry.v1.filter { $0.kind == .promptControl }
-        #expect(promptControls.contains { $0.actionID == .promptCommit })
-        #expect(promptControls.contains { $0.actionID == .promptCancel })
-        #expect(active.keymap.isBound(.appQuit))
-        let quitToken = try token("<D-q>")
-        #expect(active.menuDescriptors.first { $0.actionID == .appQuit }?.keyEquivalent == quitToken)
+    @Test("U-CFG-15 pane prefix is configurable and expands <prefix> bindings")
+    func configurablePanePrefix() throws {
+        let custom = ConfigValidator.validate(
+            SparseAppConfig(
+                keymap: [ActionID.paneSplitRight.rawValue: ["<prefix>|"]],
+                input: SparseInputConfiguration(prefix: "<C-a>")
+            )
+        )
+        let active = try #require(custom.validatedConfig)
+        #expect(custom.isValid)
+        #expect(active.config.input.prefix == "<C-a>")
+        #expect(active.keymap.bindings(for: .paneSplitRight) == [try sequence("<C-a>|")])
+
+        let reused = ConfigValidator.validate(
+            SparseAppConfig(
+                keymap: [ActionID.themePicker.rawValue: ["<prefix>t"]],
+                input: SparseInputConfiguration(prefix: "<C-b>")
+            )
+        )
+        #expect(reused.validatedConfig?.keymap.bindings(for: .themePicker) == [try sequence("<C-b>t")])
+
+        let invalid = ConfigValidator.validate(
+            SparseAppConfig(input: SparseInputConfiguration(prefix: "nonsense-chord"))
+        )
+        #expect(invalid.isValid)
+        #expect(invalid.diagnostics.contains { $0.code == .invalidPrefix && $0.severity == .warning })
+        #expect(invalid.validatedConfig?.config.input.prefix == "<C-b>")
     }
 
     private func validateBinding(_ sources: [String], for actionID: ActionID) -> ConfigValidationReport {

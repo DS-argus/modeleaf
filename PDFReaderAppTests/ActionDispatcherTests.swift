@@ -40,6 +40,27 @@ struct ActionDispatcherTests {
         ])
     }
 
+    @Test("app.new dispatches to the new-instance launcher only")
+    func appNewLaunchesNewInstance() {
+        let store = ReaderSessionStore()
+        let session = RecordingReaderSession(title: "Doc.pdf")
+        #expect(store.insert(session))
+        var newInstanceCount = 0
+        var quitCount = 0
+        let coordinator = PaneCoordinator(initialStore: store)
+        let dispatcher = ActionDispatcher(
+            coordinator: coordinator,
+            navigation: BuiltInDefaults.config.navigation,
+            terminationHandler: { quitCount += 1 },
+            newInstanceHandler: { newInstanceCount += 1 }
+        )
+
+        dispatcher.dispatch(.appNew)
+        #expect(newInstanceCount == 1)
+        #expect(quitCount == 0)
+        #expect(store.activeSession?.id == session.id)
+    }
+
     @Test("tab movement and close retain the store as the sole session owner")
     func tabActions() {
         let store = ReaderSessionStore()

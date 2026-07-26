@@ -18,9 +18,11 @@ public struct NavigationConfiguration: Equatable, Sendable {
 
 public struct InputConfiguration: Equatable, Sendable {
     public let prefixTimeoutMilliseconds: Int
+    public let prefix: String
 
-    public init(prefixTimeoutMilliseconds: Int) {
+    public init(prefixTimeoutMilliseconds: Int, prefix: String = "<C-b>") {
         self.prefixTimeoutMilliseconds = prefixTimeoutMilliseconds
+        self.prefix = prefix
     }
 }
 

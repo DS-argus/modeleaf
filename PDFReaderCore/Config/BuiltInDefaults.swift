@@ -15,13 +15,14 @@ public enum BuiltInDefaults {
             largeScrollViewportFraction: 0.8,
             zoomFactor: 1.10
         ),
-        input: InputConfiguration(prefixTimeoutMilliseconds: 800)
+        input: InputConfiguration(prefixTimeoutMilliseconds: 800, prefix: "<C-b>")
     )
 
     public static let keymap: [ActionID: [KeySequence]] = [
         .documentOpen: sequences("<D-o>"),
         .documentClose: sequences("<D-w>"),
         .appQuit: sequences("<D-q>"),
+        .appNew: sequences("<D-n>"),
 
         .tabNext: sequences("N"),
         .tabPrevious: sequences("P"),
@@ -80,16 +81,44 @@ public enum BuiltInDefaults {
 
     public static var defaultConfigTOML: String {
         var lines = [
-            "# Generated from PDFReaderCore.BuiltInDefaults. Do not edit this bundled copy.",
-            "# Copy it to ~/.config/modeleaf/config.toml and edit the copy.",
+            "# Modeleaf configuration \u{2014} generated from PDFReaderCore.BuiltInDefaults.",
+            "# Do not edit this bundled copy. Copy it to ~/.config/modeleaf/config.toml and edit the copy.",
+            "#",
+            "# Key notation (chords are wrapped in <...>):",
+            "#   D = Command (Cmd)   C = Control (Ctrl)   A = Option (Alt)   S = Shift",
+            "#   e.g. <D-o> = Cmd+O, <C-j> = Ctrl+J, <S-CR> = Shift+Enter.",
+            "#   Plain characters are literal keys; concatenation is a multi-key sequence (gg = g then g).",
+            "#   <prefix> expands to the pane prefix defined under [input] below. Rebind the prefix",
+            "#   once and every <prefix> binding follows; <prefix> may be used in any binding.",
+            "#",
+            "# Enter/Esc prompt commit & cancel and search next/previous are fixed keys and are",
+            "# intentionally omitted here \u{2014} they cannot be rebound.",
             "",
             "[keymap]",
         ]
-        for descriptor in ActionRegistry.v1.descriptors {
-            let values = keymap[descriptor.id, default: []]
-                .map { "\"\(escapeTOML($0.description))\"" }
+        var previousCategory: String?
+        for descriptor in ActionRegistry.v1.userConfigurableDescriptors {
+            let category = categoryTitle(for: descriptor.id)
+            if category != previousCategory {
+                lines.append("")
+                lines.append("# --- \(category) ---")
+                if category == "Panes" {
+                    lines.append("# split/unsplit use <prefix>; focus keys are direct. Change the prefix under [input].")
+                }
+                previousCategory = category
+            }
+            let sequences = keymap[descriptor.id, default: []]
+            let rendered = sequences
+                .map { "\"\(escapeTOML(templated($0.description)))\"" }
                 .joined(separator: ", ")
-            lines.append("\"\(descriptor.id.rawValue)\" = [\(values)]")
+            let key = "\"\(descriptor.id.rawValue)\""
+            let padded = key.padding(toLength: max(key.count, 18), withPad: " ", startingAt: 0)
+            let assignment = "\(padded) = [\(rendered)]"
+            if let hint = keyHint(sequences) {
+                lines.append("\(assignment)  # \(hint)")
+            } else {
+                lines.append(assignment)
+            }
         }
         lines += [
             "",
@@ -100,6 +129,8 @@ public enum BuiltInDefaults {
             "",
             "[input]",
             "prefix_timeout_ms = \(config.input.prefixTimeoutMilliseconds)",
+            "# Pane prefix chord. Every <prefix> binding above expands to this.",
+            "prefix = \"\(escapeTOML(config.input.prefix))\"",
         ]
         return lines.joined(separator: "\n")
     }
@@ -117,5 +148,66 @@ public enum BuiltInDefaults {
     private static func escapeTOML(_ value: String) -> String {
         value.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
+    }
+
+    private static func categoryTitle(for id: ActionID) -> String {
+        switch String(id.rawValue.prefix(while: { $0 != "." })) {
+        case "app", "document": return "Application"
+        case "tab": return "Tabs"
+        case "scroll": return "Scroll"
+        case "page": return "Pages"
+        case "search": return "Search"
+        case "view": return "View / Zoom"
+        case "theme": return "Theme"
+        case "pane": return "Panes"
+        default: return "Other"
+        }
+    }
+
+    private static func templated(_ rendered: String) -> String {
+        rendered.replacingOccurrences(of: config.input.prefix, with: "<prefix>")
+    }
+
+    private static func keyHint(_ sequences: [KeySequence]) -> String? {
+        guard let first = sequences.first, !first.tokens.isEmpty else { return nil }
+        return first.tokens.map(tokenHint).joined(separator: " ")
+    }
+
+    private static func tokenHint(_ token: KeyToken) -> String {
+        let names: [String: String] = ["D": "Cmd", "C": "Ctrl", "A": "Opt", "S": "Shift"]
+        let mods = token.modifiers.canonicalNames.map { names[$0] ?? $0 }
+        let base: String
+        switch token.symbol {
+        case let .character(character):
+            base = mods.isEmpty ? character : character.uppercased()
+        case let .named(key):
+            base = namedHint(key)
+        case .deadKey, .imeComposition:
+            base = token.description
+        }
+        return (mods + [base]).joined(separator: "+")
+    }
+
+    private static func namedHint(_ key: NamedKey) -> String {
+        switch key {
+        case .carriageReturn: return "Enter"
+        case .escape: return "Esc"
+        case .space: return "Space"
+        case .tab: return "Tab"
+        case .backspace: return "Backspace"
+        case .deleteForward: return "Del"
+        case .left: return "Left"
+        case .right: return "Right"
+        case .up: return "Up"
+        case .down: return "Down"
+        case .minus: return "-"
+        case .equal: return "="
+        case .plus: return "+"
+        case .slash: return "/"
+        case .lessThan: return "<"
+        case .greaterThan: return ">"
+        case .backtick: return "`"
+        default: return key.canonicalName
+        }
     }
 }

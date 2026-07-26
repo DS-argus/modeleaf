@@ -28,6 +28,7 @@ final class ActionDispatcher {
     private let navigation: NavigationConfiguration
     private var openDocumentHandler: () -> Void
     private var terminationHandler: () -> Void
+    private var newInstanceHandler: () -> Void
 
     weak var presentation: (any ReaderWorkflowPresenting)?
 
@@ -35,20 +36,24 @@ final class ActionDispatcher {
         coordinator: PaneCoordinator,
         navigation: NavigationConfiguration,
         openDocumentHandler: @escaping () -> Void = {},
-        terminationHandler: @escaping () -> Void = {}
+        terminationHandler: @escaping () -> Void = {},
+        newInstanceHandler: @escaping () -> Void = {}
     ) {
         self.coordinator = coordinator
         self.navigation = navigation
         self.openDocumentHandler = openDocumentHandler
         self.terminationHandler = terminationHandler
+        self.newInstanceHandler = newInstanceHandler
     }
 
     func configureLifecycleHandlers(
         openDocument: @escaping () -> Void,
-        terminate: @escaping () -> Void
+        terminate: @escaping () -> Void,
+        newInstance: @escaping () -> Void
     ) {
         openDocumentHandler = openDocument
         terminationHandler = terminate
+        newInstanceHandler = newInstance
     }
 
     func dispatch(_ keyDispatch: KeyActionDispatch) {
@@ -70,6 +75,10 @@ final class ActionDispatcher {
         case .appQuit:
             presentation?.prepareForGlobalAction()
             terminationHandler()
+
+        case .appNew:
+            presentation?.prepareForGlobalAction()
+            newInstanceHandler()
 
         case .tabNext:
             _ = coordinator.activateNext()

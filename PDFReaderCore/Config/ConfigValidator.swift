@@ -51,6 +51,23 @@ public enum ConfigValidator {
         var diagnostics: [ConfigDiagnostic] = []
         var bindings = defaults.keymap
 
+        let rawPrefix = sparse.input?.prefix ?? defaults.input.prefix
+        let effectivePrefix: String
+        if (try? KeySequenceParser.parseSingleToken(rawPrefix)) != nil {
+            effectivePrefix = rawPrefix
+        } else {
+            effectivePrefix = defaults.input.prefix
+            diagnostics.append(
+                makeDiagnostic(
+                    severity: .warning,
+                    code: .invalidPrefix,
+                    message: "Invalid pane prefix \"\(rawPrefix)\"; expected a single key chord such as <C-b>. Using \(defaults.input.prefix).",
+                    path: "input.prefix",
+                    source: source
+                )
+            )
+        }
+
         for rawAction in sparse.keymap?.keys.sorted() ?? [] {
             let rawSequences = sparse.keymap?[rawAction] ?? []
             guard let actionID = ActionID(rawValue: rawAction), registry.descriptor(for: actionID) != nil else {
@@ -66,10 +83,24 @@ public enum ConfigValidator {
                 continue
             }
 
+            if registry.isFixedBinding(actionID) {
+                diagnostics.append(
+                    makeDiagnostic(
+                        severity: .warning,
+                        code: .reservedAction,
+                        message: "\(rawAction) is a fixed key and cannot be rebound; keeping the built-in binding.",
+                        path: ConfigSemanticPath.keymap(action: rawAction),
+                        source: source,
+                        actions: [rawAction]
+                    )
+                )
+                continue
+            }
+
             var parsed: [KeySequence] = []
             for (index, rawSequence) in rawSequences.enumerated() {
                 do {
-                    parsed.append(try KeySequenceParser.parse(rawSequence))
+                    parsed.append(try KeySequenceParser.parse(Self.expandPrefix(rawSequence, prefix: effectivePrefix)))
                 } catch {
                     let descriptor = registry.descriptor(for: actionID)
                     let diagnosticContexts = descriptor?.isPromptActive == true
@@ -124,7 +155,8 @@ public enum ConfigValidator {
                 path: "input.prefix_timeout_ms",
                 source: source,
                 diagnostics: &diagnostics
-            )
+            ),
+            prefix: effectivePrefix
         )
 
 
@@ -143,23 +175,6 @@ public enum ConfigValidator {
         let bindingReport = ActionBindingPolicy.evaluateEffective(bindings, registry: registry)
         diagnostics += bindingReport.diagnostics.map {
             bindingDiagnostic($0, bindings: bindings, source: source)
-        }
-
-        let unboundPromptActions = [ActionID.promptCommit, .promptCancel].filter {
-            bindings[$0, default: []].isEmpty
-        }
-        if !unboundPromptActions.isEmpty {
-            diagnostics.append(
-                makeDiagnostic(
-                    severity: .warning,
-                    code: .promptLifecycleUnbound,
-                    message: "Keyboard prompt commit/cancel is unavailable for: \(unboundPromptActions.map(\.rawValue).joined(separator: ", ")). Clickable prompt controls remain available.",
-                    path: "keymap",
-                    source: source,
-                    actions: unboundPromptActions.map(\.rawValue),
-                    contexts: InputContext.promptContexts
-                )
-            )
         }
 
         var trie: KeySequenceTrie?
@@ -425,5 +440,9 @@ public enum ConfigValidator {
             actions: actions,
             contexts: InputContext.allCases.filter(contexts.contains)
         )
+    }
+
+    private static func expandPrefix(_ raw: String, prefix: String) -> String {
+        raw.replacingOccurrences(of: "<prefix>", with: prefix)
     }
 }

@@ -6,7 +6,7 @@ struct ActionRegistryTests {
     @Test("U-ACT-01 exact stable action set")
     func exactStableActionSet() {
         let expected: Set<String> = [
-            "document.open", "document.close", "app.quit",
+            "document.open", "document.close", "app.quit", "app.new",
             "tab.next", "tab.previous",
             "tab.select.1", "tab.select.2", "tab.select.3",
             "tab.select.4", "tab.select.5", "tab.select.6",
@@ -20,7 +20,7 @@ struct ActionRegistryTests {
             "theme.picker",
         ]
         let registry = ActionRegistry.v1
-        #expect(registry.descriptors.count == 44)
+        #expect(registry.descriptors.count == 45)
         #expect(Set(registry.actionIDs).count == registry.actionIDs.count)
         #expect(Set(registry.actionIDs.map(\.rawValue)) == expected)
         #expect(Set(InputContext.allCases) == [.navigation, .pagePrompt, .searchPrompt, .searchResults])
@@ -101,7 +101,7 @@ struct ActionRegistryTests {
         let descriptors = MenuEquivalentPolicy.makeDescriptors(evaluatedBindings: defaults.evaluatedBindings)
         #expect(descriptors.first { $0.actionID == .documentOpen }?.keyEquivalent?.description == "<D-o>")
         #expect(descriptors.first { $0.actionID == .appQuit }?.keyEquivalent?.description == "<D-q>")
-        #expect(descriptors.filter { ![.documentOpen, .appQuit].contains($0.actionID) }.allSatisfy { $0.keyEquivalent == nil })
+        #expect(descriptors.filter { ![.documentOpen, .appQuit, .appNew].contains($0.actionID) }.allSatisfy { $0.keyEquivalent == nil })
 
         var reordered = BuiltInDefaults.keymap
         reordered[.documentOpen] = [try sequence("<D-F12>"), try sequence("<D-o>")]
@@ -157,7 +157,7 @@ struct ActionRegistryTests {
     func contextEligibility() throws {
         let registry = ActionRegistry.v1
         let globals = Set(registry.descriptors.filter { $0.scope == .global }.map(\.id))
-        #expect(globals == [.documentOpen, .appQuit])
+        #expect(globals == [.documentOpen, .appQuit, .appNew])
 
         let commit = try #require(registry.descriptor(for: .promptCommit))
         let cancel = try #require(registry.descriptor(for: .promptCancel))

@@ -18,6 +18,14 @@ public struct ActionRegistry: Sendable {
         descriptorsByID[id]
     }
 
+    public func isFixedBinding(_ id: ActionID) -> Bool {
+        descriptorsByID[id]?.isFixedBinding ?? false
+    }
+
+    public var userConfigurableDescriptors: [ActionDescriptor] {
+        descriptors.filter { !$0.isFixedBinding }
+    }
+
     private static let readerContexts: Set<InputContext> = [.navigation, .searchResults]
     private static let promptContexts: Set<InputContext> = [.pagePrompt, .searchPrompt]
 
@@ -25,6 +33,7 @@ public struct ActionRegistry: Sendable {
         ActionDescriptor(id: .documentOpen, title: "Open PDF…", scope: .global),
         ActionDescriptor(id: .documentClose, title: "Close PDF", scope: .contexts(readerContexts)),
         ActionDescriptor(id: .appQuit, title: "Quit Modeleaf", scope: .global),
+        ActionDescriptor(id: .appNew, title: "New Window", scope: .global),
 
         ActionDescriptor(id: .tabNext, title: "Next Tab", scope: .contexts(readerContexts)),
         ActionDescriptor(id: .tabPrevious, title: "Previous Tab", scope: .contexts(readerContexts)),
@@ -60,18 +69,20 @@ public struct ActionRegistry: Sendable {
             id: .promptCommit,
             title: "Commit Prompt",
             scope: .contexts(promptContexts),
-            isPromptLifecycle: true
+            isPromptLifecycle: true,
+            isFixedBinding: true
         ),
         ActionDescriptor(
             id: .promptCancel,
             title: "Cancel Prompt",
             scope: .contexts(promptContexts),
-            isPromptLifecycle: true
+            isPromptLifecycle: true,
+            isFixedBinding: true
         ),
 
         ActionDescriptor(id: .searchPrompt, title: "Find…", scope: .contexts(readerContexts)),
-        ActionDescriptor(id: .searchNext, title: "Next Match", scope: .contexts([.searchResults]), repeatPolicy: .allowed),
-        ActionDescriptor(id: .searchPrevious, title: "Previous Match", scope: .contexts([.searchResults]), repeatPolicy: .allowed),
+        ActionDescriptor(id: .searchNext, title: "Next Match", scope: .contexts([.searchResults]), repeatPolicy: .allowed, isFixedBinding: true),
+        ActionDescriptor(id: .searchPrevious, title: "Previous Match", scope: .contexts([.searchResults]), repeatPolicy: .allowed, isFixedBinding: true),
         ActionDescriptor(id: .searchCancel, title: "Clear Search", scope: .contexts([.searchResults])),
 
         ActionDescriptor(id: .viewZoomIn, title: "Zoom In", scope: .contexts(readerContexts), repeatPolicy: .allowed),

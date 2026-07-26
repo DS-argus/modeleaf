@@ -204,7 +204,7 @@ private struct ConfigTOMLSchema {
         validateFixedTable(
             value,
             path: path,
-            fields: ["prefix_timeout_ms": { $0 is Int64 }],
+            fields: ["prefix_timeout_ms": { $0 is Int64 }, "prefix": { $0 is String }],
             issues: &issues
         )
     }

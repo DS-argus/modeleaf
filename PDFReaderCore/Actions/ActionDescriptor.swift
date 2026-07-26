@@ -44,6 +44,7 @@ public struct ActionDescriptor: Equatable, Sendable {
     public let repeatPolicy: ActionRepeatPolicy
     public let prefixFallbackPolicy: PrefixFallbackPolicy
     public let isPromptLifecycle: Bool
+    public let isFixedBinding: Bool
 
     public init(
         id: ActionID,
@@ -51,7 +52,8 @@ public struct ActionDescriptor: Equatable, Sendable {
         scope: ActionScope,
         repeatPolicy: ActionRepeatPolicy = .suppressed,
         prefixFallbackPolicy: PrefixFallbackPolicy = .none,
-        isPromptLifecycle: Bool = false
+        isPromptLifecycle: Bool = false,
+        isFixedBinding: Bool = false
     ) {
         self.id = id
         self.title = title
@@ -59,6 +61,7 @@ public struct ActionDescriptor: Equatable, Sendable {
         self.repeatPolicy = repeatPolicy
         self.prefixFallbackPolicy = prefixFallbackPolicy
         self.isPromptLifecycle = isPromptLifecycle
+        self.isFixedBinding = isFixedBinding
     }
 
     public var activeContexts: Set<InputContext> { scope.activeContexts }

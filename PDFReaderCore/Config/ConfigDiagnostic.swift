@@ -26,6 +26,8 @@ public enum ConfigDiagnosticCode: String, Codable, Equatable, Sendable {
     case promptLifecycleUnbound
     case menuEquivalentOmitted
     case internalInvariant
+    case reservedAction
+    case invalidPrefix
 }
 
 public struct ConfigDiagnostic: Equatable, Sendable, CustomStringConvertible {

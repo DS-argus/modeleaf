@@ -24,13 +24,16 @@ public struct SparseNavigationConfiguration: Decodable, Equatable, Sendable {
 
 public struct SparseInputConfiguration: Decodable, Equatable, Sendable {
     public let prefixTimeoutMilliseconds: Int?
+    public let prefix: String?
 
-    public init(prefixTimeoutMilliseconds: Int? = nil) {
+    public init(prefixTimeoutMilliseconds: Int? = nil, prefix: String? = nil) {
         self.prefixTimeoutMilliseconds = prefixTimeoutMilliseconds
+        self.prefix = prefix
     }
 
     enum CodingKeys: String, CodingKey {
         case prefixTimeoutMilliseconds = "prefix_timeout_ms"
+        case prefix
     }
 }
 

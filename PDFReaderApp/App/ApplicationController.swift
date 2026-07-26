@@ -8,6 +8,7 @@ final class ApplicationController {
     let coordinator: PaneCoordinator
     private let application: NSApplication
     private let terminationHandler: () -> Void
+    private let newInstanceLauncher: () -> Void
     private let pdfOpenService: PDFOpenService
     private let openMetrics: any PDFOpenMetrics
     private let openPanelPresenter: any PDFOpenPanelPresenting
@@ -24,7 +25,7 @@ final class ApplicationController {
         return controller
     }()
 
-    init(application: NSApplication = .shared, configService: ConfigService = ConfigService(), sessionStore: ReaderSessionStore = ReaderSessionStore(), pdfOpenService: PDFOpenService = PDFOpenService(), openMetrics: any PDFOpenMetrics = OSLogPDFOpenMetrics(), openPanelPresenter: any PDFOpenPanelPresenting = NativePDFOpenPanelPresenter(), themeStore: ThemeSelectionStore = ThemeSelectionStore(), terminationHandler: (() -> Void)? = nil) {
+    init(application: NSApplication = .shared, configService: ConfigService = ConfigService(), sessionStore: ReaderSessionStore = ReaderSessionStore(), pdfOpenService: PDFOpenService = PDFOpenService(), openMetrics: any PDFOpenMetrics = OSLogPDFOpenMetrics(), openPanelPresenter: any PDFOpenPanelPresenting = NativePDFOpenPanelPresenter(), themeStore: ThemeSelectionStore = ThemeSelectionStore(), terminationHandler: (() -> Void)? = nil, newInstanceLauncher: (() -> Void)? = nil) {
         let configResult = configService.load()
         self.application = application; self.configResult = configResult; self.sessionStore = sessionStore
         self.coordinator = PaneCoordinator(initialStore: sessionStore)
@@ -35,8 +36,9 @@ final class ApplicationController {
         case let .ioError(message): self.currentThemeID = ThemeSelectionStore.productDefault; self.themeStartupDiagnostic = "Could not read the saved theme (\(message)); using the default."
         }
         self.terminationHandler = terminationHandler ?? { application.terminate(nil) }
+        self.newInstanceLauncher = newInstanceLauncher ?? { ApplicationController.launchNewInstance() }
         self.actionDispatcher = ActionDispatcher(coordinator: coordinator, navigation: configResult.activeConfig.config.navigation)
-        self.actionDispatcher.configureLifecycleHandlers(openDocument: { [weak self] in self?.presentOpenPanel() }, terminate: { [weak self] in self?.terminationHandler() })
+        self.actionDispatcher.configureLifecycleHandlers(openDocument: { [weak self] in self?.presentOpenPanel() }, terminate: { [weak self] in self?.terminationHandler() }, newInstance: { [weak self] in self?.newInstanceLauncher() })
         coordinator.configureDuplication { [weak self] snapshot in self?.makeDuplicate(from: snapshot) }
         coordinator.configureDuplicationCompletion { [weak self] session, committed in self?.completeDuplicate(session, committed: committed) }
     }
@@ -93,6 +95,12 @@ final class ApplicationController {
         guard let traceID = pendingDuplicateTraces.removeValue(forKey: session.id) else { return }
         if committed { openMetrics.record(.point(.openReady, traceID: traceID, outcome: .success)); openMetrics.record(.end(.openTotal, traceID: traceID, outcome: .success))
         } else { recordOpenFailure(traceID: traceID, outcome: .insertionRejected) }
+    }
+
+    private static func launchNewInstance() {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration, completionHandler: nil)
     }
 }
 

@@ -233,13 +233,13 @@ struct ApplicationControllerTests {
         #expect(details.contains("navigation.zoom_factor"))
         #expect(details.contains("[unknownAction]"))
         #expect(details.contains("bookmark.toggle"))
-        #expect(details.contains("[promptLifecycleUnbound]"))
-        #expect(details.contains("actions: prompt.commit, prompt.cancel"))
-        #expect(details.contains("contexts: pagePrompt, searchPrompt"))
+        #expect(details.contains("[reservedAction]"))
+        #expect(details.contains("actions: prompt.commit"))
+        #expect(details.contains("actions: prompt.cancel"))
         #expect(details.contains(configURL.path))
         #expect(
             (controller.mainWindowController.rootView.statusBar.accessibilityValue() as? String)?
-                .contains("promptLifecycleUnbound") == true
+                .contains("reservedAction") == true
         )
     }
 
@@ -268,8 +268,8 @@ struct ApplicationControllerTests {
         #expect(!controller.configResult.usedFallback)
         let status = controller.mainWindowController.rootView.statusBar.presentation
         #expect(status.tone == .normal)
-        #expect(status.detail == "Configuration: 1 warning")
-        #expect(status.expandedDetail?.contains("promptLifecycleUnbound") == true)
+        #expect(status.detail == "Configuration: 2 warnings")
+        #expect(status.expandedDetail?.contains("reservedAction") == true)
     }
 
     @Test("controller split duplicates the source page fit-to-page and completes one post-commit open trace")

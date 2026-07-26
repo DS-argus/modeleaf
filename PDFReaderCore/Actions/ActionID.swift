@@ -4,6 +4,7 @@ public enum ActionID: String, CaseIterable, Codable, Hashable, Sendable {
     case documentOpen = "document.open"
     case documentClose = "document.close"
     case appQuit = "app.quit"
+    case appNew = "app.new"
 
     case tabNext = "tab.next"
     case tabPrevious = "tab.previous"
