@@ -32,148 +32,148 @@
       "capacity_within_budget" : true,
       "cycles" : [
         {
-          "baseline_rss_bytes" : 170246144,
+          "baseline_rss_bytes" : 168853504,
           "capacity_within_budget" : true,
           "cycle" : 1,
           "open_metric_begin_event_count" : 50,
           "open_metric_end_event_count" : 50,
           "open_metric_trace_count" : 10,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 179683328,
-          "post_unsplit_rss_bytes" : 176717824,
+          "peak_rss_bytes" : 176586752,
+          "post_unsplit_rss_bytes" : 171376640,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            4.4881105422973633,
-            4.8390626907348633,
-            4.6250820159912109
+            8.152008056640625,
+            7.9959630966186523,
+            7.6410770416259766
           ],
-          "stable_rss_bytes" : 179683328
+          "stable_rss_bytes" : 174309376
         },
         {
-          "baseline_rss_bytes" : 174555136,
+          "baseline_rss_bytes" : 171376640,
           "capacity_within_budget" : true,
           "cycle" : 2,
           "open_metric_begin_event_count" : 65,
           "open_metric_end_event_count" : 65,
           "open_metric_trace_count" : 13,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 182960128,
-          "post_unsplit_rss_bytes" : 179421184,
+          "peak_rss_bytes" : 179568640,
+          "post_unsplit_rss_bytes" : 178176000,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            4.8080682754516602,
-            4.9409866333007812,
-            7.4290037155151367
+            4.8450231552124023,
+            4.963994026184082,
+            5.4080486297607422
           ],
-          "stable_rss_bytes" : 182288384
+          "stable_rss_bytes" : 179568640
         },
         {
-          "baseline_rss_bytes" : 177274880,
+          "baseline_rss_bytes" : 177242112,
           "capacity_within_budget" : true,
           "cycle" : 3,
           "open_metric_begin_event_count" : 80,
           "open_metric_end_event_count" : 80,
           "open_metric_trace_count" : 16,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 186040320,
-          "post_unsplit_rss_bytes" : 180584448,
+          "peak_rss_bytes" : 186990592,
+          "post_unsplit_rss_bytes" : 182763520,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            4.7589540481567383,
-            4.6689510345458984,
-            4.4230222702026367
+            7.6889991760253906,
+            4.9909353256225586,
+            5.2939653396606445
           ],
-          "stable_rss_bytes" : 184401920
+          "stable_rss_bytes" : 185761792
         },
         {
-          "baseline_rss_bytes" : 170295296,
+          "baseline_rss_bytes" : 182763520,
           "capacity_within_budget" : true,
           "cycle" : 4,
           "open_metric_begin_event_count" : 95,
           "open_metric_end_event_count" : 95,
           "open_metric_trace_count" : 19,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 184745984,
-          "post_unsplit_rss_bytes" : 183304192,
+          "peak_rss_bytes" : 191053824,
+          "post_unsplit_rss_bytes" : 193069056,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            4.5610666275024414,
-            4.5390129089355469,
-            4.860997200012207
+            4.8199892044067383,
+            7.6839923858642578,
+            4.6390295028686523
           ],
-          "stable_rss_bytes" : 184745984
+          "stable_rss_bytes" : 191053824
         },
         {
-          "baseline_rss_bytes" : 182534144,
+          "baseline_rss_bytes" : 196165632,
           "capacity_within_budget" : true,
           "cycle" : 5,
           "open_metric_begin_event_count" : 110,
           "open_metric_end_event_count" : 110,
           "open_metric_trace_count" : 22,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 189906944,
-          "post_unsplit_rss_bytes" : 181403648,
+          "peak_rss_bytes" : 208420864,
+          "post_unsplit_rss_bytes" : 200425472,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            6.6940784454345703,
-            5.0060749053955078,
-            4.5820474624633789
+            4.9959421157836914,
+            8.7400674819946289,
+            4.6799182891845703
           ],
-          "stable_rss_bytes" : 187105280
+          "stable_rss_bytes" : 203423744
         },
         {
-          "baseline_rss_bytes" : 172474368,
+          "baseline_rss_bytes" : 200425472,
           "capacity_within_budget" : true,
           "cycle" : 6,
           "open_metric_begin_event_count" : 125,
           "open_metric_end_event_count" : 125,
           "open_metric_trace_count" : 25,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 192512000,
-          "post_unsplit_rss_bytes" : 197722112,
+          "peak_rss_bytes" : 206143488,
+          "post_unsplit_rss_bytes" : 196345856,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            4.7670602798461914,
-            4.8769712448120117,
-            4.9159526824951172
+            7.4030160903930664,
+            7.7980756759643555,
+            7.1229934692382812
           ],
-          "stable_rss_bytes" : 192512000
+          "stable_rss_bytes" : 206143488
         },
         {
-          "baseline_rss_bytes" : 200032256,
+          "baseline_rss_bytes" : 192184320,
           "capacity_within_budget" : true,
           "cycle" : 7,
           "open_metric_begin_event_count" : 140,
           "open_metric_end_event_count" : 140,
           "open_metric_trace_count" : 28,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 212189184,
-          "post_unsplit_rss_bytes" : 206209024,
+          "peak_rss_bytes" : 212123648,
+          "post_unsplit_rss_bytes" : 210747392,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            8.5350275039672852,
-            4.4009685516357422,
-            4.4879913330078125
+            6.5779685974121094,
+            11.000990867614746,
+            7.6619386672973633
           ],
-          "stable_rss_bytes" : 209354752
+          "stable_rss_bytes" : 212123648
         },
         {
-          "baseline_rss_bytes" : 205324288,
+          "baseline_rss_bytes" : 210010112,
           "capacity_within_budget" : true,
           "cycle" : 8,
           "open_metric_begin_event_count" : 155,
           "open_metric_end_event_count" : 155,
           "open_metric_trace_count" : 31,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 213483520,
-          "post_unsplit_rss_bytes" : 211894272,
+          "peak_rss_bytes" : 214384640,
+          "post_unsplit_rss_bytes" : 211369984,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            6.914973258972168,
-            4.9719810485839844,
-            4.7889947891235352
+            4.5629739761352539,
+            5.7430267333984375,
+            7.2890520095825195
           ],
-          "stable_rss_bytes" : 213483520
+          "stable_rss_bytes" : 214384640
         }
       ],
       "fixture" : "L",
@@ -185,148 +185,148 @@
       "capacity_within_budget" : true,
       "cycles" : [
         {
-          "baseline_rss_bytes" : 192937984,
+          "baseline_rss_bytes" : 231440384,
           "capacity_within_budget" : true,
           "cycle" : 1,
           "open_metric_begin_event_count" : 50,
           "open_metric_end_event_count" : 50,
           "open_metric_trace_count" : 10,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 211697664,
-          "post_unsplit_rss_bytes" : 200261632,
+          "peak_rss_bytes" : 250839040,
+          "post_unsplit_rss_bytes" : 243204096,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            6.9090127944946289,
-            2.0960569381713867,
-            1.8720626831054688
+            4.5349597930908203,
+            7.0960521697998047,
+            2.2139549255371094
           ],
-          "stable_rss_bytes" : 207323136
+          "stable_rss_bytes" : 243204096
         },
         {
-          "baseline_rss_bytes" : 200261632,
+          "baseline_rss_bytes" : 243220480,
           "capacity_within_budget" : true,
           "cycle" : 2,
           "open_metric_begin_event_count" : 65,
           "open_metric_end_event_count" : 65,
           "open_metric_trace_count" : 13,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 218759168,
-          "post_unsplit_rss_bytes" : 212582400,
+          "peak_rss_bytes" : 262160384,
+          "post_unsplit_rss_bytes" : 254427136,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            3.1180381774902344,
-            2.0210742950439453,
-            2.1200180053710938
+            4.6000480651855469,
+            2.2459030151367188,
+            1.8500089645385742
           ],
-          "stable_rss_bytes" : 218742784
+          "stable_rss_bytes" : 260833280
         },
         {
-          "baseline_rss_bytes" : 212582400,
+          "baseline_rss_bytes" : 254427136,
           "capacity_within_budget" : true,
           "cycle" : 3,
           "open_metric_begin_event_count" : 80,
           "open_metric_end_event_count" : 80,
           "open_metric_trace_count" : 16,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 226410496,
-          "post_unsplit_rss_bytes" : 217055232,
+          "peak_rss_bytes" : 274350080,
+          "post_unsplit_rss_bytes" : 266272768,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            2.1259784698486328,
-            1.9869804382324219,
-            1.9869804382324219
+            2.7550458908081055,
+            6.8860054016113281,
+            2.429962158203125
           ],
-          "stable_rss_bytes" : 223182848
+          "stable_rss_bytes" : 266272768
         },
         {
-          "baseline_rss_bytes" : 217055232,
+          "baseline_rss_bytes" : 266289152,
           "capacity_within_budget" : true,
           "cycle" : 4,
           "open_metric_begin_event_count" : 95,
           "open_metric_end_event_count" : 95,
           "open_metric_trace_count" : 19,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 232587264,
-          "post_unsplit_rss_bytes" : 223100928,
+          "peak_rss_bytes" : 286998528,
+          "post_unsplit_rss_bytes" : 278904832,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            2.122044563293457,
-            1.9339323043823242,
-            5.3739547729492188
+            2.8570890426635742,
+            2.6429891586303711,
+            3.6859512329101562
           ],
-          "stable_rss_bytes" : 230146048
+          "stable_rss_bytes" : 285917184
         },
         {
-          "baseline_rss_bytes" : 223100928,
+          "baseline_rss_bytes" : 278904832,
           "capacity_within_budget" : true,
           "cycle" : 5,
           "open_metric_begin_event_count" : 110,
           "open_metric_end_event_count" : 110,
           "open_metric_trace_count" : 22,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 238813184,
-          "post_unsplit_rss_bytes" : 232685568,
+          "peak_rss_bytes" : 297598976,
+          "post_unsplit_rss_bytes" : 289734656,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            2.3159980773925781,
-            1.8409490585327148,
-            2.0840167999267578
+            5.2570104598999023,
+            2.2870302200317383,
+            2.3980140686035156
           ],
-          "stable_rss_bytes" : 238813184
+          "stable_rss_bytes" : 295993344
         },
         {
-          "baseline_rss_bytes" : 232685568,
+          "baseline_rss_bytes" : 289734656,
           "capacity_within_budget" : true,
           "cycle" : 6,
           "open_metric_begin_event_count" : 125,
           "open_metric_end_event_count" : 125,
           "open_metric_trace_count" : 25,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 252297216,
-          "post_unsplit_rss_bytes" : 234274816,
+          "peak_rss_bytes" : 312459264,
+          "post_unsplit_rss_bytes" : 304971776,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            2.3289918899536133,
-            1.8780231475830078,
-            1.7590522766113281
+            4.7490596771240234,
+            2.38800048828125,
+            4.5019388198852539
           ],
-          "stable_rss_bytes" : 247136256
+          "stable_rss_bytes" : 311115776
         },
         {
-          "baseline_rss_bytes" : 234274816,
+          "baseline_rss_bytes" : 304971776,
           "capacity_within_budget" : true,
           "cycle" : 7,
           "open_metric_begin_event_count" : 140,
           "open_metric_end_event_count" : 140,
           "open_metric_trace_count" : 28,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 251052032,
-          "post_unsplit_rss_bytes" : 243449856,
+          "peak_rss_bytes" : 324845568,
+          "post_unsplit_rss_bytes" : 318734336,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            2.3020505905151367,
-            3.4559965133666992,
-            2.0519495010375977
+            4.1069984436035156,
+            2.6159286499023438,
+            5.7240724563598633
           ],
-          "stable_rss_bytes" : 249659392
+          "stable_rss_bytes" : 324845568
         },
         {
-          "baseline_rss_bytes" : 243449856,
+          "baseline_rss_bytes" : 318734336,
           "capacity_within_budget" : true,
           "cycle" : 8,
           "open_metric_begin_event_count" : 155,
           "open_metric_end_event_count" : 155,
           "open_metric_trace_count" : 31,
           "open_metrics_balanced" : true,
-          "peak_rss_bytes" : 259801088,
-          "post_unsplit_rss_bytes" : 250986496,
+          "peak_rss_bytes" : 340066304,
+          "post_unsplit_rss_bytes" : 333791232,
           "split_latencies_within_budget" : true,
           "split_latency_ms" : [
-            2.3140907287597656,
-            3.5870075225830078,
-            1.932978630065918
+            4.5909881591796875,
+            2.2060871124267578,
+            2.2159814834594727
           ],
-          "stable_rss_bytes" : 257392640
+          "stable_rss_bytes" : 333791232
         }
       ],
       "fixture" : "F",
