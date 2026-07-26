@@ -11,18 +11,26 @@
 - **키보드 우선.** 짧은 Vim 스타일 키 시퀀스로 모든 것을 조작합니다. [Sioyek](https://github.com/ahrm/sioyek)에서 아이디어를 빌렸지만, 읽기 흐름·네이티브 탭·분할 패널만 남긴 최소주의를 지향합니다.
 - **완전한 설정, 엄격한 선언형.** 모든 명령과 수치를 하나의 TOML 파일에서 재설정할 수 있습니다. 설정은 데이터일 뿐 — 스크립트·매크로·플러그인은 없습니다.
 
-## 설치 및 실행
-
-로컬 서명된 Release 앱을 빌드합니다(Apple 개발자 계정 불필요):
+## 설치
 
 ```sh
-APP=$(Tools/build_release_app.sh | tail -n 1)
+brew tap DS-argus/tap
+brew trust DS-argus/tap        # Homebrew 6+는 서드파티 탭을 한 번 신뢰하도록 요구합니다
+brew install --cask modeleaf
+```
+
+macOS 14(Sonoma) 이상이 필요합니다. `⌘O`, Finder → *다음으로 열기*, 또는 앱에 드래그해서 PDF를 엽니다. `⌘N`은 새 창을 열고 `⌘Q`로 종료합니다.
+
+> 이 빌드는 ad-hoc 서명이며 아직 Apple 공증(notarization)을 받지 않아, 첫 실행 시 macOS Gatekeeper가 차단합니다 — **시스템 설정 → 개인정보 보호 및 보안 → 확인 없이 열기**에서 한 번 허용하세요.
+
+### 소스에서 빌드
+
+```sh
+APP=$(Tools/build_release_app.sh | tail -n 1)   # 로컬 Release 앱, Apple 계정 불필요
 open "$APP"
 ```
 
-macOS 14 이상이 필요합니다. `⌘O`, Finder → *다음으로 열기*, 또는 앱에 드래그해서 PDF를 엽니다. `⌘N`은 새 창을 열고 `⌘Q`로 종료합니다.
-
-> 개발용으로 `swift run Modeleaf`도 가능하지만, 최적화되지 않은 빌드라 시작이 느립니다.
+개발용으로 `swift run Modeleaf`도 가능하지만 최적화되지 않은 빌드라 시작이 느립니다.
 
 ## 사용법
 

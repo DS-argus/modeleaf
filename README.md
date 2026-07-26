@@ -11,18 +11,26 @@ A native, read-only macOS PDF **viewer** — keyboard-first, Vim-flavored, with 
 - **Keyboard-first.** Short Vim-style key sequences drive everything. The idea is borrowed from [Sioyek](https://github.com/ahrm/sioyek) but kept deliberately minimal — just the reading loop, native tabs, and split panes.
 - **Fully configurable, strictly declarative.** Every command and value is remappable in one TOML file. Configuration is data only — no scripts, macros, or plugins.
 
-## Install & run
-
-Build a local signed Release app (no Apple Developer account required):
+## Install
 
 ```sh
-APP=$(Tools/build_release_app.sh | tail -n 1)
+brew tap DS-argus/tap
+brew trust DS-argus/tap        # Homebrew 6+ asks you to trust a third-party tap once
+brew install --cask modeleaf
+```
+
+Requires macOS 14 (Sonoma) or newer. Open a PDF with `⌘O`, Finder → *Open With*, or by dropping it on the app; `⌘N` opens a new window and `⌘Q` quits.
+
+> This build is ad-hoc signed and not yet Apple-notarized, so macOS Gatekeeper blocks it on first launch — allow it once in **System Settings → Privacy & Security → Open Anyway**.
+
+### Build from source
+
+```sh
+APP=$(Tools/build_release_app.sh | tail -n 1)   # local Release app, no Apple account needed
 open "$APP"
 ```
 
-Requires macOS 14 or newer. Open a PDF with `⌘O`, Finder → *Open With*, or by dropping it on the app. `⌘N` opens a new window and `⌘Q` quits.
-
-> For development you can also run `swift run Modeleaf`, but it is an unoptimized build and feels slower to start.
+For development, `swift run Modeleaf` also works but is an unoptimized build and slower to start.
 
 ## Using it
 
