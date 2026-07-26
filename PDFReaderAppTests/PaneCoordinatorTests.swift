@@ -5,12 +5,6 @@ import PDFReaderCore
 import PDFReaderTestSupport
 import Testing
 @testable import PDFReaderApp
-@MainActor private func withStackedOuterBands(_ value: Bool, _ body: () throws -> Void) rethrows {
-    let original = PaneFeatureFlags.stackedOuterBands
-    PaneFeatureFlags.stackedOuterBands = value
-    defer { PaneFeatureFlags.stackedOuterBands = original }
-    try body()
-}
 @Suite("Single-pane coordinator")
 @MainActor
 struct PaneCoordinatorTests {

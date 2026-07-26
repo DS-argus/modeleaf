@@ -531,27 +531,30 @@ struct PaneShellTests {
     func minimumWindowThreeDividerMatrix() throws {
         enum Topology: Equatable { case twoByTwo, leadingStack, trailingStack }
 
+        for outerOrientation in [PaneOrientation.sideBySide, .stacked] {
+            try withStackedOuterBands(outerOrientation == .stacked) {
         for topology in [Topology.twoByTwo, .leadingStack, .trailingStack] {
             let coordinator = PaneCoordinator()
             var duplicates = (1...3).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }
             coordinator.configureDuplication { _ in duplicates.removeFirst() }
             #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Origin.pdf"), into: .createIfEmpty))
 
+            let innerOrientation: PaneOrientation = outerOrientation == .sideBySide ? .stacked : .sideBySide
             switch topology {
             case .twoByTwo:
-                let trailing = try #require(coordinator.split(direction: .sideBySide))
-                #expect(coordinator.split(direction: .stacked) != nil)
+                let trailing = try #require(coordinator.split(direction: outerOrientation))
+                #expect(coordinator.split(direction: innerOrientation) != nil)
                 let leading = try #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailing })
                 #expect(coordinator.activatePane(leading))
-                #expect(coordinator.split(direction: .stacked) != nil)
+                #expect(coordinator.split(direction: innerOrientation) != nil)
             case .leadingStack:
-                let trailing = try #require(coordinator.split(direction: .sideBySide))
+                let trailing = try #require(coordinator.split(direction: outerOrientation))
                 let leading = try #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailing })
                 #expect(coordinator.activatePane(leading))
-                #expect(coordinator.split(direction: .stacked) != nil)
+                #expect(coordinator.split(direction: innerOrientation) != nil)
             case .trailingStack:
-                #expect(coordinator.split(direction: .sideBySide) != nil)
-                #expect(coordinator.split(direction: .stacked) != nil)
+                #expect(coordinator.split(direction: outerOrientation) != nil)
+                #expect(coordinator.split(direction: innerOrientation) != nil)
             }
 
             let controller = MainWindowController(
@@ -565,8 +568,8 @@ struct PaneShellTests {
             controller.rootView.layoutSubtreeIfNeeded()
 
             let containers = paneContainers(in: controller.rootView)
-            let outer = try #require(containers.first { $0.isVertical })
-            let inner = containers.filter { !$0.isVertical }
+            let outer = try #require(containers.first { $0.isVertical == (outerOrientation == .sideBySide) })
+            let inner = containers.filter { $0 !== outer }
             #expect(inner.count == (topology == .twoByTwo ? 2 : 1))
 
             let dividerCombinations = 0..<(1 << (inner.count + 1))
@@ -609,6 +612,8 @@ struct PaneShellTests {
                 allContainers.forEach(assertSatisfiedSplitConstraints)
             }
         }
+        }
+        }
     }
 
 
@@ -623,7 +628,7 @@ struct PaneShellTests {
             window.orderFrontRegardless()
             controller.rootView.layoutSubtreeIfNeeded()
             let outer = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
-            let inner = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingStack") as? PaneContainerView)
+            let inner = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingBand") as? PaneContainerView)
             outer.setPosition(280, ofDividerAt: 0)
             inner.setPosition(180, ofDividerAt: 0)
             outer.onDividerMoved?(outer.currentDividerPosition)
@@ -661,7 +666,7 @@ struct PaneShellTests {
             }
             controller.rootView.layoutSubtreeIfNeeded()
             let outer = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
-            let inner = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingStack") as? PaneContainerView)
+            let inner = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingBand") as? PaneContainerView)
             outer.setPosition(280, ofDividerAt: 0)
             inner.setPosition(180, ofDividerAt: 0)
             outer.onDividerMoved?(outer.currentDividerPosition)
@@ -698,7 +703,7 @@ struct PaneShellTests {
         window.orderFrontRegardless()
         controller.rootView.layoutSubtreeIfNeeded()
         let outer = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
-        let leading = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.leadingStack") as? PaneContainerView)
+        let leading = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.leadingBand") as? PaneContainerView)
         outer.setPosition(280, ofDividerAt: 0)
         leading.setPosition(180, ofDividerAt: 0)
         outer.onDividerMoved?(outer.currentDividerPosition)
@@ -714,7 +719,7 @@ struct PaneShellTests {
 
         #expect(abs(outer.currentDividerPosition - before.0) < 0.5)
         #expect(abs(leading.currentDividerPosition - before.1) < 0.5)
-        let trailing = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingStack") as? PaneContainerView)
+        let trailing = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingBand") as? PaneContainerView)
         let available = trailing.bounds.height - trailing.dividerThickness
         #expect(abs(trailing.currentDividerPosition - available / 2) < 0.5)
         assertSplitChildrenLaidOut(outer)
@@ -744,7 +749,7 @@ struct PaneShellTests {
         defer { controller.close() }
         controller.rootView.layoutSubtreeIfNeeded()
         let outer = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
-        let leading = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.leadingStack") as? PaneContainerView)
+        let leading = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.leadingBand") as? PaneContainerView)
         outer.setPosition(300, ofDividerAt: 0)
         controller.rootView.layoutSubtreeIfNeeded()
         let outerPosition = outer.currentDividerPosition
@@ -761,14 +766,14 @@ struct PaneShellTests {
         #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
         #expect(fixture.coordinator.closeActiveTab())
         let freshBottom = try #require(fixture.coordinator.split(direction: .stacked))
-        let fresh = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.leadingStack") as? PaneContainerView)
+        let fresh = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.leadingBand") as? PaneContainerView)
         drainRunLoop()
         controller.rootView.layoutSubtreeIfNeeded()
         let available = fresh.bounds.height - fresh.dividerThickness
         #expect(abs(fresh.currentDividerPosition - available / 2) < 0.5)
         #expect(freshBottom != fixture.leadingBottom)
 
-        let trailing = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingStack") as? PaneContainerView)
+        let trailing = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingBand") as? PaneContainerView)
         trailing.setPosition(170, ofDividerAt: 0)
         controller.rootView.layoutSubtreeIfNeeded()
         trailing.onDividerMoved?(trailing.currentDividerPosition)
@@ -778,8 +783,7 @@ struct PaneShellTests {
         #expect(fixture.coordinator.closeActiveTab())
         controller.rootView.layoutSubtreeIfNeeded()
         let surviving = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
-        let survivingAvailable = surviving.bounds.height - surviving.dividerThickness
-        #expect(abs(surviving.currentDividerPosition - survivingAvailable / 2) < 0.5)
+        #expect(abs(surviving.currentDividerPosition - 170) < 0.5)
     }
 
     @Test("three and four pane pointer activation table keeps chrome and key loops pane-scoped")
@@ -818,21 +822,124 @@ struct PaneShellTests {
         })
         #expect(promptOwnedProjection)
     }
+    @Test("stacked outer divider rollback and fourth split preserve perpendicular bands")
+    func stackedOuterDividerMatrices() throws {
+        try withStackedOuterBands(true) {
+            let fixture = fourPaneShellFixture(outer: .stacked)
+            let controller = makeController(fixture.coordinator)
+            defer { controller.close() }
+            controller.rootView.layoutSubtreeIfNeeded()
+            let outer = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
+            let leading = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.leadingBand") as? PaneContainerView)
+            outer.setPosition(240, ofDividerAt: 0); leading.setPosition(260, ofDividerAt: 0)
+            outer.onDividerMoved?(outer.currentDividerPosition); leading.onDividerMoved?(leading.currentDividerPosition)
+            let before = (outer.currentDividerPosition, leading.currentDividerPosition)
+            #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
+            #expect(!fixture.coordinator.closeActiveTab { projected in
+                controller.rootView.render(snapshot: projected, isCommitted: false)
+                return false
+            })
+            controller.rootView.layoutSubtreeIfNeeded()
+            #expect(abs(outer.currentDividerPosition - before.0) < 0.5)
+            #expect(abs(leading.currentDividerPosition - before.1) < 0.5)
+            assertSplitChildrenLaidOut(outer); assertSplitChildrenLaidOut(leading)
+
+            #expect(fixture.coordinator.activatePane(fixture.trailingBottom))
+            #expect(fixture.coordinator.closeActiveTab())
+            let trailingSolo = try #require(fixture.coordinator.snapshot.layout.paneIDs.first { fixture.coordinator.snapshot.layout.side(of: $0) == .trailing })
+            #expect(fixture.coordinator.activatePane(trailingSolo))
+            #expect(fixture.coordinator.split(direction: .sideBySide) != nil)
+            controller.rootView.layoutSubtreeIfNeeded()
+            #expect(abs(outer.currentDividerPosition - before.0) < 0.5)
+            #expect(abs(leading.currentDividerPosition - before.1) < 0.5)
+            let trailing = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingBand") as? PaneContainerView)
+            #expect(abs(trailing.currentDividerPosition - (trailing.bounds.width - trailing.dividerThickness) / 2) < 0.5)
+            assertSplitChildrenLaidOut(trailing)
+        }
+    }
+
+    @Test("stacked outer axis-flip rollback and promotion transfer retain pair divider ownership")
+    func stackedOuterAxisFlipDividerOwnership() throws {
+        try withStackedOuterBands(true) {
+            let fixture = fourPaneShellFixture(outer: .stacked)
+            let controller = makeController(fixture.coordinator)
+            defer { controller.close() }
+            controller.rootView.layoutSubtreeIfNeeded()
+            #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
+            #expect(fixture.coordinator.closeActiveTab())
+            let outer = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
+            let pair = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingBand") as? PaneContainerView)
+            outer.setPosition(210, ofDividerAt: 0); pair.setPosition(275, ofDividerAt: 0)
+            outer.onDividerMoved?(outer.currentDividerPosition); pair.onDividerMoved?(pair.currentDividerPosition)
+            let before = (outer.currentDividerPosition, pair.currentDividerPosition)
+            #expect(fixture.coordinator.activatePane(fixture.leadingTop))
+            var sawAxisFlip = false
+            #expect(!fixture.coordinator.closeActiveTab { projected in
+                if case .split(orientation: .sideBySide, leading: .one, trailing: .one) = projected.layout { sawAxisFlip = true }
+                controller.rootView.render(snapshot: projected, isCommitted: false)
+                return false
+            })
+            #expect(sawAxisFlip)
+            controller.rootView.layoutSubtreeIfNeeded()
+            #expect(abs(outer.currentDividerPosition - before.0) < 0.5)
+            #expect(abs(pair.currentDividerPosition - before.1) < 0.5)
+            assertSplitChildrenLaidOut(outer); assertSplitChildrenLaidOut(pair)
+
+            #expect(fixture.coordinator.closeActiveTab())
+            controller.rootView.layoutSubtreeIfNeeded()
+            let promoted = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
+            #expect(promoted.isVertical)
+            #expect(abs(promoted.currentDividerPosition - before.1) < 0.5)
+            assertSplitChildrenLaidOut(promoted)
+        }
+    }
+
+    @Test("stacked outer multi-pane chrome is pane-scoped through pointer activation")
+    func stackedOuterMultiPaneInteractionTable() throws {
+        try withStackedOuterBands(true) {
+            for topology in [ShellTopology.leadingStack, .trailingStack, .twoByTwo] {
+                let fixture = fourPaneShellFixture(outer: .stacked)
+                switch topology {
+                case .leadingStack:
+                    #expect(fixture.coordinator.activatePane(fixture.trailingBottom)); #expect(fixture.coordinator.closeActiveTab())
+                case .trailingStack:
+                    #expect(fixture.coordinator.activatePane(fixture.leadingBottom)); #expect(fixture.coordinator.closeActiveTab())
+                case .twoByTwo: break
+                }
+                let controller = makeController(fixture.coordinator)
+                defer { controller.close() }
+                let window = try #require(controller.window as? ReaderWindow)
+                window.orderFrontRegardless(); window.makeKey(); controller.rootView.layoutSubtreeIfNeeded()
+                #expect(controller.rootView.tabBar.isHidden)
+                for paneID in fixture.coordinator.snapshot.layout.paneIDs {
+                    let pane = try #require(controller.rootView.paneViewForTesting(paneID))
+                    #expect(!pane.tabBar.isHidden)
+                    sendMouseDown(to: pane, at: NSPoint(x: pane.bounds.midX, y: pane.bounds.midY), in: window)
+                    #expect(fixture.coordinator.activePaneID == paneID)
+                    #expect(pane.accessibilityLabel() == expectedPositionLabel(for: paneID, layout: fixture.coordinator.snapshot.layout))
+                    #expect(fixture.coordinator.snapshot.activeFocusView?.nextKeyView === pane.orderedKeyViews.first)
+                    let panes = try fixture.coordinator.snapshot.layout.paneIDs.map { try #require(controller.rootView.paneViewForTesting($0)) }
+                    #expect(panes.filter { $0.accessibilityValue() as? String == "active" }.count == 1)
+                }
+            }
+        }
+    }
+
     private func makeController(_ coordinator: PaneCoordinator) -> MainWindowController {
         MainWindowController(coordinator: coordinator, theme: AppKitTheme(configuration: BuiltInDefaults.config.theme), actionHandler: { _ in })
     }
 
-    private func fourPaneShellFixture() -> (coordinator: PaneCoordinator, leadingTop: PaneID, leadingBottom: PaneID, trailingTop: PaneID, trailingBottom: PaneID) {
+    private func fourPaneShellFixture(outer: PaneOrientation = .sideBySide) -> (coordinator: PaneCoordinator, leadingTop: PaneID, leadingBottom: PaneID, trailingTop: PaneID, trailingBottom: PaneID) {
         let coordinator = PaneCoordinator()
         var duplicates = (1...5).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }
         coordinator.configureDuplication { _ in duplicates.removeFirst() }
         #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Origin.pdf"), into: .createIfEmpty))
-        let trailingTop = try! #require(coordinator.split(direction: .sideBySide))
+        let trailingTop = try! #require(coordinator.split(direction: outer))
         let leadingTop = try! #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailingTop })
         #expect(coordinator.activatePane(leadingTop))
-        let leadingBottom = try! #require(coordinator.split(direction: .stacked))
+        let leadingBottom = try! #require(coordinator.split(direction: outer == .sideBySide ? .stacked : .sideBySide))
         #expect(coordinator.activatePane(trailingTop))
-        let trailingBottom = try! #require(coordinator.split(direction: .stacked))
+        let trailingBottom = try! #require(coordinator.split(direction: outer == .sideBySide ? .stacked : .sideBySide))
         return (coordinator, leadingTop, leadingBottom, trailingTop, trailingBottom)
     }
 
@@ -854,12 +961,20 @@ struct PaneShellTests {
         switch layout {
         case .empty: return ""
         case let .single(id): return id == paneID ? "Pane" : ""
-        case let .split(_, leading, trailing):
-            if leading.contains(paneID) { return leading.slot(of: paneID) == .second ? "Left Bottom pane" : leading.slot(of: paneID) == .first ? "Left Top pane" : "Left pane" }
-            return trailing.slot(of: paneID) == .second ? "Right Bottom pane" : trailing.slot(of: paneID) == .first ? "Right Top pane" : "Right pane"
+        case let .split(orientation, leading, trailing):
+            let leadingLabel = orientation == .stacked ? "Top" : "Left"
+            let trailingLabel = orientation == .stacked ? "Bottom" : "Right"
+            func label(_ stack: PaneStack, _ prefix: String) -> String {
+                switch stack.slot(of: paneID) {
+                case .first?: return "\(prefix) \(orientation == .stacked ? "Left" : "Top") pane"
+                case .second?: return "\(prefix) \(orientation == .stacked ? "Right" : "Bottom") pane"
+                case nil: return "\(prefix) pane"
+                }
+            }
+            return leading.contains(paneID) ? label(leading, leadingLabel) : label(trailing, trailingLabel)
+
         }
     }
-
     private func drainRunLoop() {
         for _ in 0..<3 { RunLoop.current.run(until: Date().addingTimeInterval(0.01)) }
     }

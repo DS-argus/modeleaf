@@ -2,7 +2,7 @@ import AppKit
 import PDFReaderCore
 
 @MainActor
-private final class ColumnHost: NSView {
+private final class BandHost: NSView {
     private weak var child: NSView?
     func install(_ view: NSView) {
         guard child !== view else { return }
@@ -25,10 +25,10 @@ final class ReaderRootView: NSView {
     let promptOverlay = PromptOverlayView()
     private let contentHost = NSView()
     private let paneContainer = PaneContainerView(orientation: .sideBySide, accessibilityIdentifier: "paneContainer")
-    private let leadingColumnHost = ColumnHost()
-    private let trailingColumnHost = ColumnHost()
-    private let leadingStackContainer = PaneContainerView(orientation: .stacked, accessibilityIdentifier: "paneContainer.leadingStack")
-    private let trailingStackContainer = PaneContainerView(orientation: .stacked, accessibilityIdentifier: "paneContainer.trailingStack")
+    private let leadingBandHost = BandHost()
+    private let trailingBandHost = BandHost()
+    private let leadingBandContainer = PaneContainerView(orientation: .stacked, accessibilityIdentifier: "paneContainer.leadingBand")
+    private let trailingBandContainer = PaneContainerView(orientation: .stacked, accessibilityIdentifier: "paneContainer.trailingBand")
     private var paneViews: [PaneID: PaneView] = [:]
     private var theme: AppKitTheme?
     private var tabBarHeightConstraint: NSLayoutConstraint!
@@ -42,11 +42,12 @@ final class ReaderRootView: NSView {
     /// Absolute divider positions owned by pane topology, keyed by the
     /// unordered pane pair of a stacked column; captured only from committed
     /// renders or real user drags.
-    private var stackDividerPositions: [Set<PaneID>: CGFloat] = [:]
+    private var innerDividerPositions: [Set<PaneID>: CGFloat] = [:]
     private var outerDividerPosition: (orientation: PaneOrientation, position: CGFloat)?
     private var capturesDividerPositions = true
     private var currentInnerPairsByBand: [PaneBandSide: Set<PaneID>] = [:]
     private var hadCommittedSplit = false
+    private var committedLayout: PaneLayout?
     var onPaneActivate: ((PaneID) -> Void)?
 
     override init(frame frameRect: NSRect) {
@@ -55,13 +56,13 @@ final class ReaderRootView: NSView {
             guard let self, self.capturesDividerPositions else { return }
             self.outerDividerPosition = (self.paneContainer.isVertical ? .sideBySide : .stacked, position)
         }
-        leadingStackContainer.onDividerMoved = { [weak self] position in
+        leadingBandContainer.onDividerMoved = { [weak self] position in
             guard let self, self.capturesDividerPositions, let pair = self.currentInnerPairsByBand[.leading] else { return }
-            self.stackDividerPositions[pair] = position
+            self.innerDividerPositions[pair] = position
         }
-        trailingStackContainer.onDividerMoved = { [weak self] position in
+        trailingBandContainer.onDividerMoved = { [weak self] position in
             guard let self, self.capturesDividerPositions, let pair = self.currentInnerPairsByBand[.trailing] else { return }
-            self.stackDividerPositions[pair] = position
+            self.innerDividerPositions[pair] = position
         }
         for view in [tabBar, contentHost, statusBar, promptOverlay] { view.prepareForAutoLayout(); addSubview(view) }
         emptyState.prepareForAutoLayout(); contentHost.addSubview(emptyState)
@@ -89,106 +90,119 @@ final class ReaderRootView: NSView {
         if renderedSessionSnapshot != snapshot { tabBar.render(snapshot); tabBarHeightConstraint.constant = hasTabs ? WindowVisualMetrics.tabBarHeight : 0; tabBar.isHidden = !hasTabs; emptyState.isHidden = hasTabs; renderedSessionSnapshot = snapshot }
         setPresentedContentView(activeContentView); renderStatus(sessionStatus)
     }
-
     func render(snapshot: PaneCoordinatorSnapshot, isCommitted: Bool = true) {
         // Captures stay off for the whole render body: install/redistribution
-        // layout storms pass through transient (clamped) divider positions
-        // that must never overwrite the topology-owned saved values. After a
-        // committed render, display-cycle and user-drag resizes capture again.
+        // layout storms must never overwrite topology-owned positions.
         capturesDividerPositions = false
         defer { capturesDividerPositions = isCommitted }
         if isCommitted { prunePaneViews(absentFrom: snapshot.panes) }
         guard snapshot.layout.isMultiPane else {
             paneContainer.isHidden = true
-            leadingColumnHost.removeFromSuperview()
-            trailingColumnHost.removeFromSuperview()
-            if isCommitted { paneContainer.removeAllPanes(); hadCommittedSplit = false; outerDividerPosition = nil }
+            leadingBandHost.removeFromSuperview()
+            trailingBandHost.removeFromSuperview()
+            if isCommitted {
+                paneContainer.removeAllPanes()
+                hadCommittedSplit = false
+                outerDividerPosition = nil
+                committedLayout = snapshot.layout
+            }
             tabBar.isHidden = snapshot.isEmpty
             render(snapshot: snapshot.activeStoreSnapshot, activeContentView: snapshot.activeContentView, sessionStatus: snapshot.activeStatus)
             return
         }
-        tabBar.isHidden = true; tabBarHeightConstraint.constant = 0; renderedSessionSnapshot = nil; emptyState.isHidden = true; paneContainer.isHidden = false
+        tabBar.isHidden = true
+        tabBarHeightConstraint.constant = 0
+        renderedSessionSnapshot = nil
+        emptyState.isHidden = true
+        paneContainer.isHidden = false
         switch snapshot.layout {
         case let .single(id):
             paneContainer.isHidden = true
-            if isCommitted { hadCommittedSplit = false; outerDividerPosition = nil }
-            leadingColumnHost.install(render(stack: .one(id), side: .leading, outerOrientation: .sideBySide, snapshot: snapshot, isCommitted: isCommitted))
-            leadingColumnHost.prepareForAutoLayout()
-            if leadingColumnHost.superview !== contentHost {
-                contentHost.addSubview(leadingColumnHost)
+            if isCommitted {
+                hadCommittedSplit = false
+                outerDividerPosition = nil
+                committedLayout = snapshot.layout
+            }
+            leadingBandHost.install(render(stack: .one(id), side: .leading, outerOrientation: .sideBySide, snapshot: snapshot, isCommitted: isCommitted))
+            leadingBandHost.prepareForAutoLayout()
+            if leadingBandHost.superview !== contentHost {
+                contentHost.addSubview(leadingBandHost)
                 NSLayoutConstraint.activate([
-                    leadingColumnHost.topAnchor.constraint(equalTo: contentHost.topAnchor),
-                    leadingColumnHost.leadingAnchor.constraint(equalTo: contentHost.leadingAnchor),
-                    leadingColumnHost.trailingAnchor.constraint(equalTo: contentHost.trailingAnchor),
-                    leadingColumnHost.bottomAnchor.constraint(equalTo: contentHost.bottomAnchor),
+                    leadingBandHost.topAnchor.constraint(equalTo: contentHost.topAnchor),
+                    leadingBandHost.leadingAnchor.constraint(equalTo: contentHost.leadingAnchor),
+                    leadingBandHost.trailingAnchor.constraint(equalTo: contentHost.trailingAnchor),
+                    leadingBandHost.bottomAnchor.constraint(equalTo: contentHost.bottomAnchor),
                 ])
             }
         case let .split(orientation, leading, trailing):
-            leadingColumnHost.removeFromSuperview()
-            leadingColumnHost.install(render(stack: leading, side: .leading, outerOrientation: orientation, snapshot: snapshot, isCommitted: isCommitted))
-            trailingColumnHost.install(render(stack: trailing, side: .trailing, outerOrientation: orientation, snapshot: snapshot, isCommitted: isCommitted))
-            // The outer install below detaches and re-adds both columns;
-            // NSSplitView pins the inner dividers against the zero-height
-            // transients (minimum-thickness clamp) and nothing re-applies
-            // them afterwards. Snapshot each settled stack position now and
-            // re-assert it once column geometry is final. Containers with a
-            // pending adjustment are skipped: their layout() application at
-            // final geometry is already storm-proof.
-            let desiredStackPositions = [leadingStackContainer, trailingStackContainer].map { container -> CGFloat? in
+            leadingBandHost.removeFromSuperview()
+            leadingBandHost.install(render(stack: leading, side: .leading, outerOrientation: orientation, snapshot: snapshot, isCommitted: isCommitted))
+            trailingBandHost.install(render(stack: trailing, side: .trailing, outerOrientation: orientation, snapshot: snapshot, isCommitted: isCommitted))
+            let desiredInnerPositions = [leadingBandContainer, trailingBandContainer].map { container -> CGFloat? in
                 guard container.subviews.count == 2, !container.hasPendingDividerAdjustment else { return nil }
                 return container.currentDividerPosition
             }
+            let promotedPosition = isCommitted ? promotedInnerPosition(from: committedLayout, to: snapshot.layout) : nil
+            if let promotedPosition { outerDividerPosition = (orientation, promotedPosition) }
             let isNewSplit = !hadCommittedSplit
-            let requiresReset = isCommitted && (isNewSplit || outerDividerPosition?.orientation != orientation)
+            let axisChanged = outerDividerPosition?.orientation != orientation
             paneContainer.install(
-                leading: leadingColumnHost,
-                trailing: trailingColumnHost,
+                leading: leadingBandHost,
+                trailing: trailingBandHost,
                 orientation: orientation,
-                resetDivider: requiresReset,
+                resetDivider: isCommitted && (isNewSplit || (axisChanged && promotedPosition == nil)),
                 initializesDivider: isCommitted
             )
             if let saved = outerDividerPosition, saved.orientation == orientation {
                 paneContainer.applyDividerPosition(saved.position)
             }
-            for (container, desired) in zip([leadingStackContainer, trailingStackContainer], desiredStackPositions) {
+            for (container, desired) in zip([leadingBandContainer, trailingBandContainer], desiredInnerPositions) {
                 if let desired { container.applyDividerPosition(desired) }
             }
-            if isCommitted { hadCommittedSplit = true }
-        case .empty: break
+            if isCommitted {
+                hadCommittedSplit = true
+                committedLayout = snapshot.layout
+            }
+        case .empty:
+            break
         }
         renderStatus(snapshot.activeStatus)
     }
 
+    private func promotedInnerPosition(from oldLayout: PaneLayout?, to newLayout: PaneLayout) -> CGFloat? {
+        guard case let .split(oldOrientation, oldLeading, oldTrailing) = oldLayout,
+              case let .split(newOrientation, newLeading, newTrailing) = newLayout,
+              newOrientation != oldOrientation else { return nil }
+        let oldPair: Set<PaneID>?
+        switch (oldLeading, oldTrailing) {
+        case (.one, let .two(first, second)), (let .two(first, second), .one): oldPair = [first, second]
+        default: oldPair = nil
+        }
+        guard let oldPair, Set(newLeading.paneIDs + newTrailing.paneIDs) == oldPair else { return nil }
+        return innerDividerPositions[oldPair]
+    }
+
     private func render(stack: PaneStack, side: PaneBandSide, outerOrientation: PaneOrientation, snapshot: PaneCoordinatorSnapshot, isCommitted: Bool) -> NSView {
+        let bandLabel = outerOrientation == .stacked ? (side == .leading ? "Top" : "Bottom") : (side == .leading ? "Left" : "Right")
         switch stack {
         case let .one(id):
             if isCommitted { currentInnerPairsByBand[side] = nil }
-            let pane = configurePane(id, snapshot: snapshot, label: outerOrientation == .stacked ? (side == .leading ? "Top" : "Bottom") : (side == .leading ? "Left" : "Right"))
-            return pane
-        case let .two(top, bottom):
-            let columnLabel = outerOrientation == .stacked ? (side == .leading ? "Top" : "Bottom") : (side == .leading ? "Left" : "Right")
-            let isSplit: Bool
-            if case .split = snapshot.layout { isSplit = true } else { isSplit = false }
-            let topView = configurePane(top, snapshot: snapshot, label: isSplit ? "\(columnLabel) Top" : "Top")
-            let bottomView = configurePane(bottom, snapshot: snapshot, label: isSplit ? "\(columnLabel) Bottom" : "Bottom")
-            let container = side == .leading ? leadingStackContainer : trailingStackContainer
-            // Divider ownership is the pane PAIR, not the container instance:
-            // a surviving column keeps its absolute divider position across
-            // side changes; a genuinely new pair starts at half. Writes are
-            // gated on committed renders so projections never mutate divider
-            // state.
-            let pair: Set<PaneID> = [top, bottom]
-            let isNewPair = stackDividerPositions[pair] == nil
+            return configurePane(id, snapshot: snapshot, label: bandLabel)
+        case let .two(first, second):
+            let innerOrientation: PaneOrientation = outerOrientation == .sideBySide ? .stacked : .sideBySide
+            let firstLabel = outerOrientation == .stacked ? "\(bandLabel) Left" : "\(bandLabel) Top"
+            let secondLabel = outerOrientation == .stacked ? "\(bandLabel) Right" : "\(bandLabel) Bottom"
+            let container = side == .leading ? leadingBandContainer : trailingBandContainer
+            let pair: Set<PaneID> = [first, second]
+            let isNewPair = innerDividerPositions[pair] == nil
             container.install(
-                leading: topView,
-                trailing: bottomView,
-                orientation: .stacked,
+                leading: configurePane(first, snapshot: snapshot, label: firstLabel),
+                trailing: configurePane(second, snapshot: snapshot, label: secondLabel),
+                orientation: innerOrientation,
                 resetDivider: isCommitted && isNewPair,
                 initializesDivider: isCommitted
             )
-            if let saved = stackDividerPositions[pair] {
-                container.applyDividerPosition(saved)
-            }
+            if let saved = innerDividerPositions[pair] { container.applyDividerPosition(saved) }
             if isCommitted { currentInnerPairsByBand[side] = pair }
             return container
         }
@@ -202,8 +216,8 @@ final class ReaderRootView: NSView {
     private func paneView(for id: PaneID, trafficLightInset: CGFloat) -> PaneView { if let pane = paneViews[id] { pane.setTrafficLightInset(trafficLightInset); return pane }; let pane = PaneView(id: id, trafficLightInset: trafficLightInset); if let theme { pane.apply(theme: theme) }; paneViews[id] = pane; pane.onSelect = { [weak self] tabID in self?.onPaneSelect?(id, tabID) }; pane.onClose = { [weak self] tabID in self?.onPaneClose?(id, tabID) }; pane.onActivate = { [weak self] in self?.onPaneActivate?(id) }; pane.onNewTab = { [weak self] in self?.onPaneNewTab?(id) }; return pane }
     private func prunePaneViews(absentFrom panes: [PaneID: ReaderSessionStoreSnapshot]) {
         for id in paneViews.keys.filter({ panes[$0] == nil }) { paneViews.removeValue(forKey: id)?.retire() }
-        for pair in stackDividerPositions.keys where !pair.allSatisfy({ panes[$0] != nil }) {
-            stackDividerPositions.removeValue(forKey: pair)
+        for pair in innerDividerPositions.keys where !pair.allSatisfy({ panes[$0] != nil }) {
+            innerDividerPositions.removeValue(forKey: pair)
         }
     }
     func paneViewForTesting(_ id: PaneID) -> PaneView? { paneViews[id] }
