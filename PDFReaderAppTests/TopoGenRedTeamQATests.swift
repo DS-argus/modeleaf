@@ -247,6 +247,7 @@ private struct FocusModel {
 
 @MainActor
 private final class QASession: ReaderSessionPresenting, ReaderDuplicationSnapshotProviding {
+    func applyTheme(_ theme: AppKitTheme) {}
     let id = TabID()
     let title: String
     let contentView: NSView = QAFocusView()

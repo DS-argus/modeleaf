@@ -192,6 +192,31 @@ struct ThemePickerTests {
         }
     }
 
+    @Test("AC-7 a config warning and a state-file I/O error are both surfaced at startup")
+    func aggregatedStartupDiagnostics() throws {
+        try withTemporaryDirectory { dir in
+            // Legacy [theme] in the config -> deprecation WARNING diagnostic.
+            let configURL = dir.appendingPathComponent("config.toml")
+            try Data("[theme]\nbuilt_in = \"nord\"\n".utf8).write(to: configURL)
+            // A directory at the state path -> operational ioError.
+            let stateURL = dir.appendingPathComponent("state.json")
+            try FileManager.default.createDirectory(at: stateURL, withIntermediateDirectories: true)
+            let controller = ApplicationController(
+                configService: ConfigService(source: ConfigFileSource(url: configURL)),
+                sessionStore: ReaderSessionStore(),
+                themeStore: ThemeSelectionStore(fileURL: stateURL),
+                terminationHandler: {}
+            )
+            controller.start()
+            let status = controller.mainWindowController.rootView.statusBar.presentation
+            // The config warning occupies the summary AND the theme I/O error is
+            // folded into the expanded detail (neither failure is hidden).
+            #expect(status.detail.contains("warning") || status.tone == .normal)
+            #expect(status.expandedDetail?.contains("Could not read the saved theme") == true)
+            controller.mainWindowController.close()
+        }
+    }
+
     @Test("AC-5 theme.picker is prompt-safe, navigation-scoped, default T, and rebindable")
     func actionSurfaceAndPromptSafety() throws {
         let descriptor = try #require(ActionRegistry.v1.descriptor(for: .themePicker))

@@ -41,7 +41,16 @@ final class ApplicationController {
         coordinator.configureDuplicationCompletion { [weak self] session, committed in self?.completeDuplicate(session, committed: committed) }
     }
 
-    func start() { let menuBuilder = ValidatedMenuBuilder(descriptors: configResult.activeConfig.menuDescriptors, dispatch: { [weak self] action in self?.dispatch(action) }); self.menuBuilder = menuBuilder; application.mainMenu = menuBuilder.makeMainMenu(); mainWindowController.showWindow(nil); if !configResult.diagnostics.isEmpty { let presentation = ConfigDiagnosticPresentation(diagnostics: configResult.diagnostics, usedFallback: configResult.usedFallback); mainWindowController.showDiagnostic(presentation.summary, expandedDetail: presentation.details, isError: presentation.hasErrors) } else if let themeStartupDiagnostic { mainWindowController.showDiagnostic(themeStartupDiagnostic, isError: false) } }
+    func start() { let menuBuilder = ValidatedMenuBuilder(descriptors: configResult.activeConfig.menuDescriptors, dispatch: { [weak self] action in self?.dispatch(action) }); self.menuBuilder = menuBuilder; application.mainMenu = menuBuilder.makeMainMenu(); mainWindowController.showWindow(nil); if !configResult.diagnostics.isEmpty {
+            // Aggregate independent startup failures so a config warning never
+            // hides an operational theme-state I/O error (or vice versa).
+            let presentation = ConfigDiagnosticPresentation(diagnostics: configResult.diagnostics, usedFallback: configResult.usedFallback)
+            let detail = [presentation.details, themeStartupDiagnostic].compactMap { $0 }.joined(separator: "\n")
+            mainWindowController.showDiagnostic(presentation.summary, expandedDetail: detail.isEmpty ? nil : detail, isError: presentation.hasErrors)
+        } else if let themeStartupDiagnostic {
+            mainWindowController.showDiagnostic(themeStartupDiagnostic, isError: false)
+        }
+    }
     func dispatch(_ action: ActionID) { actionDispatcher.dispatch(action) }
     @discardableResult func openDocument(at url: URL, target: PaneOpenTarget = .createIfEmpty) -> Bool {
         let traceID = OpenTraceID(); openMetrics.record(.point(.openRequested, traceID: traceID)); openMetrics.record(.begin(.openTotal, traceID: traceID))

@@ -1194,6 +1194,7 @@ private final class WeakPaneReference {
 
 @MainActor
 private final class EventRecordingSession: ReaderSessionPresenting, ReaderDuplicationSnapshotProviding {
+    func applyTheme(_ theme: AppKitTheme) {}
     let id: TabID
     let title: String
     let canvas = EventRecordingCanvas()

@@ -218,6 +218,7 @@ private final class RecordingPDFOpenMetrics: PDFOpenMetrics {
 
 @MainActor
 private final class MetricsStubSession: ReaderSessionPresenting {
+    func applyTheme(_ theme: AppKitTheme) {}
     let id: TabID
     let title = "existing.pdf"
     let contentView = NSView()

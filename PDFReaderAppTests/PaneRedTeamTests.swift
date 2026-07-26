@@ -473,6 +473,7 @@ struct PaneRedTeamTests {
 
 @MainActor
 private final class RedTeamSession: ReaderSessionPresenting, ReaderDuplicationSnapshotProviding {
+    func applyTheme(_ theme: AppKitTheme) {}
     let id = TabID()
     let title: String
     let canvas: RedTeamCanvas

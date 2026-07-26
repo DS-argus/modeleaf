@@ -126,6 +126,7 @@ struct ReaderSessionStoreTests {
 
 @MainActor
 final class StubReaderSession: ReaderSessionPresenting {
+    func applyTheme(_ theme: AppKitTheme) {}
     let id: TabID
     let title: String
     let contentView: NSView

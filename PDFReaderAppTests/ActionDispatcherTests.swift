@@ -463,6 +463,7 @@ private enum RecordingReaderEvent: Equatable {
 
 @MainActor
 private final class RecordingReaderSession: ReaderSessionPresenting {
+    func applyTheme(_ theme: AppKitTheme) {}
     let id = TabID()
     let title: String
     let contentView: NSView = ActionDispatcherFocusableView()

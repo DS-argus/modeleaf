@@ -374,6 +374,7 @@ private final class ControllerOpenPanelStub: PDFOpenPanelPresenting {
 
 @MainActor
 private final class ControllerStubSession: ReaderSessionPresenting {
+    func applyTheme(_ theme: AppKitTheme) {}
     let id: TabID
     let title: String
     let contentView: NSView = NSView()
