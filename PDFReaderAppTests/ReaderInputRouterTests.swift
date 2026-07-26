@@ -172,7 +172,7 @@ struct ReaderInputRouterTests {
             #expect(!router.handle(try #require(makeKeyEvent(characters: context == .pagePrompt ? "7" : "x"))))
         }
     }
-    @Test("theme picker binding remains native in prompts and dispatches in navigation")
+    @Test("theme picker binding never dispatches in prompt contexts and dispatches in navigation")
     func themePickerIsExcludedFromPromptRouting() throws {
         let validated = try #require(ConfigValidator.validate(SparseAppConfig()).validatedConfig)
         let themePickerKey = try #require(makeKeyEvent(
