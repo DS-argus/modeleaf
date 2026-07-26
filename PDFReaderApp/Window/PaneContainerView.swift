@@ -27,7 +27,7 @@ final class PaneContainerView: NSSplitView, NSSplitViewDelegate {
         defer { suppressDividerCapture = false }
         isVertical = vertical
         for view in subviews { view.removeFromSuperview() }
-        // Children may arrive from a constraint-based host (ColumnHost) with
+        // Children may arrive from a constraint-based host (BandHost) with
         // translatesAutoresizingMaskIntoConstraints disabled; this split view
         // lays out via autoresizing, so restore it or reparented panes keep
         // their stale fitting-size frames forever.
