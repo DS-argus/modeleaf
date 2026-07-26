@@ -344,17 +344,11 @@ extension ReaderSession: ReaderDuplicationSnapshotProviding {
     var duplicationSnapshot: ReaderDuplicationSnapshot {
         ReaderDuplicationSnapshot(
             sourceURL: sourceURL,
-            oneBasedPage: currentPageNumber ?? 1,
-            viewMode: viewMode,
-            scaleFactor: scaleFactor
+            oneBasedPage: currentPageNumber ?? 1
         )
     }
 
     func seedPendingPresentation(_ snapshot: ReaderDuplicationSnapshot) {
-        viewController.seedPresentation(
-            page: snapshot.oneBasedPage,
-            viewMode: snapshot.viewMode,
-            scaleFactor: snapshot.scaleFactor
-        )
+        viewController.seedPresentation(page: snapshot.oneBasedPage)
     }
 }

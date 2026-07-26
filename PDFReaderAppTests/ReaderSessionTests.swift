@@ -64,21 +64,24 @@ struct ReaderSessionTests {
     }
 
 
-    @Test("seeded duplicate presentation applies page and all view modes after mounting")
+    @Test("seeded duplicate opens the source page fit-to-page regardless of window size")
     func seededDuplicatePresentation() throws {
-        for (mode, scale) in [(ReaderViewMode.manual, 1.25), (.actualSize, 1.0), (.fitWidth, 1.0), (.fitPage, 1.0)] {
+        // The split-duplicate contract keeps the source's reading position but
+        // always mounts fit-to-page in the new pane's own bounds; view mode and
+        // zoom are not carried (ReaderDuplicationSnapshot).
+        for size in [NSSize(width: 720, height: 480), NSSize(width: 360, height: 620)] {
             try withSession(pageCount: 3) { session, sourceURL in
-                session.seedPendingPresentation(ReaderDuplicationSnapshot(sourceURL: sourceURL, oneBasedPage: 2, viewMode: mode, scaleFactor: scale))
-                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 480), styleMask: [.titled], backing: .buffered, defer: false)
+                session.seedPendingPresentation(ReaderDuplicationSnapshot(sourceURL: sourceURL, oneBasedPage: 2))
+                let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
                 window.contentView = session.contentView
                 session.contentView.frame = window.contentLayoutRect
                 session.contentView.layoutSubtreeIfNeeded()
                 #expect(session.initialPresentationState == .applied)
                 #expect(session.currentPageNumber == 2)
-                #expect(session.viewMode == mode)
-                if mode == .manual || mode == .actualSize {
-                    #expect(abs(session.scaleFactor - scale) < 0.0001)
-                }
+                #expect(session.viewMode == .fitPage)
+                let view = try #require(descendantPDFViews(in: session.contentView).only)
+                #expect(view.autoScales)
+                #expect(view.displayMode == .singlePage)
             }
         }
     }

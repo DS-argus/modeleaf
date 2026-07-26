@@ -28,7 +28,7 @@ final class PDFViewController: NSViewController {
     private(set) var initialPresentationState: InitialPDFPresentationState = .pending
     private var searchPalette = SearchHighlightPalette.default
     private var searchSelections: [PDFSelection] = []
-    private var pendingPresentation: (page: Int, mode: ReaderViewMode, scale: CGFloat)?
+    private var pendingPresentationPage: Int?
     private var activeSearchIndex: Int?
 
     init(document: PDFDocument, traceID: OpenTraceID, metrics: any PDFOpenMetrics) {
@@ -182,9 +182,11 @@ final class PDFViewController: NSViewController {
     }
 
 
-    func seedPresentation(page: Int, viewMode: ReaderViewMode, scaleFactor: Double) {
-        guard page >= 1, page <= initialDocument.pageCount, scaleFactor.isFinite, scaleFactor > 0 else { return }
-        pendingPresentation = (page, viewMode, CGFloat(scaleFactor))
+    /// Seed a duplicated pane's initial page. It always mounts fit-to-page in
+    /// its own bounds (see ReaderDuplicationSnapshot); only the page carries.
+    func seedPresentation(page: Int) {
+        guard page >= 1, page <= initialDocument.pageCount else { return }
+        pendingPresentationPage = page
         initialPresentationState = .pending
     }
 
@@ -239,36 +241,15 @@ final class PDFViewController: NSViewController {
         }
 
         initialPresentationState = .applying
-        if let pendingPresentation {
-            guard let page = initialDocument.page(at: pendingPresentation.page - 1) else { return }
-            readerView.go(to: page)
-            switch pendingPresentation.mode {
-            case .manual:
-                readerView.displayMode = .singlePage
-                readerView.autoScales = false
-                readerView.scaleFactor = pendingPresentation.scale
-            case .actualSize:
-                readerView.displayMode = .singlePage
-                readerView.autoScales = false
-                readerView.scaleFactor = pendingPresentation.scale
-            case .fitWidth:
-                readerView.displayMode = .singlePageContinuous
-                readerView.autoScales = true
-            case .fitPage:
-                readerView.displayMode = .singlePage
-                readerView.autoScales = true
-            }
-            readerView.layoutDocumentView()
-            viewMode = pendingPresentation.mode
-            self.pendingPresentation = nil
-            initialPresentationState = .applied
-            return
-        }
+        // A seeded duplicate opens the same page fit-to-page; a fresh pane
+        // opens page one fit-to-page. Both land in the identical mount path.
+        let targetPage = pendingPresentationPage.flatMap { initialDocument.page(at: $0 - 1) } ?? firstPage
         readerView.displayMode = .singlePage
         readerView.autoScales = true
-        readerView.go(to: firstPage)
+        readerView.go(to: targetPage)
         readerView.layoutDocumentView()
         viewMode = .fitPage
+        pendingPresentationPage = nil
         initialPresentationState = .applied
     }
 

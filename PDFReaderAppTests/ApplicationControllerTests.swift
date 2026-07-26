@@ -272,7 +272,7 @@ struct ApplicationControllerTests {
         #expect(status.expandedDetail?.contains("promptLifecycleUnbound") == true)
     }
 
-    @Test("controller split duplicates mounted reader presentation and completes one post-commit open trace")
+    @Test("controller split duplicates the source page fit-to-page and completes one post-commit open trace")
     func controllerSplitDuplicatesMountedPresentationAndCompletesMetricsOnce() throws {
         try withTemporaryDirectory { directory in
             let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 3)
@@ -296,6 +296,7 @@ struct ApplicationControllerTests {
             let source = try #require(store.activeSession as? ReaderSession)
             #expect(source.goToPage(2))
             source.zoom(by: 1.25)
+            #expect(source.viewMode == .manual)
             controller.dispatch(.paneSplitRight)
             _ = controller.mainWindowController
 
@@ -304,9 +305,10 @@ struct ApplicationControllerTests {
                 return
             }
             let duplicate = try #require(controller.coordinator.store(for: destination)?.activeSession as? ReaderSession)
+            // Duplicate keeps the source's reading position but opens
+            // fit-to-page in its own pane (not the source's manual zoom).
             #expect(duplicate.currentPageNumber == source.currentPageNumber)
-            #expect(duplicate.viewMode == source.viewMode)
-            #expect(abs(duplicate.scaleFactor - source.scaleFactor) < 0.0001)
+            #expect(duplicate.viewMode == .fitPage)
             #expect(duplicate.contentView.window === controller.mainWindowController.window)
             #expect(metrics.events.filter { $0.name == .openReady && $0.outcome == .success }.count == 1)
             #expect(metrics.events.filter { $0.name == .openTotal && $0.boundary == .end && $0.outcome == .success }.count == 1)

@@ -491,7 +491,7 @@ private final class RedTeamSession: ReaderSessionPresenting, ReaderDuplicationSn
     }
 
     var statusSnapshot: ReaderStatusSnapshot { ReaderStatusSnapshot(context: searchQuery.isEmpty ? "NORMAL" : "SEARCH", page: "\(page) / 100", zoom: "\(Int(zoom * 100))%", detail: title) }
-    var duplicationSnapshot: ReaderDuplicationSnapshot { ReaderDuplicationSnapshot(sourceURL: URL(fileURLWithPath: "/tmp/\(title)"), oneBasedPage: page, viewMode: .manual, scaleFactor: zoom) }
+    var duplicationSnapshot: ReaderDuplicationSnapshot { ReaderDuplicationSnapshot(sourceURL: URL(fileURLWithPath: "/tmp/\(title)"), oneBasedPage: page) }
     func setPresentationChangeHandler(_ handler: (() -> Void)?) { onPresentationChange = handler }
     func publishPresentationChange() { onPresentationChange?() }
     func prepareForClose() { prepareForCloseCount += 1 }

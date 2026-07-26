@@ -109,8 +109,6 @@ struct PaneCoordinatorTests {
         let duplicate = StubReaderSession(id: TabID(), title: "Origin.pdf", page: 4, zoom: 1.5)
         coordinator.configureDuplication { snapshot in
             #expect(snapshot.oneBasedPage == 4)
-            #expect(snapshot.viewMode == .manual)
-            #expect(snapshot.scaleFactor == 1.5)
             return duplicate
         }
         #expect(coordinator.insert(origin, into: .createIfEmpty))
@@ -962,10 +960,7 @@ extension StubReaderSession: ReaderDuplicationSnapshotProviding {
     var duplicationSnapshot: ReaderDuplicationSnapshot {
         ReaderDuplicationSnapshot(
             sourceURL: URL(fileURLWithPath: "/tmp/\(title)"),
-            oneBasedPage: page,
-            viewMode: .manual,
-            scaleFactor: zoom
-        )
+            oneBasedPage: page)
     }
 }
 

@@ -49,7 +49,7 @@ Tabs remain keyboard-first, but can also be selected and closed with the pointer
 
 ### Pane layout and focus
 
-Pane layout is structurally limited to one through four panes at depth one. `Ctrl-b |` and `Ctrl-b -` split the active pane in place; either orientation can be the first split, and both asymmetric three-pane shapes plus both 2×2 orientations are reachable. A parallel request or a request against an already split band is a strict no-op. `Ctrl-b o` is global close-others: it keeps the active pane and closes every other pane.
+Pane layout is structurally limited to one through four panes at depth one. `Ctrl-b |` and `Ctrl-b -` split the active pane in place; either orientation can be the first split, and both asymmetric three-pane shapes plus both 2×2 orientations are reachable. A parallel request or a request against an already split band is a strict no-op. A new pane opens the active pane's current page fit-to-page in its own bounds — the reading position carries over but the zoom fits the new, smaller pane. `Ctrl-b o` is global close-others: it keeps the active pane and closes every other pane.
 
 Focus crosses geometry in the same slot; only a full-span pane crossing into a split band uses that band's most recently focused slot, falling back to its first slot. Boundary movement is a no-op. The traffic-light inset belongs only to the top-left pane.
 See [CONFIG.md](CONFIG.md) for the exhaustive 43-action registry, key-token grammar, validation rules, numeric bounds, and generated default file.

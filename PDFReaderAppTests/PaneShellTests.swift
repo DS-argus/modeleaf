@@ -1214,11 +1214,7 @@ private final class EventRecordingSession: ReaderSessionPresenting, ReaderDuplic
     var duplicationSnapshot: ReaderDuplicationSnapshot {
         ReaderDuplicationSnapshot(
             sourceURL: URL(fileURLWithPath: "/tmp/\(title)"),
-            oneBasedPage: 1,
-            viewMode: .manual,
-
-            scaleFactor: 1
-        )
+            oneBasedPage: 1)
     }
 }
 
