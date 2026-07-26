@@ -51,7 +51,7 @@ Tabs remain keyboard-first, but can also be selected and closed with the pointer
 
 Pane layout is structurally limited to one pane, a stacked pair, two side-by-side panes, either asymmetric three-pane arrangement, or a 2×2 grid. `Ctrl-b |` creates the side-by-side split only while there is one column (including a stacked pair); `Ctrl-b -` stacks only the active one-pane column. A split that would exceed those limits is a no-op. `Ctrl-b o` is global close-others: it keeps the active pane and closes every other pane.
 
-`Ctrl-h` and `Ctrl-l` move between columns. When the destination column is stacked, Modeleaf remembers the last focused row in that column (tmux-style); an unvisited stacked column starts at its top pane. `Ctrl-j` and `Ctrl-k` move only within the active column. The traffic-light inset belongs only to the top-left pane.
+`Ctrl-h` and `Ctrl-l` move between columns with tmux semantics: when both columns are stacked (2×2), crossing stays in the same row; only a full-height pane crossing into a stacked column uses that column's remembered (most recently focused) row, and an unvisited stacked column starts at its top pane. `Ctrl-j` and `Ctrl-k` move only within the active column. The traffic-light inset belongs only to the top-left pane.
 See [CONFIG.md](CONFIG.md) for the exhaustive 43-action registry, key-token grammar, validation rules, numeric bounds, and generated default file.
 
 ## Explicit v1 boundary

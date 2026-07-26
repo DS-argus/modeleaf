@@ -141,9 +141,10 @@ final class PaneCoordinator {
         switch direction {
         case .left, .right:
             guard case let .split(leading, trailing) = layout else { return false }
+            let sourceStack = leading.contains(activePaneID) ? leading : trailing
             switch (direction, leading.contains(activePaneID), trailing.contains(activePaneID)) {
-            case (.right, true, _): target = focusTarget(in: trailing, side: .trailing)
-            case (.left, _, true): target = focusTarget(in: leading, side: .leading)
+            case (.right, true, _): target = focusTarget(in: trailing, side: .trailing, from: sourceStack)
+            case (.left, _, true): target = focusTarget(in: leading, side: .leading, from: sourceStack)
             default: target = nil
             }
         case .up, .down:
@@ -262,10 +263,20 @@ final class PaneCoordinator {
             preconditionFailure("non-terminal pane collapse has no source stack")
         }
     }
-    private func focusTarget(in stack: PaneStack, side: PaneColumnSide) -> PaneID {
+    /// tmux crossing semantics (verified against tmux 3.6a): when the source
+    /// row is unambiguous — the active pane sits in a .two stack, so exactly
+    /// one destination row overlaps it geometrically — cross into the SAME
+    /// row. Only a full-height .one source overlaps both destination rows;
+    /// that ambiguous case uses the column's remembered (most recently
+    /// focused) row, falling back to the top.
+    private func focusTarget(in stack: PaneStack, side: PaneColumnSide, from source: PaneStack) -> PaneID {
         switch stack {
         case let .one(id): return id
-        case let .two(top, bottom): return lastFocusedRowByColumn[side] == .bottom ? bottom : top
+        case let .two(top, bottom):
+            if case .two = source, let activePaneID, let row = layout.row(of: activePaneID) {
+                return row == .bottom ? bottom : top
+            }
+            return lastFocusedRowByColumn[side] == .bottom ? bottom : top
         }
     }
 
@@ -281,7 +292,7 @@ final class PaneCoordinator {
         case let .split(leading, trailing):
             if leading.contains(paneID) {
                 switch leading {
-                case .one: return (.single(trailing), focusTarget(in: trailing, side: .trailing))
+                case .one: return (.single(trailing), focusTarget(in: trailing, side: .trailing, from: .one(paneID)))
                 case let .two(top, bottom):
                     let survivor = paneID == top ? bottom : top
                     return (.split(leading: .one(survivor), trailing: trailing), survivor)
@@ -289,7 +300,7 @@ final class PaneCoordinator {
             }
             if trailing.contains(paneID) {
                 switch trailing {
-                case .one: return (.single(leading), focusTarget(in: leading, side: .leading))
+                case .one: return (.single(leading), focusTarget(in: leading, side: .leading, from: .one(paneID)))
                 case let .two(top, bottom):
                     let survivor = paneID == top ? bottom : top
                     return (.split(leading: leading, trailing: .one(survivor)), survivor)

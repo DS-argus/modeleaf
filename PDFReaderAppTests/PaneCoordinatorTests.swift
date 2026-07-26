@@ -293,28 +293,48 @@ struct PaneCoordinatorTests {
         }
     }
 
-    @Test("cross-column focus remembers each column row while vertical focus stays column-internal")
-    func rememberedFocusRows() throws {
+    @Test("cross-column focus preserves the row in 2x2 and uses memory only from a full-height source")
+    func crossColumnFocusRowSemantics() throws {
+        // tmux semantics (verified against tmux 3.6a): with both columns
+        // split, crossing lands in the SAME row — the source row overlaps
+        // exactly one destination pane, so the move is geometric, not
+        // memory-driven. Memory applies only when the source column is a
+        // full-height .one pane overlapping both destination rows.
         let coordinator = PaneCoordinator()
         var duplicates = (1...3).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }
         coordinator.configureDuplication { _ in duplicates.removeFirst() }
         #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Origin.pdf"), into: .createIfEmpty))
         let trailingTop = try #require(coordinator.split(direction: .sideBySide))
         let leadingTop = try #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailingTop })
+
+        // 1+2: leading full-height, trailing split. Ambiguous crossing uses
+        // the trailing column's remembered row.
+        let trailingBottom = try #require(coordinator.split(direction: .stacked))
+        #expect(coordinator.activePaneID == trailingBottom)
+        #expect(coordinator.focus(.left))
+        #expect(coordinator.activePaneID == leadingTop)
+        #expect(coordinator.focus(.right))
+        #expect(coordinator.activePaneID == trailingBottom, "full-height source lands on remembered row")
+        #expect(coordinator.focus(.up))
+        #expect(coordinator.focus(.left))
+        #expect(coordinator.focus(.right))
+        #expect(coordinator.activePaneID == trailingTop, "memory tracks the most recently focused row")
+
+        // 2x2: crossing preserves the row regardless of memory.
         #expect(coordinator.activatePane(leadingTop))
         let leadingBottom = try #require(coordinator.split(direction: .stacked))
+        #expect(coordinator.activatePane(trailingBottom))   // trailing memory = bottom
+        #expect(coordinator.activatePane(leadingTop))
         #expect(coordinator.focus(.right))
-        let trailingBottom = try #require(coordinator.split(direction: .stacked))
+        #expect(coordinator.activePaneID == trailingTop, "2x2 top row crosses to top row, ignoring bottom memory")
         #expect(coordinator.focus(.left))
+        #expect(coordinator.activePaneID == leadingTop)
+        #expect(coordinator.focus(.down))
         #expect(coordinator.activePaneID == leadingBottom)
-        #expect(coordinator.focus(.up))
-        #expect(coordinator.activePaneID == leadingTop)
         #expect(coordinator.focus(.right))
-        #expect(coordinator.activePaneID == trailingBottom)
+        #expect(coordinator.activePaneID == trailingBottom, "2x2 bottom row crosses to bottom row")
         #expect(!coordinator.focus(.right))
-        #expect(coordinator.focus(.left))
-        #expect(coordinator.activePaneID == leadingTop)
-        #expect(!coordinator.focus(.up))
+        #expect(!coordinator.focus(.down))
     }
     @Test("four-pane close cascade projects each tier once and rollback preserves every tier")
     func fourPaneCloseCascadeAndRollback() throws {
