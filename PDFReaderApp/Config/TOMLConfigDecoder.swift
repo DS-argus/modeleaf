@@ -138,7 +138,7 @@ private struct ConfigTOMLSchema {
             case "input":
                 validateInput(value, path: path, issues: &issues)
             case "theme":
-                validateTheme(value, path: path, issues: &issues)
+                issues.append(SchemaIssue(severity: .warning, code: .deprecatedTheme, path: path, message: "[theme] is deprecated and ignored; choose a theme in-app with the theme picker (shift+t)."))
             default:
                 collectUnknownLeaves(value, path: path, issues: &issues)
             }
@@ -146,7 +146,7 @@ private struct ConfigTOMLSchema {
         return issues.map { issue in
             let path = semanticPath(issue.path)
             return ConfigDiagnostic(
-                severity: .error,
+                severity: issue.severity,
                 code: issue.code,
                 message: issue.message,
                 semanticPath: path,
@@ -207,39 +207,6 @@ private struct ConfigTOMLSchema {
             fields: ["prefix_timeout_ms": { $0 is Int64 }],
             issues: &issues
         )
-    }
-
-    private static func validateTheme(
-        _ value: Any,
-        path: [TOMLPathComponent],
-        issues: inout [SchemaIssue]
-    ) {
-        guard let table = value as? [String: Any] else {
-            issues.append(typeIssue(path, expected: "table"))
-            return
-        }
-        for key in table.keys.sorted() {
-            let fieldPath = path + [.key(key)]
-            switch key {
-            case "built_in":
-                if !(table[key] is String) { issues.append(typeIssue(fieldPath, expected: "string")) }
-            case "overrides":
-                guard let overrides = table[key] as? [String: Any] else {
-                    issues.append(typeIssue(fieldPath, expected: "table"))
-                    collectNestedUnknowns(table[key] as Any, path: fieldPath, issues: &issues)
-                    continue
-                }
-                for token in overrides.keys.sorted() {
-                    let tokenPath = fieldPath + [.key(token)]
-                    if !(overrides[token] is String) {
-                        issues.append(typeIssue(tokenPath, expected: "string"))
-                        collectNestedUnknowns(overrides[token] as Any, path: tokenPath, issues: &issues)
-                    }
-                }
-            default:
-                collectUnknownLeaves(table[key] as Any, path: fieldPath, issues: &issues)
-            }
-        }
     }
 
     private static func validateFixedTable(
@@ -319,9 +286,21 @@ private struct ConfigTOMLSchema {
 }
 
 private struct SchemaIssue {
+    let severity: ConfigDiagnosticSeverity
     let code: ConfigDiagnosticCode
     let path: [TOMLPathComponent]
     let message: String
+
+    init(severity: ConfigDiagnosticSeverity, code: ConfigDiagnosticCode, path: [TOMLPathComponent], message: String) {
+        self.severity = severity
+        self.code = code
+        self.path = path
+        self.message = message
+    }
+
+    init(code: ConfigDiagnosticCode, path: [TOMLPathComponent], message: String) {
+        self.init(severity: .error, code: code, path: path, message: message)
+    }
 }
 
 private enum TOMLPathComponent: Hashable {

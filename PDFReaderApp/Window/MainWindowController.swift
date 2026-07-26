@@ -9,6 +9,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var lastActiveSessionID: TabID?
     private let openPaneHandler: ((PaneID) -> Void)?
     private var promptCloseProjection: (layout: PaneLayout, paneID: PaneID?, tabID: TabID?)?
+    private let currentThemeID: () -> ThemeID
+    private let themePreviewHandler: (ThemeID) -> Void
+    private let themeCommitHandler: (ThemeID) -> Void
+    private let themeCancelHandler: (ThemeID) -> Void
     private var installedKeyViewLoop: [NSView] = []
     let rootView: ReaderRootView
 
@@ -19,9 +23,17 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         keyDispatchHandler: ((KeyActionDispatch) -> Void)? = nil,
         validatedConfig: ValidatedAppConfig? = nil,
         openPaneHandler: ((PaneID) -> Void)? = nil,
+        currentThemeID: @escaping () -> ThemeID = { .catppuccinMocha },
+        themePreviewHandler: @escaping (ThemeID) -> Void = { _ in },
+        themeCommitHandler: @escaping (ThemeID) -> Void = { _ in },
+        themeCancelHandler: @escaping (ThemeID) -> Void = { _ in }
     ) {
         self.coordinator = coordinator
         self.actionHandler = actionHandler
+        self.currentThemeID = currentThemeID
+        self.themePreviewHandler = themePreviewHandler
+        self.themeCommitHandler = themeCommitHandler
+        self.themeCancelHandler = themeCancelHandler
         self.openPaneHandler = openPaneHandler
         self.rootView = ReaderRootView(frame: NSRect(origin: .zero, size: WindowVisualMetrics.initialSize))
         let config = validatedConfig ?? Self.builtInValidatedConfig()
@@ -48,8 +60,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window.setAccessibilityIdentifier("mainWindow")
 
         super.init(window: window)
-        window.keyEventHandler = { [weak inputRouter] event in
-            inputRouter?.handle(event) ?? false
+        window.keyEventHandler = { [weak self, weak inputRouter] event in
+            guard let self else { return false }
+            if !self.rootView.themePickerOverlay.isHidden {
+                return self.rootView.themePickerOverlay.handleKeyDown(event)
+            }
+            return inputRouter?.handle(event) ?? false
         }
         window.delegate = self
         window.mouseDownHandler = { [weak self] event in
@@ -98,6 +114,34 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         super.showWindow(sender)
         window?.center()
         window?.makeKeyAndOrderFront(sender)
+        focusActiveSurface(snapshot: coordinator.snapshot)
+    }
+
+    func presentThemePicker() {
+        guard rootView.themePickerOverlay.isHidden else { return }
+        let preOpenThemeID = currentThemeID()
+        rootView.themePickerOverlay.onPreview = { [weak self] id in self?.themePreviewHandler(id) }
+        rootView.themePickerOverlay.onCommit = { [weak self] id in
+            guard let self else { return }
+            self.themeCommitHandler(id)
+            self.dismissThemePickerAndRestoreFocus()
+        }
+        rootView.themePickerOverlay.onCancel = { [weak self] in
+            guard let self else { return }
+            self.themeCancelHandler(preOpenThemeID)
+            self.dismissThemePickerAndRestoreFocus()
+        }
+        rootView.themePickerOverlay.present(selectedThemeID: preOpenThemeID)
+        rebuildKeyViewLoop(snapshot: coordinator.snapshot)
+        window?.makeFirstResponder(rootView.themePickerOverlay)
+    }
+
+    private func dismissThemePickerAndRestoreFocus() {
+        rootView.themePickerOverlay.dismiss()
+        rootView.themePickerOverlay.onPreview = nil
+        rootView.themePickerOverlay.onCommit = nil
+        rootView.themePickerOverlay.onCancel = nil
+        rebuildKeyViewLoop(snapshot: coordinator.snapshot)
         focusActiveSurface(snapshot: coordinator.snapshot)
     }
 
@@ -164,11 +208,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     @discardableResult
     func routeKeyEventForTesting(_ event: NSEvent) -> Bool {
-        inputRouter.handle(event)
+        if !rootView.themePickerOverlay.isHidden {
+            return rootView.themePickerOverlay.handleKeyDown(event)
+        }
+        return inputRouter.handle(event)
     }
 
     func windowDidBecomeKey(_ notification: Notification) {
-        if rootView.promptOverlay.isHidden {
+        if !rootView.themePickerOverlay.isHidden {
+            window?.makeFirstResponder(rootView.themePickerOverlay)
+        } else if rootView.promptOverlay.isHidden {
             focusActiveSurface(snapshot: coordinator.snapshot)
         } else {
             window?.makeFirstResponder(rootView.promptOverlay.textField)
@@ -178,7 +227,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     func windowDidResignKey(_ notification: Notification) {
         inputRouter.invalidate(.focusLost)
-        rootView.promptOverlay.setFocusAppearance(false)
+        if rootView.themePickerOverlay.isHidden {
+            rootView.promptOverlay.setFocusAppearance(false)
+        } else {
+            rootView.themePickerOverlay.setFocusAppearance(false)
+        }
     }
 
     private func refresh(snapshot: PaneCoordinatorSnapshot) {

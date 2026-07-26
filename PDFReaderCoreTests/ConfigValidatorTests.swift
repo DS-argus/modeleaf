@@ -8,10 +8,6 @@ struct ConfigValidatorTests {
         let sparse = SparseAppConfig(
             keymap: [ActionID.scrollDown.rawValue: ["x"]],
             navigation: SparseNavigationConfiguration(smallScrollPoints: 72),
-            theme: SparseThemeConfiguration(
-                builtIn: ThemeID.nord.rawValue,
-                overrides: [ThemeToken.accent.rawValue: "#abcdef"]
-            )
         )
 
         let report = ConfigValidator.validate(sparse)
@@ -26,8 +22,6 @@ struct ConfigValidatorTests {
         )
         #expect(active.config.navigation.zoomFactor == BuiltInDefaults.config.navigation.zoomFactor)
         #expect(active.config.input == BuiltInDefaults.config.input)
-        #expect(active.config.theme.builtIn == .nord)
-        #expect(active.config.theme.overrides == [.accent: try #require(ThemeColor(rawValue: "#ABCDEF"))])
         #expect(active.keymap.bindings(for: .scrollDown) == [try sequence("x")])
         #expect(active.keymap.bindings(for: .scrollUp) == BuiltInDefaults.keymap[.scrollUp])
         #expect(Set(active.config.keymap.keys) == Set(ActionRegistry.v1.actionIDs))
@@ -39,7 +33,6 @@ struct ConfigValidatorTests {
             keymap: BuiltInDefaults.keymap,
             navigation: BuiltInDefaults.config.navigation,
             input: InputConfiguration(prefixTimeoutMilliseconds: 99),
-            theme: BuiltInDefaults.config.theme
         )
 
         let report = ConfigValidator.validate(SparseAppConfig(), defaults: invalidDefaults)
@@ -148,34 +141,6 @@ struct ConfigValidatorTests {
         )
     }
 
-    @Test("U-THEME-02 theme overrides are sparse, typed, and strict")
-    func themeOverrides() throws {
-        let valid = ConfigValidator.validate(
-            SparseAppConfig(
-                theme: SparseThemeConfiguration(
-                    overrides: [ThemeToken.statusline.rawValue: "#12345678"]
-                )
-            )
-        )
-        let active = try #require(valid.validatedConfig)
-        #expect(active.config.theme.builtIn == BuiltInDefaults.config.theme.builtIn)
-        #expect(active.config.theme.overrides == [.statusline: try #require(ThemeColor(rawValue: "#12345678"))])
-
-        let invalid = ConfigValidator.validate(
-            SparseAppConfig(
-                theme: SparseThemeConfiguration(
-                    builtIn: "solarized",
-                    overrides: [
-                        "pdf-page": "#FFFFFF",
-                        ThemeToken.error.rawValue: "red",
-                    ]
-                )
-            )
-        )
-        #expect(!invalid.isValid)
-        #expect(Set(invalid.diagnostics.map(\.code)).isSuperset(of: [.invalidTheme, .invalidThemeToken, .invalidColor]))
-        #expect(invalid.validatedConfig == nil)
-    }
 
     @Test("U-CFG-13 every prompt-active action shares one strict binding predicate")
     func promptActiveActionsUseSharedPredicate() throws {

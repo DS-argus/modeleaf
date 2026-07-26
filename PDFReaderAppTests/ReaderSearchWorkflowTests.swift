@@ -21,7 +21,7 @@ struct ReaderSearchWorkflowTests {
             let document = try #require(PDFDocument(url: url))
             let session = ReaderSession(sourceURL: url, document: document)
             _ = session.contentView
-            let theme = AppKitTheme(configuration: ThemeConfiguration(builtIn: .tokyoNight))
+            let theme = AppKitTheme(themeID: .tokyoNight)
             session.applyTheme(theme)
 
             session.beginSearch("needle")

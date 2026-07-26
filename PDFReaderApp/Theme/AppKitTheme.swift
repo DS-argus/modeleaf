@@ -6,16 +6,11 @@ struct AppKitTheme {
     let displayName: String
     private let colors: [ThemeToken: NSColor]
 
-    init(configuration: ThemeConfiguration) {
-        let builtIn = BuiltInThemes.theme(for: configuration.builtIn)
-        var values = builtIn.palette.values
-        for (token, color) in configuration.overrides {
-            values[token] = color
-        }
-
+    init(themeID: ThemeID) {
+        let builtIn = BuiltInThemes.theme(for: themeID)
         self.id = builtIn.id
         self.displayName = builtIn.displayName
-        self.colors = Dictionary(uniqueKeysWithValues: values.map { token, color in
+        self.colors = Dictionary(uniqueKeysWithValues: builtIn.palette.values.map { token, color in
             (token, NSColor(themeColor: color))
         })
     }

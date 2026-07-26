@@ -272,7 +272,7 @@ struct PaneRedTeamTests {
         let fixture = makeFixture(orientation: .sideBySide)
         let controller = MainWindowController(
             coordinator: fixture.coordinator,
-            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            theme: AppKitTheme(themeID: .catppuccinMocha),
             actionHandler: { _ in }
         )
         defer { controller.close() }

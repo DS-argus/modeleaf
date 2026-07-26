@@ -212,7 +212,6 @@ struct ConfigLoadingTests {
         #expect(result.activeConfig.config == BuiltInDefaults.config)
         #expect(result.activeConfig.keymap.bindings(for: .scrollDown) == BuiltInDefaults.keymap[.scrollDown])
         #expect(result.activeConfig.config.navigation.smallScrollPoints == 48)
-        #expect(result.activeConfig.config.theme.builtIn == .catppuccinMocha)
     }
 
     @Test("U-CFG-03 valid partial user config activates only after complete validation")
@@ -237,13 +236,12 @@ struct ConfigLoadingTests {
 
         #expect(result.origin == .userFile)
         #expect(!result.usedFallback)
-        #expect(result.diagnostics.isEmpty)
+        #expect(result.diagnostics.contains { $0.code == .deprecatedTheme && $0.severity == .warning })
         #expect(result.activeConfig.config.navigation.smallScrollPoints == 64)
         #expect(
             result.activeConfig.config.navigation.largeScrollViewportFraction
                 == BuiltInDefaults.config.navigation.largeScrollViewportFraction
         )
-        #expect(result.activeConfig.config.theme.builtIn == .tokyoNight)
         #expect(result.activeConfig.keymap.bindings(for: .scrollDown).map(\.description) == ["x"])
     }
 
@@ -298,8 +296,7 @@ struct ConfigLoadingTests {
         #expect(representative.isValid)
         #expect(validation.isValid)
         #expect(validation.validatedConfig?.config.input.prefixTimeoutMilliseconds == 750)
-        #expect(validation.validatedConfig?.config.theme.builtIn == .gruvboxDark)
-        #expect(validation.validatedConfig?.config.theme.overrides[.accent]?.rawValue == "#AABBCC")
+        #expect(representative.diagnostics.contains { $0.code == .deprecatedTheme && $0.severity == .warning })
     }
 
     @Test("U-CFG-12 SwiftPM and Xcode workspace lock TOMLDecoder exactly to 0.4.5")

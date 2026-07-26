@@ -38,6 +38,7 @@
 "view.zoomReset" = []
 "view.fitWidth" = ["w"]
 "view.fitPage" = ["f"]
+"theme.picker" = ["T"]
 "pane.splitRight" = ["<C-b>|"]
 "pane.splitDown" = ["<C-b>-"]
 "pane.focusLeft" = ["<C-h>"]
@@ -53,6 +54,3 @@ zoom_factor = 1.1
 
 [input]
 prefix_timeout_ms = 800
-
-[theme]
-built_in = "catppuccin-mocha"

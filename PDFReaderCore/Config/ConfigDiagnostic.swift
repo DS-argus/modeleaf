@@ -13,6 +13,7 @@ public enum ConfigDiagnosticCode: String, Codable, Equatable, Sendable {
     case invalidSyntax
     case unknownKey
     case invalidType
+    case deprecatedTheme
     case decodeFailed
     case unknownAction
     case invalidKeySequence

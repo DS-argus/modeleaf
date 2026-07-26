@@ -198,7 +198,7 @@ private enum ExactPrefixSafetyPolicy {
              .searchPrompt, .searchNext, .searchPrevious,
              .viewZoomIn, .viewZoomOut, .viewZoomReset, .viewFitWidth, .viewFitPage,
              .paneSplitRight, .paneSplitDown, .paneFocusLeft, .paneFocusDown,
-             .paneFocusUp, .paneFocusRight, .paneUnsplit:
+             .paneFocusUp, .paneFocusRight, .paneUnsplit, .themePicker:
             false
         }
     }

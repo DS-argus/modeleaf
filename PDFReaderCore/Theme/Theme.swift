@@ -5,6 +5,7 @@ public enum ThemeID: String, CaseIterable, Codable, Hashable, Sendable {
     case tokyoNight = "tokyo-night"
     case gruvboxDark = "gruvbox-dark"
     case nord
+    case catppuccinLatte = "catppuccin-latte"
 }
 
 public enum ThemeToken: String, CaseIterable, Codable, Hashable, Sendable {

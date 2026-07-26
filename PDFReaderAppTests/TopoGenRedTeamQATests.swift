@@ -125,7 +125,7 @@ struct TopoGenRedTeamQATests {
         for outer in [PaneOrientation.sideBySide, .stacked] {
             for singletonSide in [PaneBandSide.leading, .trailing] {
                 let fixture = makeFixture()
-                let controller = MainWindowController(coordinator: fixture.coordinator, theme: AppKitTheme(configuration: BuiltInDefaults.config.theme), actionHandler: fixture.dispatcher.dispatch)
+                let controller = MainWindowController(coordinator: fixture.coordinator, theme: AppKitTheme(themeID: .catppuccinMocha), actionHandler: fixture.dispatcher.dispatch)
                 defer { controller.close() }
                 controller.window?.orderFrontRegardless()
                 fixture.dispatcher.dispatch(outer == .sideBySide ? .paneSplitRight : .paneSplitDown)

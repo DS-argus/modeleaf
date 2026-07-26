@@ -8,7 +8,7 @@ struct ProductScopeTests {
     @Test("V-SCOPE-01 action and menu vocabulary excludes advanced research and editing features")
     func publicCommandVocabularyIsViewerOnly() {
         #expect(ActionRegistry.v1.actionIDs == ActionID.allCases)
-        #expect(ActionRegistry.v1.actionIDs.count == 43)
+        #expect(ActionRegistry.v1.actionIDs.count == 44)
         #expect(ActionSurfaceRegistry.validate().isEmpty)
 
         let publicVocabulary = (

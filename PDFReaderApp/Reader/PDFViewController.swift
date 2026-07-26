@@ -36,7 +36,7 @@ final class PDFViewController: NSViewController {
         self.openTraceID = traceID
         self.openMetrics = metrics
         self.readerView = ReaderPDFView(frame: .zero)
-        let defaultTheme = AppKitTheme(configuration: BuiltInDefaults.config.theme)
+        let defaultTheme = AppKitTheme(themeID: .catppuccinMocha)
         self.canvasBackground = defaultTheme.canvasBackground
         self.focusIndicator = defaultTheme.focusRing
         super.init(nibName: nil, bundle: nil)

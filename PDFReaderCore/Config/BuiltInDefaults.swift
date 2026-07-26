@@ -15,8 +15,7 @@ public enum BuiltInDefaults {
             largeScrollViewportFraction: 0.8,
             zoomFactor: 1.10
         ),
-        input: InputConfiguration(prefixTimeoutMilliseconds: 800),
-        theme: ThemeConfiguration(builtIn: .catppuccinMocha)
+        input: InputConfiguration(prefixTimeoutMilliseconds: 800)
     )
 
     public static let keymap: [ActionID: [KeySequence]] = [
@@ -63,6 +62,7 @@ public enum BuiltInDefaults {
         .viewFitWidth: sequences("w"),
         .viewFitPage: sequences("f"),
 
+        .themePicker: sequences("T"),
 
         // Pane prefix: Ctrl+b (the tmux default), with tmux-style split
         // mnemonics (| splits side-by-side, - splits stacked). Unlike
@@ -100,10 +100,6 @@ public enum BuiltInDefaults {
             "",
             "[input]",
             "prefix_timeout_ms = \(config.input.prefixTimeoutMilliseconds)",
-            "",
-            "[theme]",
-            "built_in = \"\(config.theme.builtIn.rawValue)\"",
-            "",
         ]
         return lines.joined(separator: "\n")
     }

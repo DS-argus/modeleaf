@@ -40,6 +40,7 @@ The shipped bindings stay deliberately small:
 | next / previous match | `Enter` / `Shift-Enter` |
 | clear search | `Esc` |
 | zoom in / out | `=` / `-` |
+| theme picker | `Shift-t` (live preview; selection persists) |
 | fit width / page | `w` / `f` |
 
 In fit-page mode, `j`/`d` move to the next page and `k`/`u` to the previous page. After manual zoom, each scroll key moves only along an axis where the page exceeds the viewport; Modeleaf does not inflate the configured zoom or pan into blank space. Actual Size remains in the View menu and is configurable as `view.zoomReset`, but has no default key.
@@ -52,7 +53,7 @@ Tabs remain keyboard-first, but can also be selected and closed with the pointer
 Pane layout is structurally limited to one through four panes at depth one. `Ctrl-b |` and `Ctrl-b -` split the active pane in place; either orientation can be the first split, and both asymmetric three-pane shapes plus both 2×2 orientations are reachable. A parallel request or a request against an already split band is a strict no-op. A new pane opens the active pane's current page fit-to-page in its own bounds — the reading position carries over but the zoom fits the new, smaller pane. `Ctrl-b o` is global close-others: it keeps the active pane and closes every other pane.
 
 Focus crosses geometry in the same slot; only a full-span pane crossing into a split band uses that band's most recently focused slot, falling back to its first slot. Boundary movement is a no-op. The traffic-light inset belongs only to the top-left pane.
-See [CONFIG.md](CONFIG.md) for the exhaustive 43-action registry, key-token grammar, validation rules, numeric bounds, and generated default file.
+See [CONFIG.md](CONFIG.md) for the exhaustive 44-action registry, key-token grammar, validation rules, numeric bounds, and generated default file.
 
 ## Explicit v1 boundary
 V1 has no bookmarks, user-authored annotations or highlights, marks, portals, smart jumps, command palette, external commands, scripts, plugins, macros, OCR, print, export, session persistence, thumbnail sidebar, or research-library workflow. Search highlighting is transient viewer state and is never written to the PDF.

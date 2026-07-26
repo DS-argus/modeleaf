@@ -81,6 +81,10 @@ final class PaneCoordinator {
     var activeSession: (any ReaderSessionPresenting)? { activeStore?.activeSession }
     func store(for id: PaneID) -> ReaderSessionStore? { stores[id] }
     func session(for id: TabID) -> (any ReaderSessionPresenting)? { activeStore?.session(for: id) }
+    func applyTheme(_ theme: AppKitTheme) {
+        stores.values.forEach { $0.applyTheme(theme) }
+        bootstrapStore?.applyTheme(theme)
+    }
 
     @discardableResult
     func insert(_ session: any ReaderSessionPresenting, into target: PaneOpenTarget) -> Bool {

@@ -32,6 +32,7 @@ struct BuiltInDefaultsTests {
             .searchPrompt: ["/"], .searchNext: ["<CR>"], .searchPrevious: ["<S-CR>"], .searchCancel: ["<Esc>"],
             .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [],
             .viewFitWidth: ["w"], .viewFitPage: ["f"],
+            .themePicker: ["T"],
             .paneSplitRight: ["<C-b>|"], .paneSplitDown: ["<C-b>-"], .paneUnsplit: ["<C-b>o"],
             .paneFocusLeft: ["<C-h>"], .paneFocusDown: ["<C-j>"], .paneFocusUp: ["<C-k>"], .paneFocusRight: ["<C-l>"],
         ]
@@ -60,14 +61,19 @@ struct BuiltInDefaultsTests {
         #expect(ConfigBounds.prefixTimeoutMilliseconds == 100...2_000)
     }
 
-    @Test("Four semantic dark themes are complete and PDF-agnostic")
+    @Test("Five built-in themes are complete and PDF-agnostic")
     func builtInThemesAreComplete() {
+        #expect(ThemeID.allCases.count == 5)
+        #expect(BuiltInThemes.all.count == 5)
         #expect(BuiltInThemes.all.map(\.id) == ThemeID.allCases)
-        #expect(BuiltInDefaults.config.theme.builtIn == .catppuccinMocha)
         for theme in BuiltInThemes.all {
             #expect(Set(theme.palette.values.keys) == Set(ThemeToken.allCases))
-            #expect(theme.palette.values.values.allSatisfy { $0.rawValue.hasPrefix("#") })
+            #expect(theme.palette.values.values.allSatisfy { ThemeColor(rawValue: $0.rawValue) != nil })
         }
+
+        let latte = BuiltInThemes.theme(for: .catppuccinLatte)
+        #expect(latte.palette[.background].rawValue == "#EFF1F5")
+        #expect(latte.palette[.background] != BuiltInThemes.theme(for: .catppuccinMocha).palette[.background])
         #expect(ThemeToken.allCases.allSatisfy { !$0.rawValue.lowercased().contains("pdf") })
     }
 
@@ -80,7 +86,7 @@ struct BuiltInDefaultsTests {
         )
         #expect(bundled == BuiltInDefaults.defaultConfigTOML)
         #expect(bundled.contains("\"page.prompt\" = [\"g\"]"))
-        #expect(bundled.contains("built_in = \"catppuccin-mocha\""))
+        #expect(!bundled.contains("[theme]"))
         #expect(!bundled.localizedCaseInsensitiveContains("script"))
     }
 

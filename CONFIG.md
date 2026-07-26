@@ -27,11 +27,6 @@ zoom_factor = 1.1
 [input]
 prefix_timeout_ms = 800
 
-[theme]
-built_in = "catppuccin-mocha"
-
-[theme.overrides]
-accent = "#89B4FA"
 ```
 
 ## Key grammar
@@ -89,6 +84,7 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `view.zoomReset` | unbound | `navigation`, `searchResults` | `suppressed` |
 | `view.fitWidth` | `w` | `navigation`, `searchResults` | `suppressed` |
 | `view.fitPage` | `f` | `navigation`, `searchResults` | `suppressed` |
+| `theme.picker` | `T` | `navigation`, `searchResults` | `suppressed` |
 | `pane.splitRight` | `<C-b>|` | `navigation`, `searchResults` | `suppressed` |
 | `pane.splitDown` | `<C-b>-` | `navigation`, `searchResults` | `suppressed` |
 | `pane.focusLeft` | `<C-h>` | `navigation`, `searchResults` | `suppressed` |
@@ -103,13 +99,10 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 - Large scroll: `0.8 × viewport` (valid `0.1...2.0`).
 - Zoom factor: `1.10` (valid `1.01...2.0`).
 - Prefix timeout: `800 ms` (valid `100...2000`).
-- Initial theme: `catppuccin-mocha`.
-- Themes: `catppuccin-mocha`, `tokyo-night`, `gruvbox-dark`, `nord`.
+- Themes: `catppuccin-mocha`, `catppuccin-latte`, `tokyo-night`, `gruvbox-dark`, `nord`.
+- Themes are chosen in-app with the theme picker (`shift+t`) and persisted separately. 테마는 앱 내 테마 선택기(`shift+t`)에서 선택하며 별도로 저장됩니다.
 
 A newly opened document starts on page 1 in fit-page mode. In that mode, `j`/`d` advance a page and `k`/`u` go back. After manual zoom, each scroll action first moves within an overflowing axis. At a vertical edge, another downward action enters the next page at its top and another upward action enters the previous page at its bottom; vertical actions remain inert when the page overflows only horizontally. Actual Size remains available from the View menu and as `view.zoomReset`, but is intentionally unbound by default.
-
-Themes apply to application chrome, overlays, and the surrounding PDF canvas. They never alter PDF page pixels.
-Theme overrides use the semantic tokens `background` (the surrounding canvas and base chrome), `foreground`, `muted-text`, `border`, `accent`, `active-tab`, `inactive-tab`, `statusline`, `error`, `search-highlight`, `active-search-highlight`, and `focus-indicator`. Colors must use `#RRGGBB` or `#RRGGBBAA` hexadecimal form.
 
 ## Prompt-safe bindings
 
@@ -274,6 +267,7 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 "view.zoomReset" = []
 "view.fitWidth" = ["w"]
 "view.fitPage" = ["f"]
+"theme.picker" = ["T"]
 "pane.splitRight" = ["<C-b>|"]
 "pane.splitDown" = ["<C-b>-"]
 "pane.focusLeft" = ["<C-h>"]
@@ -289,7 +283,4 @@ zoom_factor = 1.1
 
 [input]
 prefix_timeout_ms = 800
-
-[theme]
-built_in = "catppuccin-mocha"
 ```

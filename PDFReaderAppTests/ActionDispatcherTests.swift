@@ -142,7 +142,7 @@ struct ActionDispatcherTests {
         )
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            theme: AppKitTheme(themeID: .catppuccinMocha),
             actionHandler: { dispatcher.dispatch($0) },
             keyDispatchHandler: { dispatcher.dispatch($0) },
             validatedConfig: validated
@@ -215,7 +215,7 @@ struct ActionDispatcherTests {
         )
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            theme: AppKitTheme(themeID: .catppuccinMocha),
             actionHandler: { dispatcher.dispatch($0) },
             keyDispatchHandler: { dispatcher.dispatch($0) },
             validatedConfig: validated
@@ -258,7 +258,7 @@ struct ActionDispatcherTests {
         let dispatcher = ActionDispatcher(coordinator: coordinator, navigation: BuiltInDefaults.config.navigation)
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            theme: AppKitTheme(themeID: .catppuccinMocha),
             actionHandler: { dispatcher.dispatch($0) },
             keyDispatchHandler: { dispatcher.dispatch($0) },
             validatedConfig: validated
@@ -297,7 +297,7 @@ struct ActionDispatcherTests {
         let dispatcher = ActionDispatcher(coordinator: coordinator, navigation: BuiltInDefaults.config.navigation)
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            theme: AppKitTheme(themeID: .catppuccinMocha),
             actionHandler: { dispatcher.dispatch($0) },
             keyDispatchHandler: { dispatcher.dispatch($0) },
             validatedConfig: validated
@@ -331,7 +331,7 @@ struct ActionDispatcherTests {
         let dispatcher = ActionDispatcher(coordinator: coordinator, navigation: BuiltInDefaults.config.navigation)
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            theme: AppKitTheme(themeID: .catppuccinMocha),
             actionHandler: { dispatcher.dispatch($0) },
             keyDispatchHandler: { dispatcher.dispatch($0) },
             validatedConfig: validated
@@ -389,7 +389,7 @@ struct ActionDispatcherTests {
         let dispatcher = ActionDispatcher(coordinator: coordinator, navigation: BuiltInDefaults.config.navigation)
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            theme: AppKitTheme(themeID: .catppuccinMocha),
             actionHandler: { dispatcher.dispatch($0) },
             keyDispatchHandler: { dispatcher.dispatch($0) },
             validatedConfig: validated
@@ -523,6 +523,7 @@ private final class PromptPresenterSpy: ReaderWorkflowPresenting {
     var activePromptKind: ReaderPromptKind? { presentation?.kind }
     var activePromptText: String { promptText }
 
+    func presentThemePicker() {}
     func presentPrompt(_ presentation: PromptPresentation) {
         self.presentation = presentation
         promptText = presentation.text

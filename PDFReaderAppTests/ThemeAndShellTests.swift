@@ -10,7 +10,7 @@ struct ThemeAndShellTests {
     @Test("U-THEME-01 every built-in theme resolves complete AppKit chrome colors")
     func everyThemeResolvesAppKitColors() {
         for themeID in ThemeID.allCases {
-            let theme = AppKitTheme(configuration: ThemeConfiguration(builtIn: themeID))
+            let theme = AppKitTheme(themeID: themeID)
             #expect(theme.id == themeID)
             #expect(!theme.displayName.isEmpty)
             for token in ThemeToken.allCases {
@@ -25,38 +25,6 @@ struct ThemeAndShellTests {
         #expect(ThemeAttributions.bundledPaletteNames.count == 4)
     }
 
-    @Test("active search and focus colors are independently configurable semantic tokens")
-    func independentSearchAndFocusTokens() throws {
-        let activeSearch = try #require(ThemeColor(rawValue: "#01020380"))
-        let focus = try #require(ThemeColor(rawValue: "#A0B0C0"))
-        let theme = AppKitTheme(
-            configuration: ThemeConfiguration(
-                builtIn: .nord,
-                overrides: [
-                    .activeSearchHighlight: activeSearch,
-                    .focusIndicator: focus,
-                ]
-            )
-        )
-
-        #expect(theme[.accent].hexRGB != "#010203")
-        #expect(theme.searchHighlightPalette.activeResult.hexRGB == "#010203")
-        #expect(theme.focusRing.hexRGB == "#A0B0C0")
-    }
-
-    @Test("U-THEME-02 one semantic override changes only that AppKit token")
-    func sparseOverrideChangesOneToken() throws {
-        let base = AppKitTheme(configuration: ThemeConfiguration(builtIn: .nord))
-        let override = try #require(ThemeColor(rawValue: "#010203"))
-        let changed = AppKitTheme(
-            configuration: ThemeConfiguration(builtIn: .nord, overrides: [.accent: override])
-        )
-
-        #expect(changed[.accent].hexRGB == "#010203")
-        for token in ThemeToken.allCases where token != .accent {
-            #expect(changed[token].hexRGB == base[token].hexRGB)
-        }
-    }
 
     @Test("U-THEME-03 applying a theme styles shell chrome but never mutates presented content colors")
     func themeDoesNotRecolorPresentedContent() {
@@ -73,24 +41,14 @@ struct ThemeAndShellTests {
 
         root.render(snapshot: snapshot, activeContentView: content, sessionStatus: .empty)
         for themeID in ThemeID.allCases {
-            root.apply(theme: AppKitTheme(configuration: ThemeConfiguration(builtIn: themeID)))
+            root.apply(theme: AppKitTheme(themeID: themeID))
             #expect(content.layer?.backgroundColor == original)
         }
     }
 
-    @Test("background token reaches the real PDF surrounding canvas without recoloring page content")
+    @Test("background and focus tokens reach the real PDF surrounding canvas without recoloring page content")
     func backgroundTokenStylesRealReaderCanvas() throws {
-        let override = try #require(ThemeColor(rawValue: "#123456"))
-        let focus = try #require(ThemeColor(rawValue: "#FEDCBA"))
-        let theme = AppKitTheme(
-            configuration: ThemeConfiguration(
-                builtIn: .nord,
-                overrides: [
-                    .background: override,
-                    .focusIndicator: focus,
-                ]
-            )
-        )
+        let theme = AppKitTheme(themeID: .nord)
         let store = ReaderSessionStore()
         let coordinator = PaneCoordinator(initialStore: store)
         let controller = MainWindowController(
@@ -110,13 +68,12 @@ struct ThemeAndShellTests {
         }
 
         let readerView = try #require(session.focusView as? ReaderPDFView)
-        #expect(readerView.backgroundColor.hexRGB == "#123456")
+        #expect(readerView.backgroundColor.hexRGB == theme.canvasBackground.hexRGB)
         let layerColor = try #require(session.contentView.layer?.backgroundColor)
-        #expect(NSColor(cgColor: layerColor)?.hexRGB == "#123456")
-        #expect(theme.canvasBackground.hexRGB == "#123456")
+        #expect(NSColor(cgColor: layerColor)?.hexRGB == theme.canvasBackground.hexRGB)
         #expect(controller.window?.firstResponder === readerView)
         #expect(readerView.layer?.borderWidth == WindowVisualMetrics.canvasFocusRingWidth)
-        #expect(NSColor(cgColor: try #require(readerView.layer?.borderColor))?.hexRGB == "#FEDCBA")
+        #expect(NSColor(cgColor: try #require(readerView.layer?.borderColor))?.hexRGB == theme.focusRing.hexRGB)
 
         controller.presentPrompt(
             PromptPresentation(kind: .search, text: "focus", validationMessage: nil)
@@ -125,7 +82,7 @@ struct ThemeAndShellTests {
         #expect(controller.rootView.promptOverlay.layer?.borderWidth == WindowVisualMetrics.focusIndicatorWidth)
         #expect(
             NSColor(cgColor: try #require(controller.rootView.promptOverlay.layer?.borderColor))?.hexRGB
-                == "#FEDCBA"
+                == theme.focusRing.hexRGB
         )
 
         controller.dismissPromptAndRestoreFocus()
@@ -138,7 +95,7 @@ struct ThemeAndShellTests {
         let coordinator = PaneCoordinator(initialStore: store)
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            theme: AppKitTheme(themeID: .catppuccinMocha),
             actionHandler: { _ in }
         )
         let session = ReaderSession(
@@ -197,7 +154,7 @@ struct ThemeAndShellTests {
         let coordinator = PaneCoordinator(initialStore: store)
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            theme: AppKitTheme(themeID: .catppuccinMocha),
             actionHandler: { actions.append($0) }
         )
 
@@ -221,7 +178,7 @@ struct ThemeAndShellTests {
         #expect(openShortcut?.stringValue == "⌘O")
         #expect(
             openShortcut?.textColor?.hexRGB
-                == AppKitTheme(configuration: BuiltInDefaults.config.theme)[.accent].hexRGB
+                == AppKitTheme(themeID: .catppuccinMocha)[.accent].hexRGB
         )
         let openShortcutBadge = findDescendant(
             in: controller.rootView.emptyState,
@@ -308,7 +265,7 @@ struct ThemeAndShellTests {
         )
         let controller = MainWindowController(
             coordinator: PaneCoordinator(initialStore: store),
-            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            theme: AppKitTheme(themeID: .catppuccinMocha),
             actionHandler: { _ in }
         )
         #expect(store.insert(session))
@@ -376,7 +333,7 @@ struct ThemeAndShellTests {
         let store = ReaderSessionStore()
         let controller = MainWindowController(
             coordinator: PaneCoordinator(initialStore: store),
-            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            theme: AppKitTheme(themeID: .catppuccinMocha),
             actionHandler: { _ in }
         )
         let first = StubReaderSession(id: TabID(), title: "First.pdf")
@@ -435,7 +392,7 @@ struct ThemeAndShellTests {
         let store = ReaderSessionStore()
         let controller = MainWindowController(
             coordinator: PaneCoordinator(initialStore: store),
-            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            theme: AppKitTheme(themeID: .catppuccinMocha),
             actionHandler: { _ in }
         )
         let sessions = [
@@ -539,7 +496,7 @@ struct ThemeAndShellTests {
         let store = ReaderSessionStore()
         let controller = MainWindowController(
             coordinator: PaneCoordinator(initialStore: store),
-            theme: AppKitTheme(configuration: config.config.theme),
+            theme: AppKitTheme(themeID: .catppuccinMocha),
             actionHandler: { _ in },
             validatedConfig: config
         )
@@ -569,7 +526,7 @@ struct ThemeAndShellTests {
         var actions: [ActionID] = []
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            theme: AppKitTheme(themeID: .catppuccinMocha),
             actionHandler: {
                 actions.append($0)
                 dispatcher.dispatch($0)
@@ -624,7 +581,7 @@ struct ThemeAndShellTests {
         let session = StubReaderSession(id: TabID(), title: fullTitle)
         let controller = MainWindowController(
             coordinator: PaneCoordinator(initialStore: store),
-            theme: AppKitTheme(configuration: BuiltInDefaults.config.theme),
+            theme: AppKitTheme(themeID: .catppuccinMocha),
             actionHandler: { _ in }
         )
         #expect(store.insert(session))
@@ -644,13 +601,13 @@ struct ThemeAndShellTests {
         #expect(controller.rootView.tabBar.trackingAreas.isEmpty)
     }
 
-    @Test("V-THEME-01 four themes render the six required visual acceptance states")
+    @Test("V-THEME-01 all built-in themes render the six required visual acceptance states")
     func visualAcceptanceMatrix() throws {
         let output = try snapshotOutputDirectory()
         var allPNGs: [Data] = []
 
         for themeID in ThemeID.allCases {
-            let theme = AppKitTheme(configuration: ThemeConfiguration(builtIn: themeID))
+            let theme = AppKitTheme(themeID: themeID)
             var themePNGs: [(state: VisualAcceptanceState, data: Data)] = []
 
             for state in VisualAcceptanceState.allCases {

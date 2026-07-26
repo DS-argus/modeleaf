@@ -74,6 +74,24 @@ public enum BuiltInThemes {
                 .focusIndicator: "#88C0D0",
             ]
         ),
+        make(
+            .catppuccinLatte,
+            "Catppuccin Latte",
+            [
+                .background: "#EFF1F5",
+                .foreground: "#4C4F69",
+                .mutedText: "#6C6F85",
+                .border: "#BCC0CC",
+                .accent: "#1E66F5",
+                .activeTab: "#DCE0E8",
+                .inactiveTab: "#E6E9EF",
+                .statusline: "#DCE0E8",
+                .error: "#D20F39",
+                .searchHighlight: "#DF8E1D",
+                .activeSearchHighlight: "#FE640B",
+                .focusIndicator: "#1E66F5",
+            ]
+        ),
     ]
 
     public static func theme(for id: ThemeID) -> Theme {

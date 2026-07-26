@@ -24,31 +24,18 @@ public struct InputConfiguration: Equatable, Sendable {
     }
 }
 
-public struct ThemeConfiguration: Equatable, Sendable {
-    public let builtIn: ThemeID
-    public let overrides: [ThemeToken: ThemeColor]
-
-    public init(builtIn: ThemeID, overrides: [ThemeToken: ThemeColor] = [:]) {
-        self.builtIn = builtIn
-        self.overrides = overrides
-    }
-}
-
 public struct EffectiveAppConfig: Equatable, Sendable {
     public let keymap: [ActionID: [KeySequence]]
     public let navigation: NavigationConfiguration
     public let input: InputConfiguration
-    public let theme: ThemeConfiguration
 
     public init(
         keymap: [ActionID: [KeySequence]],
         navigation: NavigationConfiguration,
-        input: InputConfiguration,
-        theme: ThemeConfiguration
+        input: InputConfiguration
     ) {
         self.keymap = keymap
         self.navigation = navigation
         self.input = input
-        self.theme = theme
     }
 }

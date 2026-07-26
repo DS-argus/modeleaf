@@ -6,6 +6,7 @@ protocol ReaderWorkflowPresenting: AnyObject {
     var activePromptKind: ReaderPromptKind? { get }
     var activePromptText: String { get }
 
+    func presentThemePicker()
     func presentPrompt(_ presentation: PromptPresentation)
     func showPromptValidation(_ message: String)
     func prepareForGlobalAction()
@@ -123,6 +124,8 @@ final class ActionDispatcher {
                 to: activeSession?.preferredInputContext ?? .navigation,
                 reason: .promptCancelled
             )
+        case .themePicker:
+            presentation?.presentThemePicker()
 
         case .viewZoomIn:
             activeSession?.zoom(by: navigation.zoomFactor)

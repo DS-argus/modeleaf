@@ -127,54 +127,11 @@ public enum ConfigValidator {
             )
         )
 
-        var themeID = defaults.theme.builtIn
-        if let rawTheme = sparse.theme?.builtIn {
-            if let parsedTheme = ThemeID(rawValue: rawTheme), BuiltInThemes.all.contains(where: { $0.id == parsedTheme }) {
-                themeID = parsedTheme
-            } else {
-                diagnostics.append(
-                    makeDiagnostic(
-                        code: .invalidTheme,
-                        message: "Unknown built-in theme \(rawTheme).",
-                        path: "theme.built_in",
-                        source: source
-                    )
-                )
-            }
-        }
-        var overrides = defaults.theme.overrides
-        for rawToken in sparse.theme?.overrides?.keys.sorted() ?? [] {
-            let rawColor = sparse.theme?.overrides?[rawToken] ?? ""
-            guard let token = ThemeToken(rawValue: rawToken) else {
-                diagnostics.append(
-                    makeDiagnostic(
-                        code: .invalidThemeToken,
-                        message: "Unknown semantic theme token \(rawToken).",
-                        path: ConfigSemanticPath.themeOverride(token: rawToken),
-                        source: source
-                    )
-                )
-                continue
-            }
-            guard let color = ThemeColor(rawValue: rawColor) else {
-                diagnostics.append(
-                    makeDiagnostic(
-                        code: .invalidColor,
-                        message: "Theme colors must be #RRGGBB or #RRGGBBAA hexadecimal values.",
-                        path: ConfigSemanticPath.themeOverride(token: rawToken),
-                        source: source
-                    )
-                )
-                continue
-            }
-            overrides[token] = color
-        }
 
         let effective = EffectiveAppConfig(
             keymap: bindings,
             navigation: navigation,
-            input: input,
-            theme: ThemeConfiguration(builtIn: themeID, overrides: overrides)
+            input: input
         )
         validateEffectiveConfiguration(
             effective,
