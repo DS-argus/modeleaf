@@ -696,8 +696,9 @@ struct PaneCoordinatorTests {
         #expect(carried.coordinator.focus(.right))
         #expect(carried.coordinator.activePaneID == resolvedNewTrailing)
 
-        // Removing the remembered slot collapses to the first-slot survivor; crossing
-        // into that column therefore has the top fallback rather than stale bottom.
+        // Removing the remembered slot collapses to the first-slot survivor;
+        // crossing into that band therefore uses the first-slot fallback
+        // rather than the stale removed-second-slot memory.
         let fallback = fourPaneCoordinator()
         #expect(fallback.coordinator.activatePane(fallback.trailingBottom))
         #expect(fallback.coordinator.closeActiveTab())

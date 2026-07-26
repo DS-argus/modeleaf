@@ -437,9 +437,7 @@ struct PaneRedTeamTests {
         // fixture predicate, while synthetic high-entropy noise passes.
         let bounds = NSRect(x: 0, y: 0, width: 120, height: 120)
         func bitmap(_ draw: (NSRect) -> Void) throws -> NSBitmapImageRep {
-            let view = NSImageView(frame: bounds)
             let rep = try #require(NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 120, pixelsHigh: 120, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0))
-            _ = view
             NSGraphicsContext.saveGraphicsState()
             NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
             draw(bounds)
@@ -453,11 +451,18 @@ struct PaneRedTeamTests {
             NSColor.white.setFill(); rect.insetBy(dx: 20, dy: 20).fill()
         }
         #expect(!hasFixtureRasterPixels(in: bounds, representation: blankShell, rootBounds: bounds))
-        var generator = SystemRandomNumberGenerator()
+        // Deterministic high-entropy pattern: a simple integer hash drives the
+        // channel values, so the positive control is replayable byte-for-byte.
         let noise = try bitmap { rect in
             for x in stride(from: 0, to: Int(rect.width), by: 4) {
                 for y in stride(from: 0, to: Int(rect.height), by: 4) {
-                    NSColor(red: CGFloat.random(in: 0...1, using: &generator), green: CGFloat.random(in: 0...1, using: &generator), blue: CGFloat.random(in: 0...1, using: &generator), alpha: 1).setFill()
+                    let h = UInt32(truncatingIfNeeded: (x &* 73_856_093) ^ (y &* 19_349_663) ^ 0x9E37)
+                    NSColor(
+                        red: CGFloat(h & 0xFF) / 255,
+                        green: CGFloat((h >> 8) & 0xFF) / 255,
+                        blue: CGFloat((h >> 16) & 0xFF) / 255,
+                        alpha: 1
+                    ).setFill()
                     NSRect(x: x, y: y, width: 4, height: 4).fill()
                 }
             }
