@@ -29,15 +29,15 @@ struct ThemePickerTests {
 
         overlay.present(selectedThemeID: .catppuccinMocha)
         #expect(!overlay.isHidden)
-        #expect(previews == [.catppuccinMocha])          // open seeds a preview at the current theme
+        #expect(previews.isEmpty)                         // open renders the current theme; no re-apply
 
         #expect(overlay.handleKeyDown(e.down))            // -> tokyoNight
         #expect(overlay.handleKeyDown(e.j))               // -> gruvboxDark
-        #expect(previews == [.catppuccinMocha, .tokyoNight, .gruvboxDark])
+        #expect(previews == [.tokyoNight, .gruvboxDark])
 
         #expect(overlay.handleKeyDown(e.up))              // -> tokyoNight
         #expect(overlay.handleKeyDown(e.k))               // -> mocha
-        #expect(previews == [.catppuccinMocha, .tokyoNight, .gruvboxDark, .tokyoNight, .catppuccinMocha])
+        #expect(previews == [.tokyoNight, .gruvboxDark, .tokyoNight, .catppuccinMocha])
 
         #expect(overlay.handleKeyDown(e.down))            // -> tokyoNight (selected)
         #expect(overlay.handleKeyDown(e.ret))             // commit tokyoNight
@@ -53,8 +53,8 @@ struct ThemePickerTests {
         var previews: [ThemeID] = []
         overlay.onPreview = { previews.append($0) }
         overlay.present(selectedThemeID: .catppuccinMocha)   // index 0
-        #expect(overlay.handleKeyDown(e.up))                 // clamp at top, no new preview
-        #expect(previews == [.catppuccinMocha])
+        #expect(overlay.handleKeyDown(e.up))                 // clamp at top, no preview
+        #expect(previews.isEmpty)
 
         overlay.present(selectedThemeID: .catppuccinLatte)   // index 4
         previews.removeAll()
@@ -162,6 +162,40 @@ struct ThemePickerTests {
         #expect(evaluated.validatedKeymap?.bindings(for: .themePicker) == [rebound])
     }
 
+    @Test("AC-10 picker preview and commit theme every session in single and split panes")
+    func pickerPropagatesThemeAcrossLivePaneSessions() throws {
+        let e = try keys()
+        for paneCount in [1, 2] {
+            try withTemporaryDirectory { directory in
+                let sessionStore = ReaderSessionStore()
+                let controller = ApplicationController(
+                    configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing.toml"))),
+                    sessionStore: sessionStore,
+                    themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("state.json")),
+                    terminationHandler: {}
+                )
+                let first = ThemeRecordingSession(title: "First.pdf")
+                let second = ThemeRecordingSession(title: "Second.pdf")
+                controller.coordinator.configureDuplication { _ in second }
+                #expect(controller.coordinator.insert(first, into: .createIfEmpty))
+                if paneCount == 2 {
+                    #expect(controller.coordinator.split(direction: .sideBySide) != nil)
+                }
+                #expect(controller.coordinator.snapshot.layout.paneIDs.count == paneCount)
+
+                controller.mainWindowController.presentThemePicker()
+                let overlay = controller.mainWindowController.rootView.themePickerOverlay
+                first.appliedThemeIDs.removeAll()
+                second.appliedThemeIDs.removeAll()
+                #expect(overlay.handleKeyDown(e.down))
+                #expect([first, second].prefix(paneCount).allSatisfy { $0.appliedThemeIDs == [.tokyoNight] })
+                #expect(overlay.handleKeyDown(e.ret))
+                #expect([first, second].prefix(paneCount).allSatisfy { $0.appliedThemeIDs == [.tokyoNight, .tokyoNight] })
+                controller.mainWindowController.close()
+            }
+        }
+    }
+
     private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("modeleaf-theme-picker-\(UUID().uuidString)", isDirectory: true)
@@ -169,4 +203,25 @@ struct ThemePickerTests {
         defer { try? FileManager.default.removeItem(at: url) }
         try body(url)
     }
+
+}
+@MainActor
+private final class ThemeRecordingSession: ReaderSessionPresenting, ReaderDuplicationSnapshotProviding {
+    let id = TabID()
+    let title: String
+    let contentView = NSView()
+    var appliedThemeIDs: [ThemeID] = []
+
+    init(title: String) { self.title = title }
+
+    var statusSnapshot: ReaderStatusSnapshot {
+        ReaderStatusSnapshot(context: "NORMAL", page: "1 / 1", zoom: "100%", detail: title)
+    }
+
+    var duplicationSnapshot: ReaderDuplicationSnapshot {
+        ReaderDuplicationSnapshot(sourceURL: URL(fileURLWithPath: "/tmp/\(title)"), oneBasedPage: 1)
+    }
+
+    func applyTheme(_ theme: AppKitTheme) { appliedThemeIDs.append(theme.id) }
+    func prepareForClose() {}
 }

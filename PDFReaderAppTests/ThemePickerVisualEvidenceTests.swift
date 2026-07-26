@@ -30,6 +30,10 @@ import Testing
         pump()
         let root = controller.mainWindowController.rootView
         root.needsLayout = true; root.layoutSubtreeIfNeeded(); w.displayIfNeeded()
+        // The evidence must show the picker open with the light preset live-
+        // previewed, not an arbitrary frame.
+        #expect(!overlay.isHidden)
+        #expect(controller.currentThemeID == .catppuccinLatte)
         let rep = try #require(root.bitmapImageRepForCachingDisplay(in: root.bounds))
         root.cacheDisplay(in: root.bounds, to: rep)
         let png = try #require(rep.representation(using: .png, properties: [:]))

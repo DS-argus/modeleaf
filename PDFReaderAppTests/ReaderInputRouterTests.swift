@@ -172,6 +172,42 @@ struct ReaderInputRouterTests {
             #expect(!router.handle(try #require(makeKeyEvent(characters: context == .pagePrompt ? "7" : "x"))))
         }
     }
+    @Test("theme picker binding remains native in prompts and dispatches in navigation")
+    func themePickerIsExcludedFromPromptRouting() throws {
+        let validated = try #require(ConfigValidator.validate(SparseAppConfig()).validatedConfig)
+        let themePickerKey = try #require(makeKeyEvent(
+            characters: "T",
+            charactersIgnoringModifiers: "T",
+            modifiers: [.shift]
+        ))
+
+        for context in [InputContext.pagePrompt, .searchPrompt] {
+            var dispatches: [ActionID] = []
+            let router = ReaderInputRouter(
+                config: validated,
+                automaticallySchedulesTimeouts: false,
+                pendingHandler: { _ in },
+                dispatchHandler: { dispatches.append($0.actionID) }
+            )
+            router.synchronizeContext(context)
+
+            _ = router.handle(themePickerKey)
+            #expect(Set(dispatches).isDisjoint(with: [.themePicker]))
+            #expect(router.context == context)
+            #expect(!router.handle(try #require(makeKeyEvent(characters: context == .pagePrompt ? "7" : "x"))))
+        }
+
+        var navigationDispatches: [ActionID] = []
+        let router = ReaderInputRouter(
+            config: validated,
+            automaticallySchedulesTimeouts: false,
+            pendingHandler: { _ in },
+            dispatchHandler: { navigationDispatches.append($0.actionID) }
+        )
+        router.synchronizeContext(.navigation)
+        #expect(router.handle(themePickerKey))
+        #expect(navigationDispatches == [.themePicker])
+    }
 
     @Test("pane bindings dispatch while browsing search results")
     func paneBindingsDispatchFromSearchResults() throws {

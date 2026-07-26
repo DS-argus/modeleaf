@@ -19,7 +19,7 @@ The interaction design takes one focused idea from [Sioyek](https://github.com/a
 - scrolls, changes pages, jumps to a numbered page, zooms, and fits the view;
 - searches embedded PDF text with per-tab result state and highlighting;
 - routes every app-owned command through one stable action registry;
-- lets every reader action, navigation value, and chrome theme be changed in TOML;
+- lets every reader action and navigation value be changed in TOML;
 - preserves the source file: the production boundary exposes no save or edit workflow.
 
 The shipped bindings stay deliberately small:
@@ -70,7 +70,7 @@ These omissions are product constraints rather than half-implemented menu items.
 - exact-pinned `TOMLDecoder` 0.4.5 at the app edge;
 - Swift Testing, XCTest, and XCUITest targets.
 
-The four bundled dark themes are **Catppuccin Mocha**, **Tokyo Night**, **Gruvbox Dark**, and **Nord**. Themes affect app chrome, the surrounding PDF canvas, prompts, status, and transient search highlights; PDF page pixels are not recolored.
+The five bundled themes are the dark **Catppuccin Mocha**, **Tokyo Night**, **Gruvbox Dark**, and **Nord** plus the light **Catppuccin Latte**. Pick one at runtime with the theme picker (`Shift-t`, live preview); the choice is saved in an app-managed state file, not `config.toml`. Themes affect app chrome, the surrounding PDF canvas, prompts, status, and transient search highlights; PDF page pixels are not recolored.
 
 ## Build and run
 
@@ -147,13 +147,9 @@ zoom_factor = 1.12
 
 [input]
 prefix_timeout_ms = 350
-
-[theme]
-built_in = "tokyo-night"
-
-[theme.overrides]
-accent = "#7DCFFF"
 ```
+
+The theme is not configured in TOML — choose it in-app with the theme picker (`Shift-t`). A legacy `[theme]` section in an existing config is ignored with a deprecation warning and does not invalidate the rest of the file.
 
 Configuration is strictly declarative. Unknown keys, invalid action IDs, unsafe prompt bindings, conflicts, wrong types, or out-of-range values reject the **entire** user file. The complete built-in configuration then activates atomically. The status line summarizes every error and warning; its tooltip and accessibility help expose the full aggregated diagnostics. A missing file is normal and uses the built-ins without an error.
 
@@ -212,7 +208,7 @@ The script launches the app and records your pass/fail input; it never injects
 keys or captures the screen. The original PDF, generated fixtures, and local
 run evidence are excluded from Git.
 
-The final verification workflow additionally performs source/interface scope audits, source-PDF hash checks, read-only form/annotation probes, 15 signed-GUI workflow definitions, and a deterministic 24-image visual matrix covering six UI states across all four themes. The machine-readable summary is retained in [artifacts/verification/final/verification-summary.json](artifacts/verification/final/verification-summary.json).
+The final verification workflow additionally performs source/interface scope audits, source-PDF hash checks, read-only form/annotation probes, 15 signed-GUI workflow definitions, and a deterministic visual matrix covering six UI states across the bundled themes (the retained 24-image `artifacts/verification/final` set predates the light preset; current theme rendering is covered by the acceptance-matrix and theme-picker evidence). The machine-readable summary is retained in [artifacts/verification/final/verification-summary.json](artifacts/verification/final/verification-summary.json).
 
 ## Target graph
 

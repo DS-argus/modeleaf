@@ -15,7 +15,7 @@ Vim 스타일의 간결한 명령 체계, 독립적인 탭, 엄격한 TOML 사�
 - 스크롤, 페이지 이동, 페이지 번호 직접 이동, 확대·축소, 화면 맞춤
 - 탭별 검색 상태와 강조 표시를 사용하는 PDF 내장 텍스트 검색
 - 모든 앱 명령을 하나의 안정적인 액션 레지스트리로 처리
-- 모든 뷰어 액션, 탐색 수치, UI 테마를 TOML로 변경
+- 모든 뷰어 액션과 탐색 수치를 TOML로 변경
 - 저장이나 편집 경로를 노출하지 않는 읽기 전용 경계로 원본 파일 보존
 
 기본 키 바인딩은 의도적으로 작게 유지합니다.
@@ -67,7 +67,7 @@ V1은 북마크, 사용자 주석·하이라이트, 마크, 포털, 스마트 �
 - 앱 경계에 정확히 0.4.5로 고정된 `TOMLDecoder`
 - Swift Testing, XCTest, XCUITest 타깃
 
-기본 다크 테마는 **Catppuccin Mocha**, **Tokyo Night**, **Gruvbox Dark**, **Nord** 네 가지입니다. 테마는 앱 UI, PDF 주변 캔버스, 프롬프트, 상태 표시줄, 일시적인 검색 강조에 적용되며 PDF 페이지 픽셀 자체는 변경하지 않습니다.
+기본 테마는 다크 **Catppuccin Mocha**, **Tokyo Night**, **Gruvbox Dark**, **Nord**와 라이트 **Catppuccin Latte** 다섯 가지입니다. 런타임에 테마 선택기(`Shift-t`, 실시간 미리보기)로 고르며, 선택은 `config.toml`이 아니라 앱이 관리하는 상태 파일에 저장됩니다. 테마는 앱 UI, PDF 주변 캔버스, 프롬프트, 상태 표시줄, 일시적인 검색 강조에 적용되며 PDF 페이지 픽셀 자체는 변경하지 않습니다.
 
 ## 빌드와 실행
 
@@ -141,13 +141,9 @@ zoom_factor = 1.12
 
 [input]
 prefix_timeout_ms = 350
-
-[theme]
-built_in = "tokyo-night"
-
-[theme.overrides]
-accent = "#7DCFFF"
 ```
+
+테마는 TOML로 설정하지 않고 앱 내 테마 선택기(`Shift-t`)로 고릅니다. 기존 설정에 남은 `[theme]` 섹션은 deprecation 경고와 함께 무시되며, 파일의 나머지 설정은 그대로 유효합니다.
 
 설정은 순수한 선언형 데이터입니다. 알 수 없는 키, 잘못된 액션 ID, 프롬프트에서 안전하지 않은 바인딩, 충돌, 타입 오류, 허용 범위를 벗어난 값이 하나라도 있으면 사용자 파일 전체를 거부합니다. 이 경우 완전한 기본 설정이 원자적으로 활성화됩니다. 상태 표시줄은 모든 오류와 경고를 요약하며 툴팁과 접근성 도움말에서 전체 진단을 볼 수 있습니다. 파일이 없는 것은 정상이며 오류 없이 기본값을 사용합니다.
 
@@ -207,7 +203,7 @@ Tools/run_manual_pdfkit_stress.sh \
 대신 주입하거나 화면을 캡처하지 않습니다. 원본 PDF, 생성 fixture, 로컬 검증
 기록은 Git에서 제외됩니다.
 
-최종 검증에는 소스·인터페이스 범위 감사, 원본 PDF 해시 검사, 읽기 전용 폼·주석 검사, 15개 GUI 워크플로 정의, 네 가지 테마와 여섯 UI 상태를 조합한 24개 이미지 시각 검증이 포함됩니다. 기계 판독 가능한 요약은 [`artifacts/verification/final/verification-summary.json`](../artifacts/verification/final/verification-summary.json)에 있습니다.
+최종 검증에는 소스·인터페이스 범위 감사, 원본 PDF 해시 검사, 읽기 전용 폼·주석 검사, 15개 GUI 워크플로 정의, 여섯 UI 상태를 조합한 시각 검증이 포함됩니다(기존 24개 이미지 세트는 라이트 preset 이전 것이며, 현재 테마 렌더링은 acceptance-matrix와 테마 선택기 증거로 커버됩니다). 기계 판독 가능한 요약은 [`artifacts/verification/final/verification-summary.json`](../artifacts/verification/final/verification-summary.json)에 있습니다.
 
 ## 타깃 구성
 

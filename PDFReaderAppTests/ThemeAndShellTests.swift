@@ -22,7 +22,8 @@ struct ThemeAndShellTests {
             #expect(theme.tabBarBackground.hexRGB != theme.canvasBackground.hexRGB)
             #expect(theme[.statusline].hexRGB != theme.tabBarBackground.hexRGB)
         }
-        #expect(ThemeAttributions.bundledPaletteNames.count == 4)
+        #expect(ThemeAttributions.bundledPaletteNames.count == BuiltInThemes.all.count)
+        #expect(Set(ThemeAttributions.bundledPaletteNames) == Set(BuiltInThemes.all.map(\.displayName)))
     }
 
 

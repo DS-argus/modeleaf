@@ -6,5 +6,6 @@ enum ThemeAttributions {
         "Tokyo Night",
         "Gruvbox Dark",
         "Nord",
+        "Catppuccin Latte",
     ]
 }

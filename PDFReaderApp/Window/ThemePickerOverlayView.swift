@@ -62,7 +62,9 @@ final class ThemePickerOverlayView: NSView {
         selectedIndex = ThemeID.allCases.firstIndex(of: selectedThemeID) ?? 0
         isHidden = false
         setFocusAppearance(true)
-        updateSelection(preview: true)
+        // The presented selection is already the active theme, so render the
+        // highlight without re-applying it; preview fires only on movement.
+        updateSelection(preview: false)
     }
 
     func dismiss() {

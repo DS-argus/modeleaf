@@ -138,7 +138,7 @@ private struct ConfigTOMLSchema {
             case "input":
                 validateInput(value, path: path, issues: &issues)
             case "theme":
-                issues.append(SchemaIssue(severity: .warning, code: .deprecatedTheme, path: path, message: "[theme] is deprecated and ignored; choose a theme in-app with the theme picker (shift+t)."))
+                issues.append(SchemaIssue(severity: .warning, code: .deprecatedTheme, path: path, message: "[theme] is deprecated and ignored; choose a theme in-app with the theme.picker action (default Shift-t). Themes can no longer be configured in TOML."))
             default:
                 collectUnknownLeaves(value, path: path, issues: &issues)
             }

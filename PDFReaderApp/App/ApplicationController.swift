@@ -50,7 +50,11 @@ final class ApplicationController {
         let theme = AppKitTheme(themeID: id)
         mainWindowController.apply(theme: theme)
         coordinator.applyTheme(theme)
-        if persist { themeStore.persist(id) }
+        if persist, case let .failed(message) = themeStore.persist(id) {
+            // The theme is applied for this session, but the durable write
+            // failed; tell the user instead of pretending it committed.
+            mainWindowController.showDiagnostic("Theme applied for this session but could not be saved: \(message)")
+        }
     }
     func openExternalDocuments(_ urls: [URL]) { for url in urls { _ = openDocument(at: url) } }
     private func presentOpenPanel(target: PaneOpenTarget = .createIfEmpty) { openPanelPresenter.present(attachedTo: mainWindowController.window) { [weak self] url in guard let self, let url else { return }; _ = self.openDocument(at: url, target: target) } }

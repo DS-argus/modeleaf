@@ -18,9 +18,6 @@ public enum ConfigDiagnosticCode: String, Codable, Equatable, Sendable {
     case unknownAction
     case invalidKeySequence
     case valueOutOfRange
-    case invalidTheme
-    case invalidThemeToken
-    case invalidColor
     case missingAction
     case duplicateBinding
     case conflictingBinding
@@ -99,10 +96,6 @@ public enum ConfigSemanticPath {
     public static func keymap(action: String, bindingIndex: Int? = nil) -> String {
         let base = "keymap[\(quoted(action))]"
         return bindingIndex.map { "\(base)[\($0)]" } ?? base
-    }
-
-    public static func themeOverride(token: String) -> String {
-        "theme.overrides[\(quoted(token))]"
     }
 
     private static func quoted(_ value: String) -> String {
