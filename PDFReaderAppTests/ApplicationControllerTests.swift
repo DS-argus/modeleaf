@@ -299,7 +299,7 @@ struct ApplicationControllerTests {
             controller.dispatch(.paneSplitRight)
             _ = controller.mainWindowController
 
-            guard case let .split(_, .one(destination)) = controller.coordinator.snapshot.layout else {
+            guard case let .split(_, _, .one(destination)) = controller.coordinator.snapshot.layout else {
                 Issue.record("Expected a committed split")
                 return
             }

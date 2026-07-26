@@ -45,7 +45,7 @@ final class ReaderRootView: NSView {
     private var stackDividerPositions: [Set<PaneID>: CGFloat] = [:]
     private var outerDividerPosition: CGFloat?
     private var capturesDividerPositions = true
-    private var currentStackPairs: [PaneColumnSide: Set<PaneID>] = [:]
+    private var currentInnerPairsByBand: [PaneBandSide: Set<PaneID>] = [:]
     private var hadCommittedSplit = false
     var onPaneActivate: ((PaneID) -> Void)?
 
@@ -56,11 +56,11 @@ final class ReaderRootView: NSView {
             self.outerDividerPosition = position
         }
         leadingStackContainer.onDividerMoved = { [weak self] position in
-            guard let self, self.capturesDividerPositions, let pair = self.currentStackPairs[.leading] else { return }
+            guard let self, self.capturesDividerPositions, let pair = self.currentInnerPairsByBand[.leading] else { return }
             self.stackDividerPositions[pair] = position
         }
         trailingStackContainer.onDividerMoved = { [weak self] position in
-            guard let self, self.capturesDividerPositions, let pair = self.currentStackPairs[.trailing] else { return }
+            guard let self, self.capturesDividerPositions, let pair = self.currentInnerPairsByBand[.trailing] else { return }
             self.stackDividerPositions[pair] = position
         }
         for view in [tabBar, contentHost, statusBar, promptOverlay] { view.prepareForAutoLayout(); addSubview(view) }
@@ -123,7 +123,7 @@ final class ReaderRootView: NSView {
                     leadingColumnHost.bottomAnchor.constraint(equalTo: contentHost.bottomAnchor),
                 ])
             }
-        case let .split(leading, trailing):
+        case let .split(_, leading, trailing):
             leadingColumnHost.removeFromSuperview()
             leadingColumnHost.install(render(stack: leading, side: .leading, snapshot: snapshot, isCommitted: isCommitted))
             trailingColumnHost.install(render(stack: trailing, side: .trailing, snapshot: snapshot, isCommitted: isCommitted))
@@ -158,10 +158,10 @@ final class ReaderRootView: NSView {
         renderStatus(snapshot.activeStatus)
     }
 
-    private func render(stack: PaneStack, side: PaneColumnSide, snapshot: PaneCoordinatorSnapshot, isCommitted: Bool) -> NSView {
+    private func render(stack: PaneStack, side: PaneBandSide, snapshot: PaneCoordinatorSnapshot, isCommitted: Bool) -> NSView {
         switch stack {
         case let .one(id):
-            if isCommitted { currentStackPairs[side] = nil }
+            if isCommitted { currentInnerPairsByBand[side] = nil }
             let pane = configurePane(id, snapshot: snapshot, label: side == .leading ? "Left" : "Right")
             return pane
         case let .two(top, bottom):
@@ -188,7 +188,7 @@ final class ReaderRootView: NSView {
             if let saved = stackDividerPositions[pair] {
                 container.applyDividerPosition(saved)
             }
-            if isCommitted { currentStackPairs[side] = pair }
+            if isCommitted { currentInnerPairsByBand[side] = pair }
             return container
         }
     }

@@ -57,7 +57,7 @@ final class PaneCoordinator {
     private(set) var layout: PaneLayout = .empty
     private(set) var activePaneID: PaneID?
     var onSnapshot: ((PaneCoordinatorSnapshot) -> Void)?
-    private var lastFocusedRowByColumn: [PaneColumnSide: PaneRow] = [:]
+    private var lastFocusedSlotByBand: [PaneBandSide: PaneBandSlot] = [:]
     private var duplicationCompletion: ((any ReaderSessionPresenting, Bool) -> Void)?
 
     init(initialStore: ReaderSessionStore) {
@@ -140,7 +140,7 @@ final class PaneCoordinator {
         let target: PaneID?
         switch direction {
         case .left, .right:
-            guard case let .split(leading, trailing) = layout else { return false }
+            guard case let .split(_, leading, trailing) = layout else { return false }
             let sourceStack = leading.contains(activePaneID) ? leading : trailing
             switch (direction, leading.contains(activePaneID), trailing.contains(activePaneID)) {
             case (.right, true, _): target = focusTarget(in: trailing, side: .trailing, from: sourceStack)
@@ -148,7 +148,7 @@ final class PaneCoordinator {
             default: target = nil
             }
         case .up, .down:
-            guard let column = layout.column(containing: activePaneID), case let .two(top, bottom) = column else { return false }
+            guard let column = layout.band(containing: activePaneID), case let .two(top, bottom) = column else { return false }
             switch (direction, activePaneID) {
             case (.down, top), (.up, bottom): target = activePaneID == top ? bottom : top
             default: target = nil
@@ -169,7 +169,7 @@ final class PaneCoordinator {
         suppressCallbacks = true
         defer { suppressCallbacks = previous }
         let oldLayout = layout
-        let oldMemory = lastFocusedRowByColumn
+        let oldMemory = lastFocusedSlotByBand
         let removed = layout.paneIDs.filter { $0 != activePaneID }
         let tokens = removed.flatMap { id -> [(PaneID, PreparedTabClose)] in
             guard let store = stores[id] else { return [] }
@@ -210,7 +210,7 @@ final class PaneCoordinator {
         suppressCallbacks = true
         defer { suppressCallbacks = previous }
         let oldLayout = layout
-        let oldMemory = lastFocusedRowByColumn
+        let oldMemory = lastFocusedSlotByBand
         let transition: PaneCloseTransition
         let projected: PaneCoordinatorSnapshot
         if token.projectedSelection != nil {
@@ -255,7 +255,7 @@ final class PaneCoordinator {
         switch layout {
         case .single(.two):
             return .rowCollapse(survivor: survivor)
-        case let .split(leading, trailing):
+        case let .split(_, leading, trailing):
             let stack = leading.contains(paneID) ? leading : trailing
             if case .two = stack { return .rowCollapse(survivor: survivor) }
             return .columnCollapse(survivor: survivor)
@@ -269,14 +269,14 @@ final class PaneCoordinator {
     /// row. Only a full-height .one source overlaps both destination rows;
     /// that ambiguous case uses the column's remembered (most recently
     /// focused) row, falling back to the top.
-    private func focusTarget(in stack: PaneStack, side: PaneColumnSide, from source: PaneStack) -> PaneID {
+    private func focusTarget(in stack: PaneStack, side: PaneBandSide, from source: PaneStack) -> PaneID {
         switch stack {
         case let .one(id): return id
         case let .two(top, bottom):
-            if case .two = source, let activePaneID, let row = layout.row(of: activePaneID) {
-                return row == .bottom ? bottom : top
+            if case .two = source, let activePaneID, let row = layout.slot(of: activePaneID) {
+                return row == .second ? bottom : top
             }
-            return lastFocusedRowByColumn[side] == .bottom ? bottom : top
+            return lastFocusedSlotByBand[side] == .second ? bottom : top
         }
     }
 
@@ -289,13 +289,13 @@ final class PaneCoordinator {
             guard paneID == top || paneID == bottom else { return nil }
             let survivor = paneID == top ? bottom : top
             return (.single(.one(survivor)), survivor)
-        case let .split(leading, trailing):
+        case let .split(_, leading, trailing):
             if leading.contains(paneID) {
                 switch leading {
                 case .one: return (.single(trailing), focusTarget(in: trailing, side: .trailing, from: .one(paneID)))
                 case let .two(top, bottom):
                     let survivor = paneID == top ? bottom : top
-                    return (.split(leading: .one(survivor), trailing: trailing), survivor)
+                    return (.split(orientation: .sideBySide, leading: .one(survivor), trailing: trailing), survivor)
                 }
             }
             if trailing.contains(paneID) {
@@ -303,37 +303,37 @@ final class PaneCoordinator {
                 case .one: return (.single(leading), focusTarget(in: leading, side: .leading, from: .one(paneID)))
                 case let .two(top, bottom):
                     let survivor = paneID == top ? bottom : top
-                    return (.split(leading: leading, trailing: .one(survivor)), survivor)
+                    return (.split(orientation: .sideBySide, leading: leading, trailing: .one(survivor)), survivor)
                 }
             }
             return nil
         }
     }
 
-    private func normalizeMemory(from oldLayout: PaneLayout, to newLayout: PaneLayout, previousMemory: [PaneColumnSide: PaneRow]) {
-        var normalized: [PaneColumnSide: PaneRow] = [:]
-        for newSide in [PaneColumnSide.leading, .trailing] {
+    private func normalizeMemory(from oldLayout: PaneLayout, to newLayout: PaneLayout, previousMemory: [PaneBandSide: PaneBandSlot]) {
+        var normalized: [PaneBandSide: PaneBandSlot] = [:]
+        for newSide in [PaneBandSide.leading, .trailing] {
             guard let newStack = stack(in: newLayout, at: newSide), case let .two(top, bottom) = newStack else { continue }
-            let rememberedPane = [PaneColumnSide.leading, .trailing].lazy.compactMap { oldSide -> PaneID? in
+            let rememberedPane = [PaneBandSide.leading, .trailing].lazy.compactMap { oldSide -> PaneID? in
                 guard let oldStack = self.stack(in: oldLayout, at: oldSide), case let .two(oldTop, oldBottom) = oldStack else { return nil }
-                let remembered = previousMemory[oldSide] == .bottom ? oldBottom : oldTop
+                let remembered = previousMemory[oldSide] == .second ? oldBottom : oldTop
                 return newStack.contains(remembered) ? remembered : nil
             }.first
-            if rememberedPane == top { normalized[newSide] = .top }
-            else if rememberedPane == bottom { normalized[newSide] = .bottom }
-            else if activePaneID == top { normalized[newSide] = .top }
-            else if activePaneID == bottom { normalized[newSide] = .bottom }
-            else { normalized[newSide] = .top }
+            if rememberedPane == top { normalized[newSide] = .first }
+            else if rememberedPane == bottom { normalized[newSide] = .second }
+            else if activePaneID == top { normalized[newSide] = .first }
+            else if activePaneID == bottom { normalized[newSide] = .second }
+            else { normalized[newSide] = .first }
         }
-        lastFocusedRowByColumn = normalized
+        lastFocusedSlotByBand = normalized
     }
 
 
-    private func stack(in layout: PaneLayout, at side: PaneColumnSide) -> PaneStack? {
+    private func stack(in layout: PaneLayout, at side: PaneBandSide) -> PaneStack? {
         switch (layout, side) {
         case let (.single(stack), .leading): return stack
-        case let (.split(leading, _), .leading): return leading
-        case let (.split(_, trailing), .trailing): return trailing
+        case let (.split(_, leading, _), .leading): return leading
+        case let (.split(_, _, trailing), .trailing): return trailing
         default: return nil
         }
     }
@@ -342,13 +342,13 @@ final class PaneCoordinator {
         guard let id else {
             precondition(layout == .empty, "cannot clear active pane outside empty layout: \(layout)")
             activePaneID = nil
-            lastFocusedRowByColumn.removeAll()
+            lastFocusedSlotByBand.removeAll()
             return
         }
         precondition(layout.contains(id), "cannot activate pane outside installed layout: \(id) in \(layout)")
         activePaneID = id
-        if let side = layout.side(of: id), let row = layout.row(of: id) {
-            lastFocusedRowByColumn[side] = row
+        if let side = layout.side(of: id), let row = layout.slot(of: id) {
+            lastFocusedSlotByBand[side] = row
         }
     }
 

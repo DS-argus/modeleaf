@@ -7,37 +7,37 @@ struct PaneID: RawRepresentable, Hashable, Sendable {
 
 enum PaneOrientation: Equatable, Sendable { case sideBySide, stacked }
 enum PaneFocusDirection: Equatable, Sendable { case left, down, up, right }
-enum PaneColumnSide: Equatable, Sendable { case leading, trailing }
-enum PaneRow: Equatable, Sendable { case top, bottom }
+enum PaneBandSide: Equatable, Sendable { case leading, trailing }
+enum PaneBandSlot: Equatable, Sendable { case first, second }
 
 enum PaneStack: Equatable, Sendable {
     case one(PaneID)
-    case two(top: PaneID, bottom: PaneID)
+    case two(first: PaneID, second: PaneID)
 
     var paneIDs: [PaneID] {
         switch self {
         case let .one(id): [id]
-        case let .two(top, bottom): [top, bottom]
+        case let .two(first, second): [first, second]
         }
     }
 
     func contains(_ id: PaneID) -> Bool { paneIDs.contains(id) }
-    func row(of id: PaneID) -> PaneRow? {
-        guard case let .two(top, bottom) = self else { return nil }
-        return id == top ? .top : id == bottom ? .bottom : nil
+    func slot(of id: PaneID) -> PaneBandSlot? {
+        guard case let .two(first, second) = self else { return nil }
+        return id == first ? .first : id == second ? .second : nil
     }
 }
 
 enum PaneLayout: Equatable, Sendable {
     case empty
     case single(PaneStack)
-    case split(leading: PaneStack, trailing: PaneStack)
+    case split(orientation: PaneOrientation, leading: PaneStack, trailing: PaneStack)
 
     var paneIDs: [PaneID] {
         switch self {
         case .empty: []
         case let .single(stack): stack.paneIDs
-        case let .split(leading, trailing): leading.paneIDs + trailing.paneIDs
+        case let .split(_, leading, trailing): leading.paneIDs + trailing.paneIDs
         }
     }
 
@@ -48,11 +48,11 @@ enum PaneLayout: Equatable, Sendable {
     }
 
     func contains(_ id: PaneID) -> Bool { paneIDs.contains(id) }
-    func column(containing id: PaneID) -> PaneStack? {
+    func band(containing id: PaneID) -> PaneStack? {
         switch self {
         case .empty: nil
         case let .single(stack): stack.contains(id) ? stack : nil
-        case let .split(leading, trailing):
+        case let .split(_, leading, trailing):
             leading.contains(id) ? leading : trailing.contains(id) ? trailing : nil
         }
     }
@@ -61,34 +61,33 @@ enum PaneLayout: Equatable, Sendable {
         switch self {
         case .empty: nil
         case let .single(stack): stack.paneIDs.first
-        case let .split(leading, _): leading.paneIDs.first
+        case let .split(_, leading, _): leading.paneIDs.first
         }
     }
 
-    func side(of id: PaneID) -> PaneColumnSide? {
+    func side(of id: PaneID) -> PaneBandSide? {
         switch self {
         case .empty: nil
         case let .single(stack): stack.contains(id) ? .leading : nil
-        case let .split(leading, trailing):
+        case let .split(_, leading, trailing):
             leading.contains(id) ? .leading : trailing.contains(id) ? .trailing : nil
         }
     }
 
-    func row(of id: PaneID) -> PaneRow? { column(containing: id)?.row(of: id) }
-
+    func slot(of id: PaneID) -> PaneBandSlot? { band(containing: id)?.slot(of: id) }
 
     func applyingSplit(_ orientation: PaneOrientation, to activePaneID: PaneID, inserting destination: PaneID) -> PaneLayout? {
         switch (orientation, self) {
         case let (.sideBySide, .single(stack)):
-            return .split(leading: stack, trailing: .one(destination))
+            return .split(orientation: .sideBySide, leading: stack, trailing: .one(destination))
         case let (.stacked, .single(.one(origin))) where origin == activePaneID:
-            return .single(.two(top: origin, bottom: destination))
-        case let (.stacked, .split(leading, trailing)):
+            return .single(.two(first: origin, second: destination))
+        case let (.stacked, .split(_, leading, trailing)):
             if case let .one(origin) = leading, origin == activePaneID {
-                return .split(leading: .two(top: origin, bottom: destination), trailing: trailing)
+                return .split(orientation: .sideBySide, leading: .two(first: origin, second: destination), trailing: trailing)
             }
             if case let .one(origin) = trailing, origin == activePaneID {
-                return .split(leading: leading, trailing: .two(top: origin, bottom: destination))
+                return .split(orientation: .sideBySide, leading: leading, trailing: .two(first: origin, second: destination))
             }
             return nil
         default:

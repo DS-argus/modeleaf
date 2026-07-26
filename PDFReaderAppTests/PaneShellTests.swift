@@ -162,7 +162,7 @@ struct PaneShellTests {
         let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(configuration: BuiltInDefaults.config.theme), actionHandler: { _ in })
         defer { controller.close() }
 
-        #expect(coordinator.snapshot.layout == .single(.two(top: top, bottom: bottom)))
+        #expect(coordinator.snapshot.layout == .single(.two(first: top, second: bottom)))
         #expect(controller.rootView.tabBar.isHidden)
         #expect(controller.rootView.paneViewForTesting(bottom)?.tabBar.isHidden == false)
         #expect(duplicate.focusView.nextKeyView === controller.rootView.paneViewForTesting(bottom)?.orderedKeyViews.first)
@@ -653,7 +653,7 @@ struct PaneShellTests {
             controller.rootView.layoutSubtreeIfNeeded()
             #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
             #expect(fixture.coordinator.closeActiveTab())
-            guard case .split(.one, .two) = fixture.coordinator.snapshot.layout else {
+            guard case .split(_, .one, .two) = fixture.coordinator.snapshot.layout else {
                 Issue.record("Expected committed row collapse to .split(.one, .two)")
                 return
             }
@@ -851,10 +851,10 @@ struct PaneShellTests {
     private func expectedPositionLabel(for paneID: PaneID, layout: PaneLayout) -> String {
         switch layout {
         case .empty: return ""
-        case let .single(stack): return stack.row(of: paneID) == .bottom ? "Bottom pane" : "Top pane"
-        case let .split(leading, trailing):
-            if leading.contains(paneID) { return leading.row(of: paneID) == .bottom ? "Left Bottom pane" : leading.row(of: paneID) == .top ? "Left Top pane" : "Left pane" }
-            return trailing.row(of: paneID) == .bottom ? "Right Bottom pane" : trailing.row(of: paneID) == .top ? "Right Top pane" : "Right pane"
+        case let .single(stack): return stack.slot(of: paneID) == .second ? "Bottom pane" : "Top pane"
+        case let .split(_, leading, trailing):
+            if leading.contains(paneID) { return leading.slot(of: paneID) == .second ? "Left Bottom pane" : leading.slot(of: paneID) == .first ? "Left Top pane" : "Left pane" }
+            return trailing.slot(of: paneID) == .second ? "Right Bottom pane" : trailing.slot(of: paneID) == .first ? "Right Top pane" : "Right pane"
         }
     }
 
@@ -1083,7 +1083,7 @@ struct PaneShellTests {
         defer { controller.close() }
 
         let layout = coordinator.snapshot.layout
-        guard case let .split(leading: .one(left), trailing: .two(top: rightTop, bottom: rightBottom)) = layout else {
+        guard case let .split(orientation: _, leading: .one(left), trailing: .two(first: rightTop, second: rightBottom)) = layout else {
             Issue.record("Expected one-plus-two split layout")
             return
         }
