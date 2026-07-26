@@ -65,7 +65,7 @@ final class PaneCoordinator {
         else {
             let id = PaneID()
             stores[id] = initialStore
-            layout = .single(.one(id))
+            layout = .single(id)
             setActivePane(id)
         }
         initialStore.registerChangeHandler { [weak self] _ in self?.storeDidChange() }
@@ -94,7 +94,7 @@ final class PaneCoordinator {
                 let wasBootstrap = bootstrapStore === store
                 if wasBootstrap { bootstrapStore = nil }
                 guard store.insert(session) else { if wasBootstrap { bootstrapStore = store }; return false }
-                stores[id] = store; layout = .single(.one(id)); setActivePane(id); mutated = true; return true
+                stores[id] = store; layout = .single(id); setActivePane(id); mutated = true; return true
             }
             guard let store = activeStore, store.insert(session) else { return false }; mutated = true; return true
         case let .existing(id):
@@ -119,6 +119,11 @@ final class PaneCoordinator {
         guard let activePaneID else { return nil }
         let destinationID = PaneID()
         guard let destinationLayout = layout.applyingSplit(direction, to: activePaneID, inserting: destinationID) else { return nil }
+        if case let .split(.stacked, leading, trailing) = destinationLayout,
+           !PaneFeatureFlags.stackedOuterBands,
+           [leading, trailing].contains(where: { if case .two = $0 { true } else { false } }) {
+            return nil
+        }
         guard let source = activeSession as? any ReaderDuplicationSnapshotProviding,
               let candidate = duplicateSession?(source.duplicationSnapshot)
         else { return nil }
@@ -136,29 +141,30 @@ final class PaneCoordinator {
     }
     @discardableResult
     func focus(_ direction: PaneFocusDirection) -> Bool {
-        guard let activePaneID else { return false }
+        guard let activePaneID, case let .split(orientation, leading, trailing) = layout else { return false }
         let target: PaneID?
-        switch direction {
-        case .left, .right:
-            guard case let .split(_, leading, trailing) = layout else { return false }
-            let sourceStack = leading.contains(activePaneID) ? leading : trailing
-            switch (direction, leading.contains(activePaneID), trailing.contains(activePaneID)) {
-            case (.right, true, _): target = focusTarget(in: trailing, side: .trailing, from: sourceStack)
-            case (.left, _, true): target = focusTarget(in: leading, side: .leading, from: sourceStack)
-            default: target = nil
-            }
-        case .up, .down:
-            guard let column = layout.band(containing: activePaneID), case let .two(top, bottom) = column else { return false }
+        switch (orientation, direction) {
+        case (.sideBySide, .left) where trailing.contains(activePaneID):
+            target = focusTarget(in: leading, side: .leading, from: trailing)
+        case (.sideBySide, .right) where leading.contains(activePaneID):
+            target = focusTarget(in: trailing, side: .trailing, from: leading)
+        case (.stacked, .up) where trailing.contains(activePaneID):
+            target = focusTarget(in: leading, side: .leading, from: trailing)
+        case (.stacked, .down) where leading.contains(activePaneID):
+            target = focusTarget(in: trailing, side: .trailing, from: leading)
+        case (.sideBySide, .up), (.sideBySide, .down), (.stacked, .left), (.stacked, .right):
+            guard let band = layout.band(containing: activePaneID), case let .two(first, second) = band else { return false }
             switch (direction, activePaneID) {
-            case (.down, top), (.up, bottom): target = activePaneID == top ? bottom : top
+            case (.down, first), (.right, first): target = second
+            case (.up, second), (.left, second): target = first
             default: target = nil
             }
+        default:
+            target = nil
         }
         guard let target else { return false }
         setActivePane(target); publish(); return true
     }
-
-    @discardableResult
     func unsplit(stage: ((PaneCoordinatorSnapshot) -> Bool)? = nil) -> Bool {
         guard layout.isMultiPane, let activePaneID else { return false }
         // Same reentrancy boundary as closeActiveTab: begun closes make the
@@ -180,7 +186,7 @@ final class PaneCoordinator {
                 return (id, token)
             }
         }
-        let projected = makeSnapshot(layout: .single(.one(activePaneID)), activePaneID: activePaneID, stores: stores.filter { $0.key == activePaneID })
+        let projected = makeSnapshot(layout: .single(activePaneID), activePaneID: activePaneID, stores: stores.filter { $0.key == activePaneID })
         guard (stage ?? closeStagingHandler ?? { _ in true })(projected) else {
             for (id, token) in tokens.reversed() { stores[id]?.rollbackClose(token) }
             suppressCallbacks = previous; publish(); suppressCallbacks = true
@@ -192,7 +198,7 @@ final class PaneCoordinator {
             }
         }
         for id in removed { stores.removeValue(forKey: id) }
-        layout = .single(.one(activePaneID)); setActivePane(activePaneID)
+        layout = .single(activePaneID); setActivePane(activePaneID)
         normalizeMemory(from: oldLayout, to: layout, previousMemory: oldMemory)
         suppressCallbacks = previous; publish(); suppressCallbacks = true
         return true
@@ -253,13 +259,11 @@ final class PaneCoordinator {
 
     private func collapseTransition(for paneID: PaneID, in layout: PaneLayout, survivor: PaneID) -> PaneCloseTransition {
         switch layout {
-        case .single(.two):
-            return .rowCollapse(survivor: survivor)
         case let .split(_, leading, trailing):
             let stack = leading.contains(paneID) ? leading : trailing
             if case .two = stack { return .rowCollapse(survivor: survivor) }
             return .columnCollapse(survivor: survivor)
-        case .empty, .single(.one):
+        case .empty, .single:
             preconditionFailure("non-terminal pane collapse has no source stack")
         }
     }
@@ -283,27 +287,35 @@ final class PaneCoordinator {
     private func layoutAfterRemovingLastTab(in paneID: PaneID, from source: PaneLayout? = nil) -> (layout: PaneLayout, activePaneID: PaneID)? {
         let source = source ?? layout
         switch source {
-        case .empty: return nil
-        case .single(.one): return nil
-        case let .single(.two(top, bottom)):
-            guard paneID == top || paneID == bottom else { return nil }
-            let survivor = paneID == top ? bottom : top
-            return (.single(.one(survivor)), survivor)
-        case let .split(_, leading, trailing):
+        case .empty, .single:
+            return nil
+        case let .split(orientation, leading, trailing):
             if leading.contains(paneID) {
                 switch leading {
-                case .one: return (.single(trailing), focusTarget(in: trailing, side: .trailing, from: .one(paneID)))
+                case let .one(removed):
+                    switch trailing {
+                    case let .one(survivor):
+                        return (.single(survivor), survivor)
+                    case let .two(first, second):
+                        return (.split(orientation: .stacked, leading: .one(first), trailing: .one(second)), focusTarget(in: trailing, side: .trailing, from: .one(removed)))
+                    }
                 case let .two(top, bottom):
                     let survivor = paneID == top ? bottom : top
-                    return (.split(orientation: .sideBySide, leading: .one(survivor), trailing: trailing), survivor)
+                    return (.split(orientation: orientation, leading: .one(survivor), trailing: trailing), survivor)
                 }
             }
             if trailing.contains(paneID) {
                 switch trailing {
-                case .one: return (.single(leading), focusTarget(in: leading, side: .leading, from: .one(paneID)))
+                case let .one(removed):
+                    switch leading {
+                    case let .one(survivor):
+                        return (.single(survivor), survivor)
+                    case let .two(first, second):
+                        return (.split(orientation: .stacked, leading: .one(first), trailing: .one(second)), focusTarget(in: leading, side: .leading, from: .one(removed)))
+                    }
                 case let .two(top, bottom):
                     let survivor = paneID == top ? bottom : top
-                    return (.split(orientation: .sideBySide, leading: leading, trailing: .one(survivor)), survivor)
+                    return (.split(orientation: orientation, leading: leading, trailing: .one(survivor)), survivor)
                 }
             }
             return nil
@@ -331,7 +343,6 @@ final class PaneCoordinator {
 
     private func stack(in layout: PaneLayout, at side: PaneBandSide) -> PaneStack? {
         switch (layout, side) {
-        case let (.single(stack), .leading): return stack
         case let (.split(_, leading, _), .leading): return leading
         case let (.split(_, _, trailing), .trailing): return trailing
         default: return nil
@@ -354,7 +365,7 @@ final class PaneCoordinator {
 
     private func storeDidChange() {
         if case .empty = layout, let bootstrapStore, !bootstrapStore.snapshot.isEmpty {
-            let id = PaneID(); stores[id] = bootstrapStore; self.bootstrapStore = nil; layout = .single(.one(id)); setActivePane(id)
+            let id = PaneID(); stores[id] = bootstrapStore; self.bootstrapStore = nil; layout = .single(id); setActivePane(id)
         }
         if !suppressCallbacks { publish() }
     }

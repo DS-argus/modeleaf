@@ -336,7 +336,7 @@ struct ApplicationControllerTests {
             try FileManager.default.removeItem(at: url)
 
             controller.dispatch(.paneSplitRight)
-            #expect(controller.coordinator.snapshot.layout == .single(.one(try #require(controller.coordinator.activePaneID))))
+            #expect(controller.coordinator.snapshot.layout == .single(try #require(controller.coordinator.activePaneID)))
             #expect(store.sessionCount == 1)
             #expect(store.activeSession?.id == source.id)
             #expect(controller.mainWindowController.rootView.statusBar.presentation.tone == .error)

@@ -28,11 +28,11 @@ struct PaneRedTeamTests {
                 check(fixture.coordinator.split(direction: .sideBySide) == nil)
                 check(fixture.coordinator.split(direction: .stacked) != nil)
             } else {
-                check(fixture.coordinator.split(direction: .sideBySide) != nil)
-                check(fixture.coordinator.split(direction: .stacked) != nil)
+                check(fixture.coordinator.split(direction: .sideBySide) == nil)
+                check(fixture.coordinator.split(direction: .stacked) == nil)
             }
             let settledLayout = fixture.coordinator.snapshot.layout
-            let expectedCount = orientation == .sideBySide ? 3 : 4
+            let expectedCount = orientation == .sideBySide ? 3 : 2
             check(fixture.coordinator.snapshot.panes.count == expectedCount)
             for _ in 0..<20 {
                 check(fixture.coordinator.split(direction: .sideBySide) == nil)
@@ -47,7 +47,7 @@ struct PaneRedTeamTests {
         for _ in 0..<2 {
             let fixture = makeFixture(orientation: .sideBySide)
             check(fixture.coordinator.closeActiveTab())
-            check(fixture.coordinator.snapshot.layout == .single(.one(fixture.leading)))
+            check(fixture.coordinator.snapshot.layout == .single(fixture.leading))
             check(fixture.coordinator.snapshot.panes.count == 1)
             check(fixture.coordinator.closeActiveTab())
             check(fixture.coordinator.snapshot.layout == .empty)
@@ -70,8 +70,8 @@ struct PaneRedTeamTests {
         check(rollback.coordinator.activatePane(rollback.trailing))
         check(rollback.coordinator.snapshot.panes[rollback.leading] == originalLeading)
         check(extra.prepareForCloseCount == 0)
-        check(rollback.coordinator.unsplit(stage: { $0.layout == .single(.one(rollback.trailing)) }))
-        check(rollback.coordinator.snapshot.layout == .single(.one(rollback.trailing)))
+        check(rollback.coordinator.unsplit(stage: { $0.layout == .single(rollback.trailing) }))
+        check(rollback.coordinator.snapshot.layout == .single(rollback.trailing))
         check(rollback.origin.prepareForCloseCount == 1)
         check(extra.prepareForCloseCount == 1)
         caseOutcomes["AC-7 unsplit rollback then commit with multi-tab opposite pane"] = casePassed
@@ -203,7 +203,7 @@ struct PaneRedTeamTests {
                 let committed: Bool
                 switch (action, layout) {
                 case (.paneSplitRight, .split): committed = true
-                case (.paneSplitDown, .single(.two)): committed = true
+                case (.paneSplitDown, .split(orientation: .stacked, leading: .one, trailing: .one)): committed = true
                 default: committed = false
                 }
                 guard committed else {

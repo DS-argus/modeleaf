@@ -162,7 +162,7 @@ struct PaneShellTests {
         let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(configuration: BuiltInDefaults.config.theme), actionHandler: { _ in })
         defer { controller.close() }
 
-        #expect(coordinator.snapshot.layout == .single(.two(first: top, second: bottom)))
+        #expect(coordinator.snapshot.layout == .split(orientation: .stacked, leading: .one(top), trailing: .one(bottom)))
         #expect(controller.rootView.tabBar.isHidden)
         #expect(controller.rootView.paneViewForTesting(bottom)?.tabBar.isHidden == false)
         #expect(duplicate.focusView.nextKeyView === controller.rootView.paneViewForTesting(bottom)?.orderedKeyViews.first)
@@ -182,7 +182,7 @@ struct PaneShellTests {
         #expect(fixture.coordinator.closeActiveTab())
         #expect(controller.window?.firstResponder === fixture.origin.focusView)
         #expect(removedFocus.nextKeyView == nil)
-        #expect(fixture.coordinator.snapshot.layout == .single(.one(fixture.leading)))
+        #expect(fixture.coordinator.snapshot.layout == .single(fixture.leading))
     }
 
     @Test("dismissed prompt collapse stages the survivor focus and removes the closed pane key loop")
@@ -203,7 +203,7 @@ struct PaneShellTests {
         #expect(fixture.coordinator.closeActiveTab())
         #expect(controller.window?.firstResponder === fixture.origin.focusView)
         #expect(removedFocus.nextKeyView == nil)
-        #expect(fixture.coordinator.snapshot.layout == .single(.one(fixture.leading)))
+        #expect(fixture.coordinator.snapshot.layout == .single(fixture.leading))
     }
 
     @Test("active prompt owns focus through close staging before post-commit refresh")
@@ -248,7 +248,7 @@ struct PaneShellTests {
         #expect(fixture.coordinator.unsplit())
         #expect(controller.rootView.promptOverlay.isHidden)
         #expect(controller.window?.firstResponder === fixture.duplicate.focusView)
-        #expect(fixture.coordinator.snapshot.layout == .single(.one(fixture.trailing)))
+        #expect(fixture.coordinator.snapshot.layout == .single(fixture.trailing))
     }
 
 
@@ -321,7 +321,7 @@ struct PaneShellTests {
         defer { controller.close() }
 
         #expect(coordinator.unsplit())
-        #expect(coordinator.snapshot.layout == .single(.one(trailing)))
+        #expect(coordinator.snapshot.layout == .single(trailing))
         let newTrailing = try #require(coordinator.split(direction: .sideBySide))
         let leading = try #require(coordinator.snapshot.panes.keys.first { $0 != newTrailing })
         let leadingPane = try #require(controller.rootView.paneViewForTesting(leading))
@@ -545,8 +545,10 @@ struct PaneShellTests {
                 #expect(coordinator.activatePane(leading))
                 #expect(coordinator.split(direction: .stacked) != nil)
             case .leadingStack:
+                let trailing = try #require(coordinator.split(direction: .sideBySide))
+                let leading = try #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailing })
+                #expect(coordinator.activatePane(leading))
                 #expect(coordinator.split(direction: .stacked) != nil)
-                #expect(coordinator.split(direction: .sideBySide) != nil)
             case .trailingStack:
                 #expect(coordinator.split(direction: .sideBySide) != nil)
                 #expect(coordinator.split(direction: .stacked) != nil)
@@ -669,7 +671,7 @@ struct PaneShellTests {
             #expect(fixture.coordinator.activatePane(fixture.leadingTop))
             var sawColumnProjection = false
             #expect(!fixture.coordinator.closeActiveTab { projected in
-                if case .single(.two) = projected.layout { sawColumnProjection = true }
+                if case .split(orientation: .stacked, leading: .one, trailing: .one) = projected.layout { sawColumnProjection = true }
                 controller.rootView.render(snapshot: projected, isCommitted: false)
                 return false
             })
@@ -769,15 +771,15 @@ struct PaneShellTests {
         let trailing = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingStack") as? PaneContainerView)
         trailing.setPosition(170, ofDividerAt: 0)
         controller.rootView.layoutSubtreeIfNeeded()
-        let survivingPosition = trailing.currentDividerPosition
         trailing.onDividerMoved?(trailing.currentDividerPosition)
         #expect(fixture.coordinator.activatePane(freshBottom))
         #expect(fixture.coordinator.closeActiveTab())
         #expect(fixture.coordinator.activatePane(fixture.leadingTop))
         #expect(fixture.coordinator.closeActiveTab())
         controller.rootView.layoutSubtreeIfNeeded()
-        let surviving = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.leadingStack") as? PaneContainerView)
-        #expect(abs(surviving.currentDividerPosition - survivingPosition) < 0.5)
+        let surviving = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
+        let survivingAvailable = surviving.bounds.height - surviving.dividerThickness
+        #expect(abs(surviving.currentDividerPosition - survivingAvailable / 2) < 0.5)
     }
 
     @Test("three and four pane pointer activation table keeps chrome and key loops pane-scoped")
@@ -851,7 +853,7 @@ struct PaneShellTests {
     private func expectedPositionLabel(for paneID: PaneID, layout: PaneLayout) -> String {
         switch layout {
         case .empty: return ""
-        case let .single(stack): return stack.slot(of: paneID) == .second ? "Bottom pane" : "Top pane"
+        case let .single(id): return id == paneID ? "Pane" : ""
         case let .split(_, leading, trailing):
             if leading.contains(paneID) { return leading.slot(of: paneID) == .second ? "Left Bottom pane" : leading.slot(of: paneID) == .first ? "Left Top pane" : "Left pane" }
             return trailing.slot(of: paneID) == .second ? "Right Bottom pane" : trailing.slot(of: paneID) == .first ? "Right Top pane" : "Right pane"
