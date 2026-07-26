@@ -431,7 +431,7 @@ struct PaneCoordinatorTests {
     func fourPaneTeardownReleasesAllOwnedObjects() throws {
         try withTemporaryDirectory { directory in
             let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1)
-            for path in [FourPaneClosePath.rowCollapse, .columnCollapse, .globalUnsplit] {
+            for path in [FourPaneClosePath.bandMemberCollapse, .bandCollapse, .globalUnsplit] {
                 let removedReferences = try autoreleasepool { () throws -> [WeakSessionObjects] in
                     let coordinator = PaneCoordinator()
                     var references: [PaneID: WeakSessionObjects] = [:]
@@ -446,30 +446,44 @@ struct PaneCoordinatorTests {
                         return session
                     }
 
-                    let trailingTop = try #require(coordinator.split(direction: .sideBySide))
-                    references[trailingTop] = pendingReferences!
-                    let leadingTop = try #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailingTop })
-                    #expect(coordinator.activatePane(leadingTop))
-                    let leadingBottom = try #require(coordinator.split(direction: .stacked))
-                    references[leadingBottom] = pendingReferences!
-                    #expect(coordinator.activatePane(trailingTop))
-                    let trailingBottom = try #require(coordinator.split(direction: .stacked))
-                    references[trailingBottom] = pendingReferences!
-                    #expect(coordinator.snapshot.layout == .split(orientation: .sideBySide, leading: .two(first: leadingTop, second: leadingBottom), trailing: .two(first: trailingTop, second: trailingBottom)))
+                    var trailingTop: PaneID!
+                    var leadingTop: PaneID!
+                    var leadingBottom: PaneID!
+                    var trailingBottom: PaneID!
+                    withStackedOuterBands(true) {
+                        let splitTop = coordinator.split(direction: .stacked)
+                        #expect(splitTop != nil)
+                        trailingTop = splitTop!
+                        references[trailingTop] = pendingReferences!
+                        let leading = coordinator.snapshot.layout.paneIDs.first { $0 != trailingTop }
+                        #expect(leading != nil)
+                        leadingTop = leading!
+                        #expect(coordinator.activatePane(leadingTop))
+                        let splitLeading = coordinator.split(direction: .sideBySide)
+                        #expect(splitLeading != nil)
+                        leadingBottom = splitLeading!
+                        references[leadingBottom] = pendingReferences!
+                        #expect(coordinator.activatePane(trailingTop))
+                        let splitTrailing = coordinator.split(direction: .sideBySide)
+                        #expect(splitTrailing != nil)
+                        trailingBottom = splitTrailing!
+                        references[trailingBottom] = pendingReferences!
+                    }
+                    #expect(coordinator.snapshot.layout == .split(orientation: .stacked, leading: .two(first: leadingTop, second: leadingBottom), trailing: .two(first: trailingTop, second: trailingBottom)))
 
                     let removed: [WeakSessionObjects]
                     switch path {
-                    case .rowCollapse:
+                    case .bandMemberCollapse:
                         #expect(coordinator.closeActiveTab())
                         removed = [references[trailingBottom]!]
-                        #expect(coordinator.snapshot.layout == .split(orientation: .sideBySide, leading: .two(first: leadingTop, second: leadingBottom), trailing: .one(trailingTop)))
+                        #expect(coordinator.snapshot.layout == .split(orientation: .stacked, leading: .two(first: leadingTop, second: leadingBottom), trailing: .one(trailingTop)))
                         #expect(coordinator.store(for: trailingTop)?.activeSession != nil)
-                    case .columnCollapse:
+                    case .bandCollapse:
                         #expect(coordinator.closeActiveTab())
                         #expect(coordinator.activatePane(trailingTop))
                         #expect(coordinator.closeActiveTab())
                         removed = [references[trailingBottom]!, references[trailingTop]!]
-                        #expect(coordinator.snapshot.layout == .split(orientation: .stacked, leading: .one(leadingTop), trailing: .one(leadingBottom)))
+                        #expect(coordinator.snapshot.layout == .split(orientation: .sideBySide, leading: .one(leadingTop), trailing: .one(leadingBottom)))
                         #expect(coordinator.store(for: leadingTop)?.activeSession != nil)
                     case .globalUnsplit:
                         #expect(coordinator.activatePane(leadingTop))
@@ -568,6 +582,69 @@ struct PaneCoordinatorTests {
     }
 
 
+    @Test("close promotion flips the outer axis without rotating remembered survivors")
+    func promotionCloseMatrix() throws {
+        for outer in [PaneOrientation.sideBySide, .stacked] {
+            for singletonIsLeading in [true, false] {
+                withStackedOuterBands(true) {
+                    let fixture = makeFocusFixture(
+                        outer: outer,
+                        leadingTwo: !singletonIsLeading,
+                        trailingTwo: singletonIsLeading
+                    )
+                    let singleton = singletonIsLeading ? fixture.leading[0] : fixture.trailing[0]
+                    let pair = singletonIsLeading ? fixture.trailing : fixture.leading
+                    #expect(fixture.coordinator.activatePane(pair[1])) // remembered survivor
+                    #expect(fixture.coordinator.activatePane(singleton))
+                    let before = fixture.coordinator.snapshot
+                    var emissions = 0
+                    fixture.coordinator.onSnapshot = { _ in emissions += 1 }
+                    let rejected = fixture.coordinator.closeActiveTab { projection in
+                        #expect(projection.layout.paneIDs.count == 2)
+                        #expect(projection.layout == .split(orientation: outer == .sideBySide ? .stacked : .sideBySide, leading: .one(pair[0]), trailing: .one(pair[1])))
+                        #expect(projection.activePaneID == pair[1])
+                        return false
+                    }
+                    #expect(!rejected)
+                    #expect(fixture.coordinator.snapshot.layout == before.layout)
+                    #expect(fixture.coordinator.activePaneID == singleton)
+                    #expect(emissions == 1)
+                    #expect(fixture.coordinator.closeActiveTab())
+                    #expect(fixture.coordinator.snapshot.layout == .split(orientation: outer == .sideBySide ? .stacked : .sideBySide, leading: .one(pair[0]), trailing: .one(pair[1])))
+                    #expect(fixture.coordinator.activePaneID == pair[1])
+                    #expect(emissions == 2)
+                }
+            }
+        }
+    }
+
+    @Test("band-member close preserves the intact band on both outer axes")
+    func bandMemberCollapseMatrix() throws {
+        for outer in [PaneOrientation.sideBySide, .stacked] {
+            withStackedOuterBands(true) {
+                let fixture = makeFocusFixture(outer: outer, leadingTwo: true, trailingTwo: false)
+                let closing = fixture.leading[1]
+                #expect(fixture.coordinator.activatePane(closing))
+                let before = fixture.coordinator.snapshot
+                var emissions = 0
+                fixture.coordinator.onSnapshot = { _ in emissions += 1 }
+                let rejected = fixture.coordinator.closeActiveTab { projection in
+                    #expect(projection.layout.paneIDs.count == 2)
+                    #expect(projection.layout == .split(orientation: outer, leading: .one(fixture.leading[0]), trailing: .one(fixture.trailing[0])))
+                    return false
+                }
+                #expect(!rejected)
+                #expect(fixture.coordinator.snapshot.layout == before.layout)
+                #expect(fixture.coordinator.activePaneID == closing)
+                #expect(emissions == 1)
+                #expect(fixture.coordinator.closeActiveTab())
+                #expect(fixture.coordinator.snapshot.layout == .split(orientation: outer, leading: .one(fixture.leading[0]), trailing: .one(fixture.trailing[0])))
+                #expect(fixture.coordinator.activePaneID == fixture.leading[0])
+                #expect(emissions == 2)
+            }
+        }
+    }
+
     @Test("focus memory carries, falls back, and survives deferred pane activation")
     func focusMemoryMatrix() throws {
         // A trailing remembered bottom survives removal of the entire leading
@@ -614,19 +691,19 @@ struct PaneCoordinatorTests {
         #expect(insertion.coordinator.activePaneID == deferredTarget)
     }
 
-    @Test("rejected row, column, and unsplit projections preserve focus memory verbatim")
+    @Test("rejected member, band, and unsplit projections preserve focus memory verbatim")
     func rejectedProjectionFocusMemoryMatrix() throws {
-        enum Rejection { case row, column, unsplit }
-        for rejection in [Rejection.row, .column, .unsplit] {
+        enum Rejection { case bandMember, band, unsplit }
+        for rejection in [Rejection.bandMember, .band, .unsplit] {
             let fixture = fourPaneCoordinator()
             #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
             #expect(fixture.coordinator.activatePane(fixture.trailingBottom))
             let expectedLeft: PaneID
             switch rejection {
-            case .row:
+            case .bandMember:
                 #expect(!fixture.coordinator.closeActiveTab { _ in false })
                 expectedLeft = fixture.leadingBottom
-            case .column:
+            case .band:
                 #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
                 #expect(fixture.coordinator.closeActiveTab())
                 #expect(!fixture.coordinator.closeActiveTab { _ in false })
@@ -636,17 +713,16 @@ struct PaneCoordinatorTests {
                 expectedLeft = fixture.leadingBottom
             }
             if expectedLeft == fixture.leadingTop {
-                // Rejected column projection keeps the leading survivor
-                // active; crossing right must land on the trailing column's
-                // remembered row, and returning honors the carried memory.
+                // Rejected band projection keeps the leading survivor active;
+                // crossing honors the trailing band's remembered member.
                 #expect(fixture.coordinator.activePaneID == fixture.leadingTop, "\(rejection)")
                 #expect(fixture.coordinator.focus(.right), "\(rejection)")
                 #expect(fixture.coordinator.activePaneID == fixture.trailingBottom, "\(rejection)")
                 #expect(fixture.coordinator.focus(.left), "\(rejection)")
                 #expect(fixture.coordinator.activePaneID == expectedLeft, "\(rejection)")
             } else {
-                // Rejection preserves trailingBottom active; both columns'
-                // memories survive the rejected projection verbatim.
+                // Rejection preserves trailingBottom active and both bands'
+                // remembered members verbatim.
                 #expect(fixture.coordinator.activePaneID == fixture.trailingBottom, "\(rejection)")
                 #expect(fixture.coordinator.focus(.left), "\(rejection)")
                 #expect(fixture.coordinator.activePaneID == expectedLeft, "\(rejection)")
@@ -660,45 +736,58 @@ struct PaneCoordinatorTests {
 
     @Test("staging-time session notifications never publish mid-transaction state")
     func stagingReentrancyIsSuppressed() throws {
-        // Regression for a real-app SIGTRAP: closing the last tab of a pane
-        // begins the close (store already mutated), then the staging handler
-        // renders the projection, which unmounts/reflows PDF views and fires
-        // PDFKit presentation notifications. Those must not publish: the
-        // layout still contains the closing pane while its store has no
-        // active session, so strict makeSnapshot preconditions trap.
-        enum Tier { case rowCollapse, windowEmpty, unsplit }
-        for tier in [Tier.rowCollapse, .windowEmpty, .unsplit] {
+        // beginClose has already mutated the closing store while staging renders
+        // the projection; neither closing nor surviving session notifications
+        // may publish an invalid intermediate snapshot.
+        enum Tier: CaseIterable { case tabSuccessor, bandMemberCollapse, bandCollapse, promotion, windowEmpty, unsplit }
+        for tier in Tier.allCases {
             for commit in [false, true] {
                 let coordinator = PaneCoordinator()
                 let origin = StubReaderSession(id: TabID(), title: "Origin.pdf")
-                let duplicate = StubReaderSession(id: TabID(), title: "Duplicate.pdf")
-                coordinator.configureDuplication { _ in duplicate }
+                var duplicates = (1...3).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }
+                coordinator.configureDuplication { _ in duplicates.removeFirst() }
                 #expect(coordinator.insert(origin, into: .createIfEmpty))
-                if tier != .windowEmpty { #expect(coordinator.split(direction: .sideBySide) != nil) }
+
+                switch tier {
+                case .tabSuccessor:
+                    #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Successor.pdf"), into: .createIfEmpty))
+                case .bandMemberCollapse:
+                    let trailing = try #require(coordinator.split(direction: .sideBySide))
+                    #expect(coordinator.activatePane(trailing))
+                    #expect(coordinator.split(direction: .stacked) != nil)
+                case .bandCollapse:
+                    #expect(coordinator.split(direction: .sideBySide) != nil)
+                case .promotion:
+                    let trailing = try #require(coordinator.split(direction: .sideBySide))
+                    #expect(coordinator.activatePane(trailing))
+                    #expect(coordinator.split(direction: .stacked) != nil)
+                    let leading = try #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailing && $0 != coordinator.activePaneID })
+                    #expect(coordinator.activatePane(leading))
+                case .windowEmpty:
+                    break
+                case .unsplit:
+                    #expect(coordinator.split(direction: .sideBySide) != nil)
+                }
+
                 var emissions = 0
                 coordinator.onSnapshot = { snapshot in
                     snapshot.assertCardinality()
                     emissions += 1
                 }
                 let fire = {
-                    // Both the closing and the surviving session may notify
-                    // while the projection render moves views around.
                     origin.publishPresentationChange()
-                    duplicate.publishPresentationChange()
+                    duplicates.forEach { $0.publishPresentationChange() }
                 }
                 let result: Bool
                 switch tier {
-                case .rowCollapse, .windowEmpty:
-                    result = coordinator.closeActiveTab { _ in fire(); return commit }
                 case .unsplit:
                     result = coordinator.unsplit { _ in fire(); return commit }
+                default:
+                    result = coordinator.closeActiveTab { _ in fire(); return commit }
                 }
                 #expect(result == commit, "\(tier) commit=\(commit)")
-                // Exactly one settled emission per attempt: the commit or the
-                // rollback restoration. Staging-time notifications add none.
                 #expect(emissions == 1, "\(tier) commit=\(commit) emissions=\(emissions)")
                 coordinator.snapshot.assertCardinality()
-                // Post-transaction notifications publish normally again.
                 if !commit {
                     origin.publishPresentationChange()
                     #expect(emissions == 2, "\(tier) post-transaction emission")
@@ -876,8 +965,8 @@ private extension Array {
 }
 
 private enum FourPaneClosePath {
-    case rowCollapse
-    case columnCollapse
+    case bandMemberCollapse
+    case bandCollapse
     case globalUnsplit
 }
 

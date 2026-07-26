@@ -42,8 +42,8 @@ extension PaneCoordinatorSnapshot {
 
 enum PaneCloseTransition: Equatable {
     case tabSuccessor
-    case rowCollapse(survivor: PaneID)
-    case columnCollapse(survivor: PaneID)
+    case bandMemberCollapse(survivor: PaneID)
+    case bandCollapse(survivor: PaneID)
     case windowEmpty
 }
 
@@ -244,7 +244,7 @@ final class PaneCoordinator {
         switch transition {
         case .tabSuccessor:
             break
-        case let .rowCollapse(survivor), let .columnCollapse(survivor):
+        case let .bandMemberCollapse(survivor), let .bandCollapse(survivor):
             stores.removeValue(forKey: paneID)
             guard let collapse = layoutAfterRemovingLastTab(in: paneID, from: oldLayout) else { preconditionFailure("missing pane collapse") }
             layout = collapse.layout
@@ -263,8 +263,8 @@ final class PaneCoordinator {
         switch layout {
         case let .split(_, leading, trailing):
             let stack = leading.contains(paneID) ? leading : trailing
-            if case .two = stack { return .rowCollapse(survivor: survivor) }
-            return .columnCollapse(survivor: survivor)
+            if case .two = stack { return .bandMemberCollapse(survivor: survivor) }
+            return .bandCollapse(survivor: survivor)
         case .empty, .single:
             preconditionFailure("non-terminal pane collapse has no source stack")
         }
@@ -298,7 +298,7 @@ final class PaneCoordinator {
                     case let .one(survivor):
                         return (.single(survivor), survivor)
                     case let .two(first, second):
-                        return (.split(orientation: .stacked, leading: .one(first), trailing: .one(second)), focusTarget(in: trailing, side: .trailing, from: .one(removed)))
+                        return (.split(orientation: perpendicular(to: orientation), leading: .one(first), trailing: .one(second)), focusTarget(in: trailing, side: .trailing, from: .one(removed)))
                     }
                 case let .two(top, bottom):
                     let survivor = paneID == top ? bottom : top
@@ -312,7 +312,7 @@ final class PaneCoordinator {
                     case let .one(survivor):
                         return (.single(survivor), survivor)
                     case let .two(first, second):
-                        return (.split(orientation: .stacked, leading: .one(first), trailing: .one(second)), focusTarget(in: leading, side: .leading, from: .one(removed)))
+                        return (.split(orientation: perpendicular(to: orientation), leading: .one(first), trailing: .one(second)), focusTarget(in: leading, side: .leading, from: .one(removed)))
                     }
                 case let .two(top, bottom):
                     let survivor = paneID == top ? bottom : top
@@ -321,6 +321,10 @@ final class PaneCoordinator {
             }
             return nil
         }
+    }
+
+    private func perpendicular(to orientation: PaneOrientation) -> PaneOrientation {
+        orientation == .sideBySide ? .stacked : .sideBySide
     }
 
     private func normalizeMemory(from oldLayout: PaneLayout, to newLayout: PaneLayout, previousMemory: [PaneBandSide: PaneBandSlot]) {
