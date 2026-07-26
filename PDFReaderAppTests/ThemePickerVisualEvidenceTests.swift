@@ -1,5 +1,6 @@
 import AppKit
 import PDFReaderCore
+import PDFReaderTestSupport
 import Testing
 @testable import PDFReaderApp
 
@@ -22,7 +23,12 @@ import Testing
         let w = controller.mainWindowController.window!
         w.setContentSize(NSSize(width: 900, height: 640)); w.orderFrontRegardless()
         func pump() { w.displayIfNeeded(); RunLoop.main.run(until: Date().addingTimeInterval(0.15)) }
-        pump()
+        // Open a raster PDF so the shell shows non-uniform page content behind
+        // the overlay (evidence must be a real, non-blank frame).
+        let pdf = try PDFFixtureFactory.makePerformancePDF(.F, in: dir)
+        #expect(controller.openDocument(at: pdf))
+        (controller.coordinator.activeSession as? ReaderSession)?.fitWidth()
+        for _ in 0..<12 { pump() }
         // open picker, move selection to catppuccin-latte (live preview -> light shell), capture
         controller.mainWindowController.presentThemePicker()
         let overlay = controller.mainWindowController.rootView.themePickerOverlay
