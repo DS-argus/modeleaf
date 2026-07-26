@@ -532,7 +532,6 @@ struct PaneShellTests {
         enum Topology: Equatable { case twoByTwo, leadingStack, trailingStack }
 
         for outerOrientation in [PaneOrientation.sideBySide, .stacked] {
-            try withStackedOuterBands(outerOrientation == .stacked) {
         for topology in [Topology.twoByTwo, .leadingStack, .trailingStack] {
             let coordinator = PaneCoordinator()
             var duplicates = (1...3).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }
@@ -611,7 +610,6 @@ struct PaneShellTests {
                 // ambiguity and the exercised split equations at every point.
                 allContainers.forEach(assertSatisfiedSplitConstraints)
             }
-        }
         }
         }
     }
@@ -824,7 +822,6 @@ struct PaneShellTests {
     }
     @Test("stacked outer divider rollback and fourth split preserve perpendicular bands")
     func stackedOuterDividerMatrices() throws {
-        try withStackedOuterBands(true) {
             let fixture = fourPaneShellFixture(outer: .stacked)
             let controller = makeController(fixture.coordinator)
             defer { controller.close() }
@@ -855,12 +852,10 @@ struct PaneShellTests {
             let trailing = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingBand") as? PaneContainerView)
             #expect(abs(trailing.currentDividerPosition - (trailing.bounds.width - trailing.dividerThickness) / 2) < 0.5)
             assertSplitChildrenLaidOut(trailing)
-        }
     }
 
     @Test("stacked outer axis-flip rollback and promotion transfer retain pair divider ownership")
     func stackedOuterAxisFlipDividerOwnership() throws {
-        try withStackedOuterBands(true) {
             let fixture = fourPaneShellFixture(outer: .stacked)
             let controller = makeController(fixture.coordinator)
             defer { controller.close() }
@@ -891,12 +886,10 @@ struct PaneShellTests {
             #expect(promoted.isVertical)
             #expect(abs(promoted.currentDividerPosition - before.1) < 0.5)
             assertSplitChildrenLaidOut(promoted)
-        }
     }
 
     @Test("stacked outer multi-pane chrome is pane-scoped through pointer activation")
     func stackedOuterMultiPaneInteractionTable() throws {
-        try withStackedOuterBands(true) {
             for topology in [ShellTopology.leadingStack, .trailingStack, .twoByTwo] {
                 let fixture = fourPaneShellFixture(outer: .stacked)
                 switch topology {
@@ -922,7 +915,6 @@ struct PaneShellTests {
                     #expect(panes.filter { $0.accessibilityValue() as? String == "active" }.count == 1)
                 }
             }
-        }
     }
 
     private func makeController(_ coordinator: PaneCoordinator) -> MainWindowController {

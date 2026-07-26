@@ -119,11 +119,6 @@ final class PaneCoordinator {
         guard let activePaneID else { return nil }
         let destinationID = PaneID()
         guard let destinationLayout = layout.applyingSplit(direction, to: activePaneID, inserting: destinationID) else { return nil }
-        if case let .split(.stacked, leading, trailing) = destinationLayout,
-           !PaneFeatureFlags.stackedOuterBands,
-           [leading, trailing].contains(where: { if case .two = $0 { true } else { false } }) {
-            return nil
-        }
         guard let source = activeSession as? any ReaderDuplicationSnapshotProviding,
               let candidate = duplicateSession?(source.duplicationSnapshot)
         else { return nil }

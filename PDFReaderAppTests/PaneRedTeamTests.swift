@@ -24,16 +24,11 @@ struct PaneRedTeamTests {
         beginCase()
         for orientation in [PaneOrientation.sideBySide, .stacked] {
             let fixture = makeFixture(orientation: orientation)
-            if orientation == .sideBySide {
-                check(fixture.coordinator.split(direction: .sideBySide) == nil)
-                check(fixture.coordinator.split(direction: .stacked) != nil)
-            } else {
-                check(fixture.coordinator.split(direction: .sideBySide) == nil)
-                check(fixture.coordinator.split(direction: .stacked) == nil)
-            }
+            let perpendicular: PaneOrientation = orientation == .sideBySide ? .stacked : .sideBySide
+            check(fixture.coordinator.split(direction: orientation) == nil)
+            check(fixture.coordinator.split(direction: perpendicular) != nil)
             let settledLayout = fixture.coordinator.snapshot.layout
-            let expectedCount = orientation == .sideBySide ? 3 : 2
-            check(fixture.coordinator.snapshot.panes.count == expectedCount)
+            check(fixture.coordinator.snapshot.panes.count == 3)
             for _ in 0..<20 {
                 check(fixture.coordinator.split(direction: .sideBySide) == nil)
                 check(fixture.coordinator.split(direction: .stacked) == nil)
@@ -42,6 +37,50 @@ struct PaneRedTeamTests {
         }
         caseOutcomes["AC-2 split ceiling both directions / rapid repeat"] = casePassed
         caseOutcomes["Constrained-tree max-four-pane ceiling"] = casePassed
+        beginCase()
+        for paneCount in [3, 4] {
+            let coordinator = PaneCoordinator()
+            var duplicationCalls = 0
+            var emissions = 0
+            coordinator.configureDuplication { _ in
+                duplicationCalls += 1
+                return RedTeamSession(title: "Duplicate \(duplicationCalls).pdf", page: duplicationCalls, color: .systemOrange)
+            }
+            coordinator.onSnapshot = { _ in emissions += 1 }
+            check(coordinator.insert(RedTeamSession(title: "Origin.pdf", page: 1, color: .systemBlue), into: .createIfEmpty))
+            check(coordinator.split(direction: .stacked) != nil)
+            check(coordinator.split(direction: .sideBySide) != nil)
+            if paneCount == 4 {
+                let top = coordinator.snapshot.layout.paneIDs[0]
+                check(coordinator.activatePane(top))
+                check(coordinator.split(direction: .sideBySide) != nil)
+            }
+            let settled = coordinator.snapshot
+            let counts = (duplicationCalls, emissions)
+            for _ in 0..<20 {
+                check(coordinator.split(direction: .sideBySide) == nil)
+                check(coordinator.split(direction: .stacked) == nil)
+            }
+            check(coordinator.snapshot.layout == settled.layout)
+            check(coordinator.snapshot.activePaneID == settled.activePaneID)
+            check((duplicationCalls, emissions) == counts)
+        }
+        caseOutcomes["Stacked-outer three/four-pane split-ceiling spam has zero side effects"] = casePassed
+
+        beginCase()
+        let stackedLifecycle = makeFixture(orientation: .stacked)
+        check(stackedLifecycle.coordinator.split(direction: .sideBySide) != nil)
+        check(stackedLifecycle.coordinator.closeActiveTab())
+        check(stackedLifecycle.coordinator.closeActiveTab())
+        check(stackedLifecycle.coordinator.closeActiveTab())
+        check(stackedLifecycle.coordinator.snapshot.layout == .empty)
+        let reopened = RedTeamSession(title: "Reopened stacked.pdf", page: 9, color: .systemGreen)
+        check(stackedLifecycle.coordinator.insert(reopened, into: .createIfEmpty))
+        stackedLifecycle.coordinator.configureDuplication { _ in RedTeamSession(title: "Reopened stacked duplicate.pdf", page: 9, color: .systemPurple) }
+        check(stackedLifecycle.coordinator.split(direction: .stacked) != nil)
+        check(stackedLifecycle.coordinator.split(direction: .sideBySide) != nil)
+        check(stackedLifecycle.coordinator.snapshot.layout.paneIDs.count == 3)
+        caseOutcomes["Stacked-outer close-collapse-empty-reopen-resplit"] = casePassed
 
         beginCase()
         for _ in 0..<2 {
@@ -134,6 +173,67 @@ struct PaneRedTeamTests {
         try writeArtifacts(caseOutcomes: caseOutcomes)
     }
 
+    @Test("dispatched stacked-outer anchor renders with labels and default dividers")
+    func dispatchedStackedOuterAnchor() throws {
+        try withTemporaryDirectory { fixtures in
+            let url = try PDFFixtureFactory.makePerformancePDF(.F, in: fixtures)
+            @MainActor func makeController() throws -> ApplicationController {
+                let controller = ApplicationController(
+                    configService: ConfigService(source: ConfigFileSource(url: fixtures.appendingPathComponent("missing-config.toml"))),
+                    sessionStore: ReaderSessionStore(),
+                    terminationHandler: {}
+                )
+                _ = controller.mainWindowController
+                let window = try #require(controller.mainWindowController.window)
+                window.setContentSize(NSSize(width: 900, height: 640))
+                window.orderFrontRegardless()
+                #expect(controller.openDocument(at: url))
+                return controller
+            }
+            @MainActor func container(_ identifier: String, in root: NSView) throws -> PaneContainerView {
+                func walk(_ view: NSView) -> PaneContainerView? {
+                    if let container = view as? PaneContainerView, container.accessibilityIdentifier() == identifier { return container }
+                    for subview in view.subviews { if let found = walk(subview) { return found } }
+                    return nil
+                }
+                return try #require(walk(root), "missing container \(identifier)")
+            }
+
+            let controller = try makeController()
+            defer { while controller.coordinator.closeActiveTab() {}; controller.mainWindowController.close() }
+            let top = try #require(controller.coordinator.activePaneID)
+            controller.dispatch(.paneSplitDown)
+            let bottom = try #require(controller.coordinator.activePaneID)
+            controller.dispatch(.paneSplitRight)
+            let bottomRight = try #require(controller.coordinator.activePaneID)
+            #expect(controller.coordinator.snapshot.layout == .split(orientation: .stacked, leading: .one(top), trailing: .two(first: bottom, second: bottomRight)))
+            let root = controller.mainWindowController.rootView
+            root.needsLayout = true; root.layoutSubtreeIfNeeded()
+            let topPane = try #require(root.paneViewForTesting(top))
+            let bottomLeftPane = try #require(root.paneViewForTesting(bottom))
+            let bottomRightPane = try #require(root.paneViewForTesting(bottomRight))
+            #expect(topPane.accessibilityLabel() == "Top pane")
+            #expect(bottomLeftPane.accessibilityLabel() == "Bottom Left pane")
+            #expect(bottomRightPane.accessibilityLabel() == "Bottom Right pane")
+            #expect(bottomRightPane.accessibilityValue() as? String == "active")
+            let outer = try container("paneContainer", in: root)
+            let inner = try container("paneContainer.trailingBand", in: root)
+            #expect(!outer.isVertical && inner.isVertical)
+            #expect(abs(outer.currentDividerPosition - (outer.bounds.height - outer.dividerThickness) / 2) < 1)
+            #expect(abs(inner.currentDividerPosition - (inner.bounds.width - inner.dividerThickness) / 2) < 1)
+            #expect(controller.coordinator.snapshot.paneContentViews[bottomRight]?.window === controller.mainWindowController.window)
+
+            let topSlotController = try makeController()
+            defer { while topSlotController.coordinator.closeActiveTab() {}; topSlotController.mainWindowController.close() }
+            let topSlot = try #require(topSlotController.coordinator.activePaneID)
+            topSlotController.dispatch(.paneSplitDown)
+            let lowerSlot = try #require(topSlotController.coordinator.activePaneID)
+            topSlotController.dispatch(.paneFocusUp)
+            topSlotController.dispatch(.paneSplitRight)
+            let topRight = try #require(topSlotController.coordinator.activePaneID)
+            #expect(topSlotController.coordinator.snapshot.layout == .split(orientation: .stacked, leading: .two(first: topSlot, second: topRight), trailing: .one(lowerSlot)))
+        }
+    }
     @Test("prompt focus is not stolen during rejected pane mutations")
     func promptFocusOwnership() throws {
         let fixture = makeFixture(orientation: .sideBySide)
@@ -178,7 +278,7 @@ struct PaneRedTeamTests {
         // Evidence renders use the REAL application pipeline: real fixture
         // PDFs opened through PDFOpenService, split via dispatched pane
         // actions, and PDFKit-rendered page content in both panes.
-        for (action, name) in [(ActionID.paneSplitRight, "side-by-side.png"), (.paneSplitDown, "stacked.png")] {
+        for (actions, name) in [([ActionID.paneSplitRight], "side-by-side.png"), ([.paneSplitDown], "stacked.png"), ([.paneSplitDown, .paneSplitRight], "stacked-outer-anchor.png")] {
             try withTemporaryDirectory { fixtures in
                 let url = try PDFFixtureFactory.makePerformancePDF(.F, in: fixtures)
                 let controller = ApplicationController(
@@ -196,14 +296,13 @@ struct PaneRedTeamTests {
                 window.orderFrontRegardless()
                 #expect(controller.openDocument(at: url))
                 (controller.coordinator.activeSession as? ReaderSession)?.fitWidth()
-                controller.dispatch(action)
-                // Post-S1 topology: side-by-side commits .split while a
-                // stacked split of a single pane commits .single(.two).
+                for action in actions { controller.dispatch(action) }
                 let layout = controller.coordinator.snapshot.layout
                 let committed: Bool
-                switch (action, layout) {
-                case (.paneSplitRight, .split): committed = true
-                case (.paneSplitDown, .split(orientation: .stacked, leading: .one, trailing: .one)): committed = true
+                switch (actions, layout) {
+                case ([.paneSplitRight], .split): committed = true
+                case ([.paneSplitDown], .split(orientation: .stacked, leading: .one, trailing: .one)): committed = true
+                case ([.paneSplitDown, .paneSplitRight], .split(orientation: .stacked, leading: .one, trailing: .two)): committed = true
                 default: committed = false
                 }
                 guard committed else {
@@ -244,7 +343,7 @@ struct PaneRedTeamTests {
             "suite": "PaneRedTeamTests",
             "verdict": passed ? "passed" : "failed",
             "cases": cases,
-            "artifacts": ["side-by-side.png", "stacked.png"],
+            "artifacts": ["side-by-side.png", "stacked.png", "stacked-outer-anchor.png"],
         ]
         let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
         try data.write(to: output.appendingPathComponent("adversarial-test-report.json"), options: .atomic)

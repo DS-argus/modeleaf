@@ -14,7 +14,7 @@ The interaction design takes one focused idea from [Sioyek](https://github.com/a
 
 - opens local PDFs from the app, Finder/Open With, or the default `⌘O` binding;
 - keeps multiple documents in independent tabs, with clickable tab controls and a `+` button that opens another PDF;
-- splits the reading surface into a constrained one-to-four-pane tree: one side-by-side split and, independently, one stacked split per column; each pane owns its own tabs and active document;
+- splits the reading surface with tmux-style split-in-place on the active pane: either orientation may be first, both asymmetric three-pane shapes and both 2×2 orientations are reachable, and each pane owns its own tabs and active document;
 - opens each document on page 1 fitted inside the visible canvas;
 - scrolls, changes pages, jumps to a numbered page, zooms, and fits the view;
 - searches embedded PDF text with per-tab result state and highlighting;
@@ -49,9 +49,9 @@ Tabs remain keyboard-first, but can also be selected and closed with the pointer
 
 ### Pane layout and focus
 
-Pane layout is structurally limited to one pane, a stacked pair, two side-by-side panes, either asymmetric three-pane arrangement, or a 2×2 grid. `Ctrl-b |` creates the side-by-side split only while there is one column (including a stacked pair); `Ctrl-b -` stacks only the active one-pane column. A split that would exceed those limits is a no-op. `Ctrl-b o` is global close-others: it keeps the active pane and closes every other pane.
+Pane layout is structurally limited to one through four panes at depth one. `Ctrl-b |` and `Ctrl-b -` split the active pane in place; either orientation can be the first split, and both asymmetric three-pane shapes plus both 2×2 orientations are reachable. A parallel request or a request against an already split band is a strict no-op. `Ctrl-b o` is global close-others: it keeps the active pane and closes every other pane.
 
-`Ctrl-h` and `Ctrl-l` move between columns with tmux semantics: when both columns are stacked (2×2), crossing stays in the same row; only a full-height pane crossing into a stacked column uses that column's remembered (most recently focused) row, and an unvisited stacked column starts at its top pane. `Ctrl-j` and `Ctrl-k` move only within the active column. The traffic-light inset belongs only to the top-left pane.
+Focus crosses geometry in the same slot; only a full-span pane crossing into a split band uses that band's most recently focused slot, falling back to its first slot. Boundary movement is a no-op. The traffic-light inset belongs only to the top-left pane.
 See [CONFIG.md](CONFIG.md) for the exhaustive 43-action registry, key-token grammar, validation rules, numeric bounds, and generated default file.
 
 ## Explicit v1 boundary

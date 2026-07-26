@@ -165,7 +165,7 @@ struct PaneCoordinatorTests {
                 let emissionsBefore = emissions
                 let result = coordinator.split(direction: direction)
                 let expectedSuccess = switch (topology, direction) {
-                case (.singleOne, _), (.splitOneOne, .stacked), (.splitOneTwo, .stacked): true
+                case (.singleOne, _), (.singleTwo, .sideBySide), (.splitOneOne, .stacked), (.splitOneTwo, .stacked): true
                 default: false
                 }
                 #expect((result != nil) == expectedSuccess, "\(topology) / \(direction)")
@@ -183,9 +183,8 @@ struct PaneCoordinatorTests {
             }
         }
     }
-    @Test("stacked outer two-band splits are gated strict no-ops")
-    func stackedOuterBandGate() throws {
-        #expect(PaneFeatureFlags.stackedOuterBands == false)
+    @Test("stacked outer two-band splits are reachable")
+    func stackedOuterBandSplitReachability() throws {
         let coordinator = PaneCoordinator()
         var duplications = 0, completions = 0, emissions = 0
         coordinator.configureDuplication { _ in duplications += 1; return StubReaderSession(id: TabID(), title: "Duplicate.pdf") }
@@ -193,16 +192,11 @@ struct PaneCoordinatorTests {
         coordinator.onSnapshot = { _ in emissions += 1 }
         #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Origin.pdf"), into: .createIfEmpty))
         let bottom = try #require(coordinator.split(direction: .stacked))
-        let before = coordinator.snapshot
-        let counts = (duplications, completions, emissions)
-        #expect(coordinator.split(direction: .sideBySide) == nil)
-        #expect((duplications, completions, emissions) == counts)
-        #expect(coordinator.snapshot.layout == before.layout)
-        #expect(coordinator.activePaneID == bottom)
-        withStackedOuterBands(true) {
-            let destination = try! #require(coordinator.split(direction: .sideBySide))
-            #expect(coordinator.snapshot.layout == .split(orientation: .stacked, leading: .one(before.layout.paneIDs[0]), trailing: .two(first: bottom, second: destination)))
-        }
+        let top = try #require(coordinator.snapshot.layout.paneIDs.first { $0 != bottom })
+        let destination = try #require(coordinator.split(direction: .sideBySide))
+        #expect((duplications, completions, emissions) == (2, 2, 3))
+        #expect(coordinator.snapshot.layout == .split(orientation: .stacked, leading: .one(top), trailing: .two(first: bottom, second: destination)))
+        #expect(coordinator.activePaneID == destination)
     }
     @Test("S1 layout reshape preserves legacy split outcomes and coordinator side effects")
     func s1LegacySplitOracle() throws {
@@ -444,7 +438,6 @@ struct PaneCoordinatorTests {
                     var leadingTop: PaneID!
                     var leadingBottom: PaneID!
                     var trailingBottom: PaneID!
-                    withStackedOuterBands(true) {
                         let splitTop = coordinator.split(direction: .stacked)
                         #expect(splitTop != nil)
                         trailingTop = splitTop!
@@ -462,7 +455,6 @@ struct PaneCoordinatorTests {
                         #expect(splitTrailing != nil)
                         trailingBottom = splitTrailing!
                         references[trailingBottom] = pendingReferences!
-                    }
                     #expect(coordinator.snapshot.layout == .split(orientation: .stacked, leading: .two(first: leadingTop, second: leadingBottom), trailing: .two(first: trailingTop, second: trailingBottom)))
 
                     let removed: [WeakSessionObjects]
@@ -580,7 +572,6 @@ struct PaneCoordinatorTests {
     func promotionCloseMatrix() throws {
         for outer in [PaneOrientation.sideBySide, .stacked] {
             for singletonIsLeading in [true, false] {
-                withStackedOuterBands(true) {
                     let fixture = makeFocusFixture(
                         outer: outer,
                         leadingTwo: !singletonIsLeading,
@@ -607,7 +598,6 @@ struct PaneCoordinatorTests {
                     #expect(fixture.coordinator.snapshot.layout == .split(orientation: outer == .sideBySide ? .stacked : .sideBySide, leading: .one(pair[0]), trailing: .one(pair[1])))
                     #expect(fixture.coordinator.activePaneID == pair[1])
                     #expect(emissions == 2)
-                }
             }
         }
     }
@@ -615,7 +605,6 @@ struct PaneCoordinatorTests {
     @Test("band-member close preserves the intact band on both outer axes")
     func bandMemberCollapseMatrix() throws {
         for outer in [PaneOrientation.sideBySide, .stacked] {
-            withStackedOuterBands(true) {
                 let fixture = makeFocusFixture(outer: outer, leadingTwo: true, trailingTwo: false)
                 let closing = fixture.leading[1]
                 #expect(fixture.coordinator.activatePane(closing))
@@ -635,7 +624,6 @@ struct PaneCoordinatorTests {
                 #expect(fixture.coordinator.snapshot.layout == .split(orientation: outer, leading: .one(fixture.leading[0]), trailing: .one(fixture.trailing[0])))
                 #expect(fixture.coordinator.activePaneID == fixture.leading[0])
                 #expect(emissions == 2)
-            }
         }
     }
 
@@ -651,9 +639,7 @@ struct PaneCoordinatorTests {
         #expect(carried.coordinator.closeActiveTab())
         #expect(carried.coordinator.snapshot.layout == .split(orientation: .stacked, leading: .one(carried.trailingTop), trailing: .one(carried.trailingBottom)))
         var newTrailing: PaneID?
-        withStackedOuterBands(true) {
             newTrailing = carried.coordinator.split(direction: .sideBySide)
-        }
         let resolvedNewTrailing = try #require(newTrailing)
         #expect(carried.coordinator.focus(.left))
         #expect(carried.coordinator.activePaneID == carried.trailingBottom)
@@ -794,7 +780,6 @@ struct PaneCoordinatorTests {
     func tmuxParityFocusTable() throws {
         for outer in [PaneOrientation.sideBySide, .stacked] {
             let directions: [PaneFocusDirection] = outer == .sideBySide ? [.left, .right, .up, .down] : [.up, .down, .left, .right]
-            withStackedOuterBands(true) {
                 for leadingTwo in [false, true] {
                     for trailingTwo in [false, true] where leadingTwo || trailingTwo {
                         for sourceIsLeading in [true, false] {
@@ -826,14 +811,12 @@ struct PaneCoordinatorTests {
                         }
                     }
                 }
-            }
         }
     }
 
     @Test("full-span crossings use destination MRU on both axes")
     func focusCrossBandMRUParity() throws {
         for outer in [PaneOrientation.sideBySide, .stacked] {
-            withStackedOuterBands(true) {
                 let fixture = makeFocusFixture(outer: outer, leadingTwo: false, trailingTwo: true)
                 let toLeading: PaneFocusDirection = outer == .sideBySide ? .left : .up
                 let toTrailing: PaneFocusDirection = outer == .sideBySide ? .right : .down
@@ -844,20 +827,17 @@ struct PaneCoordinatorTests {
                     #expect(fixture.coordinator.focus(toTrailing))
                     #expect(fixture.coordinator.activePaneID == expected)
                 }
-            }
         }
     }
 
     @Test("rejected gated projection preserves focus memory")
     func rejectedGatedProjectionPreservesFocusMemory() throws {
-        withStackedOuterBands(true) {
             let fixture = makeFocusFixture(outer: .stacked, leadingTwo: false, trailingTwo: true)
             #expect(fixture.coordinator.activatePane(fixture.trailing[1]))
             #expect(!fixture.coordinator.closeActiveTab { _ in false })
             #expect(fixture.coordinator.activatePane(fixture.leading[0]))
             #expect(fixture.coordinator.focus(.down))
             #expect(fixture.coordinator.activePaneID == fixture.trailing[1])
-        }
     }
 
     private func makeFocusFixture(outer: PaneOrientation, leadingTwo: Bool, trailingTwo: Bool) -> (coordinator: PaneCoordinator, leading: [PaneID], trailing: [PaneID]) {

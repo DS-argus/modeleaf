@@ -1,7 +1,8 @@
 {
   "artifacts" : [
     "side-by-side.png",
-    "stacked.png"
+    "stacked.png",
+    "stacked-outer-anchor.png"
   ],
   "cases" : [
     {
@@ -41,6 +42,16 @@
     },
     {
       "case" : "EF8 duplicate search and selection exclusion",
+      "evidence" : "PaneRedTeamTests.adversarialStateMachineMatrix",
+      "verdict" : "passed"
+    },
+    {
+      "case" : "Stacked-outer close-collapse-empty-reopen-resplit",
+      "evidence" : "PaneRedTeamTests.adversarialStateMachineMatrix",
+      "verdict" : "passed"
+    },
+    {
+      "case" : "Stacked-outer three\/four-pane split-ceiling spam has zero side effects",
       "evidence" : "PaneRedTeamTests.adversarialStateMachineMatrix",
       "verdict" : "passed"
     }

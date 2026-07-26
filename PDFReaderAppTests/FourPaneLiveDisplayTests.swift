@@ -74,13 +74,11 @@ struct FourPaneLiveDisplayTests {
         window.orderFrontRegardless()
         func pump() { window.displayIfNeeded(); RunLoop.main.run(until: Date().addingTimeInterval(0.15)) }
 
-        withStackedOuterBands(true) {
             #expect(controller.openDocument(at: url)); pump()
             controller.dispatch(.paneSplitDown); pump()
             controller.dispatch(.paneSplitRight); pump()
             controller.dispatch(.paneFocusUp); pump()
             controller.dispatch(.paneSplitRight); pump()
-        }
 
         let root = controller.mainWindowController.rootView
         func container(_ id: String) throws -> PaneContainerView {
