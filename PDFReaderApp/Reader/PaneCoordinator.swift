@@ -175,7 +175,9 @@ final class PaneCoordinator {
         let oldMemory = lastFocusedSlotByBand
         let removed = layout.paneIDs.filter { $0 != activePaneID }
         let tokens = removed.flatMap { id -> [(PaneID, PreparedTabClose)] in
-            guard let store = stores[id] else { return [] }
+            guard let store = stores[id] else {
+                preconditionFailure("missing layout-owned store during unsplit teardown: pane=\(id)")
+            }
             return store.snapshot.tabs.map { tab in
                 guard let token = store.beginClose(tab.id) else {
                     preconditionFailure("ReaderSessionStore cannot begin unsplit teardown")
@@ -232,9 +234,7 @@ final class PaneCoordinator {
             return false
         }
         guard store.commitClose(token) else {
-            store.rollbackClose(token)
-            suppressCallbacks = previous; publish(); suppressCallbacks = true
-            return false
+            preconditionFailure("ReaderSessionStore cannot commit active-tab close")
         }
         switch transition {
         case .tabSuccessor:
@@ -293,10 +293,10 @@ final class PaneCoordinator {
                     case let .one(survivor):
                         return (.single(survivor), survivor)
                     case let .two(first, second):
-                        return (.split(orientation: perpendicular(to: orientation), leading: .one(first), trailing: .one(second)), focusTarget(in: trailing, side: .trailing, from: .one(removed)))
+                        return (.split(orientation: orientation.perpendicular, leading: .one(first), trailing: .one(second)), focusTarget(in: trailing, side: .trailing, from: .one(removed)))
                     }
-                case let .two(top, bottom):
-                    let survivor = paneID == top ? bottom : top
+                case let .two(first, second):
+                    let survivor = paneID == first ? second : first
                     return (.split(orientation: orientation, leading: .one(survivor), trailing: trailing), survivor)
                 }
             }
@@ -307,10 +307,10 @@ final class PaneCoordinator {
                     case let .one(survivor):
                         return (.single(survivor), survivor)
                     case let .two(first, second):
-                        return (.split(orientation: perpendicular(to: orientation), leading: .one(first), trailing: .one(second)), focusTarget(in: leading, side: .leading, from: .one(removed)))
+                        return (.split(orientation: orientation.perpendicular, leading: .one(first), trailing: .one(second)), focusTarget(in: leading, side: .leading, from: .one(removed)))
                     }
-                case let .two(top, bottom):
-                    let survivor = paneID == top ? bottom : top
+                case let .two(first, second):
+                    let survivor = paneID == first ? second : first
                     return (.split(orientation: orientation, leading: leading, trailing: .one(survivor)), survivor)
                 }
             }
@@ -318,23 +318,19 @@ final class PaneCoordinator {
         }
     }
 
-    private func perpendicular(to orientation: PaneOrientation) -> PaneOrientation {
-        orientation == .sideBySide ? .stacked : .sideBySide
-    }
-
     private func normalizeMemory(from oldLayout: PaneLayout, to newLayout: PaneLayout, previousMemory: [PaneBandSide: PaneBandSlot]) {
         var normalized: [PaneBandSide: PaneBandSlot] = [:]
         for newSide in [PaneBandSide.leading, .trailing] {
-            guard let newStack = stack(in: newLayout, at: newSide), case let .two(top, bottom) = newStack else { continue }
+            guard let newStack = stack(in: newLayout, at: newSide), case let .two(first, second) = newStack else { continue }
             let rememberedPane = [PaneBandSide.leading, .trailing].lazy.compactMap { oldSide -> PaneID? in
-                guard let oldStack = self.stack(in: oldLayout, at: oldSide), case let .two(oldTop, oldBottom) = oldStack else { return nil }
-                let remembered = previousMemory[oldSide] == .second ? oldBottom : oldTop
+                guard let oldStack = self.stack(in: oldLayout, at: oldSide), case let .two(oldFirst, oldSecond) = oldStack else { return nil }
+                let remembered = previousMemory[oldSide] == .second ? oldSecond : oldFirst
                 return newStack.contains(remembered) ? remembered : nil
             }.first
-            if rememberedPane == top { normalized[newSide] = .first }
-            else if rememberedPane == bottom { normalized[newSide] = .second }
-            else if activePaneID == top { normalized[newSide] = .first }
-            else if activePaneID == bottom { normalized[newSide] = .second }
+            if rememberedPane == first { normalized[newSide] = .first }
+            else if rememberedPane == second { normalized[newSide] = .second }
+            else if activePaneID == first { normalized[newSide] = .first }
+            else if activePaneID == second { normalized[newSide] = .second }
             else { normalized[newSide] = .first }
         }
         lastFocusedSlotByBand = normalized
@@ -358,8 +354,8 @@ final class PaneCoordinator {
         }
         precondition(layout.contains(id), "cannot activate pane outside installed layout: \(id) in \(layout)")
         activePaneID = id
-        if let side = layout.side(of: id), let row = layout.slot(of: id) {
-            lastFocusedSlotByBand[side] = row
+        if let side = layout.side(of: id), let slot = layout.slot(of: id) {
+            lastFocusedSlotByBand[side] = slot
         }
     }
 

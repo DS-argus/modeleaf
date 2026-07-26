@@ -276,9 +276,11 @@ struct PaneCoordinatorTests {
                     let expected = canonicalize(legacy.applyingSplit(direction, to: active, inserting: destination))
                     let layout = canonicalize(legacy)!
                     let actual = layout.applyingSplit(direction, to: active, inserting: destination)
-                    if case let .split(.stacked, leading, trailing) = actual,
-                       [leading, trailing].contains(where: { if case .two = $0 { true } else { false } }) {
-                        #expect(actual != expected, "\(name), active=\(active), direction=\(direction)")
+                    if legacy == .single(.two(top: a, bottom: b)), direction == .sideBySide {
+                        let expectedLayout: PaneLayout = active == a
+                            ? .split(orientation: .stacked, leading: .two(first: a, second: destination), trailing: .one(b))
+                            : .split(orientation: .stacked, leading: .one(a), trailing: .two(first: b, second: destination))
+                        #expect(actual == expectedLayout, "\(name), active=\(active), direction=\(direction)")
                     } else {
                         #expect(actual == expected, "\(name), active=\(active), direction=\(direction)")
                     }
@@ -288,7 +290,7 @@ struct PaneCoordinatorTests {
         }
         #expect(oracleCells == 30)
 
-        enum Family { case singleOne, singleTwo, oneOne, twoOne, oneTwo, twoTwo }
+        enum Family: CaseIterable { case singleOne, singleTwo, oneOne, twoOne, oneTwo, twoTwo }
         func makeCoordinator(_ family: Family) throws -> PaneCoordinator {
             let coordinator = PaneCoordinator()
             var duplicateNumber = 0
@@ -322,43 +324,75 @@ struct PaneCoordinatorTests {
             }
             return coordinator
         }
-        for family in [Family.singleOne, .singleTwo, .oneOne, .twoOne, .oneTwo, .twoTwo] {
-            let coordinator = try makeCoordinator(family)
-            var duplications = 0, completions = 0, emissions = 0
-            coordinator.configureDuplication { _ in
-                duplications += 1
-                return StubReaderSession(id: TabID(), title: "Probe \(duplications).pdf")
-            }
-            coordinator.configureDuplicationCompletion { _, success in if success { completions += 1 } }
-            coordinator.onSnapshot = { _ in emissions += 1 }
-            let before = coordinator.snapshot
-            let successDirection: PaneOrientation? = [.sideBySide, .stacked].first {
-                guard let projected = before.layout.applyingSplit($0, to: before.activePaneID!, inserting: PaneID()) else { return false }
-                if case let .split(.stacked, leading, trailing) = projected, [leading, trailing].contains(where: { if case .two = $0 { true } else { false } }) { return false }
-                return true
-            }
-            if let successDirection {
-                #expect(coordinator.split(direction: successDirection) != nil)
-                #expect(duplications == 1)
-                #expect(completions == 1)
-                #expect(emissions == 1)
-            }
-
-            let reject = try makeCoordinator(family)
-            var rejectedDuplications = 0, rejectedCompletions = 0, rejectedEmissions = 0
-            reject.configureDuplication { _ in rejectedDuplications += 1; return StubReaderSession(id: TabID(), title: "Rejected.pdf") }
-            reject.configureDuplicationCompletion { _, _ in rejectedCompletions += 1 }
-            reject.onSnapshot = { _ in rejectedEmissions += 1 }
-            let rejectedBefore = reject.snapshot
-            if let rejectDirection = [PaneOrientation.sideBySide, .stacked].first(where: { rejectedBefore.layout.applyingSplit($0, to: rejectedBefore.activePaneID!, inserting: PaneID()) == nil }) {
-                #expect(reject.split(direction: rejectDirection) == nil)
-                #expect(rejectedDuplications == 0)
-                #expect(rejectedCompletions == 0)
-                #expect(rejectedEmissions == 0)
-                #expect(reject.snapshot.layout == rejectedBefore.layout)
-                #expect(reject.activePaneID == rejectedBefore.activePaneID)
+        func expectedLayout(after direction: PaneOrientation, from layout: PaneLayout, active: PaneID, destination: PaneID) -> PaneLayout? {
+            switch layout {
+            case let .single(id) where id == active:
+                return .split(orientation: direction, leading: .one(id), trailing: .one(destination))
+            case let .split(outer, leading, trailing) where direction != outer:
+                if case .one = leading, leading.contains(active) {
+                    return .split(orientation: outer, leading: .two(first: active, second: destination), trailing: trailing)
+                }
+                if case .one = trailing, trailing.contains(active) {
+                    return .split(orientation: outer, leading: leading, trailing: .two(first: active, second: destination))
+                }
+                return nil
+            case .empty, .single, .split:
+                return nil
             }
         }
+
+        var coordinatorCells = 0
+        for family in Family.allCases {
+            let paneCount = try makeCoordinator(family).snapshot.layout.paneIDs.count
+            for activeIndex in 0..<paneCount {
+                for direction in [PaneOrientation.sideBySide, .stacked] {
+                    let coordinator = try makeCoordinator(family)
+                    let active = coordinator.snapshot.layout.paneIDs[activeIndex]
+                    #expect(coordinator.activatePane(active))
+                    var duplications = 0, completions = 0, emissions = 0
+                    if case let .split(_, leading, trailing) = coordinator.snapshot.layout {
+                        let opposite = leading.contains(active) ? trailing : leading
+                        if case .two = opposite {
+                            #expect(coordinator.activatePane(opposite.paneIDs.last!))
+                            #expect(coordinator.activatePane(active))
+                        }
+                    }
+                    coordinator.configureDuplication { _ in
+                        duplications += 1
+                        return StubReaderSession(id: TabID(), title: "Probe \(duplications).pdf")
+                    }
+                    coordinator.configureDuplicationCompletion { _, _ in completions += 1 }
+                    coordinator.onSnapshot = { _ in emissions += 1 }
+                    let before = coordinator.snapshot
+                    let expectedSuccess = expectedLayout(after: direction, from: before.layout, active: active, destination: PaneID()) != nil
+                    let result = coordinator.split(direction: direction)
+                    let expected = result.flatMap { expectedLayout(after: direction, from: before.layout, active: active, destination: $0) }
+                    #expect((result != nil) == expectedSuccess, "\(family), activeIndex=\(activeIndex), direction=\(direction)")
+                    #expect(duplications == (expectedSuccess ? 1 : 0))
+                    #expect(completions == (expectedSuccess ? 1 : 0))
+                    #expect(emissions == (expectedSuccess ? 1 : 0))
+                    if let expected {
+                        #expect(coordinator.snapshot.layout == expected)
+                        #expect(coordinator.activePaneID == result)
+                    } else {
+                        #expect(coordinator.snapshot.layout == before.layout)
+                        #expect(coordinator.activePaneID == before.activePaneID)
+                        if case let .split(outer, leading, _) = before.layout {
+                            let towardTrailing: PaneFocusDirection = outer == .sideBySide ? .right : .down
+                            let towardLeading: PaneFocusDirection = outer == .sideBySide ? .left : .up
+                            let outward = leading.contains(active) ? towardTrailing : towardLeading
+                            let inward = leading.contains(active) ? towardLeading : towardTrailing
+                            #expect(coordinator.focus(outward))
+                            #expect(coordinator.focus(inward))
+                            #expect(coordinator.activePaneID == active, "no-op split preserves focus memory")
+                        }
+                    }
+                    coordinatorCells += 1
+                }
+            }
+        }
+        #expect(coordinatorCells == 30)
+
         let memoryCoordinator = try makeCoordinator(.oneTwo)
         let rememberedPane = try #require(memoryCoordinator.activePaneID)
         #expect(memoryCoordinator.split(direction: .sideBySide) == nil)
@@ -434,48 +468,48 @@ struct PaneCoordinatorTests {
                         return session
                     }
 
-                    var trailingTop: PaneID!
-                    var leadingTop: PaneID!
-                    var leadingBottom: PaneID!
-                    var trailingBottom: PaneID!
-                        let splitTop = coordinator.split(direction: .stacked)
-                        #expect(splitTop != nil)
-                        trailingTop = splitTop!
-                        references[trailingTop] = pendingReferences!
-                        let leading = coordinator.snapshot.layout.paneIDs.first { $0 != trailingTop }
-                        #expect(leading != nil)
-                        leadingTop = leading!
-                        #expect(coordinator.activatePane(leadingTop))
-                        let splitLeading = coordinator.split(direction: .sideBySide)
-                        #expect(splitLeading != nil)
-                        leadingBottom = splitLeading!
-                        references[leadingBottom] = pendingReferences!
-                        #expect(coordinator.activatePane(trailingTop))
-                        let splitTrailing = coordinator.split(direction: .sideBySide)
-                        #expect(splitTrailing != nil)
-                        trailingBottom = splitTrailing!
-                        references[trailingBottom] = pendingReferences!
-                    #expect(coordinator.snapshot.layout == .split(orientation: .stacked, leading: .two(first: leadingTop, second: leadingBottom), trailing: .two(first: trailingTop, second: trailingBottom)))
+                    var trailingFirst: PaneID!
+                    var leadingFirst: PaneID!
+                    var leadingSecond: PaneID!
+                    var trailingSecond: PaneID!
+                    let splitTop = coordinator.split(direction: .stacked)
+                    #expect(splitTop != nil)
+                    trailingFirst = splitTop!
+                    references[trailingFirst] = pendingReferences!
+                    let leading = coordinator.snapshot.layout.paneIDs.first { $0 != trailingFirst }
+                    #expect(leading != nil)
+                    leadingFirst = leading!
+                    #expect(coordinator.activatePane(leadingFirst))
+                    let splitLeading = coordinator.split(direction: .sideBySide)
+                    #expect(splitLeading != nil)
+                    leadingSecond = splitLeading!
+                    references[leadingSecond] = pendingReferences!
+                    #expect(coordinator.activatePane(trailingFirst))
+                    let splitTrailing = coordinator.split(direction: .sideBySide)
+                    #expect(splitTrailing != nil)
+                    trailingSecond = splitTrailing!
+                    references[trailingSecond] = pendingReferences!
+                    #expect(coordinator.snapshot.layout == .split(orientation: .stacked, leading: .two(first: leadingFirst, second: leadingSecond), trailing: .two(first: trailingFirst, second: trailingSecond)))
 
                     let removed: [WeakSessionObjects]
                     switch path {
                     case .bandMemberCollapse:
                         #expect(coordinator.closeActiveTab())
-                        removed = [references[trailingBottom]!]
-                        #expect(coordinator.snapshot.layout == .split(orientation: .stacked, leading: .two(first: leadingTop, second: leadingBottom), trailing: .one(trailingTop)))
-                        #expect(coordinator.store(for: trailingTop)?.activeSession != nil)
+                        removed = [references[trailingSecond]!]
+                        #expect(coordinator.snapshot.layout == .split(orientation: .stacked, leading: .two(first: leadingFirst, second: leadingSecond), trailing: .one(trailingFirst)))
+                        #expect(coordinator.store(for: trailingFirst)?.activeSession != nil)
                     case .bandCollapse:
                         #expect(coordinator.closeActiveTab())
-                        #expect(coordinator.activatePane(trailingTop))
+                        #expect(coordinator.activatePane(trailingFirst))
                         #expect(coordinator.closeActiveTab())
-                        removed = [references[trailingBottom]!, references[trailingTop]!]
-                        #expect(coordinator.snapshot.layout == .split(orientation: .sideBySide, leading: .one(leadingTop), trailing: .one(leadingBottom)))
-                        #expect(coordinator.store(for: leadingTop)?.activeSession != nil)
+                        removed = [references[trailingSecond]!, references[trailingFirst]!]
+                        #expect(coordinator.snapshot.layout == .split(orientation: .sideBySide, leading: .one(leadingFirst), trailing: .one(leadingSecond)))
+                        #expect(coordinator.store(for: leadingFirst)?.activeSession != nil)
                     case .globalUnsplit:
-                        #expect(coordinator.activatePane(leadingTop))
+                        #expect(coordinator.activatePane(leadingFirst))
                         #expect(coordinator.unsplit())
-                        removed = [references[trailingTop]!, references[leadingBottom]!, references[trailingBottom]!]
-                        #expect(coordinator.snapshot.layout == .single(leadingTop))
+                        removed = [references[trailingFirst]!, references[leadingSecond]!, references[trailingSecond]!]
+                        #expect(coordinator.snapshot.layout == .single(leadingFirst))
                         #expect(coordinator.activeSession === original)
                     }
                     coordinator.snapshot.assertCardinality()
@@ -488,46 +522,45 @@ struct PaneCoordinatorTests {
         }
     }
 
-    @Test("cross-column focus preserves the row in 2x2 and uses memory only from a full-height source")
-    func crossColumnFocusRowSemantics() throws {
-        // tmux semantics (verified against tmux 3.6a): with both columns
-        // split, crossing lands in the SAME row — the source row overlaps
-        // exactly one destination pane, so the move is geometric, not
-        // memory-driven. Memory applies only when the source column is a
-        // full-height .one pane overlapping both destination rows.
+    @Test("cross-band focus preserves the same slot in 2x2 and uses memory only from a full-span source")
+    func crossBandFocusSameSlotSemantics() throws {
+        // tmux semantics (verified against tmux 3.6a): with both bands split,
+        // crossing lands in the same slot. The source slot overlaps exactly one
+        // destination pane, so the move is geometric, not memory-driven.
+        // Memory applies only when the source band is a full-span `.one` pane
+        // overlapping both destination slots.
         let coordinator = PaneCoordinator()
         var duplicates = (1...3).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }
         coordinator.configureDuplication { _ in duplicates.removeFirst() }
         #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Origin.pdf"), into: .createIfEmpty))
-        let trailingTop = try #require(coordinator.split(direction: .sideBySide))
-        let leadingTop = try #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailingTop })
+        let trailingFirst = try #require(coordinator.split(direction: .sideBySide))
+        let leadingFirst = try #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailingFirst })
 
-        // 1+2: leading full-height, trailing split. Ambiguous crossing uses
-        // the trailing column's remembered row.
-        let trailingBottom = try #require(coordinator.split(direction: .stacked))
-        #expect(coordinator.activePaneID == trailingBottom)
+        // 1+2: a leading full-span source uses the trailing band's remembered slot.
+        let trailingSecond = try #require(coordinator.split(direction: .stacked))
+        #expect(coordinator.activePaneID == trailingSecond)
         #expect(coordinator.focus(.left))
-        #expect(coordinator.activePaneID == leadingTop)
+        #expect(coordinator.activePaneID == leadingFirst)
         #expect(coordinator.focus(.right))
-        #expect(coordinator.activePaneID == trailingBottom, "full-height source lands on remembered row")
+        #expect(coordinator.activePaneID == trailingSecond, "full-span source lands on the remembered slot")
         #expect(coordinator.focus(.up))
         #expect(coordinator.focus(.left))
         #expect(coordinator.focus(.right))
-        #expect(coordinator.activePaneID == trailingTop, "memory tracks the most recently focused row")
+        #expect(coordinator.activePaneID == trailingFirst, "memory tracks the most recently focused slot")
 
-        // 2x2: crossing preserves the row regardless of memory.
-        #expect(coordinator.activatePane(leadingTop))
-        let leadingBottom = try #require(coordinator.split(direction: .stacked))
-        #expect(coordinator.activatePane(trailingBottom))   // trailing memory = bottom
-        #expect(coordinator.activatePane(leadingTop))
+        // 2x2: crossing preserves the same slot regardless of memory.
+        #expect(coordinator.activatePane(leadingFirst))
+        let leadingSecond = try #require(coordinator.split(direction: .stacked))
+        #expect(coordinator.activatePane(trailingSecond)) // trailing memory = second
+        #expect(coordinator.activatePane(leadingFirst))
         #expect(coordinator.focus(.right))
-        #expect(coordinator.activePaneID == trailingTop, "2x2 top row crosses to top row, ignoring bottom memory")
+        #expect(coordinator.activePaneID == trailingFirst, "first slot crosses to first slot, ignoring second-slot memory")
         #expect(coordinator.focus(.left))
-        #expect(coordinator.activePaneID == leadingTop)
+        #expect(coordinator.activePaneID == leadingFirst)
         #expect(coordinator.focus(.down))
-        #expect(coordinator.activePaneID == leadingBottom)
+        #expect(coordinator.activePaneID == leadingSecond)
         #expect(coordinator.focus(.right))
-        #expect(coordinator.activePaneID == trailingBottom, "2x2 bottom row crosses to bottom row")
+        #expect(coordinator.activePaneID == trailingSecond, "second slot crosses to second slot")
         #expect(!coordinator.focus(.right))
         #expect(!coordinator.focus(.down))
     }
@@ -830,8 +863,8 @@ struct PaneCoordinatorTests {
         }
     }
 
-    @Test("rejected gated projection preserves focus memory")
-    func rejectedGatedProjectionPreservesFocusMemory() throws {
+    @Test("rejected stacked-outer projection preserves focus memory")
+    func rejectedStackedOuterProjectionPreservesFocusMemory() throws {
             let fixture = makeFocusFixture(outer: .stacked, leadingTwo: false, trailingTwo: true)
             #expect(fixture.coordinator.activatePane(fixture.trailing[1]))
             #expect(!fixture.coordinator.closeActiveTab { _ in false })

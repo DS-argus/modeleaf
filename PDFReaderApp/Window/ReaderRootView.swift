@@ -40,8 +40,8 @@ final class ReaderRootView: NSView {
     var onPaneNewTab: ((PaneID) -> Void)?
     private var renderedSessionSnapshot: ReaderSessionStoreSnapshot?
     /// Absolute divider positions owned by pane topology, keyed by the
-    /// unordered pane pair of a stacked column; captured only from committed
-    /// renders or real user drags.
+    /// unordered pane pair owned by a split band's inner divider; captured
+    /// only from committed renders or real user drags.
     private var innerDividerPositions: [Set<PaneID>: CGFloat] = [:]
     private var outerDividerPosition: (orientation: PaneOrientation, position: CGFloat)?
     private var capturesDividerPositions = true
@@ -116,24 +116,6 @@ final class ReaderRootView: NSView {
         emptyState.isHidden = true
         paneContainer.isHidden = false
         switch snapshot.layout {
-        case let .single(id):
-            paneContainer.isHidden = true
-            if isCommitted {
-                hadCommittedSplit = false
-                outerDividerPosition = nil
-                committedLayout = snapshot.layout
-            }
-            leadingBandHost.install(render(stack: .one(id), side: .leading, outerOrientation: .sideBySide, snapshot: snapshot, isCommitted: isCommitted))
-            leadingBandHost.prepareForAutoLayout()
-            if leadingBandHost.superview !== contentHost {
-                contentHost.addSubview(leadingBandHost)
-                NSLayoutConstraint.activate([
-                    leadingBandHost.topAnchor.constraint(equalTo: contentHost.topAnchor),
-                    leadingBandHost.leadingAnchor.constraint(equalTo: contentHost.leadingAnchor),
-                    leadingBandHost.trailingAnchor.constraint(equalTo: contentHost.trailingAnchor),
-                    leadingBandHost.bottomAnchor.constraint(equalTo: contentHost.bottomAnchor),
-                ])
-            }
         case let .split(orientation, leading, trailing):
             leadingBandHost.removeFromSuperview()
             leadingBandHost.install(render(stack: leading, side: .leading, outerOrientation: orientation, snapshot: snapshot, isCommitted: isCommitted))
@@ -163,8 +145,8 @@ final class ReaderRootView: NSView {
                 hadCommittedSplit = true
                 committedLayout = snapshot.layout
             }
-        case .empty:
-            break
+        case .empty, .single:
+            preconditionFailure("multi-pane render requires a split layout: \(snapshot.layout)")
         }
         renderStatus(snapshot.activeStatus)
     }
@@ -189,7 +171,7 @@ final class ReaderRootView: NSView {
             if isCommitted { currentInnerPairsByBand[side] = nil }
             return configurePane(id, snapshot: snapshot, label: bandLabel)
         case let .two(first, second):
-            let innerOrientation: PaneOrientation = outerOrientation == .sideBySide ? .stacked : .sideBySide
+            let innerOrientation = outerOrientation.perpendicular
             let firstLabel = outerOrientation == .stacked ? "\(bandLabel) Left" : "\(bandLabel) Top"
             let secondLabel = outerOrientation == .stacked ? "\(bandLabel) Right" : "\(bandLabel) Bottom"
             let container = side == .leading ? leadingBandContainer : trailingBandContainer

@@ -1,5 +1,24 @@
 # tmux Normative Reference (scripted probes)
 
+## Provenance and oracle status
+
+- The APPROVED NORMATIVE ORACLE is the consensus plan's rule tables
+  (pending-approval.md sections "Focus & Memory" and "Final split rule"),
+  which the user approved after the original interactive verification session
+  against tmux 3.6a (scripted probes in the review round that produced commit
+  86e0b04: split-in-place geometry, 2x2 same-slot crossing, full-span MRU).
+- THIS document's raw tables were regenerated on this machine with the
+  currently installed binary, tmux 3.7b (the machine's tmux was upgraded
+  between sessions). They are SUPPORTING EVIDENCE reproducing the approved
+  rules, not a replacement oracle. Every probe below is reproducible from the
+  committed generator flow (S0 stage, python driver over `tmux new-session /
+  split-window / select-pane / list-panes`).
+- No claim of cross-version identity is made beyond what these probes show:
+  the 3.7b results match the plan's approved rule tables cell-for-cell for
+  split-in-place (6 flows), same-slot crossing (both 2x2 tables), and MRU
+  (4 probes, both axes). Any future discrepancy between a probe and the plan
+  tables resolves in favor of the plan tables plus a user decision.
+
 tmux version: tmux 3.7b
 Session 101x41. Geometry tags: L/R(left/right), T/B(top/bottom), fw/fh(full width/height), hw/hh(half).
 
@@ -150,4 +169,4 @@ only when the move crosses an interior divider; edge-wrap rows map to no-op.
 3. Crossing from a full-span pane into a split band lands on that band's most-recently-used member; unvisited bands default to the first (top/left) member (verified: MRU probes, both axes).
 4. Boundary moves are strict no-ops (Modeleaf adaptation; tmux default wraps instead).
 5. Perpendicular moves stay within the active band.
-6. Probe binary: tmux 3.7b on this machine (original verification was 3.6a; rules 1-3 and 5 are identical across both).
+6. Probe binary: tmux 3.7b (see Provenance above; the approved oracle is the plan's rule tables, which these probes reproduce).

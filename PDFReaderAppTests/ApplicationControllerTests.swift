@@ -124,7 +124,7 @@ struct ApplicationControllerTests {
     func deferredPaneOpenRejectsRemovedFourPaneTargets() throws {
         try withTemporaryDirectory { directory in
             let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1)
-            for removal in [DeferredPaneRemoval.rowCollapse, .globalUnsplit] {
+            for removal in [DeferredPaneRemoval.bandMemberCollapse, .globalUnsplit] {
                 let store = ReaderSessionStore()
                 #expect(store.insert(try PDFOpenService().open(url: url)))
                 let metrics = ControllerRecordingMetrics()
@@ -159,7 +159,7 @@ struct ApplicationControllerTests {
                 #expect(openPanel.capturedCompletion != nil)
 
                 switch removal {
-                case .rowCollapse:
+                case .bandMemberCollapse:
                     #expect(controller.coordinator.closeActiveTab())
                     #expect(controller.coordinator.snapshot.layout.paneIDs.count == 3)
                 case .globalUnsplit:
@@ -355,7 +355,7 @@ struct ApplicationControllerTests {
     }
 }
 private enum DeferredPaneRemoval {
-    case rowCollapse
+    case bandMemberCollapse
     case globalUnsplit
 }
 

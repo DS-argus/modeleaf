@@ -7,7 +7,7 @@ import PDFReaderCore
 @Suite("Pane focus, routing, and shared chrome")
 @MainActor
 struct PaneShellTests {
-    private enum ShellTopology { case leadingStack, trailingStack, twoByTwo }
+    private enum ShellTopology { case leadingBandPair, trailingBandPair, twoBandPairs }
     @Test("pointer activation precedes canvas and tab-bar operations")
     func pointerActivationOrdering() {
         let pane = PaneView(id: PaneID(), trafficLightInset: 0)
@@ -529,10 +529,10 @@ struct PaneShellTests {
     }
     @Test("480 by 360 three-divider matrix keeps every pane surface reachable")
     func minimumWindowThreeDividerMatrix() throws {
-        enum Topology: Equatable { case twoByTwo, leadingStack, trailingStack }
+        enum Topology: Equatable { case twoBandPairs, leadingBandPair, trailingBandPair }
 
         for outerOrientation in [PaneOrientation.sideBySide, .stacked] {
-        for topology in [Topology.twoByTwo, .leadingStack, .trailingStack] {
+        for topology in [Topology.twoBandPairs, .leadingBandPair, .trailingBandPair] {
             let coordinator = PaneCoordinator()
             var duplicates = (1...3).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }
             coordinator.configureDuplication { _ in duplicates.removeFirst() }
@@ -540,18 +540,18 @@ struct PaneShellTests {
 
             let innerOrientation: PaneOrientation = outerOrientation == .sideBySide ? .stacked : .sideBySide
             switch topology {
-            case .twoByTwo:
+            case .twoBandPairs:
                 let trailing = try #require(coordinator.split(direction: outerOrientation))
                 #expect(coordinator.split(direction: innerOrientation) != nil)
                 let leading = try #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailing })
                 #expect(coordinator.activatePane(leading))
                 #expect(coordinator.split(direction: innerOrientation) != nil)
-            case .leadingStack:
+            case .leadingBandPair:
                 let trailing = try #require(coordinator.split(direction: outerOrientation))
                 let leading = try #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailing })
                 #expect(coordinator.activatePane(leading))
                 #expect(coordinator.split(direction: innerOrientation) != nil)
-            case .trailingStack:
+            case .trailingBandPair:
                 #expect(coordinator.split(direction: outerOrientation) != nil)
                 #expect(coordinator.split(direction: innerOrientation) != nil)
             }
@@ -569,7 +569,7 @@ struct PaneShellTests {
             let containers = paneContainers(in: controller.rootView)
             let outer = try #require(containers.first { $0.isVertical == (outerOrientation == .sideBySide) })
             let inner = containers.filter { $0 !== outer }
-            #expect(inner.count == (topology == .twoByTwo ? 2 : 1))
+            #expect(inner.count == (topology == .twoBandPairs ? 2 : 1))
 
             let dividerCombinations = 0..<(1 << (inner.count + 1))
             for combination in dividerCombinations {
@@ -617,7 +617,7 @@ struct PaneShellTests {
 
     @Test("projected collapse rollback preserves outer and inner divider positions")
     func dividerRollbackMatrix() throws {
-        // Row tier: reject removing one member of a .two stack in a 2x2.
+        // Inner-band tier: reject removing one member of a .two band in a four-pane layout.
         do {
             let fixture = fourPaneShellFixture()
             let controller = makeController(fixture.coordinator)
@@ -633,7 +633,7 @@ struct PaneShellTests {
             inner.onDividerMoved?(inner.currentDividerPosition)
             controller.rootView.layoutSubtreeIfNeeded()
             let before = (outer.currentDividerPosition, inner.currentDividerPosition)
-            #expect(fixture.coordinator.activatePane(fixture.trailingBottom))
+            #expect(fixture.coordinator.activatePane(fixture.trailingSecond))
             #expect(!fixture.coordinator.closeActiveTab { projected in
                 controller.rootView.render(snapshot: projected, isCommitted: false)
                 return false
@@ -645,9 +645,9 @@ struct PaneShellTests {
             assertSplitChildrenLaidOut(inner)
             assertSplitChildrenLaidOut(outer)
         }
-        // Column tier: commit a row collapse so the leading column is .one,
-        // then reject closing that last pane (a genuine .columnCollapse
-        // projection to .single(.two)) and require outer plus surviving
+        // Outer-band tier: commit a band-member collapse so the leading band is .one,
+        // then reject closing that final member (a genuine band promotion
+        // projection to .split(.stacked, .one, .one)) and require the outer plus surviving
         // trailing-pair divider state restored verbatim.
         do {
             let fixture = fourPaneShellFixture()
@@ -656,10 +656,10 @@ struct PaneShellTests {
             let window = try #require(controller.window as? ReaderWindow)
             window.orderFrontRegardless()
             controller.rootView.layoutSubtreeIfNeeded()
-            #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
+            #expect(fixture.coordinator.activatePane(fixture.leadingSecond))
             #expect(fixture.coordinator.closeActiveTab())
             guard case .split(_, .one, .two) = fixture.coordinator.snapshot.layout else {
-                Issue.record("Expected committed row collapse to .split(.one, .two)")
+                Issue.record("Expected committed band-member collapse to .split(.one, .two)")
                 return
             }
             controller.rootView.layoutSubtreeIfNeeded()
@@ -671,14 +671,14 @@ struct PaneShellTests {
             inner.onDividerMoved?(inner.currentDividerPosition)
             controller.rootView.layoutSubtreeIfNeeded()
             let before = (outer.currentDividerPosition, inner.currentDividerPosition)
-            #expect(fixture.coordinator.activatePane(fixture.leadingTop))
-            var sawColumnProjection = false
+            #expect(fixture.coordinator.activatePane(fixture.leadingFirst))
+            var sawBandPromotionProjection = false
             #expect(!fixture.coordinator.closeActiveTab { projected in
-                if case .split(orientation: .stacked, leading: .one, trailing: .one) = projected.layout { sawColumnProjection = true }
+                if case .split(orientation: .stacked, leading: .one, trailing: .one) = projected.layout { sawBandPromotionProjection = true }
                 controller.rootView.render(snapshot: projected, isCommitted: false)
                 return false
             })
-            #expect(sawColumnProjection, "rejected close must project a column collapse to .single(.two)")
+            #expect(sawBandPromotionProjection, "rejected close must project a band promotion to .split(.stacked, .one, .one)")
             drainRunLoop()
             controller.rootView.layoutSubtreeIfNeeded()
             #expect(abs(outer.currentDividerPosition - before.0) < 0.5)
@@ -688,13 +688,13 @@ struct PaneShellTests {
         }
     }
 
-    @Test("fourth split preserves untouched column and outer divider positions")
+    @Test("fourth split preserves untouched band and outer divider positions")
     func fourthSplitPreservesOtherDividers() throws {
         // User-reported: growing 3-pane (2+1) to 2x2 visibly shifted the
-        // opposite column's divider. Custom outer and leading-stack positions
-        // must survive the trailing column's split verbatim; only the new
-        // trailing pair starts at half.
-        let fixture = paneShellFixture(.leadingStack)
+        // opposite band's inner-divider position. Custom outer and leading-band positions
+        // must survive the trailing band's split verbatim; only the new
+        // trailing band pair starts at half.
+        let fixture = paneShellFixture(.leadingBandPair)
         let controller = makeController(fixture.coordinator)
         defer { controller.close() }
         let window = try #require(controller.window as? ReaderWindow)
@@ -761,7 +761,7 @@ struct PaneShellTests {
         leading.onDividerMoved?(leading.currentDividerPosition)
         #expect(abs(leading.currentDividerPosition - innerPosition) < 0.5)
 
-        #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
+        #expect(fixture.coordinator.activatePane(fixture.leadingSecond))
         #expect(fixture.coordinator.closeActiveTab())
         let freshBottom = try #require(fixture.coordinator.split(direction: .stacked))
         let fresh = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.leadingBand") as? PaneContainerView)
@@ -769,7 +769,7 @@ struct PaneShellTests {
         controller.rootView.layoutSubtreeIfNeeded()
         let available = fresh.bounds.height - fresh.dividerThickness
         #expect(abs(fresh.currentDividerPosition - available / 2) < 0.5)
-        #expect(freshBottom != fixture.leadingBottom)
+        #expect(freshBottom != fixture.leadingSecond)
 
         let trailing = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingBand") as? PaneContainerView)
         trailing.setPosition(170, ofDividerAt: 0)
@@ -777,42 +777,47 @@ struct PaneShellTests {
         trailing.onDividerMoved?(trailing.currentDividerPosition)
         #expect(fixture.coordinator.activatePane(freshBottom))
         #expect(fixture.coordinator.closeActiveTab())
-        #expect(fixture.coordinator.activatePane(fixture.leadingTop))
+        #expect(fixture.coordinator.activatePane(fixture.leadingFirst))
         #expect(fixture.coordinator.closeActiveTab())
         controller.rootView.layoutSubtreeIfNeeded()
         let surviving = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
         #expect(abs(surviving.currentDividerPosition - 170) < 0.5)
     }
 
-    @Test("three and four pane pointer activation table keeps chrome and key loops pane-scoped")
+    @Test("three- and four-pane chrome stays pane-scoped across outer orientations and band shapes")
     func multiPaneInteractionTable() throws {
-        for topology in [ShellTopology.leadingStack, .trailingStack, .twoByTwo] {
-            let fixture = paneShellFixture(topology)
-            let controller = makeController(fixture.coordinator)
-            defer { controller.close() }
-            let window = try #require(controller.window as? ReaderWindow)
-            window.orderFrontRegardless()
-            window.makeKey()
-            controller.rootView.layoutSubtreeIfNeeded()
-            for paneID in fixture.coordinator.snapshot.layout.paneIDs {
-                let pane = try #require(controller.rootView.paneViewForTesting(paneID))
-                sendMouseDown(to: pane, at: NSPoint(x: pane.bounds.midX, y: pane.bounds.midY), in: window)
-                #expect(fixture.coordinator.activePaneID == paneID)
-                let panes = try fixture.coordinator.snapshot.layout.paneIDs.map { try #require(controller.rootView.paneViewForTesting($0)) }
-                #expect(panes.filter { $0.accessibilityValue() as? String == "active" }.count == 1)
-                #expect(pane.accessibilityLabel() == expectedPositionLabel(for: paneID, layout: fixture.coordinator.snapshot.layout))
-                #expect(fixture.coordinator.snapshot.activeFocusView?.nextKeyView === pane.orderedKeyViews.first)
+        let topologies: [ShellTopology] = [.leadingBandPair, .trailingBandPair, .twoBandPairs]
+        for outerOrientation in [PaneOrientation.sideBySide, .stacked] {
+            for topology in topologies {
+                let fixture = paneShellFixture(topology, outer: outerOrientation)
+                let controller = makeController(fixture.coordinator)
+                defer { controller.close() }
+                let window = try #require(controller.window as? ReaderWindow)
+                window.orderFrontRegardless()
+                window.makeKey()
+                controller.rootView.layoutSubtreeIfNeeded()
+                #expect(controller.rootView.tabBar.isHidden)
+                for paneID in fixture.coordinator.snapshot.layout.paneIDs {
+                    let pane = try #require(controller.rootView.paneViewForTesting(paneID))
+                    #expect(!pane.tabBar.isHidden)
+                    sendMouseDown(to: pane, at: NSPoint(x: pane.bounds.midX, y: pane.bounds.midY), in: window)
+                    #expect(fixture.coordinator.activePaneID == paneID)
+                    let panes = try fixture.coordinator.snapshot.layout.paneIDs.map { try #require(controller.rootView.paneViewForTesting($0)) }
+                    #expect(panes.filter { $0.accessibilityValue() as? String == "active" }.count == 1)
+                    #expect(pane.accessibilityLabel() == expectedPositionLabel(for: paneID, layout: fixture.coordinator.snapshot.layout))
+                    #expect(fixture.coordinator.snapshot.activeFocusView?.nextKeyView === pane.orderedKeyViews.first)
+                }
             }
         }
 
-        let nested = paneShellFixture(.twoByTwo)
+        let nested = paneShellFixture(.twoBandPairs)
         let controller = makeController(nested.coordinator)
         defer { controller.close() }
         let window = try #require(controller.window)
         window.orderFrontRegardless()
         controller.presentPrompt(PromptPresentation(kind: .search, text: "nested", validationMessage: nil))
         let responder = controller.rootView.promptOverlay.textField.currentEditor()
-        #expect(nested.coordinator.activatePane(nested.trailingBottom))
+        #expect(nested.coordinator.activatePane(nested.trailingSecond))
         var promptOwnedProjection = false
         #expect(nested.coordinator.closeActiveTab { _ in
             promptOwnedProjection = window.firstResponder === responder
@@ -831,7 +836,7 @@ struct PaneShellTests {
             outer.setPosition(240, ofDividerAt: 0); leading.setPosition(260, ofDividerAt: 0)
             outer.onDividerMoved?(outer.currentDividerPosition); leading.onDividerMoved?(leading.currentDividerPosition)
             let before = (outer.currentDividerPosition, leading.currentDividerPosition)
-            #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
+            #expect(fixture.coordinator.activatePane(fixture.leadingSecond))
             #expect(!fixture.coordinator.closeActiveTab { projected in
                 controller.rootView.render(snapshot: projected, isCommitted: false)
                 return false
@@ -841,7 +846,7 @@ struct PaneShellTests {
             #expect(abs(leading.currentDividerPosition - before.1) < 0.5)
             assertSplitChildrenLaidOut(outer); assertSplitChildrenLaidOut(leading)
 
-            #expect(fixture.coordinator.activatePane(fixture.trailingBottom))
+            #expect(fixture.coordinator.activatePane(fixture.trailingSecond))
             #expect(fixture.coordinator.closeActiveTab())
             let trailingSolo = try #require(fixture.coordinator.snapshot.layout.paneIDs.first { fixture.coordinator.snapshot.layout.side(of: $0) == .trailing })
             #expect(fixture.coordinator.activatePane(trailingSolo))
@@ -860,14 +865,14 @@ struct PaneShellTests {
             let controller = makeController(fixture.coordinator)
             defer { controller.close() }
             controller.rootView.layoutSubtreeIfNeeded()
-            #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
+            #expect(fixture.coordinator.activatePane(fixture.leadingSecond))
             #expect(fixture.coordinator.closeActiveTab())
             let outer = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer") as? PaneContainerView)
             let pair = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingBand") as? PaneContainerView)
             outer.setPosition(210, ofDividerAt: 0); pair.setPosition(275, ofDividerAt: 0)
             outer.onDividerMoved?(outer.currentDividerPosition); pair.onDividerMoved?(pair.currentDividerPosition)
             let before = (outer.currentDividerPosition, pair.currentDividerPosition)
-            #expect(fixture.coordinator.activatePane(fixture.leadingTop))
+            #expect(fixture.coordinator.activatePane(fixture.leadingFirst))
             var sawAxisFlip = false
             #expect(!fixture.coordinator.closeActiveTab { projected in
                 if case .split(orientation: .sideBySide, leading: .one, trailing: .one) = projected.layout { sawAxisFlip = true }
@@ -888,63 +893,35 @@ struct PaneShellTests {
             assertSplitChildrenLaidOut(promoted)
     }
 
-    @Test("stacked outer multi-pane chrome is pane-scoped through pointer activation")
-    func stackedOuterMultiPaneInteractionTable() throws {
-            for topology in [ShellTopology.leadingStack, .trailingStack, .twoByTwo] {
-                let fixture = fourPaneShellFixture(outer: .stacked)
-                switch topology {
-                case .leadingStack:
-                    #expect(fixture.coordinator.activatePane(fixture.trailingBottom)); #expect(fixture.coordinator.closeActiveTab())
-                case .trailingStack:
-                    #expect(fixture.coordinator.activatePane(fixture.leadingBottom)); #expect(fixture.coordinator.closeActiveTab())
-                case .twoByTwo: break
-                }
-                let controller = makeController(fixture.coordinator)
-                defer { controller.close() }
-                let window = try #require(controller.window as? ReaderWindow)
-                window.orderFrontRegardless(); window.makeKey(); controller.rootView.layoutSubtreeIfNeeded()
-                #expect(controller.rootView.tabBar.isHidden)
-                for paneID in fixture.coordinator.snapshot.layout.paneIDs {
-                    let pane = try #require(controller.rootView.paneViewForTesting(paneID))
-                    #expect(!pane.tabBar.isHidden)
-                    sendMouseDown(to: pane, at: NSPoint(x: pane.bounds.midX, y: pane.bounds.midY), in: window)
-                    #expect(fixture.coordinator.activePaneID == paneID)
-                    #expect(pane.accessibilityLabel() == expectedPositionLabel(for: paneID, layout: fixture.coordinator.snapshot.layout))
-                    #expect(fixture.coordinator.snapshot.activeFocusView?.nextKeyView === pane.orderedKeyViews.first)
-                    let panes = try fixture.coordinator.snapshot.layout.paneIDs.map { try #require(controller.rootView.paneViewForTesting($0)) }
-                    #expect(panes.filter { $0.accessibilityValue() as? String == "active" }.count == 1)
-                }
-            }
-    }
 
     private func makeController(_ coordinator: PaneCoordinator) -> MainWindowController {
         MainWindowController(coordinator: coordinator, theme: AppKitTheme(configuration: BuiltInDefaults.config.theme), actionHandler: { _ in })
     }
 
-    private func fourPaneShellFixture(outer: PaneOrientation = .sideBySide) -> (coordinator: PaneCoordinator, leadingTop: PaneID, leadingBottom: PaneID, trailingTop: PaneID, trailingBottom: PaneID) {
+    private func fourPaneShellFixture(outer: PaneOrientation = .sideBySide) -> (coordinator: PaneCoordinator, leadingFirst: PaneID, leadingSecond: PaneID, trailingFirst: PaneID, trailingSecond: PaneID) {
         let coordinator = PaneCoordinator()
         var duplicates = (1...5).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }
         coordinator.configureDuplication { _ in duplicates.removeFirst() }
         #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Origin.pdf"), into: .createIfEmpty))
-        let trailingTop = try! #require(coordinator.split(direction: outer))
-        let leadingTop = try! #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailingTop })
-        #expect(coordinator.activatePane(leadingTop))
-        let leadingBottom = try! #require(coordinator.split(direction: outer == .sideBySide ? .stacked : .sideBySide))
-        #expect(coordinator.activatePane(trailingTop))
-        let trailingBottom = try! #require(coordinator.split(direction: outer == .sideBySide ? .stacked : .sideBySide))
-        return (coordinator, leadingTop, leadingBottom, trailingTop, trailingBottom)
+        let trailingFirst = try! #require(coordinator.split(direction: outer))
+        let leadingFirst = try! #require(coordinator.snapshot.layout.paneIDs.first { $0 != trailingFirst })
+        #expect(coordinator.activatePane(leadingFirst))
+        let leadingSecond = try! #require(coordinator.split(direction: outer == .sideBySide ? .stacked : .sideBySide))
+        #expect(coordinator.activatePane(trailingFirst))
+        let trailingSecond = try! #require(coordinator.split(direction: outer == .sideBySide ? .stacked : .sideBySide))
+        return (coordinator, leadingFirst, leadingSecond, trailingFirst, trailingSecond)
     }
 
-    private func paneShellFixture(_ topology: ShellTopology) -> (coordinator: PaneCoordinator, leadingTop: PaneID, leadingBottom: PaneID, trailingTop: PaneID, trailingBottom: PaneID) {
-        let fixture = fourPaneShellFixture()
+    private func paneShellFixture(_ topology: ShellTopology, outer: PaneOrientation = .sideBySide) -> (coordinator: PaneCoordinator, leadingFirst: PaneID, leadingSecond: PaneID, trailingFirst: PaneID, trailingSecond: PaneID) {
+        let fixture = fourPaneShellFixture(outer: outer)
         switch topology {
-        case .leadingStack:
-            #expect(fixture.coordinator.activatePane(fixture.trailingBottom))
+        case .leadingBandPair:
+            #expect(fixture.coordinator.activatePane(fixture.trailingSecond))
             #expect(fixture.coordinator.closeActiveTab())
-        case .trailingStack:
-            #expect(fixture.coordinator.activatePane(fixture.leadingBottom))
+        case .trailingBandPair:
+            #expect(fixture.coordinator.activatePane(fixture.leadingSecond))
             #expect(fixture.coordinator.closeActiveTab())
-        case .twoByTwo:
+        case .twoBandPairs:
             break
         }
         return fixture
@@ -1177,7 +1154,7 @@ struct PaneShellTests {
         return try #require(coordinator.split(direction: .sideBySide))
     }
 
-    @Test("asymmetric three-pane rendering nests only the stacked column")
+    @Test("asymmetric three-pane rendering nests only the stacked band")
     func asymmetricNestedPaneRendering() throws {
         let coordinator = PaneCoordinator()
         var duplicates = [

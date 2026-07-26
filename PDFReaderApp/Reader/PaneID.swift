@@ -5,7 +5,13 @@ struct PaneID: RawRepresentable, Hashable, Sendable {
     init(rawValue: UUID = UUID()) { self.rawValue = rawValue }
 }
 
-enum PaneOrientation: Equatable, Sendable { case sideBySide, stacked }
+enum PaneOrientation: Equatable, Sendable {
+    case sideBySide, stacked
+
+    var perpendicular: PaneOrientation {
+        self == .sideBySide ? .stacked : .sideBySide
+    }
+}
 enum PaneFocusDirection: Equatable, Sendable { case left, down, up, right }
 enum PaneBandSide: Equatable, Sendable { case leading, trailing }
 enum PaneBandSlot: Equatable, Sendable { case first, second }

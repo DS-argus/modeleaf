@@ -36,6 +36,39 @@ struct PaneRedTeamTests {
             check(fixture.coordinator.snapshot.layout == settledLayout)
         }
         caseOutcomes["AC-2 split ceiling both directions / rapid repeat"] = casePassed
+
+        beginCase()
+        for outerOrientation in [PaneOrientation.sideBySide, .stacked] {
+            let coordinator = PaneCoordinator()
+            var duplicationCalls = 0
+            var completionCalls = 0
+            var emissions = 0
+            coordinator.configureDuplication { _ in
+                duplicationCalls += 1
+                return RedTeamSession(title: "Duplicate \(duplicationCalls).pdf", page: duplicationCalls, color: .systemOrange)
+            }
+            coordinator.configureDuplicationCompletion { _, _ in completionCalls += 1 }
+            coordinator.onSnapshot = { _ in emissions += 1 }
+            check(coordinator.insert(RedTeamSession(title: "Origin.pdf", page: 1, color: .systemBlue), into: .createIfEmpty))
+            check(coordinator.split(direction: outerOrientation) != nil)
+            let perpendicular: PaneOrientation = outerOrientation == .sideBySide ? .stacked : .sideBySide
+            check(coordinator.split(direction: perpendicular) != nil)
+            let remainingOuterPane = try! #require(coordinator.snapshot.layout.paneIDs.first { coordinator.snapshot.layout.side(of: $0) == .leading })
+            check(coordinator.activatePane(remainingOuterPane))
+            check(coordinator.split(direction: perpendicular) != nil)
+            check(coordinator.snapshot.layout.paneIDs.count == 4)
+
+            for paneID in coordinator.snapshot.layout.paneIDs {
+                check(coordinator.activatePane(paneID))
+                let settled = coordinator.snapshot
+                let sideEffects = (duplicationCalls, completionCalls, emissions)
+                check(coordinator.split(direction: .sideBySide) == nil)
+                check(coordinator.split(direction: .stacked) == nil)
+                check(coordinator.snapshot.layout == settled.layout)
+                check(coordinator.snapshot.activePaneID == settled.activePaneID)
+                check((duplicationCalls, completionCalls, emissions) == sideEffects)
+            }
+        }
         caseOutcomes["Constrained-tree max-four-pane ceiling"] = casePassed
         beginCase()
         for paneCount in [3, 4] {
@@ -314,18 +347,26 @@ struct PaneRedTeamTests {
                 let root = controller.mainWindowController.rootView
                 root.needsLayout = true
                 root.layoutSubtreeIfNeeded()
-                // PDFKit draws pages through asynchronous tiling; an offscreen
-                // cacheDisplay taken before tiles land captures an empty
-                // canvas. Drain the run loop until both pane PDF surfaces
-                // produce non-uniform content (bounded retries).
+                // PDFKit tiles asynchronously; capture only after every pane's
+                // content region contains the fixture's non-uniform page pixels.
+                let contentFrames = try controller.coordinator.snapshot.layout.paneIDs.map { paneID in
+                    let surface = try #require(controller.coordinator.snapshot.paneContentViews[paneID])
+                    return surface.convert(surface.bounds, to: root)
+                }
+                var representation: NSBitmapImageRep?
                 for _ in 0..<25 {
                     window.displayIfNeeded()
                     RunLoop.main.run(until: Date().addingTimeInterval(0.2))
                     root.needsDisplay = true
+                    let candidate = try #require(root.bitmapImageRepForCachingDisplay(in: root.bounds))
+                    root.cacheDisplay(in: root.bounds, to: candidate)
+                    if contentFrames.allSatisfy({ hasNonUniformPixels(in: $0, representation: candidate, rootBounds: root.bounds) }) {
+                        representation = candidate
+                        break
+                    }
                 }
-                let representation = try #require(root.bitmapImageRepForCachingDisplay(in: root.bounds))
-                root.cacheDisplay(in: root.bounds, to: representation)
-                let png = try #require(representation.representation(using: .png, properties: [:]))
+                let settledRepresentation = try #require(representation, "Timed out waiting for non-uniform PDF pixels in every pane for \(name)")
+                let png = try #require(settledRepresentation.representation(using: .png, properties: [:]))
                 #expect(png.count > 50_000)
                 try png.write(to: output.appendingPathComponent(name))
             }
@@ -347,6 +388,23 @@ struct PaneRedTeamTests {
         ]
         let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
         try data.write(to: output.appendingPathComponent("adversarial-test-report.json"), options: .atomic)
+    }
+
+    private func hasNonUniformPixels(in frame: NSRect, representation: NSBitmapImageRep, rootBounds: NSRect) -> Bool {
+        let scaleX = CGFloat(representation.pixelsWide) / rootBounds.width
+        let scaleY = CGFloat(representation.pixelsHigh) / rootBounds.height
+        let sampledFrame = frame.insetBy(dx: min(8, frame.width / 8), dy: min(8, frame.height / 8))
+        let minX = max(0, Int((sampledFrame.minX - rootBounds.minX) * scaleX))
+        let maxX = min(representation.pixelsWide - 1, Int((sampledFrame.maxX - rootBounds.minX) * scaleX))
+        let minY = max(0, Int((sampledFrame.minY - rootBounds.minY) * scaleY))
+        let maxY = min(representation.pixelsHigh - 1, Int((sampledFrame.maxY - rootBounds.minY) * scaleY))
+        guard minX <= maxX, minY <= maxY, let baseline = representation.colorAt(x: minX, y: minY) else { return false }
+        for y in stride(from: minY, through: maxY, by: 4) {
+            for x in stride(from: minX, through: maxX, by: 4) {
+                if let color = representation.colorAt(x: x, y: y), !color.isEqual(baseline) { return true }
+            }
+        }
+        return false
     }
 }
 
