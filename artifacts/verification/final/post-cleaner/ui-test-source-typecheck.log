@@ -1,9 +1,0 @@
-$ PLATFORM=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer
-$ xcrun swiftc -typecheck -warnings-as-errors \
-    -sdk "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk" \
-    -target arm64-apple-macos14.0 \
-    -I "$PLATFORM/usr/lib" \
-    -F "$PLATFORM/Library/Frameworks" \
-    -framework XCTest -framework AppKit -framework CoreGraphics -framework CoreText \
-    PDFReaderUITests/*.swift
-PASS: 15 E2E workflow methods plus 1 scaffold method typecheck with warnings as errors.

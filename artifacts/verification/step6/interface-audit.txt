@@ -1,5 +1,0 @@
-status=passed
-module=PDFReaderApp
-constValueCount=0
-interpretation=The executable module exports no public Swift declarations; ReaderSession and view/session capabilities remain internal.
-publicABIRoot={"json_format_version": 8, "kind": "Root", "name": "NO_MODULE", "printedName": "NO_MODULE"}

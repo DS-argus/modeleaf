@@ -11,8 +11,6 @@ let package = Package(
         .library(name: "PDFReaderCore", targets: ["PDFReaderCore"]),
         .library(name: "PDFReaderTestSupport", targets: ["PDFReaderTestSupport"]),
         .executable(name: "Modeleaf", targets: ["PDFReaderApp"]),
-        .executable(name: "PDFReaderOpenProbe", targets: ["PDFReaderOpenProbe"]),
-        .executable(name: "step0-probe", targets: ["Step0Probe"]),
     ],
     dependencies: [
         .package(
@@ -50,28 +48,6 @@ let package = Package(
             name: "PDFReaderAppTests",
             dependencies: ["PDFReaderApp", "PDFReaderCore", "PDFReaderTestSupport"],
             path: "PDFReaderAppTests"
-        ),
-        .executableTarget(
-            name: "PDFReaderOpenProbe",
-            dependencies: ["PDFReaderTestSupport"],
-            path: "Tools/PDFReaderOpenProbe"
-        ),
-        .target(
-            name: "Step0ProbeSupport",
-            dependencies: [
-                .product(name: "TOMLDecoder", package: "TOMLDecoder"),
-            ],
-            path: "Spikes/Step0/Sources/Support"
-        ),
-        .executableTarget(
-            name: "Step0Probe",
-            dependencies: ["Step0ProbeSupport"],
-            path: "Spikes/Step0/Sources/Runner"
-        ),
-        .testTarget(
-            name: "Step0ProbeTests",
-            dependencies: ["Step0ProbeSupport"],
-            path: "Spikes/Step0/Tests"
         ),
     ]
 )

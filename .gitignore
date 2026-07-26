@@ -18,7 +18,5 @@ config.toml
 # Local-only product and verification notes are not published.
 .internal/
 
-# Local performance runs can contain machine details and private PDF metadata.
-artifacts/verification/pdfkit-fast-open/local/
-artifacts/verification/pdfkit-fast-open/reproducer-manifest.json
-artifacts/verification/pdfkit-fast-open/gate-freeze.json
+# Local build/verification evidence (logs, snapshots, xcresults) is not published.
+artifacts/

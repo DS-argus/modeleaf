@@ -1,5 +1,0 @@
-status=passed
-swift-test.log=0
-g008-targeted-tests.log=0
-swift-build-release.log=0
-swift-test-warnings-as-errors.log=0
