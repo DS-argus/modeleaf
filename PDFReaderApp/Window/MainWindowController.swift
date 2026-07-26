@@ -23,7 +23,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         keyDispatchHandler: ((KeyActionDispatch) -> Void)? = nil,
         validatedConfig: ValidatedAppConfig? = nil,
         openPaneHandler: ((PaneID) -> Void)? = nil,
-        currentThemeID: @escaping () -> ThemeID = { .catppuccinMocha },
+        currentThemeID: @escaping () -> ThemeID = { .tokyoNight },
         themePreviewHandler: @escaping (ThemeID) -> Void = { _ in },
         themeCommitHandler: @escaping (ThemeID) -> Void = { _ in },
         themeCancelHandler: @escaping (ThemeID) -> Void = { _ in }

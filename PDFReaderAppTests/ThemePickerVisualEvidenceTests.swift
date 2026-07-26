@@ -68,7 +68,7 @@ import Testing
         // 2. Open the picker and live-preview the light Catppuccin Latte preset.
         controller.mainWindowController.presentThemePicker()
         let overlay = controller.mainWindowController.rootView.themePickerOverlay
-        for _ in 0..<4 { _ = overlay.handleKeyDown(try #require(makeKeyEvent(characters: "", keyCode: 125))) }
+        for _ in 0..<5 { _ = overlay.handleKeyDown(try #require(makeKeyEvent(characters: "", keyCode: 125))) }
         #expect(!overlay.isHidden)
         #expect(controller.currentThemeID == .catppuccinLatte)
 

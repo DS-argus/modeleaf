@@ -331,7 +331,7 @@ struct ReaderSessionTests {
             )
             let controller = MainWindowController(
                 coordinator: coordinator,
-                theme: AppKitTheme(themeID: .catppuccinMocha),
+                theme: AppKitTheme(themeID: .tokyoNight),
                 actionHandler: { dispatcher.dispatch($0) },
                 keyDispatchHandler: { dispatcher.dispatch($0) },
                 validatedConfig: validated

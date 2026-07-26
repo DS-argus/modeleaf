@@ -70,7 +70,7 @@ These omissions are product constraints rather than half-implemented menu items.
 - exact-pinned `TOMLDecoder` 0.4.5 at the app edge;
 - Swift Testing, XCTest, and XCUITest targets.
 
-The five bundled themes are the dark **Catppuccin Mocha**, **Tokyo Night**, **Gruvbox Dark**, and **Nord** plus the light **Catppuccin Latte**. Pick one at runtime with the theme picker (`Shift-t`, live preview); the choice is saved in an app-managed state file, not `config.toml`. Themes affect app chrome, the surrounding PDF canvas, prompts, status, and transient search highlights; PDF page pixels are not recolored.
+The six bundled themes are the dark **Tokyo Night**, **Gruvbox Dark**, **Solarized Dark**, **Dracula**, and **Everforest** plus the light **Catppuccin Latte**. Pick one at runtime with the theme picker (`Shift-t`, live preview); the choice is saved in an app-managed state file, not `config.toml`. Themes affect app chrome, the surrounding PDF canvas, prompts, status, and transient search highlights; PDF page pixels are not recolored.
 
 ## Build and run
 

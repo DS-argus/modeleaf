@@ -42,7 +42,7 @@ struct PaneShellTests {
         coordinator.configureDuplication { _ in duplicate }
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         defer { controller.close() }
@@ -58,7 +58,7 @@ struct PaneShellTests {
         let fixture = splitFixture()
         let controller = MainWindowController(
             coordinator: fixture.coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         defer { controller.close() }
@@ -96,7 +96,7 @@ struct PaneShellTests {
         let fixture = splitFixture(originPage: 2, duplicatePage: 7)
         let controller = MainWindowController(
             coordinator: fixture.coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         defer { controller.close() }
@@ -136,7 +136,7 @@ struct PaneShellTests {
             let leadingID = try #require(coordinator.snapshot.panes.keys.first { $0 != trailingID })
             let controller = MainWindowController(
                 coordinator: coordinator,
-                theme: AppKitTheme(themeID: .catppuccinMocha),
+                theme: AppKitTheme(themeID: .tokyoNight),
                 actionHandler: { _ in }
             )
             defer { controller.close() }
@@ -159,7 +159,7 @@ struct PaneShellTests {
         #expect(coordinator.insert(origin, into: .createIfEmpty))
         let bottom = try #require(coordinator.split(direction: .stacked))
         let top = try #require(coordinator.snapshot.panes.keys.first { $0 != bottom })
-        let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(themeID: .catppuccinMocha), actionHandler: { _ in })
+        let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(themeID: .tokyoNight), actionHandler: { _ in })
         defer { controller.close() }
 
         #expect(coordinator.snapshot.layout == .split(orientation: .stacked, leading: .one(top), trailing: .one(bottom)))
@@ -174,7 +174,7 @@ struct PaneShellTests {
         let fixture = splitFixture()
         let controller = MainWindowController(
             coordinator: fixture.coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         defer { controller.close() }
@@ -190,7 +190,7 @@ struct PaneShellTests {
         let fixture = splitFixture()
         let controller = MainWindowController(
             coordinator: fixture.coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         defer { controller.close() }
@@ -211,7 +211,7 @@ struct PaneShellTests {
         let fixture = splitFixture()
         let controller = MainWindowController(
             coordinator: fixture.coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         defer { controller.close() }
@@ -236,7 +236,7 @@ struct PaneShellTests {
         let fixture = splitFixture()
         let controller = MainWindowController(
             coordinator: fixture.coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         defer { controller.close() }
@@ -258,7 +258,7 @@ struct PaneShellTests {
             let fixture = splitFixture()
             let controller = MainWindowController(
                 coordinator: fixture.coordinator,
-                theme: AppKitTheme(themeID: .catppuccinMocha),
+                theme: AppKitTheme(themeID: .tokyoNight),
                 actionHandler: { _ in }
             )
             defer { controller.close() }
@@ -283,7 +283,7 @@ struct PaneShellTests {
         let fixture = splitFixture()
         let controller = MainWindowController(
             coordinator: fixture.coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         defer { controller.close() }
@@ -315,7 +315,7 @@ struct PaneShellTests {
         let trailing = try #require(coordinator.split(direction: .sideBySide))
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         defer { controller.close() }
@@ -342,7 +342,7 @@ struct PaneShellTests {
         let leading = try #require(coordinator.snapshot.panes.keys.first { $0 != trailing })
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         defer { controller.close() }
@@ -391,7 +391,7 @@ struct PaneShellTests {
         )
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { dispatcher.dispatch($0) }
         )
         defer { controller.close() }
@@ -461,7 +461,7 @@ struct PaneShellTests {
             let leadingID = try #require(coordinator.snapshot.panes.keys.first { $0 != trailingID })
             let controller = MainWindowController(
                 coordinator: coordinator,
-                theme: AppKitTheme(themeID: .catppuccinMocha),
+                theme: AppKitTheme(themeID: .tokyoNight),
                 actionHandler: { _ in }
             )
             defer { controller.close() }
@@ -504,7 +504,7 @@ struct PaneShellTests {
         let fixture = splitFixture()
         let controller = MainWindowController(
             coordinator: fixture.coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         defer { controller.close() }
@@ -558,7 +558,7 @@ struct PaneShellTests {
 
             let controller = MainWindowController(
                 coordinator: coordinator,
-                theme: AppKitTheme(themeID: .catppuccinMocha),
+                theme: AppKitTheme(themeID: .tokyoNight),
                 actionHandler: { _ in }
             )
             defer { controller.close() }
@@ -895,7 +895,7 @@ struct PaneShellTests {
 
 
     private func makeController(_ coordinator: PaneCoordinator) -> MainWindowController {
-        MainWindowController(coordinator: coordinator, theme: AppKitTheme(themeID: .catppuccinMocha), actionHandler: { _ in })
+        MainWindowController(coordinator: coordinator, theme: AppKitTheme(themeID: .tokyoNight), actionHandler: { _ in })
     }
 
     private func fourPaneShellFixture(outer: PaneOrientation = .sideBySide) -> (coordinator: PaneCoordinator, leadingFirst: PaneID, leadingSecond: PaneID, trailingFirst: PaneID, trailingSecond: PaneID) {
@@ -1052,7 +1052,7 @@ struct PaneShellTests {
         let fixture = splitFixture()
         let controller = MainWindowController(
             coordinator: fixture.coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         defer { controller.close() }
@@ -1088,7 +1088,7 @@ struct PaneShellTests {
             #expect(coordinator.insert(origin, into: .createIfEmpty))
             let controller = MainWindowController(
                 coordinator: coordinator,
-                theme: AppKitTheme(themeID: .catppuccinMocha),
+                theme: AppKitTheme(themeID: .tokyoNight),
                 actionHandler: { _ in }
             )
             defer {
@@ -1165,7 +1165,7 @@ struct PaneShellTests {
         #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Left.pdf"), into: .createIfEmpty))
         #expect(coordinator.split(direction: .sideBySide) != nil)
         #expect(coordinator.split(direction: .stacked) != nil)
-        let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(themeID: .catppuccinMocha), actionHandler: { _ in })
+        let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(themeID: .tokyoNight), actionHandler: { _ in })
         defer { controller.close() }
 
         let layout = coordinator.snapshot.layout

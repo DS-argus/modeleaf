@@ -1,10 +1,11 @@
 import Foundation
 
 public enum ThemeID: String, CaseIterable, Codable, Hashable, Sendable {
-    case catppuccinMocha = "catppuccin-mocha"
     case tokyoNight = "tokyo-night"
     case gruvboxDark = "gruvbox-dark"
-    case nord
+    case solarizedDark = "solarized-dark"
+    case dracula
+    case everforest
     case catppuccinLatte = "catppuccin-latte"
 }
 

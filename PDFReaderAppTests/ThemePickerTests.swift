@@ -6,7 +6,7 @@ import Testing
 @Suite("Theme picker", .serialized)
 @MainActor
 struct ThemePickerTests {
-    // ThemeID.allCases order: mocha(0), tokyoNight(1), gruvboxDark(2), nord(3), catppuccinLatte(4)
+    // ThemeID.allCases order: tokyoNight(0), gruvboxDark(1), solarizedDark(2), dracula(3), everforest(4), catppuccinLatte(5)
     private func keys() throws -> (down: NSEvent, up: NSEvent, ret: NSEvent, esc: NSEvent, j: NSEvent, k: NSEvent) {
         (
             down: try #require(makeKeyEvent(characters: "", keyCode: 125)),
@@ -27,21 +27,21 @@ struct ThemePickerTests {
         overlay.onPreview = { previews.append($0) }
         overlay.onCommit = { committed.append($0) }
 
-        overlay.present(selectedThemeID: .catppuccinMocha)
+        overlay.present(selectedThemeID: .tokyoNight)
         #expect(!overlay.isHidden)
         #expect(previews.isEmpty)                         // open renders the current theme; no re-apply
 
-        #expect(overlay.handleKeyDown(e.down))            // -> tokyoNight
-        #expect(overlay.handleKeyDown(e.j))               // -> gruvboxDark
-        #expect(previews == [.tokyoNight, .gruvboxDark])
+        #expect(overlay.handleKeyDown(e.down))            // -> gruvboxDark
+        #expect(overlay.handleKeyDown(e.j))               // -> solarizedDark
+        #expect(previews == [.gruvboxDark, .solarizedDark])
 
-        #expect(overlay.handleKeyDown(e.up))              // -> tokyoNight
-        #expect(overlay.handleKeyDown(e.k))               // -> mocha
-        #expect(previews == [.tokyoNight, .gruvboxDark, .tokyoNight, .catppuccinMocha])
+        #expect(overlay.handleKeyDown(e.up))              // -> gruvboxDark
+        #expect(overlay.handleKeyDown(e.k))               // -> tokyoNight
+        #expect(previews == [.gruvboxDark, .solarizedDark, .gruvboxDark, .tokyoNight])
 
-        #expect(overlay.handleKeyDown(e.down))            // -> tokyoNight (selected)
-        #expect(overlay.handleKeyDown(e.ret))             // commit tokyoNight
-        #expect(committed == [.tokyoNight])
+        #expect(overlay.handleKeyDown(e.down))            // -> gruvboxDark (selected)
+        #expect(overlay.handleKeyDown(e.ret))             // commit gruvboxDark
+        #expect(committed == [.gruvboxDark])
         overlay.dismiss()
         #expect(overlay.isHidden)
     }
@@ -52,11 +52,11 @@ struct ThemePickerTests {
         let overlay = ThemePickerOverlayView()
         var previews: [ThemeID] = []
         overlay.onPreview = { previews.append($0) }
-        overlay.present(selectedThemeID: .catppuccinMocha)   // index 0
+        overlay.present(selectedThemeID: .tokyoNight)        // index 0
         #expect(overlay.handleKeyDown(e.up))                 // clamp at top, no preview
         #expect(previews.isEmpty)
 
-        overlay.present(selectedThemeID: .catppuccinLatte)   // index 4
+        overlay.present(selectedThemeID: .catppuccinLatte)   // index 5 (last)
         previews.removeAll()
         #expect(overlay.handleKeyDown(e.down))               // clamp at bottom, no preview
         #expect(previews.isEmpty)
@@ -70,7 +70,7 @@ struct ThemePickerTests {
         var cancelled = 0
         overlay.onCommit = { committed.append($0) }
         overlay.onCancel = { cancelled += 1 }
-        overlay.present(selectedThemeID: .catppuccinMocha)
+        overlay.present(selectedThemeID: .tokyoNight)
         #expect(overlay.handleKeyDown(e.down))
         #expect(overlay.handleKeyDown(e.esc))
         #expect(cancelled == 1)
@@ -90,19 +90,19 @@ struct ThemePickerTests {
                 terminationHandler: {}
             )
             _ = controller.mainWindowController
-            #expect(controller.currentThemeID == .catppuccinMocha)   // no state file -> hardcoded default
+            #expect(controller.currentThemeID == .tokyoNight)        // no state file -> hardcoded default
 
             controller.mainWindowController.presentThemePicker()
             let overlay = controller.mainWindowController.rootView.themePickerOverlay
             #expect(!overlay.isHidden)
 
-            #expect(overlay.handleKeyDown(e.down))                   // preview -> tokyoNight, not persisted
-            #expect(controller.currentThemeID == .tokyoNight)
+            #expect(overlay.handleKeyDown(e.down))                   // preview -> gruvboxDark, not persisted
+            #expect(controller.currentThemeID == .gruvboxDark)
             #expect(store.loadSelectedTheme() == nil)
 
             #expect(overlay.handleKeyDown(e.ret))                    // commit -> persist
-            #expect(controller.currentThemeID == .tokyoNight)
-            #expect(store.loadSelectedTheme() == .tokyoNight)
+            #expect(controller.currentThemeID == .gruvboxDark)
+            #expect(store.loadSelectedTheme() == .gruvboxDark)
             #expect(overlay.isHidden)
 
             let restarted = ApplicationController(
@@ -111,7 +111,7 @@ struct ThemePickerTests {
                 themeStore: ThemeSelectionStore(fileURL: stateURL),
                 terminationHandler: {}
             )
-            #expect(restarted.currentThemeID == .tokyoNight)
+            #expect(restarted.currentThemeID == .gruvboxDark)
             restarted.mainWindowController.close()
             controller.mainWindowController.close()
         }
@@ -123,7 +123,7 @@ struct ThemePickerTests {
         try withTemporaryDirectory { dir in
             let stateURL = dir.appendingPathComponent("state.json")
             let store = ThemeSelectionStore(fileURL: stateURL)
-            store.persist(.nord)
+            store.persist(.dracula)
             let controller = ApplicationController(
                 configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
                 sessionStore: ReaderSessionStore(),
@@ -131,15 +131,15 @@ struct ThemePickerTests {
                 terminationHandler: {}
             )
             _ = controller.mainWindowController
-            #expect(controller.currentThemeID == .nord)
+            #expect(controller.currentThemeID == .dracula)
 
             controller.mainWindowController.presentThemePicker()
             let overlay = controller.mainWindowController.rootView.themePickerOverlay
-            #expect(overlay.handleKeyDown(e.down))                   // preview drifts off nord
-            #expect(controller.currentThemeID != .nord)
+            #expect(overlay.handleKeyDown(e.down))                   // preview drifts off dracula
+            #expect(controller.currentThemeID != .dracula)
             #expect(overlay.handleKeyDown(e.esc))                    // cancel -> revert
-            #expect(controller.currentThemeID == .nord)
-            #expect(store.loadSelectedTheme() == .nord)              // unchanged
+            #expect(controller.currentThemeID == .dracula)
+            #expect(store.loadSelectedTheme() == .dracula)           // unchanged
             #expect(overlay.isHidden)
             controller.mainWindowController.close()
         }
@@ -158,7 +158,7 @@ struct ThemePickerTests {
                 themeStore: ThemeSelectionStore(fileURL: stateURL),
                 terminationHandler: {}
             )
-            #expect(controller.currentThemeID == .catppuccinMocha)   // launch continuity
+            #expect(controller.currentThemeID == .tokyoNight)        // launch continuity
             controller.start()
             let status = controller.mainWindowController.rootView.statusBar.presentation
             #expect(status.detail.contains("Could not read the saved theme"))
@@ -183,9 +183,9 @@ struct ThemePickerTests {
             _ = controller.mainWindowController
             controller.mainWindowController.presentThemePicker()
             let overlay = controller.mainWindowController.rootView.themePickerOverlay
-            #expect(overlay.handleKeyDown(e.down))   // -> tokyoNight
+            #expect(overlay.handleKeyDown(e.down))   // -> gruvboxDark
             #expect(overlay.handleKeyDown(e.ret))     // commit (persist fails)
-            #expect(controller.currentThemeID == .tokyoNight)   // applied for this session
+            #expect(controller.currentThemeID == .gruvboxDark)   // applied for this session
             let status = controller.mainWindowController.rootView.statusBar.presentation
             #expect(status.detail.contains("could not be saved"))
             controller.mainWindowController.close()
@@ -260,9 +260,9 @@ struct ThemePickerTests {
                 first.appliedThemeIDs.removeAll()
                 second.appliedThemeIDs.removeAll()
                 #expect(overlay.handleKeyDown(e.down))
-                #expect([first, second].prefix(paneCount).allSatisfy { $0.appliedThemeIDs == [.tokyoNight] })
+                #expect([first, second].prefix(paneCount).allSatisfy { $0.appliedThemeIDs == [.gruvboxDark] })
                 #expect(overlay.handleKeyDown(e.ret))
-                #expect([first, second].prefix(paneCount).allSatisfy { $0.appliedThemeIDs == [.tokyoNight, .tokyoNight] })
+                #expect([first, second].prefix(paneCount).allSatisfy { $0.appliedThemeIDs == [.gruvboxDark, .gruvboxDark] })
                 controller.mainWindowController.close()
             }
         }

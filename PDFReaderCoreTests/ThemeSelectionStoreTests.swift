@@ -7,10 +7,10 @@ struct ThemeSelectionStoreTests {
     @Test("Persisting a theme round-trips through the state file")
     func persistThenLoadRoundTrip() throws {
         try withTemporaryStore { store in
-            #expect(store.persist(.nord) == .persisted)
+            #expect(store.persist(.dracula) == .persisted)
 
-            #expect(store.load() == .selected(.nord))
-            #expect(store.loadSelectedTheme() == .nord)
+            #expect(store.load() == .selected(.dracula))
+            #expect(store.loadSelectedTheme() == .dracula)
         }
     }
 
@@ -19,7 +19,7 @@ struct ThemeSelectionStoreTests {
         try withTemporaryStore { store in
             #expect(store.load() == .absent)
             #expect(store.loadSelectedTheme() == nil)
-            #expect(store.resolvedTheme() == .catppuccinMocha)
+            #expect(store.resolvedTheme() == .tokyoNight)
         }
     }
 
@@ -33,7 +33,7 @@ struct ThemeSelectionStoreTests {
             try Data("not json".utf8).write(to: store.fileURL)
 
             #expect(store.load() == .invalid)
-            #expect(store.resolvedTheme() == .catppuccinMocha)
+            #expect(store.resolvedTheme() == .tokyoNight)
         }
     }
 
@@ -47,7 +47,7 @@ struct ThemeSelectionStoreTests {
             try Data("{\"selected_theme\":\"unknown-preset\"}".utf8).write(to: store.fileURL)
 
             #expect(store.load() == .invalid)
-            #expect(store.resolvedTheme() == .catppuccinMocha)
+            #expect(store.resolvedTheme() == .tokyoNight)
         }
     }
 
@@ -64,7 +64,7 @@ struct ThemeSelectionStoreTests {
                 return
             }
             // The app must still launch, so resolvedTheme still defaults.
-            #expect(store.resolvedTheme() == .catppuccinMocha)
+            #expect(store.resolvedTheme() == .tokyoNight)
         }
     }
 
@@ -75,7 +75,7 @@ struct ThemeSelectionStoreTests {
             let parent = store.fileURL.deletingLastPathComponent()
             try FileManager.default.createDirectory(at: parent.deletingLastPathComponent(), withIntermediateDirectories: true)
             try Data("blocker".utf8).write(to: parent)   // a file where a directory is needed
-            guard case .failed = store.persist(.nord) else {
+            guard case .failed = store.persist(.dracula) else {
                 Issue.record("expected persist to fail when the parent path is a file")
                 return
             }
@@ -97,7 +97,7 @@ struct ThemeSelectionStoreTests {
     @Test("Persisting atomically replaces an existing complete state file")
     func persistAtomicallyOverwritesCleanly() throws {
         try withTemporaryStore { store in
-            store.persist(.nord)
+            store.persist(.dracula)
             store.persist(.gruvboxDark)
 
             let data = try Data(contentsOf: store.fileURL)

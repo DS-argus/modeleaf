@@ -3,24 +3,6 @@ import Foundation
 public enum BuiltInThemes {
     public static let all: [Theme] = [
         make(
-            .catppuccinMocha,
-            "Catppuccin Mocha",
-            [
-                .background: "#1E1E2E",
-                .foreground: "#CDD6F4",
-                .mutedText: "#A6ADC8",
-                .border: "#45475A",
-                .accent: "#89B4FA",
-                .activeTab: "#313244",
-                .inactiveTab: "#181825",
-                .statusline: "#11111B",
-                .error: "#F38BA8",
-                .searchHighlight: "#F9E2AF",
-                .activeSearchHighlight: "#FAB387",
-                .focusIndicator: "#89B4FA",
-            ]
-        ),
-        make(
             .tokyoNight,
             "Tokyo Night",
             [
@@ -57,21 +39,57 @@ public enum BuiltInThemes {
             ]
         ),
         make(
-            .nord,
-            "Nord",
+            .solarizedDark,
+            "Solarized Dark",
             [
-                .background: "#2E3440",
-                .foreground: "#ECEFF4",
-                .mutedText: "#D8DEE9",
-                .border: "#4C566A",
-                .accent: "#88C0D0",
-                .activeTab: "#3B4252",
-                .inactiveTab: "#242933",
-                .statusline: "#242933",
-                .error: "#BF616A",
-                .searchHighlight: "#EBCB8B",
-                .activeSearchHighlight: "#D08770",
-                .focusIndicator: "#88C0D0",
+                .background: "#002B36",
+                .foreground: "#839496",
+                .mutedText: "#586E75",
+                .border: "#0B4F5E",
+                .accent: "#268BD2",
+                .activeTab: "#073642",
+                .inactiveTab: "#001F27",
+                .statusline: "#001F27",
+                .error: "#DC322F",
+                .searchHighlight: "#B58900",
+                .activeSearchHighlight: "#CB4B16",
+                .focusIndicator: "#268BD2",
+            ]
+        ),
+        make(
+            .dracula,
+            "Dracula",
+            [
+                .background: "#282A36",
+                .foreground: "#F8F8F2",
+                .mutedText: "#6272A4",
+                .border: "#44475A",
+                .accent: "#BD93F9",
+                .activeTab: "#44475A",
+                .inactiveTab: "#21222C",
+                .statusline: "#191A21",
+                .error: "#FF5555",
+                .searchHighlight: "#F1FA8C",
+                .activeSearchHighlight: "#FFB86C",
+                .focusIndicator: "#BD93F9",
+            ]
+        ),
+        make(
+            .everforest,
+            "Everforest",
+            [
+                .background: "#2D353B",
+                .foreground: "#D3C6AA",
+                .mutedText: "#859289",
+                .border: "#475258",
+                .accent: "#A7C080",
+                .activeTab: "#343F44",
+                .inactiveTab: "#232A2E",
+                .statusline: "#232A2E",
+                .error: "#E67E80",
+                .searchHighlight: "#DBBC7F",
+                .activeSearchHighlight: "#E69875",
+                .focusIndicator: "#A7C080",
             ]
         ),
         make(
@@ -94,7 +112,7 @@ public enum BuiltInThemes {
         ),
     ]
 
-    public static func theme(for id: ThemeID) -> Theme {
+        public static func theme(for id: ThemeID) -> Theme {
         guard let theme = all.first(where: { $0.id == id }) else {
             preconditionFailure("missing built-in theme \(id.rawValue)")
         }

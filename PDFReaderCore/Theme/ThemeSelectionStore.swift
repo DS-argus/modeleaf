@@ -31,7 +31,7 @@ public struct ThemeSelectionStore: Sendable {
         .appendingPathComponent("state.json", isDirectory: false)
 
     /// The single hardcoded product default used when no valid selection exists.
-    public static let productDefault: ThemeID = .catppuccinMocha
+    public static let productDefault: ThemeID = .tokyoNight
 
     public let fileURL: URL
 

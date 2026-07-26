@@ -49,7 +49,7 @@ struct ThemeAndShellTests {
 
     @Test("background and focus tokens reach the real PDF surrounding canvas without recoloring page content")
     func backgroundTokenStylesRealReaderCanvas() throws {
-        let theme = AppKitTheme(themeID: .nord)
+        let theme = AppKitTheme(themeID: .solarizedDark)
         let store = ReaderSessionStore()
         let coordinator = PaneCoordinator(initialStore: store)
         let controller = MainWindowController(
@@ -96,7 +96,7 @@ struct ThemeAndShellTests {
         let coordinator = PaneCoordinator(initialStore: store)
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         let session = ReaderSession(
@@ -155,7 +155,7 @@ struct ThemeAndShellTests {
         let coordinator = PaneCoordinator(initialStore: store)
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { actions.append($0) }
         )
 
@@ -179,7 +179,7 @@ struct ThemeAndShellTests {
         #expect(openShortcut?.stringValue == "⌘O")
         #expect(
             openShortcut?.textColor?.hexRGB
-                == AppKitTheme(themeID: .catppuccinMocha)[.accent].hexRGB
+                == AppKitTheme(themeID: .tokyoNight)[.accent].hexRGB
         )
         let openShortcutBadge = findDescendant(
             in: controller.rootView.emptyState,
@@ -266,7 +266,7 @@ struct ThemeAndShellTests {
         )
         let controller = MainWindowController(
             coordinator: PaneCoordinator(initialStore: store),
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         #expect(store.insert(session))
@@ -334,7 +334,7 @@ struct ThemeAndShellTests {
         let store = ReaderSessionStore()
         let controller = MainWindowController(
             coordinator: PaneCoordinator(initialStore: store),
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         let first = StubReaderSession(id: TabID(), title: "First.pdf")
@@ -393,7 +393,7 @@ struct ThemeAndShellTests {
         let store = ReaderSessionStore()
         let controller = MainWindowController(
             coordinator: PaneCoordinator(initialStore: store),
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         let sessions = [
@@ -497,7 +497,7 @@ struct ThemeAndShellTests {
         let store = ReaderSessionStore()
         let controller = MainWindowController(
             coordinator: PaneCoordinator(initialStore: store),
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in },
             validatedConfig: config
         )
@@ -527,7 +527,7 @@ struct ThemeAndShellTests {
         var actions: [ActionID] = []
         let controller = MainWindowController(
             coordinator: coordinator,
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: {
                 actions.append($0)
                 dispatcher.dispatch($0)
@@ -582,7 +582,7 @@ struct ThemeAndShellTests {
         let session = StubReaderSession(id: TabID(), title: fullTitle)
         let controller = MainWindowController(
             coordinator: PaneCoordinator(initialStore: store),
-            theme: AppKitTheme(themeID: .catppuccinMocha),
+            theme: AppKitTheme(themeID: .tokyoNight),
             actionHandler: { _ in }
         )
         #expect(store.insert(session))

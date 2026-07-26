@@ -19,7 +19,7 @@ final class ApplicationController {
     private(set) var menuBuilder: ValidatedMenuBuilder?
 
     lazy var mainWindowController: MainWindowController = {
-        let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(themeID: currentThemeID), actionHandler: { [weak self] action in self?.actionDispatcher.dispatch(action) }, keyDispatchHandler: { [weak self] dispatch in self?.actionDispatcher.dispatch(dispatch) }, validatedConfig: configResult.activeConfig, openPaneHandler: { [weak self] paneID in self?.presentOpenPanel(target: .existing(paneID)) }, currentThemeID: { [weak self] in self?.currentThemeID ?? .catppuccinMocha }, themePreviewHandler: { [weak self] id in self?.applyTheme(id, persist: false) }, themeCommitHandler: { [weak self] id in self?.applyTheme(id, persist: true) }, themeCancelHandler: { [weak self] id in self?.applyTheme(id, persist: false) })
+        let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(themeID: currentThemeID), actionHandler: { [weak self] action in self?.actionDispatcher.dispatch(action) }, keyDispatchHandler: { [weak self] dispatch in self?.actionDispatcher.dispatch(dispatch) }, validatedConfig: configResult.activeConfig, openPaneHandler: { [weak self] paneID in self?.presentOpenPanel(target: .existing(paneID)) }, currentThemeID: { [weak self] in self?.currentThemeID ?? .tokyoNight }, themePreviewHandler: { [weak self] id in self?.applyTheme(id, persist: false) }, themeCommitHandler: { [weak self] id in self?.applyTheme(id, persist: true) }, themeCancelHandler: { [weak self] id in self?.applyTheme(id, persist: false) })
         actionDispatcher.presentation = controller
         return controller
     }()

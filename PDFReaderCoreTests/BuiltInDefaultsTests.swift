@@ -63,8 +63,8 @@ struct BuiltInDefaultsTests {
 
     @Test("Five built-in themes are complete and PDF-agnostic")
     func builtInThemesAreComplete() {
-        #expect(ThemeID.allCases.count == 5)
-        #expect(BuiltInThemes.all.count == 5)
+        #expect(ThemeID.allCases.count == 6)
+        #expect(BuiltInThemes.all.count == 6)
         #expect(BuiltInThemes.all.map(\.id) == ThemeID.allCases)
         for theme in BuiltInThemes.all {
             #expect(Set(theme.palette.values.keys) == Set(ThemeToken.allCases))
@@ -73,7 +73,7 @@ struct BuiltInDefaultsTests {
 
         let latte = BuiltInThemes.theme(for: .catppuccinLatte)
         #expect(latte.palette[.background].rawValue == "#EFF1F5")
-        #expect(latte.palette[.background] != BuiltInThemes.theme(for: .catppuccinMocha).palette[.background])
+        #expect(latte.palette[.background] != BuiltInThemes.theme(for: .tokyoNight).palette[.background])
         #expect(ThemeToken.allCases.allSatisfy { !$0.rawValue.lowercased().contains("pdf") })
     }
 

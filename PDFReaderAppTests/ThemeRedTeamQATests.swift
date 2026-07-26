@@ -31,19 +31,19 @@ struct ThemeRedTeamQATests {
             for data in invalidCases {
                 try data.write(to: stateURL)
                 #expect(store.load() == .invalid)
-                #expect(store.resolvedTheme() == .catppuccinMocha)
+                #expect(store.resolvedTheme() == .tokyoNight)
                 let controller = makeController(directory: directory, stateURL: stateURL)
                 #expect(ThemeID.allCases.contains(controller.currentThemeID))
                 controller.mainWindowController.close()
             }
 
-            try Data("{\"selected_theme\":\"nord\",\"ignored\":true}".utf8).write(to: stateURL)
-            #expect(store.load() == .selected(.nord))
+            try Data("{\"selected_theme\":\"dracula\",\"ignored\":true}".utf8).write(to: stateURL)
+            #expect(store.load() == .selected(.dracula))
             try FileManager.default.removeItem(at: stateURL)
             #expect(store.load() == .absent)
             try FileManager.default.createDirectory(at: stateURL, withIntermediateDirectories: true)
             if case .ioError = store.load() {} else { Issue.record("Directory state path must classify as ioError") }
-            #expect(store.resolvedTheme() == .catppuccinMocha)
+            #expect(store.resolvedTheme() == .tokyoNight)
             try FileManager.default.removeItem(at: stateURL)
 
             let readOnlyParent = directory.appendingPathComponent("readonly", isDirectory: true)
@@ -51,7 +51,7 @@ struct ThemeRedTeamQATests {
             try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: readOnlyParent.path)
             defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: readOnlyParent.path) }
             let blockedStore = ThemeSelectionStore(fileURL: readOnlyParent.appendingPathComponent("state.json"))
-            if case .failed = blockedStore.persist(.nord) {} else { Issue.record("Read-only state parent allowed persistence") }
+            if case .failed = blockedStore.persist(.dracula) {} else { Issue.record("Read-only state parent allowed persistence") }
             #expect(!FileManager.default.fileExists(atPath: configURL.path))
         }
     }
@@ -69,25 +69,25 @@ struct ThemeRedTeamQATests {
             window.presentThemePicker()
             window.presentThemePicker()
             #expect(!overlay.isHidden)
-            #expect(controller.currentThemeID == .catppuccinMocha)
+            #expect(controller.currentThemeID == .tokyoNight)
             #expect(overlay.handleKeyDown(keys.escape))
-            #expect(controller.currentThemeID == .catppuccinMocha)
+            #expect(controller.currentThemeID == .tokyoNight)
 
             window.presentThemePicker()
             for _ in 0..<20 { #expect(overlay.handleKeyDown(keys.up)) }
-            #expect(controller.currentThemeID == .catppuccinMocha)
+            #expect(controller.currentThemeID == .tokyoNight)
             for _ in 0..<20 { #expect(overlay.handleKeyDown(keys.down)) }
             #expect(controller.currentThemeID == .catppuccinLatte)
             #expect(overlay.handleKeyDown(keys.escape))
-            #expect(controller.currentThemeID == .catppuccinMocha)
+            #expect(controller.currentThemeID == .tokyoNight)
 
             window.presentThemePicker()
             #expect(overlay.handleKeyDown(keys.j))
-            #expect(controller.currentThemeID == .tokyoNight)
+            #expect(controller.currentThemeID == .gruvboxDark)
             #expect(overlay.handleKeyDown(keys.returnKey))
-            #expect(storeTheme(at: stateURL) == .tokyoNight)
+            #expect(storeTheme(at: stateURL) == .gruvboxDark)
             window.presentThemePicker()
-            #expect(controller.currentThemeID == .tokyoNight)
+            #expect(controller.currentThemeID == .gruvboxDark)
             #expect(overlay.handleKeyDown(keys.escape))
         }
     }
@@ -118,10 +118,10 @@ struct ThemeRedTeamQATests {
                 controller.mainWindowController.presentThemePicker()
                 #expect(controller.mainWindowController.rootView.themePickerOverlay.handleKeyDown(keys.down))
                 #expect(controller.mainWindowController.rootView.themePickerOverlay.handleKeyDown(keys.returnKey))
-                #expect(controller.currentThemeID == .tokyoNight)
+                #expect(controller.currentThemeID == .gruvboxDark)
                 #expect(sessions.count == expectedPaneCount)
-                #expect(sessions.allSatisfy { $0.applied == [.tokyoNight, .tokyoNight] })
-                #expect(controller.mainWindowController.window?.backgroundColor?.isEqual(AppKitTheme(themeID: .tokyoNight)[.background]) == true)
+                #expect(sessions.allSatisfy { $0.applied == [.gruvboxDark, .gruvboxDark] })
+                #expect(controller.mainWindowController.window?.backgroundColor?.isEqual(AppKitTheme(themeID: .gruvboxDark)[.background]) == true)
             }
         }
     }

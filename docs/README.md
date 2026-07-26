@@ -67,7 +67,7 @@ V1은 북마크, 사용자 주석·하이라이트, 마크, 포털, 스마트 �
 - 앱 경계에 정확히 0.4.5로 고정된 `TOMLDecoder`
 - Swift Testing, XCTest, XCUITest 타깃
 
-기본 테마는 다크 **Catppuccin Mocha**, **Tokyo Night**, **Gruvbox Dark**, **Nord**와 라이트 **Catppuccin Latte** 다섯 가지입니다. 런타임에 테마 선택기(`Shift-t`, 실시간 미리보기)로 고르며, 선택은 `config.toml`이 아니라 앱이 관리하는 상태 파일에 저장됩니다. 테마는 앱 UI, PDF 주변 캔버스, 프롬프트, 상태 표시줄, 일시적인 검색 강조에 적용되며 PDF 페이지 픽셀 자체는 변경하지 않습니다.
+기본 테마는 다크 **Tokyo Night**, **Gruvbox Dark**, **Solarized Dark**, **Dracula**, **Everforest**와 라이트 **Catppuccin Latte** 여섯 가지입니다. 런타임에 테마 선택기(`Shift-t`, 실시간 미리보기)로 고르며, 선택은 `config.toml`이 아니라 앱이 관리하는 상태 파일에 저장됩니다. 테마는 앱 UI, PDF 주변 캔버스, 프롬프트, 상태 표시줄, 일시적인 검색 강조에 적용되며 PDF 페이지 픽셀 자체는 변경하지 않습니다.
 
 ## 빌드와 실행
 
