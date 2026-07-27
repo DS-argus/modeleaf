@@ -10,7 +10,7 @@ import PDFReaderCore
 @MainActor
 final class CommandPaletteOverlayView: NSView {
     private enum Metrics {
-        static let width: CGFloat = 460
+        static let width: CGFloat = 360
         static let maxVisibleRows = 12
     }
 
@@ -58,15 +58,13 @@ final class CommandPaletteOverlayView: NSView {
         stack.spacing = 10
         stack.prepareForAutoLayout()
         addSubview(stack)
-        let preferredWidth = stack.widthAnchor.constraint(equalToConstant: Metrics.width)
-        preferredWidth.priority = .defaultLow
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: topAnchor, constant: 14),
             stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -14),
-            stack.widthAnchor.constraint(lessThanOrEqualToConstant: Metrics.width),
-            preferredWidth,
+            stack.widthAnchor.constraint(equalToConstant: Metrics.width),
+            rowStack.widthAnchor.constraint(equalTo: stack.widthAnchor),
         ])
         isHidden = true
     }
@@ -75,7 +73,7 @@ final class CommandPaletteOverlayView: NSView {
 
     func apply(theme: AppKitTheme) {
         self.theme = theme
-        layer?.backgroundColor = theme[.activeTab].cgColor
+        layer?.backgroundColor = theme[.activeTab].withAlphaComponent(0.8).cgColor
         layer?.borderColor = theme.focusRing.cgColor
         layer?.borderWidth = 1
         shadow?.shadowColor = theme.overlayShadow
@@ -209,6 +207,8 @@ private final class PaletteRowView: NSView {
         layer?.cornerRadius = 5
         titleLabel.font = .systemFont(ofSize: 13)
         titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         shortcutLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
         shortcutLabel.alignment = .right
         shortcutLabel.setContentHuggingPriority(.required, for: .horizontal)
@@ -231,13 +231,13 @@ private final class PaletteRowView: NSView {
     required init?(coder: NSCoder) { nil }
 
     func configure(_ command: PaletteCommand, selected: Bool, theme: AppKitTheme?) {
-        titleLabel.stringValue = command.isEnabled ? command.title : "\(command.title) — \(command.disabledReason ?? "unavailable")"
+        titleLabel.stringValue = command.title
         shortcutLabel.stringValue = command.shortcut ?? ""
         guard let theme else { return }
-        let base = command.isEnabled ? theme[.foreground] : theme[.mutedText]
+        let base = command.isEnabled ? theme[.foreground] : theme[.mutedText].withAlphaComponent(0.35)
         titleLabel.textColor = selected && command.isEnabled ? theme[.accent] : base
         titleLabel.font = .systemFont(ofSize: 13, weight: selected && command.isEnabled ? .semibold : .regular)
-        shortcutLabel.textColor = theme[.mutedText]
+        shortcutLabel.textColor = theme[.mutedText].withAlphaComponent(command.isEnabled ? 1.0 : 0.35)
         layer?.backgroundColor = (selected ? theme.separator : NSColor.clear).cgColor
     }
 }
