@@ -719,7 +719,7 @@ struct PaneShellTests {
         #expect(abs(leading.currentDividerPosition - before.1) < 0.5)
         let trailing = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingBand") as? PaneContainerView)
         let available = trailing.bounds.height - trailing.dividerThickness
-        #expect(abs(trailing.currentDividerPosition - available / 2) < 0.5)
+        #expect(abs(trailing.currentDividerPosition - available / 2) < 1.0)  // within 1pt: midpoint rounds to .5 on odd available space
         assertSplitChildrenLaidOut(outer)
         assertSplitChildrenLaidOut(leading)
         assertSplitChildrenLaidOut(trailing)
@@ -768,7 +768,7 @@ struct PaneShellTests {
         drainRunLoop()
         controller.rootView.layoutSubtreeIfNeeded()
         let available = fresh.bounds.height - fresh.dividerThickness
-        #expect(abs(fresh.currentDividerPosition - available / 2) < 0.5)
+        #expect(abs(fresh.currentDividerPosition - available / 2) < 1.0)  // within 1pt: midpoint rounds to .5 on odd available space
         #expect(freshBottom != fixture.leadingSecond)
 
         let trailing = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingBand") as? PaneContainerView)
@@ -855,7 +855,7 @@ struct PaneShellTests {
             #expect(abs(outer.currentDividerPosition - before.0) < 0.5)
             #expect(abs(leading.currentDividerPosition - before.1) < 0.5)
             let trailing = try #require(firstDescendant(of: controller.rootView, identifier: "paneContainer.trailingBand") as? PaneContainerView)
-            #expect(abs(trailing.currentDividerPosition - (trailing.bounds.width - trailing.dividerThickness) / 2) < 0.5)
+            #expect(abs(trailing.currentDividerPosition - (trailing.bounds.width - trailing.dividerThickness) / 2) < 1.0)  // within 1pt: midpoint rounds to .5 on odd available space
             assertSplitChildrenLaidOut(trailing)
     }
 
