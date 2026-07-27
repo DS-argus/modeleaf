@@ -20,3 +20,6 @@ config.toml
 
 # Local build/verification evidence (logs, snapshots, xcresults) is not published.
 artifacts/
+
+# Stray/user PDFs are never part of the repo.
+*.pdf
