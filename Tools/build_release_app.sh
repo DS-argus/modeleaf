@@ -20,6 +20,7 @@ xcodebuild \
   -configuration Release \
   -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath "$DERIVED_DATA" \
+  ${XCODEBUILD_EXTRA_ARGS:-} \
   build 2>&1 | tee "$LOG_DIR/xcode-release-build.log"
 
 codesign --verify --deep --strict --verbose=2 "$APP" \
