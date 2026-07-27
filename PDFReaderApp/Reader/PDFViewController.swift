@@ -190,6 +190,49 @@ final class PDFViewController: NSViewController {
         initialPresentationState = .pending
     }
 
+    func linkTargets(in coordinateSpace: NSView) -> [ReaderLinkTarget] {
+        loadViewIfNeeded()
+        readerView.layoutDocumentView()
+        var targets: [ReaderLinkTarget] = []
+        for page in readerView.visiblePages {
+            for annotation in page.annotations where Self.isLink(annotation) {
+                guard let kind = Self.linkKind(annotation) else { continue }
+                let viewRect = readerView.convert(annotation.bounds, from: page)
+                targets.append(ReaderLinkTarget(rect: readerView.convert(viewRect, to: coordinateSpace), kind: kind))
+            }
+        }
+        return targets
+    }
+
+    @discardableResult
+    func activateLink(_ target: ReaderLinkTarget) -> ReaderLinkActivation {
+        switch target.kind {
+        case let .destination(destination):
+            loadViewIfNeeded()
+            supersedePendingInitialPresentation()
+            readerView.go(to: destination)
+            return .navigatedInDocument
+        case let .url(url):
+            return .openExternal(url)
+        }
+    }
+
+    static func isLink(_ annotation: PDFAnnotation) -> Bool {
+        annotation.type == "Link" || annotation.action != nil || annotation.url != nil
+    }
+
+    static func linkKind(_ annotation: PDFAnnotation) -> ReaderLinkKind? {
+        if let goTo = annotation.action as? PDFActionGoTo {
+            return .destination(goTo.destination)
+        }
+        if let urlAction = annotation.action as? PDFActionURL, let url = urlAction.url {
+            return .url(url)
+        }
+        if let url = annotation.url {
+            return .url(url)
+        }
+        return nil
+    }
     func clearSelection() {
         loadViewIfNeeded()
         readerView.currentSelection = nil

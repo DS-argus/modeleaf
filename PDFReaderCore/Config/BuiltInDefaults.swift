@@ -62,7 +62,8 @@ public enum BuiltInDefaults {
         .viewZoomOut: sequences("-"),
         .viewZoomReset: [],
         .viewFitWidth: sequences("w"),
-        .viewFitPage: sequences("f"),
+        .viewFitPage: sequences("F"),
+        .linkHint: sequences("f"),
 
         .themePicker: sequences("T"),
 
@@ -161,6 +162,7 @@ public enum BuiltInDefaults {
         case "search": return "Search"
         case "view": return "View / Zoom"
         case "theme": return "Theme"
+        case "link": return "Links"
         case "pane": return "Panes"
         default: return "Other"
         }

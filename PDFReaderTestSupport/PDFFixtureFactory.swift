@@ -281,6 +281,47 @@ public enum PDFFixtureFactory {
         )
     }
 
+    /// A 2-page PDF whose first page carries one in-document GoTo link (to page
+    /// 2), one external URL link, and a link that wraps onto a second line
+    /// (two annotations sharing the same URL).
+    @discardableResult
+    public static func makeLinkedPDF(
+        in directory: URL,
+        name: String = "linked.pdf"
+    ) throws -> URL {
+        let sourceURL = try makeTextPDF(
+            in: directory,
+            name: "linked-source-\(UUID().uuidString).pdf",
+            pageCount: 2
+        )
+        defer { try? FileManager.default.removeItem(at: sourceURL) }
+        guard let document = PDFDocument(url: sourceURL),
+              let page1 = document.page(at: 0),
+              let page2 = document.page(at: 1)
+        else {
+            throw PDFFixtureError.missingGeneratedPage
+        }
+
+        let goTo = PDFAnnotation(bounds: CGRect(x: 48, y: 700, width: 200, height: 24), forType: .link, withProperties: nil)
+        goTo.action = PDFActionGoTo(destination: PDFDestination(page: page2, at: CGPoint(x: 0, y: 780)))
+
+        let external = PDFAnnotation(bounds: CGRect(x: 48, y: 660, width: 200, height: 24), forType: .link, withProperties: nil)
+        external.action = PDFActionURL(url: URL(string: "https://example.invalid/open")!)
+
+        let wrappedURL = URL(string: "https://example.invalid/wrapped")!
+        let wrapA = PDFAnnotation(bounds: CGRect(x: 48, y: 620, width: 200, height: 24), forType: .link, withProperties: nil)
+        wrapA.action = PDFActionURL(url: wrappedURL)
+        let wrapB = PDFAnnotation(bounds: CGRect(x: 48, y: 596, width: 110, height: 24), forType: .link, withProperties: nil)
+        wrapB.action = PDFActionURL(url: wrappedURL)
+
+        for annotation in [goTo, external, wrapA, wrapB] { page1.addAnnotation(annotation) }
+
+        let outputURL = directory.appendingPathComponent(name)
+        guard document.write(to: outputURL) else {
+            throw PDFFixtureError.couldNotWriteDocument
+        }
+        return outputURL
+    }
     @discardableResult
     public static func makePerformancePDF(
         _ kind: PerformancePDFFixtureKind,

@@ -62,6 +62,18 @@ final class ReaderPDFView: PDFView {
         return PDFCapabilityPolicy.allowsMouseInteraction(in: area) ? super.hitTest(point) : self
     }
 
+    /// Links can't be clicked in this read-only viewer (they're reachable only
+    /// via the `f` hint action), so keep a normal arrow over them instead of
+    /// PDFKit's pointing hand, which would imply a dead click. Text keeps its
+    /// I-beam because those cursor rects are left untouched.
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        for page in visiblePages {
+            for annotation in page.annotations where annotation.type == "Link" || annotation.action != nil || annotation.url != nil {
+                addCursorRect(convert(annotation.bounds, from: page), cursor: .arrow)
+            }
+        }
+    }
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         let area = areaOfInterest(for: point)

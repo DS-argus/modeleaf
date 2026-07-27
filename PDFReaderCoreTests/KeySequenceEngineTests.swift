@@ -328,7 +328,7 @@ struct KeySequenceEngineTests {
             ("N", .tabNext), ("P", .tabPrevious),
             ("G", .pageLast), ("/", .searchPrompt),
             ("=", .viewZoomIn), ("-", .viewZoomOut),
-            ("w", .viewFitWidth), ("f", .viewFitPage),
+            ("w", .viewFitWidth), ("F", .viewFitPage), ("f", .linkHint),
             ("<D-1>", .tabSelect1), ("<D-9>", .tabSelect9),
             ("<D-o>", .documentOpen), ("<D-w>", .documentClose), ("<D-q>", .appQuit),
         ]

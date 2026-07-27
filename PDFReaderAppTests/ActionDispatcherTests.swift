@@ -547,6 +547,7 @@ private final class PromptPresenterSpy: ReaderWorkflowPresenting {
 
     func presentThemePicker() {}
     func presentCommandPalette() {}
+    func presentLinkHints() {}
     func presentPrompt(_ presentation: PromptPresentation) {
         self.presentation = presentation
         promptText = presentation.text

@@ -14,6 +14,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let themeCommitHandler: (ThemeID) -> Void
     private let themeCancelHandler: (ThemeID) -> Void
     private let resolvedConfig: ValidatedAppConfig
+    private var activeLinkTargets: [ReaderLinkTarget] = []
     private var installedKeyViewLoop: [NSView] = []
     let rootView: ReaderRootView
 
@@ -64,6 +65,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.keyEventHandler = { [weak self, weak inputRouter] event in
             guard let self else { return false }
+            if !self.rootView.linkHintOverlay.isHidden {
+                return self.rootView.linkHintOverlay.handleKeyDown(event)
+            }
             if !self.rootView.commandPaletteOverlay.isHidden {
                 return self.rootView.commandPaletteOverlay.handleKeyDown(event)
             }
@@ -187,6 +191,33 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.commandPaletteOverlay.onCancel = nil
         focusActiveSurface(snapshot: coordinator.snapshot)
     }
+    func presentLinkHints() {
+        guard rootView.linkHintOverlay.isHidden,
+              let provider = coordinator.activeSession as? ReaderLinkProviding
+        else { return }
+        let targets = provider.linkTargets(in: rootView.linkHintOverlay)
+        guard !targets.isEmpty else { return }
+        activeLinkTargets = targets
+        rootView.linkHintOverlay.onActivate = { [weak self] index in
+            guard let self, self.activeLinkTargets.indices.contains(index) else { return }
+            let target = self.activeLinkTargets[index]
+            self.dismissLinkHintsAndRestoreFocus()
+            if case let .openExternal(url) = provider.activateLink(target) {
+                NSWorkspace.shared.open(url)
+            }
+        }
+        rootView.linkHintOverlay.onCancel = { [weak self] in self?.dismissLinkHintsAndRestoreFocus() }
+        rootView.linkHintOverlay.present(targets: targets.map(\.rect))
+        window?.makeFirstResponder(rootView.linkHintOverlay)
+    }
+
+    private func dismissLinkHintsAndRestoreFocus() {
+        rootView.linkHintOverlay.dismiss()
+        rootView.linkHintOverlay.onActivate = nil
+        rootView.linkHintOverlay.onCancel = nil
+        activeLinkTargets = []
+        focusActiveSurface(snapshot: coordinator.snapshot)
+    }
     func apply(theme: AppKitTheme) {
         window?.backgroundColor = theme[.background]
         rootView.apply(theme: theme)
@@ -250,6 +281,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     @discardableResult
     func routeKeyEventForTesting(_ event: NSEvent) -> Bool {
+        if !rootView.linkHintOverlay.isHidden {
+            return rootView.linkHintOverlay.handleKeyDown(event)
+        }
         if !rootView.commandPaletteOverlay.isHidden {
             return rootView.commandPaletteOverlay.handleKeyDown(event)
         }
@@ -260,6 +294,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowDidBecomeKey(_ notification: Notification) {
+        if !rootView.linkHintOverlay.isHidden {
+            window?.makeFirstResponder(rootView.linkHintOverlay)
+            return
+        }
         if !rootView.commandPaletteOverlay.isHidden {
             window?.makeFirstResponder(rootView.commandPaletteOverlay)
             return

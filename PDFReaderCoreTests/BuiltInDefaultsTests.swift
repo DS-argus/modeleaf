@@ -31,7 +31,7 @@ struct BuiltInDefaultsTests {
             .promptCommit: ["<CR>"], .promptCancel: ["<Esc>"],
             .searchPrompt: ["/"], .searchNext: ["<CR>"], .searchPrevious: ["<S-CR>"], .searchCancel: ["<Esc>"],
             .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [],
-            .viewFitWidth: ["w"], .viewFitPage: ["f"],
+            .viewFitWidth: ["w"], .viewFitPage: ["F"], .linkHint: ["f"],
             .themePicker: ["T"],
             .paneSplitRight: ["<C-b>|"], .paneSplitDown: ["<C-b>-"], .paneUnsplit: ["<C-b>o"],
             .paneFocusLeft: ["<C-h>"], .paneFocusDown: ["<C-j>"], .paneFocusUp: ["<C-k>"], .paneFocusRight: ["<C-l>"],

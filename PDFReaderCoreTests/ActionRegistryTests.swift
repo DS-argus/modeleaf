@@ -15,12 +15,12 @@ struct ActionRegistryTests {
             "page.next", "page.previous", "page.first", "page.last", "page.prompt",
             "prompt.commit", "prompt.cancel",
             "search.prompt", "search.next", "search.previous", "search.cancel",
-            "view.zoomIn", "view.zoomOut", "view.zoomReset", "view.fitWidth", "view.fitPage",
+            "view.zoomIn", "view.zoomOut", "view.zoomReset", "view.fitWidth", "view.fitPage", "link.hint",
             "pane.splitRight", "pane.splitDown", "pane.focusLeft", "pane.focusDown", "pane.focusUp", "pane.focusRight", "pane.unsplit",
             "theme.picker",
         ]
         let registry = ActionRegistry.v1
-        #expect(registry.descriptors.count == 46)
+        #expect(registry.descriptors.count == 47)
         #expect(Set(registry.actionIDs).count == registry.actionIDs.count)
         #expect(Set(registry.actionIDs.map(\.rawValue)) == expected)
         #expect(Set(InputContext.allCases) == [.navigation, .pagePrompt, .searchPrompt, .searchResults])
