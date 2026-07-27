@@ -19,6 +19,9 @@
 "app.quit"         = ["<D-q>"]  # Cmd+Q
 "app.new"          = ["<D-n>"]  # Cmd+N
 
+# --- Command palette ---
+"palette.open"     = [":", "<D-S-p>"]  # :
+
 # --- Tabs ---
 "tab.next"         = ["N"]  # N
 "tab.previous"     = ["P"]  # P

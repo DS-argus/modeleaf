@@ -23,6 +23,7 @@ public enum BuiltInDefaults {
         .documentClose: sequences("<D-w>"),
         .appQuit: sequences("<D-q>"),
         .appNew: sequences("<D-n>"),
+        .paletteOpen: sequences(":", "<D-S-p>"),
 
         .tabNext: sequences("N"),
         .tabPrevious: sequences("P"),
@@ -153,6 +154,7 @@ public enum BuiltInDefaults {
     private static func categoryTitle(for id: ActionID) -> String {
         switch String(id.rawValue.prefix(while: { $0 != "." })) {
         case "app", "document": return "Application"
+        case "palette": return "Command palette"
         case "tab": return "Tabs"
         case "scroll": return "Scroll"
         case "page": return "Pages"
@@ -169,45 +171,6 @@ public enum BuiltInDefaults {
     }
 
     private static func keyHint(_ sequences: [KeySequence]) -> String? {
-        guard let first = sequences.first, !first.tokens.isEmpty else { return nil }
-        return first.tokens.map(tokenHint).joined(separator: " ")
-    }
-
-    private static func tokenHint(_ token: KeyToken) -> String {
-        let names: [String: String] = ["D": "Cmd", "C": "Ctrl", "A": "Opt", "S": "Shift"]
-        let mods = token.modifiers.canonicalNames.map { names[$0] ?? $0 }
-        let base: String
-        switch token.symbol {
-        case let .character(character):
-            base = mods.isEmpty ? character : character.uppercased()
-        case let .named(key):
-            base = namedHint(key)
-        case .deadKey, .imeComposition:
-            base = token.description
-        }
-        return (mods + [base]).joined(separator: "+")
-    }
-
-    private static func namedHint(_ key: NamedKey) -> String {
-        switch key {
-        case .carriageReturn: return "Enter"
-        case .escape: return "Esc"
-        case .space: return "Space"
-        case .tab: return "Tab"
-        case .backspace: return "Backspace"
-        case .deleteForward: return "Del"
-        case .left: return "Left"
-        case .right: return "Right"
-        case .up: return "Up"
-        case .down: return "Down"
-        case .minus: return "-"
-        case .equal: return "="
-        case .plus: return "+"
-        case .slash: return "/"
-        case .lessThan: return "<"
-        case .greaterThan: return ">"
-        case .backtick: return "`"
-        default: return key.canonicalName
-        }
+        sequences.first.flatMap(KeyBindingHint.text(for:))
     }
 }

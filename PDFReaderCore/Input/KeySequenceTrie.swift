@@ -195,7 +195,7 @@ private enum ExactPrefixSafetyPolicy {
              .scrollLeft, .scrollDown, .scrollUp, .scrollRight,
              .scrollLargeDown, .scrollLargeUp,
              .pageNext, .pagePrevious, .pageFirst, .pageLast, .pagePrompt,
-             .searchPrompt, .searchNext, .searchPrevious,
+             .paletteOpen, .searchPrompt, .searchNext, .searchPrevious,
              .viewZoomIn, .viewZoomOut, .viewZoomReset, .viewFitWidth, .viewFitPage,
              .paneSplitRight, .paneSplitDown, .paneFocusLeft, .paneFocusDown,
              .paneFocusUp, .paneFocusRight, .paneUnsplit, .themePicker:

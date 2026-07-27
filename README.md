@@ -56,6 +56,7 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 | focus pane | `Ctrl-h` / `Ctrl-j` / `Ctrl-k` / `Ctrl-l` |
 | close other panes | `Ctrl-b o` |
 | theme picker | `Shift-t` |
+| command palette | `:` or `⌘⇧P` |
 
 `Enter` / `Esc` (commit / cancel a prompt) and `Enter` / `Shift-Enter` (next / previous search match) are fixed keys and always work.
 
@@ -64,6 +65,10 @@ In fit-page mode, `j`/`d` move to the next page and `k`/`u` to the previous one.
 ### Tabs & panes
 
 Each tab holds one document; the `+` button or `⌘O` opens another. `Ctrl-b |` and `Ctrl-b -` split the focused pane in place, tmux-style — up to four panes, each with its own tabs and document. A split keeps your current page but fits it to the smaller pane. `Ctrl-b o` closes every pane except the focused one, and `Ctrl-h/j/k/l` move focus by direction.
+
+### Command palette
+
+Press `:` or `⌘⇧P` to open a fuzzy command search. Type to filter every reader command by name, `↑`/`↓` (or `Ctrl-n`/`Ctrl-p`) to move, `Enter` to run, `Esc` to dismiss. Each row shows the command's current shortcut; commands that can't run in the current context (no document, single pane, etc.) are listed but greyed out.
 
 ### Themes
 

@@ -7,6 +7,7 @@ protocol ReaderWorkflowPresenting: AnyObject {
     var activePromptText: String { get }
 
     func presentThemePicker()
+    func presentCommandPalette()
     func presentPrompt(_ presentation: PromptPresentation)
     func showPromptValidation(_ message: String)
     func prepareForGlobalAction()
@@ -28,7 +29,7 @@ final class ActionDispatcher {
     private let navigation: NavigationConfiguration
     private var openDocumentHandler: () -> Void
     private var terminationHandler: () -> Void
-    private var newInstanceHandler: () -> Void
+private var newInstanceHandler: () -> Void
 
     weak var presentation: (any ReaderWorkflowPresenting)?
 
@@ -43,7 +44,7 @@ final class ActionDispatcher {
         self.navigation = navigation
         self.openDocumentHandler = openDocumentHandler
         self.terminationHandler = terminationHandler
-        self.newInstanceHandler = newInstanceHandler
+self.newInstanceHandler = newInstanceHandler
     }
 
     func configureLifecycleHandlers(
@@ -53,7 +54,7 @@ final class ActionDispatcher {
     ) {
         openDocumentHandler = openDocument
         terminationHandler = terminate
-        newInstanceHandler = newInstance
+newInstanceHandler = newInstance
     }
 
     func dispatch(_ keyDispatch: KeyActionDispatch) {
@@ -135,6 +136,8 @@ final class ActionDispatcher {
             )
         case .themePicker:
             presentation?.presentThemePicker()
+        case .paletteOpen:
+            presentation?.presentCommandPalette()
 
         case .viewZoomIn:
             activeSession?.zoom(by: navigation.zoomFactor)

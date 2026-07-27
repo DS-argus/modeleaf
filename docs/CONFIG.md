@@ -54,6 +54,7 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `document.close` | `<D-w>` | `navigation`, `searchResults` | `suppressed` |
 | `app.quit` | `<D-q>` | global | `suppressed` |
 | `app.new` | `<D-n>` | global | `suppressed` |
+| `palette.open` | `:`, `<D-S-p>` | `navigation`, `searchResults` | `suppressed` |
 | `tab.next` | `N` | `navigation`, `searchResults` | `suppressed` |
 | `tab.previous` | `P` | `navigation`, `searchResults` | `suppressed` |
 | `tab.select.1` | `<D-1>` | `navigation`, `searchResults` | `suppressed` |
@@ -247,6 +248,9 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 "document.close"   = ["<D-w>"]  # Cmd+W
 "app.quit"         = ["<D-q>"]  # Cmd+Q
 "app.new"          = ["<D-n>"]  # Cmd+N
+
+# --- Command palette ---
+"palette.open"     = [":", "<D-S-p>"]  # :
 
 # --- Tabs ---
 "tab.next"         = ["N"]  # N

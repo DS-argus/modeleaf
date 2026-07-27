@@ -13,6 +13,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let themePreviewHandler: (ThemeID) -> Void
     private let themeCommitHandler: (ThemeID) -> Void
     private let themeCancelHandler: (ThemeID) -> Void
+    private let resolvedConfig: ValidatedAppConfig
     private var installedKeyViewLoop: [NSView] = []
     let rootView: ReaderRootView
 
@@ -37,6 +38,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         self.openPaneHandler = openPaneHandler
         self.rootView = ReaderRootView(frame: NSRect(origin: .zero, size: WindowVisualMetrics.initialSize))
         let config = validatedConfig ?? Self.builtInValidatedConfig()
+        self.resolvedConfig = config
         self.inputRouter = ReaderInputRouter(
             config: config,
             pendingHandler: { [weak rootView] prefix in rootView?.setPendingPrefix(prefix) },
@@ -62,6 +64,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.keyEventHandler = { [weak self, weak inputRouter] event in
             guard let self else { return false }
+            if !self.rootView.commandPaletteOverlay.isHidden {
+                return self.rootView.commandPaletteOverlay.handleKeyDown(event)
+            }
             if !self.rootView.themePickerOverlay.isHidden {
                 return self.rootView.themePickerOverlay.handleKeyDown(event)
             }
@@ -145,6 +150,43 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         focusActiveSurface(snapshot: coordinator.snapshot)
     }
 
+    func presentCommandPalette() {
+        guard rootView.commandPaletteOverlay.isHidden else { return }
+        let snapshot = coordinator.snapshot
+        let state = PaletteContextState(
+            hasActiveDocument: coordinator.activeSession != nil,
+            paneCount: snapshot.layout.paneIDs.count,
+            tabCount: snapshot.tabs.count,
+            inSearchResults: inputRouter.context == .searchResults
+        )
+        let commands = ActionRegistry.v1.userConfigurableDescriptors
+            .filter { $0.id != .paletteOpen }
+            .map { descriptor -> PaletteCommand in
+                let availability = PaletteAvailability.evaluate(descriptor.id, state: state)
+                return PaletteCommand(
+                    id: descriptor.id,
+                    title: descriptor.title,
+                    shortcut: resolvedConfig.keymap.bindings(for: descriptor.id).first.flatMap { KeyBindingHint.text(for: $0) },
+                    isEnabled: availability.enabled,
+                    disabledReason: availability.reason
+                )
+            }
+        rootView.commandPaletteOverlay.onCommit = { [weak self] id in
+            guard let self else { return }
+            self.dismissCommandPaletteAndRestoreFocus()
+            self.actionHandler(id)
+        }
+        rootView.commandPaletteOverlay.onCancel = { [weak self] in self?.dismissCommandPaletteAndRestoreFocus() }
+        rootView.commandPaletteOverlay.present(commands: commands)
+        window?.makeFirstResponder(rootView.commandPaletteOverlay)
+    }
+
+    private func dismissCommandPaletteAndRestoreFocus() {
+        rootView.commandPaletteOverlay.dismiss()
+        rootView.commandPaletteOverlay.onCommit = nil
+        rootView.commandPaletteOverlay.onCancel = nil
+        focusActiveSurface(snapshot: coordinator.snapshot)
+    }
     func apply(theme: AppKitTheme) {
         window?.backgroundColor = theme[.background]
         rootView.apply(theme: theme)
@@ -208,6 +250,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     @discardableResult
     func routeKeyEventForTesting(_ event: NSEvent) -> Bool {
+        if !rootView.commandPaletteOverlay.isHidden {
+            return rootView.commandPaletteOverlay.handleKeyDown(event)
+        }
         if !rootView.themePickerOverlay.isHidden {
             return rootView.themePickerOverlay.handleKeyDown(event)
         }
@@ -215,6 +260,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowDidBecomeKey(_ notification: Notification) {
+        if !rootView.commandPaletteOverlay.isHidden {
+            window?.makeFirstResponder(rootView.commandPaletteOverlay)
+            return
+        }
         if !rootView.themePickerOverlay.isHidden {
             window?.makeFirstResponder(rootView.themePickerOverlay)
         } else if rootView.promptOverlay.isHidden {
