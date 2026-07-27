@@ -31,7 +31,6 @@ enum PDFCapabilityDisposition: String, Sendable {
 enum PDFCapabilityPolicy {
     static let suppressedMouseAreas: PDFAreaOfInterest = [
         .annotationArea,
-        .linkArea,
         .controlArea,
         .textFieldArea,
         .iconArea,
@@ -40,19 +39,23 @@ enum PDFCapabilityPolicy {
 
     static func disposition(for capability: PDFCapability) -> PDFCapabilityDisposition {
         switch capability {
-        case .display, .scrolling, .selection, .pointerCoexistence:
+        case .display, .scrolling, .selection, .pointerCoexistence, .linkActivation:
             .allowed
         case .copy:
             .systemOwned
         case .registryNavigation, .registryZoom, .registrySearch, .registryDocument, .registryTab:
             .registryRouted
         case .formEditing, .annotationEditing, .contextMenuOutsideAllowlist, .printExport,
-             .pageHistory, .linkActivation, .embeddedMedia:
+             .pageHistory, .embeddedMedia:
             .suppressed
         }
     }
 
     static func allowsMouseInteraction(in area: PDFAreaOfInterest) -> Bool {
-        area.intersection(suppressedMouseAreas).isEmpty
+        // Links are followable (in-document jump / open URL in browser); that is
+        // navigation, not mutation, so their areas forward the click. Every other
+        // annotation area stays inert to preserve read-only interaction.
+        if area.contains(.linkArea) { return true }
+        return area.intersection(suppressedMouseAreas).isEmpty
     }
 }
