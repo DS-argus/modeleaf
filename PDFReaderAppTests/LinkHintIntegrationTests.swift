@@ -40,7 +40,7 @@ struct LinkHintIntegrationTests {
 
             controller.presentLinkHints()
             #expect(overlay.isPresenting)
-            #expect(overlay.visibleLabels.count == 4) // goto + url + wrapped(2)
+            #expect(overlay.visibleLabels.count == 3) // goto + external + wrapped(grouped)
 
             // Modal: a key that is not a hint label does nothing and keeps hints up.
             _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "z")))

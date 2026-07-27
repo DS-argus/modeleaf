@@ -207,7 +207,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             }
         }
         rootView.linkHintOverlay.onCancel = { [weak self] in self?.dismissLinkHintsAndRestoreFocus() }
-        rootView.linkHintOverlay.present(targets: targets.map(\.rect))
+        rootView.linkHintOverlay.present(rectGroups: targets.map(\.rects))
         window?.makeFirstResponder(rootView.linkHintOverlay)
     }
 

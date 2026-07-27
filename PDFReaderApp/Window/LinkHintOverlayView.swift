@@ -11,7 +11,7 @@ final class LinkHintOverlayView: NSView {
     var onActivate: ((Int) -> Void)?
     var onCancel: (() -> Void)?
 
-    private var hints: [(rect: NSRect, label: String)] = []
+    private var hints: [(rects: [NSRect], label: String)] = []
     private var query = ""
     private var theme: AppKitTheme?
 
@@ -35,9 +35,11 @@ final class LinkHintOverlayView: NSView {
     }
 
     /// Presents hints for `targets` (rects already in this view's coordinates).
-    func present(targets: [NSRect]) {
-        let labels = LinkHintLabels.generate(count: targets.count)
-        hints = Array(zip(targets, labels))
+    /// Presents a hint per rect-group (each group is a link's per-line rects, in
+    /// this view's coordinates).
+    func present(rectGroups: [[NSRect]]) {
+        let labels = LinkHintLabels.generate(count: rectGroups.count)
+        hints = Array(zip(rectGroups, labels)).map { (rects: $0.0, label: $0.1) }
         query = ""
         isHidden = false
         needsDisplay = true
@@ -104,12 +106,14 @@ final class LinkHintOverlayView: NSView {
 
         for (index, hint) in hints.enumerated() {
             let isMatch = matching.contains(index)
-            let outline = NSBezierPath(roundedRect: hint.rect.insetBy(dx: -1.5, dy: -1.5), xRadius: 3, yRadius: 3)
-            outline.lineWidth = isMatch ? 2 : 1
-            (isMatch ? accent : dim).setStroke()
-            outline.stroke()
-            if isMatch {
-                drawBadge(hint.label, at: hint.rect, accent: accent, foreground: theme[.background])
+            for rect in hint.rects {
+                let outline = NSBezierPath(roundedRect: rect.insetBy(dx: -1.5, dy: -1.5), xRadius: 3, yRadius: 3)
+                outline.lineWidth = isMatch ? 2 : 1
+                (isMatch ? accent : dim).setStroke()
+                outline.stroke()
+            }
+            if isMatch, let badgeRect = hint.rects.first {
+                drawBadge(hint.label, at: badgeRect, accent: accent, foreground: theme[.background])
             }
         }
     }

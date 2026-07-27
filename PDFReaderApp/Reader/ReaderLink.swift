@@ -6,8 +6,12 @@ import PDFKit
 /// that all resolve to the same destination.
 struct ReaderLinkTarget {
     /// Link rectangle in the coordinate space requested from `linkTargets(in:)`.
-    let rect: NSRect
+    /// One rectangle per visual line: a link that wraps spans several. All are
+    /// outlined; the badge sits on the first (topmost) rect.
+    let rects: [NSRect]
     let kind: ReaderLinkKind
+
+    var primaryRect: NSRect { rects.first ?? .zero }
 }
 
 enum ReaderLinkKind {

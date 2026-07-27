@@ -322,6 +322,41 @@ public enum PDFFixtureFactory {
         }
         return outputURL
     }
+    /// A 1-page PDF that prints URLs as plain text (no annotations): one on a
+    /// single line and one wrapped across two lines after a `_`.
+    @discardableResult
+    public static func makeTextURLPDF(
+        in directory: URL,
+        name: String = "text-url.pdf"
+    ) throws -> URL {
+        let url = directory.appendingPathComponent(name)
+        guard let consumer = CGDataConsumer(url: url as CFURL) else {
+            throw PDFFixtureError.couldNotCreateConsumer
+        }
+        var mediaBox = CGRect(x: 0, y: 0, width: 612, height: 792)
+        guard let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else {
+            throw PDFFixtureError.couldNotCreateContext
+        }
+        let font = CTFontCreateWithName("Menlo" as CFString, 14, nil)
+        func draw(_ string: String, at point: CGPoint) {
+            context.textPosition = point
+            let attributes: [NSAttributedString.Key: Any] = [
+                NSAttributedString.Key(kCTFontAttributeName as String): font,
+                NSAttributedString.Key(kCTForegroundColorAttributeName as String): NSColor.black.cgColor,
+            ]
+            CTLineDraw(CTLineCreateWithAttributedString(NSAttributedString(string: string, attributes: attributes)), context)
+        }
+        context.beginPDFPage(nil)
+        context.saveGState()
+        context.textMatrix = .identity
+        draw("https://example.com/very_long_", at: CGPoint(x: 48, y: 700))
+        draw("path_continues", at: CGPoint(x: 48, y: 680))
+        draw("https://example.com/single", at: CGPoint(x: 48, y: 640))
+        context.restoreGState()
+        context.endPDFPage()
+        context.closePDF()
+        return url
+    }
     @discardableResult
     public static func makePerformancePDF(
         _ kind: PerformancePDFFixtureKind,
