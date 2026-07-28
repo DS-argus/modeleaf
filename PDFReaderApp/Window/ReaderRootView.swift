@@ -210,6 +210,7 @@ final class ReaderRootView: NSView {
     func activatePane(atWindowPoint point: NSPoint) { let localPoint = convert(point, from: nil); var view = hitTest(localPoint); while let candidate = view { if let pane = candidate as? PaneView { pane.activateForPointerEvent(); return }; view = candidate.superview } }
     func setInputContext(_ context: InputContext) { readerInputContext = context; currentStatus.context = Self.statusLabel(for: context); statusBar.render(currentStatus) }
     func showDiagnostic(_ message: String, expandedDetail: String? = nil, isError: Bool = true) { currentStatus.detail = message; currentStatus.expandedDetail = expandedDetail; currentStatus.tone = isError ? .error : .normal; statusBar.render(currentStatus) }
+    func presentUpdateBanner(_ text: String?, onClick: (() -> Void)? = nil) { statusBar.onUpdateClicked = onClick; statusBar.presentUpdate(text) }
     func clearDiagnostic() { currentStatus.detail = ReaderStatusSnapshot.empty.detail; currentStatus.expandedDetail = nil; currentStatus.tone = .normal; statusBar.render(currentStatus) }
     func setPendingPrefix(_ prefix: String) { currentStatus.pendingPrefix = prefix; statusBar.render(currentStatus) }
     private func setPresentedContentView(_ view: NSView?) { if presentedContentView !== view { presentedContentView?.removeFromSuperview() }; presentedContentView = view; attachContentView(view, to: contentHost) }
