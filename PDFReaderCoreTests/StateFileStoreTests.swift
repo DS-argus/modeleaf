@@ -57,7 +57,7 @@ struct StateFileStoreTests {
         try FileManager.default.removeItem(at: file)
         #expect(PathExistenceCheck.classify(link.path) == .missing)
         #expect(PathExistenceCheck.classify(directory.appendingPathComponent("none.pdf").path) == .missing)
-        #expect(PathExistenceCheck.classify(directory.path) == .notAFile(reason: "경로가 폴더입니다"))
+        #expect(PathExistenceCheck.classify(directory.path) == .notAFile(reason: "This path is a folder"))
     }
 
     @Test("Only ENOENT and ENOTDIR are missing; directories and denied parents are retained")
@@ -75,7 +75,7 @@ struct StateFileStoreTests {
         try Data().write(to: deniedFile)
         try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: denied.path)
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: denied.path) }
-        #expect(PathExistenceCheck.classify(deniedFile.path) == .notAFile(reason: "권한이 없습니다"))
+        #expect(PathExistenceCheck.classify(deniedFile.path) == .notAFile(reason: "Permission denied"))
     }
 
 
