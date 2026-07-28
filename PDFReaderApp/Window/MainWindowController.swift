@@ -14,11 +14,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let themeCommitHandler: (ThemeID) -> Void
     private let themeCancelHandler: (ThemeID) -> Void
     private let resolvedConfig: ValidatedAppConfig
+    private var themePickerPreOpenThemeID: ThemeID?
     private let browseHandler: () -> Void
     private let recentFilesProvider: () -> [RecentFileEntry]
     private let recentOpenHandler: (String) -> Void
-    private let recentPruneHandler: (String) -> Void
-    private let recentClearHandler: () -> Void
+    private let recentPruneHandler: (String) -> RecentFilesPersist
+    private let recentClearHandler: () -> RecentFilesPersist
     private var installedKeyViewLoop: [NSView] = []
     let rootView: ReaderRootView
 
@@ -36,8 +37,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         browseHandler: @escaping () -> Void = {},
         recentFilesProvider: @escaping () -> [RecentFileEntry] = { [] },
         recentOpenHandler: @escaping (String) -> Void = { _ in },
-        recentPruneHandler: @escaping (String) -> Void = { _ in },
-        recentClearHandler: @escaping () -> Void = {}
+        recentPruneHandler: @escaping (String) -> RecentFilesPersist = { _ in .persisted },
+        recentClearHandler: @escaping () -> RecentFilesPersist = { .persisted }
     ) {
         self.browseHandler = browseHandler
         self.recentFilesProvider = recentFilesProvider
@@ -145,25 +146,31 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         guard rootView.themePickerOverlay.isHidden else { return }
         let preOpenThemeID = currentThemeID()
         rootView.themePickerOverlay.onPreview = { [weak self] id in self?.themePreviewHandler(id) }
+        themePickerPreOpenThemeID = preOpenThemeID
         rootView.themePickerOverlay.onCommit = { [weak self] id in
             guard let self else { return }
             self.themeCommitHandler(id)
             self.dismissThemePickerAndRestoreFocus()
         }
         rootView.themePickerOverlay.onCancel = { [weak self] in
-            guard let self else { return }
-            self.themeCancelHandler(preOpenThemeID)
-            self.dismissThemePickerAndRestoreFocus()
+            self?.cancelThemePickerAndRestoreFocus()
         }
         rootView.themePickerOverlay.present(selectedThemeID: preOpenThemeID)
         rebuildKeyViewLoop(snapshot: coordinator.snapshot)
         window?.makeFirstResponder(rootView.themePickerOverlay)
     }
 
+    private func cancelThemePickerAndRestoreFocus() {
+        guard !rootView.themePickerOverlay.isHidden else { return }
+        let preOpenThemeID = themePickerPreOpenThemeID
+        dismissThemePickerAndRestoreFocus()
+        if let preOpenThemeID { themeCancelHandler(preOpenThemeID) }
+    }
     private func dismissThemePickerAndRestoreFocus() {
         rootView.themePickerOverlay.dismiss()
         rootView.themePickerOverlay.onPreview = nil
         rootView.themePickerOverlay.onCommit = nil
+        themePickerPreOpenThemeID = nil
         rootView.themePickerOverlay.onCancel = nil
         rebuildKeyViewLoop(snapshot: coordinator.snapshot)
         focusActiveSurface(snapshot: coordinator.snapshot)
@@ -171,10 +178,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
     func dismissAllTransientOverlays() {
         if !rootView.commandPaletteOverlay.isHidden { dismissCommandPaletteAndRestoreFocus() }
-        if !rootView.themePickerOverlay.isHidden { dismissThemePickerAndRestoreFocus() }
+        if !rootView.themePickerOverlay.isHidden { cancelThemePickerAndRestoreFocus() }
         if !rootView.recentFilesOverlay.isHidden { dismissRecentFilesOverlayAndRestoreFocus() }
     }
-
     func presentRecentFilesOpen() {
         presentRecentFilesOverlay()
     }
@@ -193,18 +199,30 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
                 self.dismissRecentFilesOverlayAndRestoreFocus()
                 self.recentOpenHandler(path)
             case .missing:
-                self.recentPruneHandler(path)
-                self.rootView.recentFilesOverlay.showInlineError("파일을 찾을 수 없음: \(URL(fileURLWithPath: path).lastPathComponent)")
-                self.rootView.recentFilesOverlay.refresh(entries: self.recentFilesProvider())
+                switch self.recentPruneHandler(path) {
+                case .persisted:
+                    self.rootView.recentFilesOverlay.showInlineError("파일을 찾을 수 없음: \(URL(fileURLWithPath: path).lastPathComponent)")
+                    self.rootView.recentFilesOverlay.refresh(entries: self.recentFilesProvider())
+                case .rejected:
+                    self.rootView.recentFilesOverlay.showInlineError("목록 저장 실패: 지원하지 않는 파일 형식")
+                case let .failed(message):
+                    self.rootView.recentFilesOverlay.showInlineError("목록 저장 실패: \(message)")
+                }
             case let .notAFile(reason):
                 self.rootView.recentFilesOverlay.showInlineError(reason)
             }
         }
         rootView.recentFilesOverlay.onClear = { [weak self] in
             guard let self else { return }
-            self.recentClearHandler()
-            self.rootView.recentFilesOverlay.refresh(entries: self.recentFilesProvider())
-            self.rootView.recentFilesOverlay.clearInlineError()
+            switch self.recentClearHandler() {
+            case .persisted:
+                self.rootView.recentFilesOverlay.refresh(entries: self.recentFilesProvider())
+                self.rootView.recentFilesOverlay.clearInlineError()
+            case .rejected:
+                self.rootView.recentFilesOverlay.showInlineError("목록 저장 실패: 지원하지 않는 파일 형식")
+            case let .failed(message):
+                self.rootView.recentFilesOverlay.showInlineError("목록 저장 실패: \(message)")
+            }
         }
         rootView.recentFilesOverlay.onCancel = { [weak self] in self?.dismissRecentFilesOverlayAndRestoreFocus() }
         rootView.recentFilesOverlay.present(entries: recentFilesProvider())

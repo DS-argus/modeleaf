@@ -94,6 +94,23 @@ struct ApplicationControllerTests {
             #expect(recentStore.load().map(\.absolutePath) == [document.path])
         }
     }
+    @Test("successful opens surface recent-files persistence failures without rejecting the PDF")
+    func successfulOpenSurfacesRecentPersistenceFailure() throws {
+        try withTemporaryDirectory { directory in
+            let document = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1)
+            let stateURL = directory.appendingPathComponent("state.json")
+            try FileManager.default.createDirectory(at: stateURL, withIntermediateDirectories: true)
+            let controller = ApplicationController(
+                configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                recentFilesStore: RecentFilesStore(fileURL: stateURL),
+                terminationHandler: {}
+            )
+            defer { controller.mainWindowController.close() }
+            #expect(controller.openDocument(at: document))
+            #expect(controller.mainWindowController.rootView.statusBar.presentation.detail.contains("recent-files list could not be saved"))
+        }
+    }
+
 
     @Test("pane-scoped deferred open rejects a disappeared target without inserting elsewhere")
     func deferredPaneOpenRejectsDisappearedTarget() throws {

@@ -195,6 +195,9 @@ public struct StateFileStore: Sendable {
         let temporaryURL = url.deletingLastPathComponent().appendingPathComponent(".state-\(UUID().uuidString).tmp")
         do {
             try data.write(to: temporaryURL)
+            guard chmod(temporaryURL.path, mode_t(0o600)) == 0 else {
+                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            }
             let status = temporaryURL.path.withCString { source in
                 url.path.withCString { destination in rename(source, destination) }
             }

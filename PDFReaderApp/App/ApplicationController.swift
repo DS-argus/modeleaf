@@ -21,7 +21,23 @@ final class ApplicationController {
     private(set) var menuBuilder: ValidatedMenuBuilder?
 
     lazy var mainWindowController: MainWindowController = {
-        let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(themeID: currentThemeID), actionHandler: { [weak self] action in self?.actionDispatcher.dispatch(action) }, keyDispatchHandler: { [weak self] dispatch in self?.actionDispatcher.dispatch(dispatch) }, validatedConfig: configResult.activeConfig, openPaneHandler: { [weak self] paneID in self?.presentOpenPanel(target: .existing(paneID)) }, currentThemeID: { [weak self] in self?.currentThemeID ?? .tokyoNight }, themePreviewHandler: { [weak self] id in self?.applyTheme(id, persist: false) }, themeCommitHandler: { [weak self] id in self?.applyTheme(id, persist: true) }, themeCancelHandler: { [weak self] id in self?.applyTheme(id, persist: false) }, browseHandler: { [weak self] in self?.presentOpenPanel() }, recentFilesProvider: { [weak self] in self?.recentFilesStore.load() ?? [] }, recentOpenHandler: { [weak self] path in _ = self?.openDocument(at: URL(fileURLWithPath: path)) }, recentPruneHandler: { [weak self] path in _ = self?.recentFilesStore.prune(absolutePath: path) }, recentClearHandler: { [weak self] in _ = self?.recentFilesStore.clear() })
+        let controller = MainWindowController(
+            coordinator: coordinator,
+            theme: AppKitTheme(themeID: currentThemeID),
+            actionHandler: { [weak self] action in self?.actionDispatcher.dispatch(action) },
+            keyDispatchHandler: { [weak self] dispatch in self?.actionDispatcher.dispatch(dispatch) },
+            validatedConfig: configResult.activeConfig,
+            openPaneHandler: { [weak self] paneID in self?.presentOpenPanel(target: .existing(paneID)) },
+            currentThemeID: { [weak self] in self?.currentThemeID ?? .tokyoNight },
+            themePreviewHandler: { [weak self] id in self?.applyTheme(id, persist: false) },
+            themeCommitHandler: { [weak self] id in self?.applyTheme(id, persist: true) },
+            themeCancelHandler: { [weak self] id in self?.applyTheme(id, persist: false) },
+            browseHandler: { [weak self] in self?.presentOpenPanel() },
+            recentFilesProvider: { [weak self] in self?.recentFilesStore.load() ?? [] },
+            recentOpenHandler: { [weak self] path in _ = self?.openDocument(at: URL(fileURLWithPath: path)) },
+            recentPruneHandler: { [weak self] path in self?.recentFilesStore.prune(absolutePath: path) ?? .failed(message: "recent-files store unavailable") },
+            recentClearHandler: { [weak self] in self?.recentFilesStore.clear() ?? .failed(message: "recent-files store unavailable") }
+        )
         actionDispatcher.presentation = controller
         return controller
     }()
@@ -70,7 +86,13 @@ final class ApplicationController {
         do {
             let session = try pdfOpenService.open(url: url, traceID: traceID, metrics: openMetrics); session.applyTheme(AppKitTheme(themeID: currentThemeID))
             guard coordinator.insert(session, into: target) else { session.prepareForClose(reason: .insertionRejected); mainWindowController.showDiagnostic("Could not create a PDF tab for \(url.lastPathComponent)"); recordOpenFailure(traceID: traceID, outcome: .insertionRejected); return false }
-            mainWindowController.clearDiagnostic(); _ = recentFilesStore.recordOpened(absolutePath: url.path); openMetrics.record(.point(.openReady, traceID: traceID, outcome: .success)); openMetrics.record(.end(.openTotal, traceID: traceID, outcome: .success)); return true
+            mainWindowController.clearDiagnostic()
+            if case let .failed(message) = recentFilesStore.recordOpened(absolutePath: url.path) {
+                mainWindowController.showDiagnostic("PDF opened but recent-files list could not be saved: \(message)")
+            }
+            openMetrics.record(.point(.openReady, traceID: traceID, outcome: .success))
+            openMetrics.record(.end(.openTotal, traceID: traceID, outcome: .success))
+            return true
         } catch let error as PDFOpenError { mainWindowController.showDiagnostic(error.presentation); recordOpenFailure(traceID: traceID, outcome: error.metricOutcome); return false
         } catch { mainWindowController.showDiagnostic("Could not open PDF: \(error.localizedDescription)"); recordOpenFailure(traceID: traceID, outcome: .unexpectedFailure); return false }
     }

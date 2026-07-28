@@ -78,6 +78,15 @@ struct StateFileStoreTests {
         #expect(PathExistenceCheck.classify(deniedFile.path) == .notAFile(reason: "권한이 없습니다"))
     }
 
+
+    @Test("State updates write state.json with owner-only permissions")
+    func stateFilePermissionsAreOwnerOnly() throws {
+        try withFileURL { fileURL in
+            #expect(StateFileStore(fileURL: fileURL).update { $0.selectedTheme = "dracula" } == .persisted)
+            let permissions = try #require(FileManager.default.attributesOfItem(atPath: fileURL.path)[.posixPermissions] as? NSNumber)
+            #expect(permissions.intValue & 0o777 == 0o600)
+        }
+    }
     private func withFileURL(_ body: (URL) throws -> Void) throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("StateFileStoreTests-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }
