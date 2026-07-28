@@ -69,6 +69,7 @@ final class PDFViewController: NSViewController {
         openMetrics.record(.begin(.pdfViewDocumentAttach, traceID: openTraceID))
         readerView.document = initialDocument
         readerView.enforceReadOnlyDocumentConfiguration()
+        readerView.followLinkHandler = { NSWorkspace.shared.open($0) }
         openMetrics.record(.end(.pdfViewDocumentAttach, traceID: openTraceID, outcome: .success))
         view = container
     }

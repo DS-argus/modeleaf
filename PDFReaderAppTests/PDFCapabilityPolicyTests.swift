@@ -11,14 +11,14 @@ struct PDFCapabilityPolicyTests {
     func exactCapabilityMatrix() {
         let grouped = Dictionary(grouping: PDFCapability.allCases, by: PDFCapabilityPolicy.disposition(for:))
 
-        #expect(Set(grouped[.allowed] ?? []) == Set([.display, .scrolling, .selection, .pointerCoexistence]))
+        #expect(Set(grouped[.allowed] ?? []) == Set([.display, .scrolling, .selection, .pointerCoexistence, .linkActivation]))
         #expect(Set(grouped[.systemOwned] ?? []) == [.copy])
         #expect(Set(grouped[.registryRouted] ?? []) == Set([
             .registryNavigation, .registryZoom, .registrySearch, .registryDocument, .registryTab,
         ]))
         #expect(Set(grouped[.suppressed] ?? []) == Set([
             .formEditing, .annotationEditing, .contextMenuOutsideAllowlist, .printExport,
-            .pageHistory, .linkActivation, .embeddedMedia,
+            .pageHistory, .embeddedMedia,
         ]))
     }
 
@@ -33,6 +33,7 @@ struct PDFCapabilityPolicyTests {
             let view = ReaderPDFView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
             view.document = document
             view.enforceReadOnlyDocumentConfiguration()
+            view.followLinkHandler = { _ in }
 
             let originalWidget = widget.widgetStringValue
             let originalNote = note.contents
@@ -51,7 +52,8 @@ struct PDFCapabilityPolicyTests {
             view.pdfViewPerformPrint(view)
 
             #expect(view.shouldForwardMouseEvent(in: .textArea))
-            for area: PDFAreaOfInterest in [.annotationArea, .linkArea, .controlArea, .textFieldArea, .iconArea, .popupArea] {
+            #expect(view.shouldForwardMouseEvent(in: .linkArea)) // links are followable now
+            for area: PDFAreaOfInterest in [.annotationArea, .controlArea, .textFieldArea, .iconArea, .popupArea] {
                 #expect(!view.shouldForwardMouseEvent(in: area))
             }
 
@@ -61,9 +63,9 @@ struct PDFCapabilityPolicyTests {
             #expect(fixture.widgetValue == originalWidget)
             #expect(fixture.noteContents == originalNote)
             #expect(fixture.annotationCount == originalCount)
-            #expect(view.blockedActionCount == 1)
+            #expect(view.blockedActionCount == 0) // URL action is now followed, not blocked
             #expect(view.blockedHistoryCount == 2)
-            #expect(view.blockedLinkCount == 1)
+            #expect(view.followedLinkCount == 2) // perform(URLAction) + pdfViewWillClick
             #expect(view.blockedPrintCount == 2)
             #expect(menu.items.compactMap(\.action) == [#selector(NSText.copy(_:))])
             #expect(!view.acceptsDraggedFiles)

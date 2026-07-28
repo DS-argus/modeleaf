@@ -16,13 +16,17 @@ enum ReaderVerticalBoundary {
 final class ReaderPDFView: PDFView {
     var keyEventHandler: ((NSEvent) -> Bool)?
 
+    /// Invoked with a URL link's target when the user clicks it; the shell opens
+    /// it in the browser. In-document (GoTo) links navigate without this handler.
+    var followLinkHandler: ((URL) -> Void)?
+
     private lazy var readOnlyDelegate = ReaderPDFViewDelegate(owner: self)
 
     private(set) var blockedActionCount = 0
     private(set) var blockedHistoryCount = 0
-    private(set) var blockedLinkCount = 0
     private(set) var blockedPrintCount = 0
     private(set) var blockedMouseSequenceCount = 0
+    private(set) var followedLinkCount = 0
     private var isBlockingMouseSequence = false
     private var focusIndicatorColor = NSColor.clear
 
@@ -62,15 +66,14 @@ final class ReaderPDFView: PDFView {
         return PDFCapabilityPolicy.allowsMouseInteraction(in: area) ? super.hitTest(point) : self
     }
 
-    /// Links can't be clicked in this read-only viewer (they're reachable only
-    /// via the `f` hint action), so keep a normal arrow over them instead of
-    /// PDFKit's pointing hand, which would imply a dead click. Text keeps its
-    /// I-beam because those cursor rects are left untouched.
+    /// Links are clickable (in-document jump / open URL in browser), so show the
+    /// pointing hand over them. Text keeps its I-beam (those cursor rects are
+    /// left untouched).
     override func resetCursorRects() {
         super.resetCursorRects()
         for page in visiblePages {
             for annotation in page.annotations where annotation.type == "Link" || annotation.action != nil || annotation.url != nil {
-                addCursorRect(convert(annotation.bounds, from: page), cursor: .arrow)
+                addCursorRect(convert(annotation.bounds, from: page), cursor: .pointingHand)
             }
         }
     }
@@ -124,7 +127,14 @@ final class ReaderPDFView: PDFView {
     }
 
     override func perform(_ action: PDFAction) {
-        blockedActionCount += 1
+        if let goTo = action as? PDFActionGoTo {
+            go(to: goTo.destination)
+        } else if let urlAction = action as? PDFActionURL, let url = urlAction.url {
+            followedLinkCount += 1
+            followLinkHandler?(url)
+        } else {
+            blockedActionCount += 1
+        }
     }
 
     override func goBack(_ sender: Any?) {
@@ -158,7 +168,8 @@ final class ReaderPDFView: PDFView {
     }
 
     func pdfViewWillClick(onLink sender: PDFView, with url: URL) {
-        blockedLinkCount += 1
+        followedLinkCount += 1
+        followLinkHandler?(url)
     }
 
     func pdfViewPerformPrint(_ sender: PDFView) {
