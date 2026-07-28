@@ -46,8 +46,6 @@ public enum ActionID: String, CaseIterable, Codable, Hashable, Sendable {
     case viewFitWidth = "view.fitWidth"
     case viewFitPage = "view.fitPage"
 
-    case linkHint = "link.hint"
-
     case themePicker = "theme.picker"
     case paneSplitRight = "pane.splitRight"
     case paneSplitDown = "pane.splitDown"

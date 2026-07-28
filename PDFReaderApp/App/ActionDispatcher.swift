@@ -8,7 +8,6 @@ protocol ReaderWorkflowPresenting: AnyObject {
 
     func presentThemePicker()
     func presentCommandPalette()
-    func presentLinkHints()
     func presentPrompt(_ presentation: PromptPresentation)
     func showPromptValidation(_ message: String)
     func prepareForGlobalAction()
@@ -139,8 +138,6 @@ newInstanceHandler = newInstance
             presentation?.presentThemePicker()
         case .paletteOpen:
             presentation?.presentCommandPalette()
-        case .linkHint:
-            presentation?.presentLinkHints()
 
         case .viewZoomIn:
             activeSession?.zoom(by: navigation.zoomFactor)
