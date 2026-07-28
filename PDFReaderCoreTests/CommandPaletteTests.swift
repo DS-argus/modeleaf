@@ -58,7 +58,7 @@ struct CommandPaletteTests {
     @Test("global lifecycle commands stay enabled with no open document")
     func lifecycleAlwaysEnabled() {
         let empty = PaletteContextState(hasActiveDocument: false, paneCount: 0, tabCount: 0, inSearchResults: false)
-        for id in [ActionID.documentOpen, .appNew, .appQuit] {
+        for id in [ActionID.documentOpen, .appNew, .appQuit, .helpShow] {
             #expect(PaletteAvailability.evaluate(id, state: empty).enabled)
         }
         // Everything else is disabled until a document is open.

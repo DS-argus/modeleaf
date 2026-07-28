@@ -55,7 +55,7 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `app.quit` | `<D-q>` | global | `suppressed` |
 | `app.new` | `<D-n>` | global | `suppressed` |
 | `palette.open` | `:`, `<D-S-p>` | `navigation`, `searchResults` | `suppressed` |
-| `help.show` | `?` | `navigation`, `searchResults` | `suppressed` |
+| `help.show` | `?` | `navigation` | `suppressed` |
 | `tab.next` | `N` | `navigation`, `searchResults` | `suppressed` |
 | `tab.previous` | `P` | `navigation`, `searchResults` | `suppressed` |
 | `tab.select.1` | `<D-1>` | `navigation`, `searchResults` | `suppressed` |
