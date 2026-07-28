@@ -24,8 +24,8 @@ struct RecentFilesOverlayIntegrationTests {
     }
     private func makeMutableController(
         provider: @escaping () -> [RecentFileEntry],
-        prune: @escaping (String) -> Void = { _ in },
-        clear: @escaping () -> Void = {},
+        prune: @escaping (String) -> RecentFilesPersist = { _ in .persisted },
+        clear: @escaping () -> RecentFilesPersist = { .persisted },
         open: @escaping (String) -> Void = { _ in }
     ) -> MainWindowController {
         MainWindowController(
@@ -46,7 +46,6 @@ struct RecentFilesOverlayIntegrationTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         try body(directory)
     }
-
 
     private func type(_ text: String, into controller: MainWindowController) throws {
         for character in text {
@@ -106,24 +105,28 @@ struct RecentFilesOverlayIntegrationTests {
 
     @Test("control navigation, Browse, escape, and palette replacement")
     func modalKeysAndReplacement() throws {
-        let entries = [RecentFileEntry(absolutePath: "/documents/alpha.pdf", lastOpenedAt: .now)]
-        var browseCount = 0
-        let controller = makeController(entries: entries, browse: { browseCount += 1 })
-        defer { controller.close() }
+        try withTemporaryDirectory { directory in
+            let alpha = directory.appendingPathComponent("alpha.pdf")
+            try Data().write(to: alpha)
+            let entries = [RecentFileEntry(absolutePath: alpha.path, lastOpenedAt: .now)]
+            var browseCount = 0
+            let controller = makeController(entries: entries, browse: { browseCount += 1 })
+            defer { controller.close() }
 
-        controller.presentRecentFilesOverlay()
-        _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "j", modifiers: [.control])))
-        #expect(controller.rootView.recentFilesOverlay.selectedIndexForTesting == 1)
-        _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "k", modifiers: [.control])))
-        #expect(controller.rootView.recentFilesOverlay.selectedIndexForTesting == 0)
-        _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "\r", keyCode: 36)))
-        #expect(browseCount == 1)
+            controller.presentRecentFilesOverlay()
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "j", modifiers: [.control])))
+            #expect(controller.rootView.recentFilesOverlay.selectedIndexForTesting == 1)
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "k", modifiers: [.control])))
+            #expect(controller.rootView.recentFilesOverlay.selectedIndexForTesting == 0)
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "\r", keyCode: 36)))
+            #expect(browseCount == 1)
 
-        controller.presentCommandPalette()
-        controller.presentRecentFilesOverlay()
-        #expect(controller.rootView.commandPaletteOverlay.isHidden)
-        _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "", keyCode: 53)))
-        #expect(controller.rootView.recentFilesOverlay.isHidden)
+            controller.presentCommandPalette()
+            controller.presentRecentFilesOverlay()
+            #expect(controller.rootView.commandPaletteOverlay.isHidden)
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "", keyCode: 53)))
+            #expect(controller.rootView.recentFilesOverlay.isHidden)
+        }
     }
 
     @Test("a missing recent file shows an inline error, prunes, and keeps the overlay open")
@@ -139,7 +142,10 @@ struct RecentFilesOverlayIntegrationTests {
             var opened: [String] = []
             let controller = makeMutableController(
                 provider: { entries },
-                prune: { path in entries.removeAll { $0.absolutePath == path } },
+                prune: { path in
+                    entries.removeAll { $0.absolutePath == path }
+                    return .persisted
+                },
                 open: { opened.append($0) }
             )
             defer { controller.close() }
@@ -162,7 +168,13 @@ struct RecentFilesOverlayIntegrationTests {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             var pruned: [String] = []
             let entries = [RecentFileEntry(absolutePath: folder.path, lastOpenedAt: .now)]
-            let controller = makeMutableController(provider: { entries }, prune: { pruned.append($0) })
+            let controller = makeMutableController(
+                provider: { entries },
+                prune: { path in
+                    pruned.append(path)
+                    return .persisted
+                }
+            )
             defer { controller.close() }
 
             controller.presentRecentFilesOverlay()
@@ -179,7 +191,13 @@ struct RecentFilesOverlayIntegrationTests {
     @Test("Ctrl+c clears the list immediately and keeps only Browse")
     func ctrlCClears() throws {
         var entries = [RecentFileEntry(absolutePath: "/tmp/a.pdf", lastOpenedAt: .now)]
-        let controller = makeMutableController(provider: { entries }, clear: { entries = [] })
+        let controller = makeMutableController(
+            provider: { entries },
+            clear: {
+                entries = []
+                return .persisted
+            }
+        )
         defer { controller.close() }
 
         controller.presentRecentFilesOverlay()
@@ -222,5 +240,51 @@ struct RecentFilesOverlayIntegrationTests {
         let overlay = controller.rootView.recentFilesOverlay
         #expect(overlay.visibleRowsForTesting == ["Browse\u{2026}"])
         #expect(!overlay.keyHintForTesting.isEmpty)
+    }
+
+    @Test("directory-backed state stores surface prune and clear write failures")
+    func persistFailuresSurfaceInline() throws {
+        try withTemporaryDirectory { directory in
+            let missing = directory.appendingPathComponent("gone.pdf")
+            let entries = [RecentFileEntry(absolutePath: missing.path, lastOpenedAt: .now)]
+            let controller = makeMutableController(
+                provider: { entries },
+                prune: { _ in .failed(message: "lock timeout") },
+                clear: { .failed(message: "lock timeout") }
+            )
+            defer { controller.close() }
+
+            controller.presentRecentFilesOverlay()
+            let overlay = controller.rootView.recentFilesOverlay
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "j", modifiers: [.control])))
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "\r", keyCode: 36)))
+            #expect(overlay.inlineErrorForTesting?.contains("목록 저장 실패") == true)
+            // A failed prune must not silently drop the row from the provider-backed list.
+            #expect(overlay.visibleRowsForTesting == ["Browse\u{2026}", missing.path])
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "c", modifiers: [.control])))
+            #expect(overlay.inlineErrorForTesting?.contains("목록 저장 실패") == true)
+            #expect(!overlay.isHidden)
+        }
+    }
+
+    @Test("small windows bound the recent list while keeping selected rows and hint visible")
+    func boundedScrollListInSmallWindow() throws {
+        let entries = (0..<RecentFilesStore.maximumEntries).map {
+            RecentFileEntry(absolutePath: "/tmp/\($0).pdf", lastOpenedAt: .now)
+        }
+        let controller = makeController(entries: entries)
+        defer { controller.close() }
+        controller.window?.setContentSize(NSSize(width: 480, height: 360))
+        controller.window?.contentView?.layoutSubtreeIfNeeded()
+        controller.presentRecentFilesOverlay()
+        controller.window?.contentView?.layoutSubtreeIfNeeded()
+        for _ in 0..<RecentFilesStore.maximumEntries {
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "j", modifiers: [.control])))
+        }
+        controller.window?.contentView?.layoutSubtreeIfNeeded()
+        let overlay = controller.rootView.recentFilesOverlay
+        #expect(controller.rootView.recentFilesOverlayIsWithinContentBoundsForTesting)
+        #expect(overlay.selectedRowIsVisibleForTesting)
+        #expect(overlay.keyHintIsWithinBoundsForTesting)
     }
 }

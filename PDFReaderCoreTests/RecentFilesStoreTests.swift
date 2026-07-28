@@ -62,6 +62,31 @@ struct RecentFilesStoreTests {
         }
     }
 
+
+    @Test("Non-PDF paths are rejected and corrupted non-PDF entries stay hidden")
+    func rejectsAndFiltersNonPDFPaths() throws {
+        try withStore { store, directory in
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            #expect(store.recordOpened(absolutePath: "/tmp/not-a-pdf.txt") == .rejected)
+            #expect(store.load().isEmpty)
+
+            let state = directory.appendingPathComponent("state.json")
+            try Data("{\"recent_files\":[{\"absolute_path\":\"/tmp/valid.PDF\",\"last_opened_at\":0},{\"absolute_path\":\"/tmp/not-a-pdf.txt\",\"last_opened_at\":0}]}".utf8).write(to: state)
+            #expect(store.load().map(\.absolutePath) == ["/tmp/valid.PDF"])
+        }
+    }
+
+    @Test("Reopening remains first when timestamps are equal or move backwards")
+    func reopeningIsFirstRegardlessOfTimestamp() throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let stateURL = directory.appendingPathComponent("state.json")
+        try Data("{\"recent_files\":[{\"absolute_path\":\"/tmp/first.pdf\",\"last_opened_at\":100},{\"absolute_path\":\"/tmp/second.pdf\",\"last_opened_at\":50}]}".utf8).write(to: stateURL)
+        let store = RecentFilesStore(fileURL: stateURL, now: { Date(timeIntervalSince1970: 0) })
+        #expect(store.recordOpened(absolutePath: "/tmp/first.pdf") == .persisted)
+        #expect(store.load().map(\.absolutePath) == ["/tmp/first.pdf", "/tmp/second.pdf"])
+    }
     private func withStore(_ body: (RecentFilesStore, URL) throws -> Void) throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

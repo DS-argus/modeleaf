@@ -5,7 +5,8 @@ import PDFReaderCore
 final class RecentFilesOpenOverlayView: NSView {
     private enum Metrics {
         static let width: CGFloat = 360
-        static let maxVisibleRows = RecentFilesStore.maximumEntries + 1
+        static let maxVisibleRows = 8
+        static let rowHeight: CGFloat = 32
     }
 
     var onBrowse: (() -> Void)?
@@ -16,8 +17,10 @@ final class RecentFilesOpenOverlayView: NSView {
     private let queryField = NSTextField(labelWithString: "")
     private let errorLabel = NSTextField(labelWithString: "")
     private let keyHintLabel = NSTextField(labelWithString: "Ctrl+j/k 이동 · Ctrl+c 지우기 · ↵ 열기 · esc 닫기")
-    private let rows = (0..<Metrics.maxVisibleRows).map { _ in RecentFilesOpenRowView() }
+    private let rows = (0...RecentFilesStore.maximumEntries).map { _ in RecentFilesOpenRowView() }
     private let rowStack = NSStackView()
+    private let scrollView = NSScrollView()
+    private var listHeightConstraint: NSLayoutConstraint!
     private var entries: [RecentFileEntry] = []
     private var filtered: [RecentFileMatch] = []
     private var query = ""
@@ -56,7 +59,19 @@ final class RecentFilesOpenOverlayView: NSView {
             row.widthAnchor.constraint(equalTo: rowStack.widthAnchor).isActive = true
         }
 
-        let stack = NSStackView(views: [queryField, errorLabel, rowStack, keyHintLabel])
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.documentView = rowStack
+        scrollView.prepareForAutoLayout()
+        rowStack.prepareForAutoLayout()
+        listHeightConstraint = scrollView.heightAnchor.constraint(equalToConstant: Metrics.rowHeight)
+        listHeightConstraint.isActive = true
+
+        listHeightConstraint.priority = .defaultHigh
+        let stack = NSStackView(views: [queryField, errorLabel, scrollView, keyHintLabel])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 10
@@ -68,7 +83,9 @@ final class RecentFilesOpenOverlayView: NSView {
             stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -14),
             stack.widthAnchor.constraint(equalToConstant: Metrics.width),
-            rowStack.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            scrollView.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            rowStack.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
+            scrollView.heightAnchor.constraint(lessThanOrEqualToConstant: Metrics.rowHeight * CGFloat(Metrics.maxVisibleRows)),
         ])
         isHidden = true
     }
@@ -87,7 +104,7 @@ final class RecentFilesOpenOverlayView: NSView {
     }
 
     func present(entries: [RecentFileEntry]) {
-        self.entries = entries
+        self.entries = entries.filter { Self.isPDFPath($0.absolutePath) }
         query = ""
         errorLabel.isHidden = true
         isHidden = false
@@ -95,7 +112,7 @@ final class RecentFilesOpenOverlayView: NSView {
     }
 
     func refresh(entries: [RecentFileEntry]) {
-        self.entries = entries
+        self.entries = entries.filter { Self.isPDFPath($0.absolutePath) }
         applyFilter(resetSelection: false)
     }
 
@@ -104,9 +121,7 @@ final class RecentFilesOpenOverlayView: NSView {
         errorLabel.isHidden = false
     }
 
-    func clearInlineError() {
-        errorLabel.isHidden = true
-    }
+    func clearInlineError() { errorLabel.isHidden = true }
 
     func dismiss() {
         isHidden = true
@@ -119,31 +134,30 @@ final class RecentFilesOpenOverlayView: NSView {
 
     var currentQuery: String { query }
     var selectedIndexForTesting: Int { selectedIndex }
-    var visibleRowsForTesting: [String] {
-        ["Browse…"] + filtered.prefix(Metrics.maxVisibleRows - 1).map { $0.entry.absolutePath }
-    }
+    var visibleRowsForTesting: [String] { ["Browse…"] + filtered.map { $0.entry.absolutePath } }
     var inlineErrorForTesting: String? { errorLabel.isHidden ? nil : errorLabel.stringValue }
     var keyHintForTesting: String { keyHintLabel.stringValue }
+    var selectedRowIsVisibleForTesting: Bool {
+        layoutSubtreeIfNeeded()
+        let row = rows[selectedIndex]
+        let rowRect = row.convert(row.bounds, to: rowStack)
+        return scrollView.documentVisibleRect.contains(rowRect)
+    }
+    var keyHintIsWithinBoundsForTesting: Bool {
+        layoutSubtreeIfNeeded()
+        return bounds.contains(convert(keyHintLabel.bounds, from: keyHintLabel))
+    }
 
     func handleKeyDown(_ event: NSEvent) -> Bool {
         if event.modifierFlags.contains(.command) { return false }
         switch event.keyCode {
-        case 53:
-            onCancel?()
-            return true
-        case 36, 76:
-            commitSelection()
-            return true
+        case 53: onCancel?(); return true
+        case 36, 76: commitSelection(); return true
         case 51:
-            if !query.isEmpty {
-                query.removeLast()
-                applyFilter(resetSelection: true)
-            }
+            if !query.isEmpty { query.removeLast(); applyFilter(resetSelection: true) }
             return true
-        default:
-            break
+        default: break
         }
-
         if event.modifierFlags.contains(.control), let characters = event.charactersIgnoringModifiers?.lowercased() {
             switch characters {
             case "j": moveSelection(by: 1); return true
@@ -152,7 +166,6 @@ final class RecentFilesOpenOverlayView: NSView {
             default: return false
             }
         }
-
         guard let typed = event.characters, typed.count == 1, let scalar = typed.unicodeScalars.first,
               scalar.value >= 0x20, scalar.value != 0x7F else { return false }
         query.append(Character(scalar))
@@ -171,13 +184,15 @@ final class RecentFilesOpenOverlayView: NSView {
         } else {
             selectedIndex = min(selectedIndex, filtered.count)
         }
+        updateListHeight()
         renderRows()
+        scrollSelectedRowToVisible()
     }
 
     private func moveSelection(by offset: Int) {
-        let lastIndex = min(filtered.count, Metrics.maxVisibleRows - 1)
-        selectedIndex = min(max(selectedIndex + offset, 0), lastIndex)
+        selectedIndex = min(max(selectedIndex + offset, 0), filtered.count)
         renderRows()
+        scrollSelectedRowToVisible()
     }
 
     private func commitSelection() {
@@ -186,6 +201,20 @@ final class RecentFilesOpenOverlayView: NSView {
         } else if filtered.indices.contains(selectedIndex - 1) {
             onOpenRecent?(filtered[selectedIndex - 1].entry.absolutePath)
         }
+    }
+
+    private func updateListHeight() {
+        let visibleCount = min(filtered.count + 1, Metrics.maxVisibleRows)
+        listHeightConstraint.constant = CGFloat(visibleCount) * Metrics.rowHeight
+    }
+
+    private func scrollSelectedRowToVisible() {
+        layoutSubtreeIfNeeded()
+        rows[selectedIndex].scrollToVisible(rows[selectedIndex].bounds)
+    }
+
+    private static func isPDFPath(_ path: String) -> Bool {
+        URL(fileURLWithPath: path).pathExtension.caseInsensitiveCompare("pdf") == .orderedSame
     }
 
     private func renderRows() {
@@ -241,10 +270,7 @@ private final class RecentFilesOpenRowView: NSView {
     func configure(title: String, path: String?, matchedIndices: [Int], selected: Bool, theme: AppKitTheme?) {
         pathLabel.stringValue = path ?? ""
         pathLabel.isHidden = path == nil
-        guard let theme else {
-            titleLabel.stringValue = title
-            return
-        }
+        guard let theme else { titleLabel.stringValue = title; return }
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13, weight: selected ? .semibold : .regular),
             .foregroundColor: selected ? theme[.accent] : theme[.foreground],

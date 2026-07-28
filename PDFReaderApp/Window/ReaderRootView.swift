@@ -81,6 +81,7 @@ final class ReaderRootView: NSView {
             contentHost.topAnchor.constraint(equalTo: tabBar.bottomAnchor), contentHost.leadingAnchor.constraint(equalTo: leadingAnchor), contentHost.trailingAnchor.constraint(equalTo: trailingAnchor), contentHost.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
             themePickerOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor), themePickerOverlay.centerYAnchor.constraint(equalTo: contentHost.centerYAnchor), themePickerOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 40), themePickerOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -40),
             recentFilesOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor), recentFilesOverlay.topAnchor.constraint(equalTo: contentHost.topAnchor, constant: 72), recentFilesOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 40), recentFilesOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -40),
+            recentFilesOverlay.bottomAnchor.constraint(lessThanOrEqualTo: contentHost.bottomAnchor, constant: -40),
             commandPaletteOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor), commandPaletteOverlay.topAnchor.constraint(equalTo: contentHost.topAnchor, constant: 72), commandPaletteOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 40), commandPaletteOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -40),
             emptyState.topAnchor.constraint(equalTo: contentHost.topAnchor), emptyState.leadingAnchor.constraint(equalTo: contentHost.leadingAnchor), emptyState.trailingAnchor.constraint(equalTo: contentHost.trailingAnchor), emptyState.bottomAnchor.constraint(equalTo: contentHost.bottomAnchor),
             statusBar.leadingAnchor.constraint(equalTo: leadingAnchor), statusBar.trailingAnchor.constraint(equalTo: trailingAnchor), statusBar.bottomAnchor.constraint(equalTo: bottomAnchor), statusBar.heightAnchor.constraint(equalToConstant: WindowVisualMetrics.statusBarHeight),
@@ -207,6 +208,9 @@ final class ReaderRootView: NSView {
         for pair in innerDividerPositions.keys where !pair.allSatisfy({ panes[$0] != nil }) {
             innerDividerPositions.removeValue(forKey: pair)
         }
+    }
+    var recentFilesOverlayIsWithinContentBoundsForTesting: Bool {
+        contentHost.bounds.contains(contentHost.convert(recentFilesOverlay.bounds, from: recentFilesOverlay))
     }
     func paneViewForTesting(_ id: PaneID) -> PaneView? { paneViews[id] }
     func activatePane(atWindowPoint point: NSPoint) { let localPoint = convert(point, from: nil); var view = hitTest(localPoint); while let candidate = view { if let pane = candidate as? PaneView { pane.activateForPointerEvent(); return }; view = candidate.superview } }

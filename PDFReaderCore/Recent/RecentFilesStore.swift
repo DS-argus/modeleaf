@@ -3,6 +3,7 @@ import Foundation
 
 public enum RecentFilesPersist: Equatable, Sendable {
     case persisted
+    case rejected
     case failed(message: String)
 }
 
@@ -33,16 +34,18 @@ public struct RecentFilesStore: Sendable {
 
     public func load() -> [RecentFileEntry] {
         guard case let .loaded(document) = stateFileStore.load(), let files = document.recentFiles else { return [] }
-        return files.map { RecentFileEntry(absolutePath: $0.absolutePath, lastOpenedAt: $0.lastOpenedAt) }
+        return files
+            .map { RecentFileEntry(absolutePath: $0.absolutePath, lastOpenedAt: $0.lastOpenedAt) }
+            .filter { Self.isPDFPath($0.absolutePath) }
     }
 
     @discardableResult
     public func recordOpened(absolutePath: String) -> RecentFilesPersist {
+        guard Self.isPDFPath(absolutePath) else { return .rejected }
         let openedAt = now()
         return persist { entries in
             var updated = entries.filter { $0.absolutePath != absolutePath }
-            updated.append(RecentFileEntry(absolutePath: absolutePath, lastOpenedAt: openedAt))
-            updated.sort { $0.lastOpenedAt > $1.lastOpenedAt }
+            updated.insert(RecentFileEntry(absolutePath: absolutePath, lastOpenedAt: openedAt), at: 0)
             if updated.count > Self.maximumEntries {
                 updated.removeLast(updated.count - Self.maximumEntries)
             }
@@ -58,6 +61,10 @@ public struct RecentFilesStore: Sendable {
     @discardableResult
     public func prune(absolutePath: String) -> RecentFilesPersist {
         persist { $0.filter { $0.absolutePath != absolutePath } }
+    }
+
+    private static func isPDFPath(_ path: String) -> Bool {
+        URL(fileURLWithPath: path).pathExtension.caseInsensitiveCompare("pdf") == .orderedSame
     }
 
     private func persist(_ mutate: @escaping ([RecentFileEntry]) -> [RecentFileEntry]) -> RecentFilesPersist {
