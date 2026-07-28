@@ -47,7 +47,7 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 | next / previous page | `n` / `p` |
 | first / last page | `gg` / `G` |
 | go to page 12 | `g12`, then `Enter` |
-| fit width / page | `w` / `F` |
+| fit width / page | `w` / `f` |
 | zoom in / out | `=` / `-` |
 | search | `/`, then `Enter` — `Esc` clears |
 | new window | `⌘N` |
@@ -59,7 +59,7 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 | close other panes | `Ctrl-b o` |
 | theme picker | `Shift-t` |
 | command palette | `:` or `⌘⇧P` |
-| follow link (hints) | `f` |
+| keyboard help | `?` |
 
 `Enter` / `Esc` (commit / cancel a prompt) and `Enter` / `Shift-Enter` (next / previous search match) are fixed keys and always work.
 
