@@ -95,13 +95,13 @@ public enum PathExistenceCheck {
         var information = stat()
         if stat(path, &information) == 0 {
             if (information.st_mode & S_IFMT) == S_IFREG { return .regularFile }
-            if (information.st_mode & S_IFMT) == S_IFDIR { return .notAFile(reason: "경로가 폴더입니다") }
-            return .notAFile(reason: "일반 파일이 아닙니다")
+            if (information.st_mode & S_IFMT) == S_IFDIR { return .notAFile(reason: "This path is a folder") }
+            return .notAFile(reason: "Not a regular file")
         }
         switch errno {
         case ENOENT, ENOTDIR: return .missing
-        case EACCES, EPERM: return .notAFile(reason: "권한이 없습니다")
-        default: return .notAFile(reason: "확인할 수 없습니다: errno \(errno)")
+        case EACCES, EPERM: return .notAFile(reason: "Permission denied")
+        default: return .notAFile(reason: "Could not check the path: errno \(errno)")
         }
     }
 }

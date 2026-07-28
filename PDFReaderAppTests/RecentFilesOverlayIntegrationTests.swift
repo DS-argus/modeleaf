@@ -258,11 +258,11 @@ struct RecentFilesOverlayIntegrationTests {
             let overlay = controller.rootView.recentFilesOverlay
             _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "j", modifiers: [.control])))
             _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "\r", keyCode: 36)))
-            #expect(overlay.inlineErrorForTesting?.contains("목록 저장 실패") == true)
+            #expect(overlay.inlineErrorForTesting?.contains("Couldn't update the list") == true)
             // A failed prune must not silently drop the row from the provider-backed list.
             #expect(overlay.visibleRowsForTesting == ["Browse\u{2026}", missing.path])
             _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "c", modifiers: [.control])))
-            #expect(overlay.inlineErrorForTesting?.contains("목록 저장 실패") == true)
+            #expect(overlay.inlineErrorForTesting?.contains("Couldn't update the list") == true)
             #expect(!overlay.isHidden)
         }
     }
@@ -286,5 +286,42 @@ struct RecentFilesOverlayIntegrationTests {
         #expect(controller.rootView.recentFilesOverlayIsWithinContentBoundsForTesting)
         #expect(overlay.selectedRowIsVisibleForTesting)
         #expect(overlay.keyHintIsWithinBoundsForTesting)
+    }
+    @Test("arrow keys move the selection and never type into the query")
+    func arrowKeysNavigate() throws {
+        try withTemporaryDirectory { directory in
+            let alpha = directory.appendingPathComponent("alpha.pdf")
+            try Data().write(to: alpha)
+            let entries = [RecentFileEntry(absolutePath: alpha.path, lastOpenedAt: .now)]
+            let controller = makeController(entries: entries)
+            defer { controller.close() }
+            controller.presentRecentFilesOverlay()
+            let overlay = controller.rootView.recentFilesOverlay
+            let down = String(UnicodeScalar(0xF701)!) // NSDownArrowFunctionKey
+            let up = String(UnicodeScalar(0xF700)!) // NSUpArrowFunctionKey
+            let left = String(UnicodeScalar(0xF702)!) // NSLeftArrowFunctionKey
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: down, keyCode: 125)))
+            #expect(overlay.selectedIndexForTesting == 1)
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: up, keyCode: 126)))
+            #expect(overlay.selectedIndexForTesting == 0)
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: left, keyCode: 123)))
+            #expect(overlay.currentQuery.isEmpty) // arrows never become tofu in the query
+        }
+    }
+
+    @Test("all fifteen recents are visible at once in a normal-size window")
+    func allFifteenVisibleWithoutScrolling() throws {
+        let entries = (0..<RecentFilesStore.maximumEntries).map {
+            RecentFileEntry(absolutePath: "/tmp/\($0).pdf", lastOpenedAt: .now)
+        }
+        let controller = makeController(entries: entries)
+        defer { controller.close() }
+        controller.window?.setContentSize(NSSize(width: 900, height: 900))
+        controller.window?.contentView?.layoutSubtreeIfNeeded()
+        controller.presentRecentFilesOverlay()
+        controller.window?.contentView?.layoutSubtreeIfNeeded()
+        let overlay = controller.rootView.recentFilesOverlay
+        #expect(overlay.visibleRowsForTesting.count == RecentFilesStore.maximumEntries + 1)
+        #expect(!overlay.listRequiresScrollingForTesting) // Browse + all 15 fit without scrolling
     }
 }

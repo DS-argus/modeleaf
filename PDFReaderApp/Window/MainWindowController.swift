@@ -201,12 +201,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             case .missing:
                 switch self.recentPruneHandler(path) {
                 case .persisted:
-                    self.rootView.recentFilesOverlay.showInlineError("파일을 찾을 수 없음: \(URL(fileURLWithPath: path).lastPathComponent)")
+                    self.rootView.recentFilesOverlay.showInlineError("File not found: \(URL(fileURLWithPath: path).lastPathComponent)")
                     self.rootView.recentFilesOverlay.refresh(entries: self.recentFilesProvider())
                 case .rejected:
-                    self.rootView.recentFilesOverlay.showInlineError("목록 저장 실패: 지원하지 않는 파일 형식")
+                    self.rootView.recentFilesOverlay.showInlineError("Couldn't update the list: unsupported file type")
                 case let .failed(message):
-                    self.rootView.recentFilesOverlay.showInlineError("목록 저장 실패: \(message)")
+                    self.rootView.recentFilesOverlay.showInlineError("Couldn't update the list: \(message)")
                 }
             case let .notAFile(reason):
                 self.rootView.recentFilesOverlay.showInlineError(reason)
@@ -219,9 +219,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
                 self.rootView.recentFilesOverlay.refresh(entries: self.recentFilesProvider())
                 self.rootView.recentFilesOverlay.clearInlineError()
             case .rejected:
-                self.rootView.recentFilesOverlay.showInlineError("목록 저장 실패: 지원하지 않는 파일 형식")
+                self.rootView.recentFilesOverlay.showInlineError("Couldn't update the list: unsupported file type")
             case let .failed(message):
-                self.rootView.recentFilesOverlay.showInlineError("목록 저장 실패: \(message)")
+                self.rootView.recentFilesOverlay.showInlineError("Couldn't update the list: \(message)")
             }
         }
         rootView.recentFilesOverlay.onCancel = { [weak self] in self?.dismissRecentFilesOverlayAndRestoreFocus() }

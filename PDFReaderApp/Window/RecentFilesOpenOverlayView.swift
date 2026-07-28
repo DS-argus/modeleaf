@@ -5,7 +5,7 @@ import PDFReaderCore
 final class RecentFilesOpenOverlayView: NSView {
     private enum Metrics {
         static let width: CGFloat = 360
-        static let maxVisibleRows = 8
+        static let maxVisibleRows = RecentFilesStore.maximumEntries + 1 // Browse + all 15 recents visible at once; scrolls only when the window is too small
         static let rowHeight: CGFloat = 32
     }
 
@@ -16,7 +16,7 @@ final class RecentFilesOpenOverlayView: NSView {
 
     private let queryField = NSTextField(labelWithString: "")
     private let errorLabel = NSTextField(labelWithString: "")
-    private let keyHintLabel = NSTextField(labelWithString: "Ctrl+j/k 이동 · Ctrl+c 지우기 · ↵ 열기 · esc 닫기")
+    private let keyHintLabel = NSTextField(labelWithString: "Ctrl+j/k move · Ctrl+c clear · ↵ open · esc close")
     private let rows = (0...RecentFilesStore.maximumEntries).map { _ in RecentFilesOpenRowView() }
     private let rowStack = NSStackView()
     private let scrollView = NSScrollView()
@@ -85,7 +85,6 @@ final class RecentFilesOpenOverlayView: NSView {
             stack.widthAnchor.constraint(equalToConstant: Metrics.width),
             scrollView.widthAnchor.constraint(equalTo: stack.widthAnchor),
             rowStack.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
-            scrollView.heightAnchor.constraint(lessThanOrEqualToConstant: Metrics.rowHeight * CGFloat(Metrics.maxVisibleRows)),
         ])
         isHidden = true
     }
@@ -147,6 +146,10 @@ final class RecentFilesOpenOverlayView: NSView {
         layoutSubtreeIfNeeded()
         return bounds.contains(convert(keyHintLabel.bounds, from: keyHintLabel))
     }
+    var listRequiresScrollingForTesting: Bool {
+        layoutSubtreeIfNeeded()
+        return rowStack.frame.height > scrollView.documentVisibleRect.height + 0.5
+    }
 
     func handleKeyDown(_ event: NSEvent) -> Bool {
         if event.modifierFlags.contains(.command) { return false }
@@ -156,6 +159,9 @@ final class RecentFilesOpenOverlayView: NSView {
         case 51:
             if !query.isEmpty { query.removeLast(); applyFilter(resetSelection: true) }
             return true
+        case 125: moveSelection(by: 1); return true // down arrow = Ctrl+j
+        case 126: moveSelection(by: -1); return true // up arrow = Ctrl+k
+        case 123, 124: return true // left/right arrows: swallow (no tofu in the query)
         default: break
         }
         if event.modifierFlags.contains(.control), let characters = event.charactersIgnoringModifiers?.lowercased() {
@@ -167,7 +173,7 @@ final class RecentFilesOpenOverlayView: NSView {
             }
         }
         guard let typed = event.characters, typed.count == 1, let scalar = typed.unicodeScalars.first,
-              scalar.value >= 0x20, scalar.value != 0x7F else { return false }
+              scalar.value >= 0x20, scalar.value != 0x7F, !(0xF700...0xF8FF).contains(scalar.value) else { return false }
         query.append(Character(scalar))
         applyFilter(resetSelection: true)
         return true
@@ -184,8 +190,8 @@ final class RecentFilesOpenOverlayView: NSView {
         } else {
             selectedIndex = min(selectedIndex, filtered.count)
         }
-        updateListHeight()
         renderRows()
+        updateListHeight()
         scrollSelectedRowToVisible()
     }
 
@@ -204,8 +210,8 @@ final class RecentFilesOpenOverlayView: NSView {
     }
 
     private func updateListHeight() {
-        let visibleCount = min(filtered.count + 1, Metrics.maxVisibleRows)
-        listHeightConstraint.constant = CGFloat(visibleCount) * Metrics.rowHeight
+        rowStack.layoutSubtreeIfNeeded()
+        listHeightConstraint.constant = rowStack.fittingSize.height
     }
 
     private func scrollSelectedRowToVisible() {

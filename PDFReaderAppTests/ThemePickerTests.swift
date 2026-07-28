@@ -147,18 +147,26 @@ struct ThemePickerTests {
     @Test("replacing a previewing theme picker cancels exactly once and restores the pre-open theme")
     func replacingThemePickerRestoresPreview() throws {
         let keys = try keys()
-        let controller = ApplicationController(
-            configService: ConfigService(source: ConfigFileSource(url: FileManager.default.temporaryDirectory.appendingPathComponent("missing-theme-config-\(UUID().uuidString).toml"))),
-            terminationHandler: {}
-        )
-        defer { controller.mainWindowController.close() }
-        let preOpenTheme = controller.currentThemeID
-        controller.mainWindowController.presentThemePicker()
-        #expect(controller.mainWindowController.rootView.themePickerOverlay.handleKeyDown(keys.down))
-        #expect(controller.currentThemeID != preOpenTheme)
-        controller.mainWindowController.presentRecentFilesOverlay()
-        #expect(controller.mainWindowController.rootView.themePickerOverlay.isHidden)
-        #expect(controller.currentThemeID == preOpenTheme)
+        try withTemporaryDirectory { dir in
+            let store = ThemeSelectionStore(fileURL: dir.appendingPathComponent("state.json"))
+            store.persist(.dracula) // deterministic non-last theme so a down-arrow preview always drifts
+            let controller = ApplicationController(
+                configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
+                sessionStore: ReaderSessionStore(),
+                themeStore: store,
+                terminationHandler: {}
+            )
+            defer { controller.mainWindowController.close() }
+            _ = controller.mainWindowController
+            let preOpenTheme = controller.currentThemeID
+            #expect(preOpenTheme == .dracula)
+            controller.mainWindowController.presentThemePicker()
+            #expect(controller.mainWindowController.rootView.themePickerOverlay.handleKeyDown(keys.down))
+            #expect(controller.currentThemeID != preOpenTheme)
+            controller.mainWindowController.presentRecentFilesOverlay()
+            #expect(controller.mainWindowController.rootView.themePickerOverlay.isHidden)
+            #expect(controller.currentThemeID == preOpenTheme)
+        }
     }
 
 
