@@ -19,6 +19,8 @@ brew trust DS-argus/tap        # Homebrew 6+ asks you to trust a third-party tap
 brew install --cask modeleaf
 ```
 
+Already installed? Update with `brew upgrade --cask modeleaf` (Homebrew refreshes the tap on its own; run `brew update` first to force it).
+
 Requires macOS 14 (Sonoma) or newer. Open a PDF with `⌘O`, Finder → *Open With*, or by dropping it on the app; `⌘N` opens a new window and `⌘Q` quits.
 
 > This build is ad-hoc signed and not yet Apple-notarized, so macOS Gatekeeper blocks it on first launch — allow it once in **System Settings → Privacy & Security → Open Anyway**.
@@ -45,7 +47,7 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 | next / previous page | `n` / `p` |
 | first / last page | `gg` / `G` |
 | go to page 12 | `g12`, then `Enter` |
-| fit width / page | `w` / `f` |
+| fit width / page | `w` / `F` |
 | zoom in / out | `=` / `-` |
 | search | `/`, then `Enter` — `Esc` clears |
 | new window | `⌘N` |
@@ -57,6 +59,7 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 | close other panes | `Ctrl-b o` |
 | theme picker | `Shift-t` |
 | command palette | `:` or `⌘⇧P` |
+| follow link (hints) | `f` |
 
 `Enter` / `Esc` (commit / cancel a prompt) and `Enter` / `Shift-Enter` (next / previous search match) are fixed keys and always work.
 
@@ -65,6 +68,10 @@ In fit-page mode, `j`/`d` move to the next page and `k`/`u` to the previous one.
 ### Tabs & panes
 
 Each tab holds one document; the `+` button or `⌘O` opens another. `Ctrl-b |` and `Ctrl-b -` split the focused pane in place, tmux-style — up to four panes, each with its own tabs and document. A split keeps your current page but fits it to the smaller pane. `Ctrl-b o` closes every pane except the focused one, and `Ctrl-h/j/k/l` move focus by direction.
+
+### Links
+
+Press `f` to hint every link on the visible page: each is outlined and badged with a short label (Vimium-style). Type the label to follow the link — in-document links jump inside the viewer, external URLs open in your browser. `Esc` cancels. While hints are up every other shortcut is disabled. Links can't be clicked with the mouse (this stays a read-only viewer); `f` is the way in.
 
 ### Command palette
 
