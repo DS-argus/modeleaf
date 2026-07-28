@@ -1,0 +1,73 @@
+import Foundation
+
+/// A dotted numeric app version such as `0.2.0`, tolerant of a leading `v` (so a
+/// Git tag like `v0.2.0` and an `Info.plist` `0.2.0` compare cleanly).
+public struct AppVersion: Comparable, Equatable, CustomStringConvertible, Sendable {
+    public let components: [Int]
+
+    /// Parses a dotted version. Returns nil when no numeric component is found.
+    /// Leading `v`/`V` is dropped; each dotted field contributes its leading
+    /// digits (so `2-beta` reads as `2`).
+    public init?(_ raw: String) {
+        var string = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let first = string.first, first == "v" || first == "V" { string.removeFirst() }
+        guard !string.isEmpty else { return nil }
+        var parsed: [Int] = []
+        for field in string.split(separator: ".", omittingEmptySubsequences: false) {
+            let digits = field.prefix { $0.isNumber }
+            guard let value = Int(digits) else { return nil }
+            parsed.append(value)
+        }
+        guard !parsed.isEmpty else { return nil }
+        components = parsed
+    }
+
+    public var description: String { components.map(String.init).joined(separator: ".") }
+
+    private static func component(_ list: [Int], _ index: Int) -> Int {
+        index < list.count ? list[index] : 0
+    }
+
+    public static func < (lhs: AppVersion, rhs: AppVersion) -> Bool {
+        let width = max(lhs.components.count, rhs.components.count)
+        for index in 0..<width {
+            let left = component(lhs.components, index)
+            let right = component(rhs.components, index)
+            if left != right { return left < right }
+        }
+        return false
+    }
+
+    public static func == (lhs: AppVersion, rhs: AppVersion) -> Bool {
+        let width = max(lhs.components.count, rhs.components.count)
+        for index in 0..<width where component(lhs.components, index) != component(rhs.components, index) {
+            return false
+        }
+        return true
+    }
+}
+
+/// How the running copy was installed, which decides the update instruction.
+public enum InstallSource: Equatable, Sendable {
+    case homebrew
+    case manual
+}
+
+/// Pure update-notice policy: no networking, no AppKit.
+public enum UpdateNotice {
+    /// The status-bar banner for `latest`, or nil when `latest` is not strictly
+    /// newer than `current` (or either string is unparseable). `latest` may be a
+    /// tag (`v0.3.0`); `current` is the running `CFBundleShortVersionString`.
+    public static func bannerText(current: String, latest: String, source: InstallSource) -> String? {
+        guard let installed = AppVersion(current),
+              let available = AppVersion(latest),
+              available > installed
+        else { return nil }
+        switch source {
+        case .homebrew:
+            return "\u{2191} Modeleaf \(available) available \u{2014} brew upgrade --cask modeleaf"
+        case .manual:
+            return "\u{2191} Modeleaf \(available) available \u{2014} click to open Releases"
+        }
+    }
+}

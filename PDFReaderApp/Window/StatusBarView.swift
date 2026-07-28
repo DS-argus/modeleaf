@@ -32,9 +32,15 @@ final class StatusBarView: NSView {
     private let zoomLabel = StatusBarView.makeLabel(identifier: "status.zoom", monospaced: true)
     private let prefixLabel = StatusBarView.makeLabel(identifier: "status.prefix", monospaced: true)
     private let detailLabel = StatusBarView.makeLabel(identifier: "status.diagnostic", monospaced: false)
+    private let updateButton = NSButton(title: "", target: nil, action: nil)
     private let separator = NSBox()
     private var theme: AppKitTheme?
     private(set) var presentation = StatusBarPresentation.empty
+
+    /// Non-nil while an update banner is shown (the plain, unstyled text).
+    private(set) var updateText: String?
+    /// Invoked when the user clicks the update banner.
+    var onUpdateClicked: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -55,6 +61,19 @@ final class StatusBarView: NSView {
         leading.prepareForAutoLayout()
         addSubview(leading)
 
+        updateButton.isBordered = false
+        updateButton.bezelStyle = .inline
+        updateButton.font = .systemFont(ofSize: 11, weight: .semibold)
+        updateButton.target = self
+        updateButton.action = #selector(updateClicked)
+        updateButton.isHidden = true
+        updateButton.setButtonType(.momentaryChange)
+        updateButton.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+        updateButton.setContentHuggingPriority(.required, for: .horizontal)
+        updateButton.setAccessibilityIdentifier("status.update")
+        updateButton.prepareForAutoLayout()
+        addSubview(updateButton)
+
         detailLabel.alignment = .right
         detailLabel.lineBreakMode = .byTruncatingTail
         detailLabel.prepareForAutoLayout()
@@ -66,7 +85,9 @@ final class StatusBarView: NSView {
             separator.trailingAnchor.constraint(equalTo: trailingAnchor),
             leading.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             leading.centerYAnchor.constraint(equalTo: centerYAnchor),
-            detailLabel.leadingAnchor.constraint(greaterThanOrEqualTo: leading.trailingAnchor, constant: 16),
+            updateButton.leadingAnchor.constraint(equalTo: leading.trailingAnchor, constant: 16),
+            updateButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            detailLabel.leadingAnchor.constraint(greaterThanOrEqualTo: updateButton.trailingAnchor, constant: 16),
             detailLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             detailLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
@@ -86,7 +107,39 @@ final class StatusBarView: NSView {
         zoomLabel.textColor = theme[.mutedText]
         prefixLabel.textColor = theme[.accent]
         detailLabel.textColor = presentation.tone == .error ? theme[.error] : theme[.mutedText]
+        restyleUpdateButton()
     }
+
+    /// Shows the update banner (accent, clickable) or clears it when `text` is nil.
+    func presentUpdate(_ text: String?) {
+        let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        updateText = (trimmed?.isEmpty == false) ? trimmed : nil
+        updateButton.isHidden = updateText == nil
+        updateButton.toolTip = updateText
+        restyleUpdateButton()
+    }
+
+    private func restyleUpdateButton() {
+        guard let updateText else {
+            updateButton.attributedTitle = NSAttributedString(string: "")
+            return
+        }
+        let accent = theme?[.accent] ?? .controlAccentColor
+        updateButton.attributedTitle = NSAttributedString(
+            string: updateText,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+                .foregroundColor: accent,
+            ]
+        )
+        updateButton.setAccessibilityValue(updateText)
+    }
+
+    @objc private func updateClicked() {
+        onUpdateClicked?()
+    }
+
+    func performUpdateClickForTesting() { updateButton.performClick(nil) }
 
     func render(_ presentation: StatusBarPresentation) {
         self.presentation = presentation

@@ -200,6 +200,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.clearDiagnostic()
     }
 
+    func presentUpdateBanner(_ text: String, onClick: @escaping () -> Void) {
+        rootView.presentUpdateBanner(text, onClick: onClick)
+    }
+
     func presentPrompt(_ presentation: PromptPresentation) {
         let context: InputContext = presentation.kind == .page ? .pagePrompt : .searchPrompt
         inputRouter.synchronizeContext(context)

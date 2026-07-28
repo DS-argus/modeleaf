@@ -52,6 +52,17 @@ final class ApplicationController {
         } else if let themeStartupDiagnostic {
             mainWindowController.showDiagnostic(themeStartupDiagnostic, isError: false)
         }
+        checkForUpdates()
+    }
+
+    private func checkForUpdates() {
+        Task { [weak self] in
+            let banner = await UpdateChecker().fetchBanner()
+            guard let self, let banner else { return }
+            self.mainWindowController.presentUpdateBanner(banner) {
+                NSWorkspace.shared.open(UpdateChecker.releasesPage)
+            }
+        }
     }
     func dispatch(_ action: ActionID) { actionDispatcher.dispatch(action) }
     @discardableResult func openDocument(at url: URL, target: PaneOpenTarget = .createIfEmpty) -> Bool {
