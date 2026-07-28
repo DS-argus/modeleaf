@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import PDFReaderCore
+import PDFReaderTestSupport
 import Testing
 @testable import PDFReaderApp
 
@@ -21,6 +22,23 @@ struct RecentFilesOverlayIntegrationTests {
             recentOpenHandler: open
         )
     }
+    private func makeMutableController(
+        provider: @escaping () -> [RecentFileEntry],
+        prune: @escaping (String) -> Void = { _ in },
+        clear: @escaping () -> Void = {},
+        open: @escaping (String) -> Void = { _ in }
+    ) -> MainWindowController {
+        MainWindowController(
+            coordinator: PaneCoordinator(initialStore: ReaderSessionStore()),
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { _ in },
+            browseHandler: {},
+            recentFilesProvider: provider,
+            recentOpenHandler: open,
+            recentPruneHandler: prune,
+            recentClearHandler: clear
+        )
+    }
     private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("recent-overlay-\(UUID().uuidString)", isDirectory: true)
@@ -38,41 +56,52 @@ struct RecentFilesOverlayIntegrationTests {
 
     @Test("shows Browse first, filters recent filenames, and commits selection")
     func filtersAndCommits() throws {
-        let entries = [
-            RecentFileEntry(absolutePath: "/documents/alpha.pdf", lastOpenedAt: .now),
-            RecentFileEntry(absolutePath: "/documents/beta.pdf", lastOpenedAt: .now),
-        ]
-        var opened: [String] = []
-        let controller = makeController(entries: entries, open: { opened.append($0) })
-        defer { controller.close() }
+        try withTemporaryDirectory { directory in
+            let alpha = directory.appendingPathComponent("alpha.pdf")
+            let beta = directory.appendingPathComponent("beta.pdf")
+            try Data().write(to: alpha)
+            try Data().write(to: beta)
+            let entries = [
+                RecentFileEntry(absolutePath: alpha.path, lastOpenedAt: .now),
+                RecentFileEntry(absolutePath: beta.path, lastOpenedAt: .now),
+            ]
+            var opened: [String] = []
+            let controller = makeController(entries: entries, open: { opened.append($0) })
+            defer { controller.close() }
 
-        controller.presentRecentFilesOverlay()
-        let overlay = controller.rootView.recentFilesOverlay
-        #expect(overlay.visibleRowsForTesting == ["Browse…", "/documents/alpha.pdf", "/documents/beta.pdf"])
-        try type("bet", into: controller)
-        #expect(overlay.selectedIndexForTesting == 1)
-        #expect(overlay.visibleRowsForTesting == ["Browse…", "/documents/beta.pdf"])
-        _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "\r", keyCode: 36)))
-        #expect(opened == ["/documents/beta.pdf"])
-        #expect(overlay.isHidden)
+            controller.presentRecentFilesOverlay()
+            let overlay = controller.rootView.recentFilesOverlay
+            #expect(overlay.visibleRowsForTesting == ["Browse\u{2026}", alpha.path, beta.path])
+            try type("bet", into: controller)
+            #expect(overlay.selectedIndexForTesting == 1)
+            #expect(overlay.visibleRowsForTesting == ["Browse\u{2026}", beta.path])
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "\r", keyCode: 36)))
+            #expect(opened == [beta.path])
+            #expect(overlay.isHidden)
+        }
     }
 
     @Test("the fifteenth recent row remains reachable and commits its path")
     func fifteenthRecentRowCommits() throws {
-        let entries = (0..<RecentFilesStore.maximumEntries).map {
-            RecentFileEntry(absolutePath: "/documents/\($0).pdf", lastOpenedAt: .now)
-        }
-        var opened: [String] = []
-        let controller = makeController(entries: entries, open: { opened.append($0) })
-        defer { controller.close() }
+        try withTemporaryDirectory { directory in
+            let urls: [URL] = try (0..<RecentFilesStore.maximumEntries).map { index in
+                let url = directory.appendingPathComponent("\(index).pdf")
+                try Data().write(to: url)
+                return url
+            }
+            let entries = urls.map { RecentFileEntry(absolutePath: $0.path, lastOpenedAt: .now) }
+            var opened: [String] = []
+            let controller = makeController(entries: entries, open: { opened.append($0) })
+            defer { controller.close() }
 
-        controller.presentRecentFilesOverlay()
-        for _ in 0..<RecentFilesStore.maximumEntries {
-            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "j", modifiers: [.control])))
+            controller.presentRecentFilesOverlay()
+            for _ in 0..<RecentFilesStore.maximumEntries {
+                _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "j", modifiers: [.control])))
+            }
+            #expect(controller.rootView.recentFilesOverlay.selectedIndexForTesting == RecentFilesStore.maximumEntries)
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "\r", keyCode: 36)))
+            #expect(opened == [urls[RecentFilesStore.maximumEntries - 1].path])
         }
-        #expect(controller.rootView.recentFilesOverlay.selectedIndexForTesting == RecentFilesStore.maximumEntries)
-        _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "\r", keyCode: 36)))
-        #expect(opened == ["/documents/14.pdf"])
     }
 
     @Test("control navigation, Browse, escape, and palette replacement")
@@ -95,5 +124,103 @@ struct RecentFilesOverlayIntegrationTests {
         #expect(controller.rootView.commandPaletteOverlay.isHidden)
         _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "", keyCode: 53)))
         #expect(controller.rootView.recentFilesOverlay.isHidden)
+    }
+
+    @Test("a missing recent file shows an inline error, prunes, and keeps the overlay open")
+    func missingFilePrunesWithInlineError() throws {
+        try withTemporaryDirectory { directory in
+            let real = directory.appendingPathComponent("real.pdf")
+            try Data().write(to: real)
+            let missing = directory.appendingPathComponent("gone.pdf")
+            var entries = [
+                RecentFileEntry(absolutePath: missing.path, lastOpenedAt: .now),
+                RecentFileEntry(absolutePath: real.path, lastOpenedAt: .now),
+            ]
+            var opened: [String] = []
+            let controller = makeMutableController(
+                provider: { entries },
+                prune: { path in entries.removeAll { $0.absolutePath == path } },
+                open: { opened.append($0) }
+            )
+            defer { controller.close() }
+
+            controller.presentRecentFilesOverlay()
+            let overlay = controller.rootView.recentFilesOverlay
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "j", modifiers: [.control])))
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "\r", keyCode: 36)))
+            #expect(overlay.inlineErrorForTesting?.contains("gone.pdf") == true)
+            #expect(!overlay.isHidden)
+            #expect(opened.isEmpty)
+            #expect(overlay.visibleRowsForTesting == ["Browse\u{2026}", real.path])
+        }
+    }
+
+    @Test("a directory entry is retained with an inline reason")
+    func directoryEntryRetained() throws {
+        try withTemporaryDirectory { directory in
+            let folder = directory.appendingPathComponent("folder.pdf", isDirectory: true)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            var pruned: [String] = []
+            let entries = [RecentFileEntry(absolutePath: folder.path, lastOpenedAt: .now)]
+            let controller = makeMutableController(provider: { entries }, prune: { pruned.append($0) })
+            defer { controller.close() }
+
+            controller.presentRecentFilesOverlay()
+            let overlay = controller.rootView.recentFilesOverlay
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "j", modifiers: [.control])))
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "\r", keyCode: 36)))
+            #expect(overlay.inlineErrorForTesting != nil)
+            #expect(pruned.isEmpty)
+            #expect(overlay.visibleRowsForTesting == ["Browse\u{2026}", folder.path])
+            #expect(!overlay.isHidden)
+        }
+    }
+
+    @Test("Ctrl+c clears the list immediately and keeps only Browse")
+    func ctrlCClears() throws {
+        var entries = [RecentFileEntry(absolutePath: "/tmp/a.pdf", lastOpenedAt: .now)]
+        let controller = makeMutableController(provider: { entries }, clear: { entries = [] })
+        defer { controller.close() }
+
+        controller.presentRecentFilesOverlay()
+        let overlay = controller.rootView.recentFilesOverlay
+        #expect(overlay.visibleRowsForTesting.count == 2)
+        _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "c", modifiers: [.control])))
+        #expect(overlay.visibleRowsForTesting == ["Browse\u{2026}"])
+        #expect(!overlay.isHidden)
+    }
+
+    @Test("the key hint is always visible and duplicate filenames stay distinguishable by path")
+    func hintAndDuplicateNames() throws {
+        try withTemporaryDirectory { directory in
+            let first = directory.appendingPathComponent("one", isDirectory: true).appendingPathComponent("report.pdf")
+            let second = directory.appendingPathComponent("two", isDirectory: true).appendingPathComponent("report.pdf")
+            for url in [first, second] {
+                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try Data().write(to: url)
+            }
+            let entries = [
+                RecentFileEntry(absolutePath: first.path, lastOpenedAt: .now),
+                RecentFileEntry(absolutePath: second.path, lastOpenedAt: .now),
+            ]
+            let controller = makeController(entries: entries)
+            defer { controller.close() }
+
+            controller.presentRecentFilesOverlay()
+            let overlay = controller.rootView.recentFilesOverlay
+            #expect(overlay.keyHintForTesting.contains("Ctrl+j/k"))
+            #expect(overlay.keyHintForTesting.contains("Ctrl+c"))
+            #expect(overlay.visibleRowsForTesting == ["Browse\u{2026}", first.path, second.path])
+        }
+    }
+
+    @Test("empty recents show only Browse plus the key hint")
+    func emptyRecents() throws {
+        let controller = makeController(entries: [])
+        defer { controller.close() }
+        controller.presentRecentFilesOverlay()
+        let overlay = controller.rootView.recentFilesOverlay
+        #expect(overlay.visibleRowsForTesting == ["Browse\u{2026}"])
+        #expect(!overlay.keyHintForTesting.isEmpty)
     }
 }
