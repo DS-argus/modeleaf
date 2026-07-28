@@ -40,6 +40,24 @@ struct ActionDispatcherTests {
         ])
     }
 
+    @Test("document.open presents the recent-files workflow instead of invoking the legacy open handler")
+    func documentOpenPresentsRecentFiles() {
+        let coordinator = PaneCoordinator(initialStore: ReaderSessionStore())
+        var legacyOpenCount = 0
+        let dispatcher = ActionDispatcher(
+            coordinator: coordinator,
+            navigation: BuiltInDefaults.config.navigation,
+            openDocumentHandler: { legacyOpenCount += 1 }
+        )
+        let presenter = PromptPresenterSpy()
+        dispatcher.presentation = presenter
+
+        dispatcher.dispatch(.documentOpen)
+
+        #expect(presenter.recentFilesOpenCount == 1)
+        #expect(legacyOpenCount == 0)
+    }
+
     @Test("app.new dispatches to the new-instance launcher only")
     func appNewLaunchesNewInstance() {
         let store = ReaderSessionStore()
@@ -186,12 +204,12 @@ struct ActionDispatcherTests {
             characters: "o",
             modifiers: [.command]
         ))))
-        #expect(openCount == 1)
+        #expect(!controller.rootView.recentFilesOverlay.isHidden)
         #expect(!openEditor.hasMarkedText())
         #expect(!controller.rootView.promptOverlay.discardMarkedComposition())
         #expect(controller.rootView.promptOverlay.isHidden)
         #expect(controller.inputContextForTesting == .navigation)
-        #expect(controller.window?.firstResponder === session.focusView)
+        #expect(controller.window?.firstResponder === controller.rootView.recentFilesOverlay)
 
         controller.presentPrompt(PromptPresentation(kind: .page, text: "", validationMessage: nil))
         let quitEditor = try #require(
@@ -261,12 +279,12 @@ struct ActionDispatcherTests {
             modifiers: [.command]
         ))))
 
-        #expect(openCount == 1)
+        #expect(!controller.rootView.recentFilesOverlay.isHidden)
         #expect(!editor.hasMarkedText())
         #expect(!controller.rootView.promptOverlay.discardMarkedComposition())
         #expect(controller.rootView.promptOverlay.isHidden)
         #expect(controller.inputContextForTesting == .navigation)
-        #expect(controller.window?.firstResponder === session.focusView)
+        #expect(controller.window?.firstResponder === controller.rootView.recentFilesOverlay)
     }
 
     @Test("session changes discard marked composition before dismissing the prompt")
@@ -543,10 +561,12 @@ private final class PromptPresenterSpy: ReaderWorkflowPresenting {
     var globalPreparationCount = 0
 
     var activePromptKind: ReaderPromptKind? { presentation?.kind }
+    var recentFilesOpenCount = 0
     var activePromptText: String { promptText }
 
     func presentThemePicker() {}
     func presentCommandPalette() {}
+    func presentRecentFilesOpen() { recentFilesOpenCount += 1 }
     func presentPrompt(_ presentation: PromptPresentation) {
         self.presentation = presentation
         promptText = presentation.text

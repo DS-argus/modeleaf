@@ -63,8 +63,10 @@ struct ApplicationControllerTests {
             terminationHandler: { quit = true }
         )
 
+        _ = controller.mainWindowController // start() creates the window before any dispatch in production
         controller.dispatch(.documentOpen)
-        #expect(openPanel.presentCount == 1)
+        #expect(!controller.mainWindowController.rootView.recentFilesOverlay.isHidden)
+        #expect(openPanel.presentCount == 0)
         controller.dispatch(.tabPrevious)
         #expect(sessionStore.activeSession?.id == first.id)
         controller.dispatch(.tabNext)
@@ -74,6 +76,23 @@ struct ApplicationControllerTests {
         #expect(sessionStore.activeSession?.id == first.id)
         controller.dispatch(.appQuit)
         #expect(quit)
+    }
+
+    @Test("successful opens record the absolute path for the recent-files overlay")
+    func successfulOpenRecordsRecentFile() throws {
+        try withTemporaryDirectory { directory in
+            let document = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1)
+            let recentStore = RecentFilesStore(fileURL: directory.appendingPathComponent("state.json"))
+            let controller = ApplicationController(
+                configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                recentFilesStore: recentStore,
+                terminationHandler: {}
+            )
+            defer { controller.mainWindowController.close() }
+
+            #expect(controller.openDocument(at: document))
+            #expect(recentStore.load().map(\.absolutePath) == [document.path])
+        }
     }
 
     @Test("pane-scoped deferred open rejects a disappeared target without inserting elsewhere")

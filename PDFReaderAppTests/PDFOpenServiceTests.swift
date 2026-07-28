@@ -77,7 +77,11 @@ struct PDFOpenServiceTests {
                 terminationHandler: {}
             )
 
-            controller.dispatch(.documentOpen)
+            _ = controller.mainWindowController // window exists before dispatch (mirrors start())
+            controller.dispatch(.documentOpen) // ⌘O now opens the unified overlay
+            #expect(!controller.mainWindowController.rootView.recentFilesOverlay.isHidden)
+            // Empty-query Enter commits the fixed Browse row -> native panel (stubbed).
+            _ = controller.mainWindowController.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "\r", keyCode: 36)))
             #expect(store.sessionCount == 1)
             #expect(store.activeSession?.title == "picker.pdf")
 

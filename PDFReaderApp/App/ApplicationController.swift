@@ -17,19 +17,19 @@ final class ApplicationController {
     private let themeStore: ThemeSelectionStore
     private(set) var currentThemeID: ThemeID
     private let themeStartupDiagnostic: String?
+    private let recentFilesStore: RecentFilesStore
     private(set) var menuBuilder: ValidatedMenuBuilder?
 
     lazy var mainWindowController: MainWindowController = {
-        let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(themeID: currentThemeID), actionHandler: { [weak self] action in self?.actionDispatcher.dispatch(action) }, keyDispatchHandler: { [weak self] dispatch in self?.actionDispatcher.dispatch(dispatch) }, validatedConfig: configResult.activeConfig, openPaneHandler: { [weak self] paneID in self?.presentOpenPanel(target: .existing(paneID)) }, currentThemeID: { [weak self] in self?.currentThemeID ?? .tokyoNight }, themePreviewHandler: { [weak self] id in self?.applyTheme(id, persist: false) }, themeCommitHandler: { [weak self] id in self?.applyTheme(id, persist: true) }, themeCancelHandler: { [weak self] id in self?.applyTheme(id, persist: false) })
+        let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(themeID: currentThemeID), actionHandler: { [weak self] action in self?.actionDispatcher.dispatch(action) }, keyDispatchHandler: { [weak self] dispatch in self?.actionDispatcher.dispatch(dispatch) }, validatedConfig: configResult.activeConfig, openPaneHandler: { [weak self] paneID in self?.presentOpenPanel(target: .existing(paneID)) }, currentThemeID: { [weak self] in self?.currentThemeID ?? .tokyoNight }, themePreviewHandler: { [weak self] id in self?.applyTheme(id, persist: false) }, themeCommitHandler: { [weak self] id in self?.applyTheme(id, persist: true) }, themeCancelHandler: { [weak self] id in self?.applyTheme(id, persist: false) }, browseHandler: { [weak self] in self?.presentOpenPanel() }, recentFilesProvider: { [weak self] in self?.recentFilesStore.load() ?? [] }, recentOpenHandler: { [weak self] path in _ = self?.openDocument(at: URL(fileURLWithPath: path)) })
         actionDispatcher.presentation = controller
         return controller
     }()
-
-    init(application: NSApplication = .shared, configService: ConfigService = ConfigService(), sessionStore: ReaderSessionStore = ReaderSessionStore(), pdfOpenService: PDFOpenService = PDFOpenService(), openMetrics: any PDFOpenMetrics = OSLogPDFOpenMetrics(), openPanelPresenter: any PDFOpenPanelPresenting = NativePDFOpenPanelPresenter(), themeStore: ThemeSelectionStore = ThemeSelectionStore(), terminationHandler: (() -> Void)? = nil, newInstanceLauncher: (() -> Void)? = nil) {
+    init(application: NSApplication = .shared, configService: ConfigService = ConfigService(), sessionStore: ReaderSessionStore = ReaderSessionStore(), pdfOpenService: PDFOpenService = PDFOpenService(), openMetrics: any PDFOpenMetrics = OSLogPDFOpenMetrics(), openPanelPresenter: any PDFOpenPanelPresenting = NativePDFOpenPanelPresenter(), themeStore: ThemeSelectionStore = ThemeSelectionStore(), recentFilesStore: RecentFilesStore = RecentFilesStore(), terminationHandler: (() -> Void)? = nil, newInstanceLauncher: (() -> Void)? = nil) {
         let configResult = configService.load()
         self.application = application; self.configResult = configResult; self.sessionStore = sessionStore
         self.coordinator = PaneCoordinator(initialStore: sessionStore)
-        self.pdfOpenService = pdfOpenService; self.openMetrics = openMetrics; self.openPanelPresenter = openPanelPresenter; self.themeStore = themeStore
+        self.pdfOpenService = pdfOpenService; self.openMetrics = openMetrics; self.openPanelPresenter = openPanelPresenter; self.themeStore = themeStore; self.recentFilesStore = recentFilesStore
         switch themeStore.load() {
         case let .selected(id): self.currentThemeID = id; self.themeStartupDiagnostic = nil
         case .absent, .invalid: self.currentThemeID = ThemeSelectionStore.productDefault; self.themeStartupDiagnostic = nil
@@ -70,7 +70,7 @@ final class ApplicationController {
         do {
             let session = try pdfOpenService.open(url: url, traceID: traceID, metrics: openMetrics); session.applyTheme(AppKitTheme(themeID: currentThemeID))
             guard coordinator.insert(session, into: target) else { session.prepareForClose(reason: .insertionRejected); mainWindowController.showDiagnostic("Could not create a PDF tab for \(url.lastPathComponent)"); recordOpenFailure(traceID: traceID, outcome: .insertionRejected); return false }
-            mainWindowController.clearDiagnostic(); openMetrics.record(.point(.openReady, traceID: traceID, outcome: .success)); openMetrics.record(.end(.openTotal, traceID: traceID, outcome: .success)); return true
+            mainWindowController.clearDiagnostic(); _ = recentFilesStore.recordOpened(absolutePath: url.path); openMetrics.record(.point(.openReady, traceID: traceID, outcome: .success)); openMetrics.record(.end(.openTotal, traceID: traceID, outcome: .success)); return true
         } catch let error as PDFOpenError { mainWindowController.showDiagnostic(error.presentation); recordOpenFailure(traceID: traceID, outcome: error.metricOutcome); return false
         } catch { mainWindowController.showDiagnostic("Could not open PDF: \(error.localizedDescription)"); recordOpenFailure(traceID: traceID, outcome: .unexpectedFailure); return false }
     }
