@@ -193,11 +193,18 @@ public struct StateFileStore: Sendable {
 
     private func atomicallyReplace(_ data: Data, at url: URL) throws {
         let temporaryURL = url.deletingLastPathComponent().appendingPathComponent(".state-\(UUID().uuidString).tmp")
+        // The temp file is CREATED owner-only (0600); the recent-path data never
+        // exists on disk with broader permissions, even transiently.
+        let fd = temporaryURL.path.withCString { open($0, O_CREAT | O_EXCL | O_WRONLY, mode_t(0o600)) }
+        guard fd >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        var closed = false
+        defer { if !closed { _ = close(fd) } }
         do {
-            try data.write(to: temporaryURL)
-            guard chmod(temporaryURL.path, mode_t(0o600)) == 0 else {
-                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
-            }
+            let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: false)
+            try handle.write(contentsOf: data)
+            try handle.synchronize()
+            _ = close(fd)
+            closed = true
             let status = temporaryURL.path.withCString { source in
                 url.path.withCString { destination in rename(source, destination) }
             }
