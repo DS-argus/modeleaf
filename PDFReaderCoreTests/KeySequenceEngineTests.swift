@@ -481,6 +481,18 @@ struct KeySequenceEngineTests {
         #expect(buffer.digits.isEmpty)
     }
 
+
+    @Test("help binding dispatches only outside prompt text entry")
+    func helpBindingRespectsPromptContexts() throws {
+        var navigation = try makeEngine()
+        #expect(navigation.handle(try token("?")) == .dispatch(KeyActionDispatch(actionID: .helpShow)))
+
+        var searchPrompt = try makeEngine(context: .searchPrompt)
+        #expect(searchPrompt.handle(try token("?")) == .native(try token("?")))
+        var pagePrompt = try makeEngine(context: .pagePrompt)
+        // The page prompt is numeric-only by contract: '?' is rejected there, never help.
+        #expect(pagePrompt.handle(try token("?")) == .ignored(.rejectedPagePromptText))
+    }
     private func makeEngine(
         context: InputContext = .navigation,
         bindings: [ActionID: [KeySequence]] = BuiltInDefaults.keymap,

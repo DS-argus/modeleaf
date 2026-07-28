@@ -57,6 +57,20 @@ struct ActionDispatcherTests {
         #expect(presenter.recentFilesOpenCount == 1)
         #expect(legacyOpenCount == 0)
     }
+    @Test("help.show presents the keyboard help workflow")
+    func helpShowPresentsHelp() {
+        let dispatcher = ActionDispatcher(
+            coordinator: PaneCoordinator(initialStore: ReaderSessionStore()),
+            navigation: BuiltInDefaults.config.navigation
+        )
+        let presenter = PromptPresenterSpy()
+        dispatcher.presentation = presenter
+
+        dispatcher.dispatch(.helpShow)
+
+        #expect(presenter.helpCount == 1)
+    }
+
 
     @Test("app.new dispatches to the new-instance launcher only")
     func appNewLaunchesNewInstance() {
@@ -553,7 +567,9 @@ private final class ActionDispatcherFocusableView: NSView {
 
 @MainActor
 private final class PromptPresenterSpy: ReaderWorkflowPresenting {
+    func presentHelp() { helpCount += 1 }
     var presentation: PromptPresentation?
+    var helpCount = 0
     var promptText = ""
     var validationMessage: String?
     var dismissReasons: [KeyInputInvalidationReason] = []

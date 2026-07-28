@@ -22,6 +22,9 @@
 # --- Command palette ---
 "palette.open"     = [":", "<D-S-p>"]  # :
 
+# --- Help ---
+"help.show"        = ["?"]  # ?
+
 # --- Tabs ---
 "tab.next"         = ["N"]  # N
 "tab.previous"     = ["P"]  # P

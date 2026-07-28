@@ -12,14 +12,18 @@ final class CommandPaletteOverlayView: NSView {
     private enum Metrics {
         static let width: CGFloat = 360
         static let maxVisibleRows = 12
+        static let rowHeight: CGFloat = 26
     }
 
     var onCommit: ((ActionID) -> Void)?
     var onCancel: (() -> Void)?
 
     private let queryField = NSTextField(labelWithString: "")
-    private let rows: [PaletteRowView]
+    private var rows: [PaletteRowView] = []
     private let rowStack = NSStackView()
+    private let scrollView = NSScrollView()
+    private var listHeightConstraint: NSLayoutConstraint!
+    private var bottomBoundaryConstraint: NSLayoutConstraint?
 
     private var commands: [PaletteCommand] = []
     private var filtered: [PaletteCommand] = []
@@ -30,7 +34,6 @@ final class CommandPaletteOverlayView: NSView {
     override var acceptsFirstResponder: Bool { true }
 
     override init(frame frameRect: NSRect) {
-        rows = (0..<Metrics.maxVisibleRows).map { _ in PaletteRowView() }
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.cornerRadius = WindowVisualMetrics.cornerRadius
@@ -50,9 +53,21 @@ final class CommandPaletteOverlayView: NSView {
         rowStack.orientation = .vertical
         rowStack.alignment = .leading
         rowStack.spacing = 2
-        for row in rows { rowStack.addArrangedSubview(row); row.widthAnchor.constraint(equalTo: rowStack.widthAnchor).isActive = true }
+        rowStack.prepareForAutoLayout()
 
-        let stack = NSStackView(views: [queryField, rowStack])
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.documentView = rowStack
+        scrollView.prepareForAutoLayout()
+        listHeightConstraint = scrollView.heightAnchor.constraint(equalToConstant: Metrics.rowHeight)
+        listHeightConstraint.priority = .defaultHigh
+        listHeightConstraint.isActive = true
+        scrollView.heightAnchor.constraint(lessThanOrEqualToConstant: CGFloat(Metrics.maxVisibleRows) * Metrics.rowHeight).isActive = true
+
+        let stack = NSStackView(views: [queryField, scrollView])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 10
@@ -64,16 +79,24 @@ final class CommandPaletteOverlayView: NSView {
             stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -14),
             stack.widthAnchor.constraint(equalToConstant: Metrics.width),
-            rowStack.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            scrollView.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            rowStack.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
         ])
         isHidden = true
     }
 
     required init?(coder: NSCoder) { nil }
 
+    override func viewDidMoveToSuperview() {
+        super.viewDidMoveToSuperview()
+        guard let superview, bottomBoundaryConstraint == nil else { return }
+        bottomBoundaryConstraint = bottomAnchor.constraint(lessThanOrEqualTo: superview.bottomAnchor, constant: -40)
+        bottomBoundaryConstraint?.isActive = true
+    }
+
     func apply(theme: AppKitTheme) {
         self.theme = theme
-        layer?.backgroundColor = theme[.activeTab].withAlphaComponent(0.8).cgColor
+        layer?.backgroundColor = theme[.activeTab].withAlphaComponent(0.9).cgColor
         layer?.borderColor = theme.focusRing.cgColor
         layer?.borderWidth = 1
         shadow?.shadowColor = theme.overlayShadow
@@ -94,14 +117,25 @@ final class CommandPaletteOverlayView: NSView {
         commands = []
         filtered = []
         query = ""
+        selectedIndex = 0
     }
 
     /// Test seam: the query the user has typed so far.
     var currentQuery: String { query }
     /// Test seam: the id currently highlighted, if any.
     var selectedCommandID: ActionID? { filtered.indices.contains(selectedIndex) ? filtered[selectedIndex].id : nil }
-    /// Test seam: the ids currently visible, in order.
-    var visibleCommandIDs: [ActionID] { filtered.prefix(Metrics.maxVisibleRows).map(\.id) }
+    /// Test seam: the complete filtered result ids, in order.
+    var visibleCommandIDs: [ActionID] { filtered.map(\.id) }
+    var selectedRowIsVisibleForTesting: Bool {
+        guard filtered.indices.contains(selectedIndex), rows.indices.contains(selectedIndex) else { return false }
+        layoutSubtreeIfNeeded()
+        let row = rows[selectedIndex]
+        return scrollView.documentVisibleRect.contains(row.convert(row.bounds, to: rowStack))
+    }
+    var listRequiresScrollingForTesting: Bool {
+        layoutSubtreeIfNeeded()
+        return rowStack.frame.height > scrollView.documentVisibleRect.height + 0.5
+    }
 
     func handleKeyDown(_ event: NSEvent) -> Bool {
         // Let Command chords (⌘Q, ⌘W, …) fall through to the normal router.
@@ -126,21 +160,22 @@ final class CommandPaletteOverlayView: NSView {
                 applyFilter(resetSelection: true)
             }
             return true
+        case 123, 124: // left/right arrows must not become query text
+            return true
         default:
             break
         }
 
-        // Ctrl-n / Ctrl-p mirror the arrow keys for keyboard-home users.
         if event.modifierFlags.contains(.control), let characters = event.charactersIgnoringModifiers?.lowercased() {
             switch characters {
-            case "n": moveSelection(by: 1); return true
-            case "p": moveSelection(by: -1); return true
+            case "j": moveSelection(by: 1); return true
+            case "k": moveSelection(by: -1); return true
             default: return false
             }
         }
 
         guard let typed = event.characters, typed.count == 1, let scalar = typed.unicodeScalars.first,
-              scalar.value >= 0x20, scalar.value != 0x7F else {
+              scalar.value >= 0x20, scalar.value != 0x7F, !(0xF700...0xF8FF).contains(scalar.value) else {
             return false
         }
         query.append(Character(scalar))
@@ -153,20 +188,25 @@ final class CommandPaletteOverlayView: NSView {
     }
 
     private func applyFilter(resetSelection: Bool) {
-        filtered = CommandPaletteFilter.rank(commands, query: query)
+        let ranked = CommandPaletteFilter.rank(commands, query: query)
+        filtered = query.trimmingCharacters(in: .whitespaces).isEmpty
+            ? ranked.filter(\.isEnabled) + ranked.filter { !$0.isEnabled }
+            : ranked
         if resetSelection {
             selectedIndex = filtered.firstIndex(where: \.isEnabled) ?? 0
         } else {
             selectedIndex = min(selectedIndex, max(0, filtered.count - 1))
         }
         renderRows()
+        updateListHeight()
+        scrollSelectedRowToVisible()
     }
 
     private func moveSelection(by offset: Int) {
-        let visible = min(filtered.count, Metrics.maxVisibleRows)
-        guard visible > 0 else { return }
-        selectedIndex = min(max(selectedIndex + offset, 0), visible - 1)
+        guard !filtered.isEmpty else { return }
+        selectedIndex = min(max(selectedIndex + offset, 0), filtered.count - 1)
         renderRows()
+        scrollSelectedRowToVisible()
     }
 
     private func commitSelection() {
@@ -174,6 +214,29 @@ final class CommandPaletteOverlayView: NSView {
         let command = filtered[selectedIndex]
         guard command.isEnabled else { return }
         onCommit?(command.id)
+    }
+
+    private func ensureRows(for count: Int) {
+        while rows.count < count {
+            let row = PaletteRowView()
+            rows.append(row)
+            rowStack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: rowStack.widthAnchor).isActive = true
+        }
+    }
+
+    private func updateListHeight() {
+        rowStack.layoutSubtreeIfNeeded()
+        listHeightConstraint.constant = min(
+            rowStack.fittingSize.height,
+            CGFloat(Metrics.maxVisibleRows) * Metrics.rowHeight
+        )
+    }
+
+    private func scrollSelectedRowToVisible() {
+        guard rows.indices.contains(selectedIndex) else { return }
+        layoutSubtreeIfNeeded()
+        rows[selectedIndex].scrollToVisible(rows[selectedIndex].bounds)
     }
 
     private func renderRows() {
@@ -184,11 +247,11 @@ final class CommandPaletteOverlayView: NSView {
         }
         setAccessibilityValue(query)
 
-        let visible = Array(filtered.prefix(Metrics.maxVisibleRows))
+        ensureRows(for: filtered.count)
         for (index, row) in rows.enumerated() {
-            if index < visible.count {
+            if filtered.indices.contains(index) {
                 row.isHidden = false
-                row.configure(visible[index], selected: index == selectedIndex, theme: theme)
+                row.configure(filtered[index], selected: index == selectedIndex, theme: theme)
             } else {
                 row.isHidden = true
             }
@@ -200,24 +263,31 @@ final class CommandPaletteOverlayView: NSView {
 private final class PaletteRowView: NSView {
     private let titleLabel = NSTextField(labelWithString: "")
     private let shortcutLabel = NSTextField(labelWithString: "")
+    private let reasonLabel = NSTextField(labelWithString: "")
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
         layer?.cornerRadius = 5
-        titleLabel.font = .systemFont(ofSize: 13)
+        titleLabel.font = .systemFont(ofSize: 12)
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        shortcutLabel.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        shortcutLabel.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
         shortcutLabel.alignment = .right
         shortcutLabel.setContentHuggingPriority(.required, for: .horizontal)
         shortcutLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        reasonLabel.font = .systemFont(ofSize: 10)
+        reasonLabel.lineBreakMode = .byTruncatingTail
 
-        let stack = NSStackView(views: [titleLabel, shortcutLabel])
-        stack.orientation = .horizontal
-        stack.distribution = .fill
-        stack.spacing = 12
+        let titleStack = NSStackView(views: [titleLabel, shortcutLabel])
+        titleStack.orientation = .horizontal
+        titleStack.distribution = .fill
+        titleStack.spacing = 12
+        let stack = NSStackView(views: [titleStack, reasonLabel])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 1
         stack.prepareForAutoLayout()
         addSubview(stack)
         NSLayoutConstraint.activate([
@@ -225,6 +295,8 @@ private final class PaletteRowView: NSView {
             stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
             stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            titleStack.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            reasonLabel.widthAnchor.constraint(equalTo: stack.widthAnchor),
         ])
     }
 
@@ -233,11 +305,14 @@ private final class PaletteRowView: NSView {
     func configure(_ command: PaletteCommand, selected: Bool, theme: AppKitTheme?) {
         titleLabel.stringValue = command.title
         shortcutLabel.stringValue = command.shortcut ?? ""
+        reasonLabel.stringValue = command.disabledReason ?? ""
+        reasonLabel.isHidden = command.disabledReason == nil
         guard let theme else { return }
         let base = command.isEnabled ? theme[.foreground] : theme[.mutedText].withAlphaComponent(0.35)
         titleLabel.textColor = selected && command.isEnabled ? theme[.accent] : base
-        titleLabel.font = .systemFont(ofSize: 13, weight: selected && command.isEnabled ? .semibold : .regular)
+        titleLabel.font = .systemFont(ofSize: 12, weight: selected && command.isEnabled ? .semibold : .regular)
         shortcutLabel.textColor = theme[.mutedText].withAlphaComponent(command.isEnabled ? 1.0 : 0.35)
+        reasonLabel.textColor = theme[.mutedText].withAlphaComponent(0.55)
         layer?.backgroundColor = (selected ? theme.separator : NSColor.clear).cgColor
     }
 }

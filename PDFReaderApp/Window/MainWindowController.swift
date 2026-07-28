@@ -86,6 +86,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             if !self.rootView.recentFilesOverlay.isHidden {
                 return self.rootView.recentFilesOverlay.handleKeyDown(event) || (inputRouter?.handle(event) ?? false)
             }
+            if !self.rootView.helpOverlay.isHidden {
+                return self.rootView.helpOverlay.handleKeyDown(event)
+            }
             if !self.rootView.themePickerOverlay.isHidden {
                 return self.rootView.themePickerOverlay.handleKeyDown(event) || (inputRouter?.handle(event) ?? false)
             }
@@ -93,7 +96,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
         window.delegate = self
         window.mouseDownHandler = { [weak self] event in
-            self?.rootView.activatePane(atWindowPoint: event.locationInWindow)
+            guard let self, self.rootView.helpOverlay.isHidden else { return }
+            self.rootView.activatePane(atWindowPoint: event.locationInWindow)
         }
         rootView.apply(theme: theme)
         rootView.setInputContext(.navigation)
@@ -178,6 +182,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
     func dismissAllTransientOverlays() {
         if !rootView.commandPaletteOverlay.isHidden { dismissCommandPaletteAndRestoreFocus() }
+        if !rootView.helpOverlay.isHidden { dismissHelpOverlayAndRestoreFocus() }
         if !rootView.themePickerOverlay.isHidden { cancelThemePickerAndRestoreFocus() }
         if !rootView.recentFilesOverlay.isHidden { dismissRecentFilesOverlayAndRestoreFocus() }
     }
@@ -236,6 +241,20 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.recentFilesOverlay.onCancel = nil
         focusActiveSurface(snapshot: coordinator.snapshot)
         rootView.recentFilesOverlay.onClear = nil
+    }
+
+    func presentHelp() {
+        dismissAllTransientOverlays()
+        let sections = Self.helpSections(from: resolvedConfig.keymap)
+        rootView.helpOverlay.onDismiss = { [weak self] in self?.dismissHelpOverlayAndRestoreFocus() }
+        rootView.helpOverlay.present(sections: sections)
+        window?.makeFirstResponder(rootView.helpOverlay)
+    }
+
+    private func dismissHelpOverlayAndRestoreFocus() {
+        rootView.helpOverlay.dismiss()
+        rootView.helpOverlay.onDismiss = nil
+        focusActiveSurface(snapshot: coordinator.snapshot)
     }
 
     func presentCommandPalette() {
@@ -349,6 +368,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if !rootView.recentFilesOverlay.isHidden {
             return rootView.recentFilesOverlay.handleKeyDown(event) || inputRouter.handle(event)
         }
+        if !rootView.helpOverlay.isHidden {
+            return rootView.helpOverlay.handleKeyDown(event)
+        }
         if !rootView.themePickerOverlay.isHidden {
             return rootView.themePickerOverlay.handleKeyDown(event) || inputRouter.handle(event)
         }
@@ -362,6 +384,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
         if !rootView.recentFilesOverlay.isHidden {
             window?.makeFirstResponder(rootView.recentFilesOverlay)
+            return
+        }
+        if !rootView.helpOverlay.isHidden {
+            window?.makeFirstResponder(rootView.helpOverlay)
             return
         }
         if !rootView.themePickerOverlay.isHidden {
@@ -481,6 +507,38 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    private enum HelpModalKey {
+        static let promptCommit = "Enter"
+        static let promptCancel = "Esc"
+        static let searchResults = "Enter / Shift+Enter"
+        static let overlayMove = "Ctrl+j/k"
+        static let overlayClear = "Ctrl+c"
+        static let overlayOpen = "Enter"
+        static let overlayClose = "Esc"
+    }
+
+    private static func helpSections(from keymap: ValidatedKeymap) -> [HelpOverlaySection] {
+        var entriesByCategory: [(title: String, entries: [(keyText: String, commandTitle: String)])] = []
+        for descriptor in ActionRegistry.v1.userConfigurableDescriptors {
+            let hints = keymap.bindings(for: descriptor.id).compactMap(KeyBindingHint.text(for:))
+            guard !hints.isEmpty else { continue }
+            let title = BuiltInDefaults.categoryTitle(for: descriptor.id)
+            if entriesByCategory.last?.title != title { entriesByCategory.append((title, [])) }
+            entriesByCategory[entriesByCategory.count - 1].entries.append((hints.joined(separator: ", "), descriptor.title))
+        }
+        return entriesByCategory.map { HelpOverlaySection(title: $0.title, entries: $0.entries) } + [
+            HelpOverlaySection(title: "In overlays & prompts", entries: [
+                (HelpModalKey.promptCommit, "Commit prompt"),
+                (HelpModalKey.promptCancel, "Cancel prompt"),
+                (HelpModalKey.searchResults, "Next / previous search match"),
+                (HelpModalKey.overlayMove, "Move selection"),
+                (HelpModalKey.overlayClear, "Clear"),
+                (HelpModalKey.overlayOpen, "Open"),
+                (HelpModalKey.overlayClose, "Close overlay"),
+            ]),
+        ]
+    }
+
     private func dispatchTabSelection(to targetID: TabID) {
         let snapshot = coordinator.snapshot
         guard let activeID = snapshot.activeID,
@@ -496,25 +554,16 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         let backwardSteps = (activeIndex - targetIndex + count) % count
         let action: ActionID = forwardSteps <= backwardSteps ? .tabNext : .tabPrevious
         let stepCount = min(forwardSteps, backwardSteps)
-        for _ in 0..<stepCount {
-            actionHandler(action)
-        }
+        for _ in 0..<stepCount { actionHandler(action) }
     }
 
     private func dispatchTabClose(_ targetID: TabID) {
         let originalActiveID = coordinator.snapshot.activeID
         guard coordinator.session(for: targetID) != nil else { return }
-
         dispatchTabSelection(to: targetID)
         guard coordinator.snapshot.activeID == targetID else { return }
         actionHandler(.documentClose)
-
-        guard let originalActiveID,
-              originalActiveID != targetID,
-              coordinator.session(for: originalActiveID) != nil
-        else {
-            return
-        }
+        guard let originalActiveID, originalActiveID != targetID, coordinator.session(for: originalActiveID) != nil else { return }
         dispatchTabSelection(to: originalActiveID)
     }
 
@@ -524,6 +573,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
         return config
     }
-}
 
+}
 extension MainWindowController: ReaderWorkflowPresenting {}

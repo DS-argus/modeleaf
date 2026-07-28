@@ -9,6 +9,7 @@ protocol ReaderWorkflowPresenting: AnyObject {
     func presentThemePicker()
     func presentCommandPalette()
     func presentRecentFilesOpen()
+    func presentHelp()
     func presentPrompt(_ presentation: PromptPresentation)
     func showPromptValidation(_ message: String)
     func prepareForGlobalAction()
@@ -139,6 +140,8 @@ newInstanceHandler = newInstance
             presentation?.presentThemePicker()
         case .paletteOpen:
             presentation?.presentCommandPalette()
+        case .helpShow:
+            presentation?.presentHelp()
 
         case .viewZoomIn:
             activeSession?.zoom(by: navigation.zoomFactor)
