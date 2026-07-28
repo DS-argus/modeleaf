@@ -35,7 +35,9 @@ public struct ActionRegistry: Sendable {
         ActionDescriptor(id: .appQuit, title: "Quit Modeleaf", scope: .global),
         ActionDescriptor(id: .appNew, title: "New Window", scope: .global),
         ActionDescriptor(id: .paletteOpen, title: "Command Palette", scope: .contexts(readerContexts)),
-        ActionDescriptor(id: .helpShow, title: "Keyboard Help", scope: .contexts(readerContexts)),
+        // Help is navigation-only by contract (EF3): '?' must stay native text in
+        // prompts and unmapped in search results.
+        ActionDescriptor(id: .helpShow, title: "Keyboard Help", scope: .contexts([.navigation])),
 
         ActionDescriptor(id: .tabNext, title: "Next Tab", scope: .contexts(readerContexts)),
         ActionDescriptor(id: .tabPrevious, title: "Previous Tab", scope: .contexts(readerContexts)),

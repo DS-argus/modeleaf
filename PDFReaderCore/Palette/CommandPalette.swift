@@ -56,7 +56,7 @@ public enum PaletteAvailability {
     ) -> (enabled: Bool, reason: String?) {
         // Global lifecycle commands never depend on an open document.
         switch id {
-        case .documentOpen, .appNew, .appQuit:
+        case .documentOpen, .appNew, .appQuit, .helpShow:
             return (true, nil)
         default:
             break

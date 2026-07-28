@@ -21,7 +21,7 @@ brew install --cask modeleaf
 
 Already installed? Update with `brew upgrade --cask modeleaf` (Homebrew refreshes the tap on its own; run `brew update` first to force it).
 
-Requires macOS 14 (Sonoma) or newer. Open a PDF with `⌘O`, Finder → *Open With*, or by dropping it on the app; `⌘N` opens a new window and `⌘Q` quits.
+Requires macOS 14 (Sonoma) or newer. `⌘O` opens a unified picker — your recent PDFs, filtered by fuzzy filename search, plus a Browse… row for the native file dialog. You can also open via Finder → *Open With* or by dropping a file on the app; `⌘N` opens a new window and `⌘Q` quits.
 
 > This build is ad-hoc signed and not yet Apple-notarized, so macOS Gatekeeper blocks it on first launch — allow it once in **System Settings → Privacy & Security → Open Anyway**.
 
@@ -71,11 +71,11 @@ Each tab holds one document; the `+` button or `⌘O` opens another. `Ctrl-b |` 
 
 ### Links
 
-Press `f` to hint every link on the visible page: each is outlined and badged with a short label (Vimium-style). Type the label to follow the link — in-document links jump inside the viewer, external URLs open in your browser. `Esc` cancels. While hints are up every other shortcut is disabled. Links can't be clicked with the mouse (this stays a read-only viewer); `f` is the way in.
+Links are clickable: an in-document link jumps inside the viewer, and an external URL opens in your browser. The source PDF is never modified.
 
 ### Command palette
 
-Press `:` or `⌘⇧P` to open a fuzzy command search. Type to filter every reader command by name, `↑`/`↓` (or `Ctrl-n`/`Ctrl-p`) to move, `Enter` to run, `Esc` to dismiss. Each row shows the command's current shortcut; commands that can't run in the current context (no document, single pane, etc.) are listed but greyed out.
+Press `:` or `⌘⇧P` to open a fuzzy command search. Type to filter every reader command by name, `↑`/`↓` (or `Ctrl-j`/`Ctrl-k`) to move, `Enter` to run, `Esc` to dismiss. Each row shows the command's current shortcut; commands that can't run in the current context (no document, single pane, etc.) are listed but greyed out. Press `?` any time you're just reading to open a keyboard-help overlay with every shortcut, grouped by section.
 
 ### Themes
 

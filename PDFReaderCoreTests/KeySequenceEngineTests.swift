@@ -492,6 +492,10 @@ struct KeySequenceEngineTests {
         var pagePrompt = try makeEngine(context: .pagePrompt)
         // The page prompt is numeric-only by contract: '?' is rejected there, never help.
         #expect(pagePrompt.handle(try token("?")) == .ignored(.rejectedPagePromptText))
+
+        // Navigation-only contract: in search results the key is not a help binding.
+        var searchResults = try makeEngine(context: .searchResults)
+        #expect(searchResults.handle(try token("?")) != .dispatch(KeyActionDispatch(actionID: .helpShow)))
     }
     private func makeEngine(
         context: InputContext = .navigation,
