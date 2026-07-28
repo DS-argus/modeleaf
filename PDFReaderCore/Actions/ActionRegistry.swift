@@ -35,6 +35,7 @@ public struct ActionRegistry: Sendable {
         ActionDescriptor(id: .appQuit, title: "Quit Modeleaf", scope: .global),
         ActionDescriptor(id: .appNew, title: "New Window", scope: .global),
         ActionDescriptor(id: .paletteOpen, title: "Command Palette", scope: .contexts(readerContexts)),
+        ActionDescriptor(id: .helpShow, title: "Keyboard Help", scope: .contexts(readerContexts)),
 
         ActionDescriptor(id: .tabNext, title: "Next Tab", scope: .contexts(readerContexts)),
         ActionDescriptor(id: .tabPrevious, title: "Previous Tab", scope: .contexts(readerContexts)),

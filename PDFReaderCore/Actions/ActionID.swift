@@ -7,6 +7,7 @@ public enum ActionID: String, CaseIterable, Codable, Hashable, Sendable {
     case appNew = "app.new"
     case paletteOpen = "palette.open"
 
+    case helpShow = "help.show"
     case tabNext = "tab.next"
     case tabPrevious = "tab.previous"
     case tabSelect1 = "tab.select.1"

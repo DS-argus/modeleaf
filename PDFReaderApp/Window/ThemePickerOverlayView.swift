@@ -49,7 +49,7 @@ final class ThemePickerOverlayView: NSView {
     required init?(coder: NSCoder) { nil }
 
     func apply(theme: AppKitTheme) {
-        layer?.backgroundColor = theme[.activeTab].withAlphaComponent(0.8).cgColor
+        layer?.backgroundColor = theme[.activeTab].withAlphaComponent(0.9).cgColor
         restingBorderColor = theme.separator
         focusIndicatorColor = theme.focusRing
         shadow?.shadowColor = theme.overlayShadow

@@ -24,6 +24,7 @@ public enum BuiltInDefaults {
         .appQuit: sequences("<D-q>"),
         .appNew: sequences("<D-n>"),
         .paletteOpen: sequences(":", "<D-S-p>"),
+        .helpShow: sequences("?"),
 
         .tabNext: sequences("N"),
         .tabPrevious: sequences("P"),
@@ -150,11 +151,11 @@ public enum BuiltInDefaults {
         value.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
     }
-
-    private static func categoryTitle(for id: ActionID) -> String {
+    public static func categoryTitle(for id: ActionID) -> String {
         switch String(id.rawValue.prefix(while: { $0 != "." })) {
         case "app", "document": return "Application"
         case "palette": return "Command palette"
+        case "help": return "Help"
         case "tab": return "Tabs"
         case "scroll": return "Scroll"
         case "page": return "Pages"

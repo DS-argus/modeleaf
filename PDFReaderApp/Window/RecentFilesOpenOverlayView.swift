@@ -93,7 +93,7 @@ final class RecentFilesOpenOverlayView: NSView {
 
     func apply(theme: AppKitTheme) {
         self.theme = theme
-        layer?.backgroundColor = theme[.activeTab].withAlphaComponent(0.8).cgColor
+        layer?.backgroundColor = theme[.activeTab].withAlphaComponent(0.9).cgColor
         layer?.borderColor = theme.focusRing.cgColor
         layer?.borderWidth = 1
         shadow?.shadowColor = theme.overlayShadow
