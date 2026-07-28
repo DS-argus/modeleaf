@@ -25,6 +25,7 @@ final class ReaderRootView: NSView {
     let themePickerOverlay = ThemePickerOverlayView()
     let promptOverlay = PromptOverlayView()
     let commandPaletteOverlay = CommandPaletteOverlayView()
+    let recentFilesOverlay = RecentFilesOpenOverlayView()
     private let contentHost = NSView()
     private let paneContainer = PaneContainerView(orientation: .sideBySide, accessibilityIdentifier: "paneContainer")
     private let leadingBandHost = BandHost()
@@ -66,7 +67,7 @@ final class ReaderRootView: NSView {
             guard let self, self.capturesDividerPositions, let pair = self.currentInnerPairsByBand[.trailing] else { return }
             self.innerDividerPositions[pair] = position
         }
-        for view in [tabBar, contentHost, statusBar, promptOverlay, themePickerOverlay, commandPaletteOverlay] { view.prepareForAutoLayout(); addSubview(view) }
+        for view in [tabBar, contentHost, statusBar, promptOverlay, themePickerOverlay, commandPaletteOverlay, recentFilesOverlay] { view.prepareForAutoLayout(); addSubview(view) }
         emptyState.prepareForAutoLayout(); contentHost.addSubview(emptyState)
         paneContainer.prepareForAutoLayout(); contentHost.addSubview(paneContainer)
         NSLayoutConstraint.activate([
@@ -79,6 +80,7 @@ final class ReaderRootView: NSView {
             tabBar.topAnchor.constraint(equalTo: topAnchor), tabBar.leadingAnchor.constraint(equalTo: leadingAnchor), tabBar.trailingAnchor.constraint(equalTo: trailingAnchor), tabBarHeightConstraint,
             contentHost.topAnchor.constraint(equalTo: tabBar.bottomAnchor), contentHost.leadingAnchor.constraint(equalTo: leadingAnchor), contentHost.trailingAnchor.constraint(equalTo: trailingAnchor), contentHost.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
             themePickerOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor), themePickerOverlay.centerYAnchor.constraint(equalTo: contentHost.centerYAnchor), themePickerOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 40), themePickerOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -40),
+            recentFilesOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor), recentFilesOverlay.topAnchor.constraint(equalTo: contentHost.topAnchor, constant: 72), recentFilesOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 40), recentFilesOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -40),
             commandPaletteOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor), commandPaletteOverlay.topAnchor.constraint(equalTo: contentHost.topAnchor, constant: 72), commandPaletteOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 40), commandPaletteOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -40),
             emptyState.topAnchor.constraint(equalTo: contentHost.topAnchor), emptyState.leadingAnchor.constraint(equalTo: contentHost.leadingAnchor), emptyState.trailingAnchor.constraint(equalTo: contentHost.trailingAnchor), emptyState.bottomAnchor.constraint(equalTo: contentHost.bottomAnchor),
             statusBar.leadingAnchor.constraint(equalTo: leadingAnchor), statusBar.trailingAnchor.constraint(equalTo: trailingAnchor), statusBar.bottomAnchor.constraint(equalTo: bottomAnchor), statusBar.heightAnchor.constraint(equalToConstant: WindowVisualMetrics.statusBarHeight),
@@ -87,7 +89,7 @@ final class ReaderRootView: NSView {
     }
     required init?(coder: NSCoder) { nil }
 
-    func apply(theme: AppKitTheme) { self.theme = theme; for pane in paneViews.values { pane.apply(theme: theme) }; layer?.backgroundColor = theme[.background].cgColor; contentHost.wantsLayer = true; contentHost.layer?.backgroundColor = theme[.background].cgColor; tabBar.apply(theme: theme); emptyState.apply(theme: theme); statusBar.apply(theme: theme); promptOverlay.apply(theme: theme); themePickerOverlay.apply(theme: theme); commandPaletteOverlay.apply(theme: theme) }
+    func apply(theme: AppKitTheme) { self.theme = theme; for pane in paneViews.values { pane.apply(theme: theme) }; layer?.backgroundColor = theme[.background].cgColor; contentHost.wantsLayer = true; contentHost.layer?.backgroundColor = theme[.background].cgColor; tabBar.apply(theme: theme); emptyState.apply(theme: theme); statusBar.apply(theme: theme); promptOverlay.apply(theme: theme); themePickerOverlay.apply(theme: theme); commandPaletteOverlay.apply(theme: theme); recentFilesOverlay.apply(theme: theme) }
 
     func render(snapshot: ReaderSessionStoreSnapshot, activeContentView: NSView?, sessionStatus: ReaderStatusSnapshot?) {
         let hasTabs = !snapshot.tabs.isEmpty

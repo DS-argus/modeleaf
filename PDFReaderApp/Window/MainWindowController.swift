@@ -14,6 +14,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let themeCommitHandler: (ThemeID) -> Void
     private let themeCancelHandler: (ThemeID) -> Void
     private let resolvedConfig: ValidatedAppConfig
+    private let browseHandler: () -> Void
+    private let recentFilesProvider: () -> [RecentFileEntry]
+    private let recentOpenHandler: (String) -> Void
     private var installedKeyViewLoop: [NSView] = []
     let rootView: ReaderRootView
 
@@ -27,8 +30,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         currentThemeID: @escaping () -> ThemeID = { .tokyoNight },
         themePreviewHandler: @escaping (ThemeID) -> Void = { _ in },
         themeCommitHandler: @escaping (ThemeID) -> Void = { _ in },
-        themeCancelHandler: @escaping (ThemeID) -> Void = { _ in }
+        themeCancelHandler: @escaping (ThemeID) -> Void = { _ in },
+        browseHandler: @escaping () -> Void = {},
+        recentFilesProvider: @escaping () -> [RecentFileEntry] = { [] },
+        recentOpenHandler: @escaping (String) -> Void = { _ in }
     ) {
+        self.browseHandler = browseHandler
+        self.recentFilesProvider = recentFilesProvider
+        self.recentOpenHandler = recentOpenHandler
         self.coordinator = coordinator
         self.actionHandler = actionHandler
         self.currentThemeID = currentThemeID
@@ -65,10 +74,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window.keyEventHandler = { [weak self, weak inputRouter] event in
             guard let self else { return false }
             if !self.rootView.commandPaletteOverlay.isHidden {
-                return self.rootView.commandPaletteOverlay.handleKeyDown(event)
+                return self.rootView.commandPaletteOverlay.handleKeyDown(event) || (inputRouter?.handle(event) ?? false)
+            }
+            if !self.rootView.recentFilesOverlay.isHidden {
+                return self.rootView.recentFilesOverlay.handleKeyDown(event) || (inputRouter?.handle(event) ?? false)
             }
             if !self.rootView.themePickerOverlay.isHidden {
-                return self.rootView.themePickerOverlay.handleKeyDown(event)
+                return self.rootView.themePickerOverlay.handleKeyDown(event) || (inputRouter?.handle(event) ?? false)
             }
             return inputRouter?.handle(event) ?? false
         }
@@ -123,6 +135,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func presentThemePicker() {
+        dismissAllTransientOverlays()
         guard rootView.themePickerOverlay.isHidden else { return }
         let preOpenThemeID = currentThemeID()
         rootView.themePickerOverlay.onPreview = { [weak self] id in self?.themePreviewHandler(id) }
@@ -148,9 +161,45 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.themePickerOverlay.onCancel = nil
         rebuildKeyViewLoop(snapshot: coordinator.snapshot)
         focusActiveSurface(snapshot: coordinator.snapshot)
+
+    }
+    func dismissAllTransientOverlays() {
+        if !rootView.commandPaletteOverlay.isHidden { dismissCommandPaletteAndRestoreFocus() }
+        if !rootView.themePickerOverlay.isHidden { dismissThemePickerAndRestoreFocus() }
+        if !rootView.recentFilesOverlay.isHidden { dismissRecentFilesOverlayAndRestoreFocus() }
+    }
+
+    func presentRecentFilesOpen() {
+        presentRecentFilesOverlay()
+    }
+
+    func presentRecentFilesOverlay() {
+        dismissAllTransientOverlays()
+        rootView.recentFilesOverlay.onBrowse = { [weak self] in
+            guard let self else { return }
+            self.dismissRecentFilesOverlayAndRestoreFocus()
+            self.browseHandler()
+        }
+        rootView.recentFilesOverlay.onOpenRecent = { [weak self] path in
+            guard let self else { return }
+            self.dismissRecentFilesOverlayAndRestoreFocus()
+            self.recentOpenHandler(path)
+        }
+        rootView.recentFilesOverlay.onCancel = { [weak self] in self?.dismissRecentFilesOverlayAndRestoreFocus() }
+        rootView.recentFilesOverlay.present(entries: recentFilesProvider())
+        window?.makeFirstResponder(rootView.recentFilesOverlay)
+    }
+
+    private func dismissRecentFilesOverlayAndRestoreFocus() {
+        rootView.recentFilesOverlay.dismiss()
+        rootView.recentFilesOverlay.onBrowse = nil
+        rootView.recentFilesOverlay.onOpenRecent = nil
+        rootView.recentFilesOverlay.onCancel = nil
+        focusActiveSurface(snapshot: coordinator.snapshot)
     }
 
     func presentCommandPalette() {
+        dismissAllTransientOverlays()
         guard rootView.commandPaletteOverlay.isHidden else { return }
         let snapshot = coordinator.snapshot
         let state = PaletteContextState(
@@ -255,10 +304,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     @discardableResult
     func routeKeyEventForTesting(_ event: NSEvent) -> Bool {
         if !rootView.commandPaletteOverlay.isHidden {
-            return rootView.commandPaletteOverlay.handleKeyDown(event)
+            return rootView.commandPaletteOverlay.handleKeyDown(event) || inputRouter.handle(event)
+        }
+        if !rootView.recentFilesOverlay.isHidden {
+            return rootView.recentFilesOverlay.handleKeyDown(event) || inputRouter.handle(event)
         }
         if !rootView.themePickerOverlay.isHidden {
-            return rootView.themePickerOverlay.handleKeyDown(event)
+            return rootView.themePickerOverlay.handleKeyDown(event) || inputRouter.handle(event)
         }
         return inputRouter.handle(event)
     }
@@ -266,6 +318,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func windowDidBecomeKey(_ notification: Notification) {
         if !rootView.commandPaletteOverlay.isHidden {
             window?.makeFirstResponder(rootView.commandPaletteOverlay)
+            return
+        }
+        if !rootView.recentFilesOverlay.isHidden {
+            window?.makeFirstResponder(rootView.recentFilesOverlay)
             return
         }
         if !rootView.themePickerOverlay.isHidden {

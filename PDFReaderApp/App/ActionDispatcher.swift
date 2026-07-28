@@ -8,6 +8,7 @@ protocol ReaderWorkflowPresenting: AnyObject {
 
     func presentThemePicker()
     func presentCommandPalette()
+    func presentRecentFilesOpen()
     func presentPrompt(_ presentation: PromptPresentation)
     func showPromptValidation(_ message: String)
     func prepareForGlobalAction()
@@ -70,7 +71,7 @@ newInstanceHandler = newInstance
         switch action {
         case .documentOpen:
             presentation?.prepareForGlobalAction()
-            openDocumentHandler()
+            presentation?.presentRecentFilesOpen()
         case .documentClose:
             _ = coordinator.closeActiveTab()
         case .appQuit:
