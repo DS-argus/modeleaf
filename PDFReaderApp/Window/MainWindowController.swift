@@ -17,6 +17,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let browseHandler: () -> Void
     private let recentFilesProvider: () -> [RecentFileEntry]
     private let recentOpenHandler: (String) -> Void
+    private let recentPruneHandler: (String) -> Void
+    private let recentClearHandler: () -> Void
     private var installedKeyViewLoop: [NSView] = []
     let rootView: ReaderRootView
 
@@ -33,11 +35,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         themeCancelHandler: @escaping (ThemeID) -> Void = { _ in },
         browseHandler: @escaping () -> Void = {},
         recentFilesProvider: @escaping () -> [RecentFileEntry] = { [] },
-        recentOpenHandler: @escaping (String) -> Void = { _ in }
+        recentOpenHandler: @escaping (String) -> Void = { _ in },
+        recentPruneHandler: @escaping (String) -> Void = { _ in },
+        recentClearHandler: @escaping () -> Void = {}
     ) {
         self.browseHandler = browseHandler
         self.recentFilesProvider = recentFilesProvider
         self.recentOpenHandler = recentOpenHandler
+        self.recentPruneHandler = recentPruneHandler
+        self.recentClearHandler = recentClearHandler
         self.coordinator = coordinator
         self.actionHandler = actionHandler
         self.currentThemeID = currentThemeID
@@ -182,8 +188,23 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
         rootView.recentFilesOverlay.onOpenRecent = { [weak self] path in
             guard let self else { return }
-            self.dismissRecentFilesOverlayAndRestoreFocus()
-            self.recentOpenHandler(path)
+            switch PathExistenceCheck.classify(path) {
+            case .regularFile:
+                self.dismissRecentFilesOverlayAndRestoreFocus()
+                self.recentOpenHandler(path)
+            case .missing:
+                self.recentPruneHandler(path)
+                self.rootView.recentFilesOverlay.showInlineError("파일을 찾을 수 없음: \(URL(fileURLWithPath: path).lastPathComponent)")
+                self.rootView.recentFilesOverlay.refresh(entries: self.recentFilesProvider())
+            case let .notAFile(reason):
+                self.rootView.recentFilesOverlay.showInlineError(reason)
+            }
+        }
+        rootView.recentFilesOverlay.onClear = { [weak self] in
+            guard let self else { return }
+            self.recentClearHandler()
+            self.rootView.recentFilesOverlay.refresh(entries: self.recentFilesProvider())
+            self.rootView.recentFilesOverlay.clearInlineError()
         }
         rootView.recentFilesOverlay.onCancel = { [weak self] in self?.dismissRecentFilesOverlayAndRestoreFocus() }
         rootView.recentFilesOverlay.present(entries: recentFilesProvider())
@@ -196,6 +217,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.recentFilesOverlay.onOpenRecent = nil
         rootView.recentFilesOverlay.onCancel = nil
         focusActiveSurface(snapshot: coordinator.snapshot)
+        rootView.recentFilesOverlay.onClear = nil
     }
 
     func presentCommandPalette() {

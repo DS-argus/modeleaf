@@ -4,15 +4,18 @@ import PDFReaderCore
 @MainActor
 final class RecentFilesOpenOverlayView: NSView {
     private enum Metrics {
-        static let width: CGFloat = 360 // matches CommandPalette; 360+32 padding+80 margins fits the 480pt minimum window
+        static let width: CGFloat = 360
         static let maxVisibleRows = RecentFilesStore.maximumEntries + 1
     }
 
     var onBrowse: (() -> Void)?
     var onOpenRecent: ((String) -> Void)?
+    var onClear: (() -> Void)?
     var onCancel: (() -> Void)?
 
     private let queryField = NSTextField(labelWithString: "")
+    private let errorLabel = NSTextField(labelWithString: "")
+    private let keyHintLabel = NSTextField(labelWithString: "Ctrl+j/k 이동 · Ctrl+c 지우기 · ↵ 열기 · esc 닫기")
     private let rows = (0..<Metrics.maxVisibleRows).map { _ in RecentFilesOpenRowView() }
     private let rowStack = NSStackView()
     private var entries: [RecentFileEntry] = []
@@ -39,6 +42,12 @@ final class RecentFilesOpenOverlayView: NSView {
         queryField.font = .systemFont(ofSize: 15)
         queryField.lineBreakMode = .byTruncatingTail
         queryField.setAccessibilityIdentifier("recentFiles.query")
+        errorLabel.font = .systemFont(ofSize: 12)
+        errorLabel.lineBreakMode = .byTruncatingTail
+        errorLabel.isHidden = true
+        errorLabel.setAccessibilityIdentifier("recentFiles.error")
+        keyHintLabel.font = .systemFont(ofSize: 11)
+        keyHintLabel.setAccessibilityIdentifier("recentFiles.keyHint")
         rowStack.orientation = .vertical
         rowStack.alignment = .leading
         rowStack.spacing = 2
@@ -47,7 +56,7 @@ final class RecentFilesOpenOverlayView: NSView {
             row.widthAnchor.constraint(equalTo: rowStack.widthAnchor).isActive = true
         }
 
-        let stack = NSStackView(views: [queryField, rowStack])
+        let stack = NSStackView(views: [queryField, errorLabel, rowStack, keyHintLabel])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 10
@@ -72,14 +81,31 @@ final class RecentFilesOpenOverlayView: NSView {
         layer?.borderColor = theme.focusRing.cgColor
         layer?.borderWidth = 1
         shadow?.shadowColor = theme.overlayShadow
+        errorLabel.textColor = theme[.error]
+        keyHintLabel.textColor = theme[.mutedText]
         renderRows()
     }
 
     func present(entries: [RecentFileEntry]) {
         self.entries = entries
         query = ""
+        errorLabel.isHidden = true
         isHidden = false
         applyFilter(resetSelection: true)
+    }
+
+    func refresh(entries: [RecentFileEntry]) {
+        self.entries = entries
+        applyFilter(resetSelection: false)
+    }
+
+    func showInlineError(_ message: String) {
+        errorLabel.stringValue = message
+        errorLabel.isHidden = false
+    }
+
+    func clearInlineError() {
+        errorLabel.isHidden = true
     }
 
     func dismiss() {
@@ -88,6 +114,7 @@ final class RecentFilesOpenOverlayView: NSView {
         filtered = []
         query = ""
         selectedIndex = 0
+        errorLabel.isHidden = true
     }
 
     var currentQuery: String { query }
@@ -95,6 +122,8 @@ final class RecentFilesOpenOverlayView: NSView {
     var visibleRowsForTesting: [String] {
         ["Browse…"] + filtered.prefix(Metrics.maxVisibleRows - 1).map { $0.entry.absolutePath }
     }
+    var inlineErrorForTesting: String? { errorLabel.isHidden ? nil : errorLabel.stringValue }
+    var keyHintForTesting: String { keyHintLabel.stringValue }
 
     func handleKeyDown(_ event: NSEvent) -> Bool {
         if event.modifierFlags.contains(.command) { return false }
@@ -119,6 +148,7 @@ final class RecentFilesOpenOverlayView: NSView {
             switch characters {
             case "j": moveSelection(by: 1); return true
             case "k": moveSelection(by: -1); return true
+            case "c": onClear?(); return true
             default: return false
             }
         }
@@ -166,11 +196,11 @@ final class RecentFilesOpenOverlayView: NSView {
         for (index, row) in rows.enumerated() {
             if index == 0 {
                 row.isHidden = false
-                row.configure(title: "Browse…", path: nil, selected: selectedIndex == 0, theme: theme)
+                row.configure(title: "Browse…", path: nil, matchedIndices: [], selected: selectedIndex == 0, theme: theme)
             } else if filtered.indices.contains(index - 1) {
-                let entry = filtered[index - 1].entry
+                let match = filtered[index - 1]
                 row.isHidden = false
-                row.configure(title: URL(fileURLWithPath: entry.absolutePath).lastPathComponent, path: entry.absolutePath, selected: selectedIndex == index, theme: theme)
+                row.configure(title: URL(fileURLWithPath: match.entry.absolutePath).lastPathComponent, path: match.entry.absolutePath, matchedIndices: match.matchedIndices, selected: selectedIndex == index, theme: theme)
             } else {
                 row.isHidden = true
             }
@@ -208,13 +238,26 @@ private final class RecentFilesOpenRowView: NSView {
 
     required init?(coder: NSCoder) { nil }
 
-    func configure(title: String, path: String?, selected: Bool, theme: AppKitTheme?) {
-        titleLabel.stringValue = title
+    func configure(title: String, path: String?, matchedIndices: [Int], selected: Bool, theme: AppKitTheme?) {
         pathLabel.stringValue = path ?? ""
         pathLabel.isHidden = path == nil
-        guard let theme else { return }
-        titleLabel.textColor = selected ? theme[.accent] : theme[.foreground]
-        titleLabel.font = .systemFont(ofSize: 13, weight: selected ? .semibold : .regular)
+        guard let theme else {
+            titleLabel.stringValue = title
+            return
+        }
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 13, weight: selected ? .semibold : .regular),
+            .foregroundColor: selected ? theme[.accent] : theme[.foreground],
+        ]
+        let attributedTitle = NSMutableAttributedString(string: title, attributes: attributes)
+        for index in matchedIndices {
+            guard let start = title.index(title.startIndex, offsetBy: index, limitedBy: title.endIndex), start < title.endIndex else { continue }
+            attributedTitle.addAttributes([
+                .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
+                .foregroundColor: theme[.accent],
+            ], range: NSRange(start..<title.index(after: start), in: title))
+        }
+        titleLabel.attributedStringValue = attributedTitle
         pathLabel.textColor = theme[.mutedText]
         layer?.backgroundColor = (selected ? theme.separator : NSColor.clear).cgColor
     }
