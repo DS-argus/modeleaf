@@ -352,17 +352,3 @@ extension ReaderSession: ReaderDuplicationSnapshotProviding {
         viewController.seedPresentation(page: snapshot.oneBasedPage)
     }
 }
-
-extension ReaderSession: ReaderLinkProviding {
-    func linkTargets(in coordinateSpace: NSView) -> [ReaderLinkTarget] {
-        isClosed ? [] : viewController.linkTargets(in: coordinateSpace)
-    }
-
-    @discardableResult
-    func activateLink(_ target: ReaderLinkTarget) -> ReaderLinkActivation {
-        guard !isClosed else { return .unsupported }
-        let result = viewController.activateLink(target)
-        if case .navigatedInDocument = result { publishPresentationChange() }
-        return result
-    }
-}

@@ -59,10 +59,7 @@
 "view.zoomOut"     = ["-"]  # -
 "view.zoomReset"   = []
 "view.fitWidth"    = ["w"]  # w
-"view.fitPage"     = ["F"]  # F
-
-# --- Links ---
-"link.hint"        = ["f"]  # f
+"view.fitPage"     = ["f"]  # f
 
 # --- Theme ---
 "theme.picker"     = ["T"]  # T

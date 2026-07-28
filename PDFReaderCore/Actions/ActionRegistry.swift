@@ -91,7 +91,6 @@ public struct ActionRegistry: Sendable {
         ActionDescriptor(id: .viewZoomReset, title: "Actual Size", scope: .contexts(readerContexts)),
         ActionDescriptor(id: .viewFitWidth, title: "Fit Width", scope: .contexts(readerContexts)),
         ActionDescriptor(id: .viewFitPage, title: "Fit Page", scope: .contexts(readerContexts)),
-        ActionDescriptor(id: .linkHint, title: "Follow Link\u{2026}", scope: .contexts(readerContexts)),
         ActionDescriptor(id: .themePicker, title: "Theme picker", scope: .contexts(readerContexts), repeatPolicy: .suppressed),
 
         ActionDescriptor(id: .paneSplitRight, title: "Split Right", scope: .contexts([.navigation, .searchResults]), repeatPolicy: .suppressed),
