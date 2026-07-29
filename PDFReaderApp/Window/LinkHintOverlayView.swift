@@ -47,10 +47,12 @@ final class LinkHintOverlayView: NSView {
         LinkHintFilter.candidates(hints.map(\.label), typed: typedPrefix).map { hints[$0].label }
     }
     var hintRectCountsForTesting: [Int] { hints.map { $0.rects.count } }
+    var hintRectsForTesting: [[NSRect]] { hints.map(\.rects) }
+    var hasCallbacksForTesting: Bool { onCommit != nil || onDismiss != nil }
 
     func handleKeyDown(_ event: NSEvent) -> Bool {
-        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if !modifiers.isEmpty { didRejectInputForTesting?(); NSSound.beep(); return true }
+        let rejectedModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
+        if !event.modifierFlags.intersection(rejectedModifiers).isEmpty { didRejectInputForTesting?(); NSSound.beep(); return true }
         switch event.keyCode {
         case 53: onDismiss?(); return true
         case 51:

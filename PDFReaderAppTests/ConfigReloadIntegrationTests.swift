@@ -107,22 +107,36 @@ struct ConfigReloadIntegrationTests {
             #expect(store.insert(session))
             let controller = makeController(configURL: configURL, store: store)
             controller.start()
-            defer { controller.mainWindowController.close() }
             try writeValidConfig(to: configURL)
+            let linkSession = try PDFOpenService().open(url: PDFFixtureFactory.makeLinkHintPDF(in: directory))
+            #expect(store.insert(linkSession))
 
+            defer { controller.mainWindowController.close(); linkSession.prepareForClose() }
             let overlays: [(String, () -> Void, () -> Bool)] = [
                 ("palette", { controller.mainWindowController.presentCommandPalette() }, { controller.mainWindowController.rootView.commandPaletteOverlay.isHidden }),
                 ("theme", { controller.mainWindowController.presentThemePicker() }, { controller.mainWindowController.rootView.themePickerOverlay.isHidden }),
                 ("recent", { controller.mainWindowController.presentRecentFilesOverlay() }, { controller.mainWindowController.rootView.recentFilesOverlay.isHidden }),
                 ("help", { controller.mainWindowController.presentHelp() }, { controller.mainWindowController.rootView.helpOverlay.isHidden }),
+                ("link hints", {
+                    #expect(store.activate(linkSession.id))
+                    controller.mainWindowController.rootView.layoutSubtreeIfNeeded()
+                    controller.mainWindowController.window?.contentView?.layoutSubtreeIfNeeded()
+                    controller.mainWindowController.presentLinkHints()
+                }, { controller.mainWindowController.rootView.linkHintOverlay.isHidden }),
             ]
             for (name, present, isHidden) in overlays {
                 present()
                 #expect(!isHidden(), "\(name) overlay did not open")
                 controller.reloadConfig()
                 #expect(isHidden(), "\(name) overlay survived reload")
+                if name == "link hints" {
+                    let overlay = controller.mainWindowController.rootView.linkHintOverlay
+                    #expect(controller.mainWindowController.window?.firstResponder === linkSession.focusView)
+                    #expect(!overlay.hasCallbacksForTesting)
+                }
             }
 
+            #expect(store.activate(session.id))
             let retained = try #require(menuItem(identifier: "menu.view.zoom-in", in: NSApp.mainMenu))
             let action = try #require(retained.action)
             #expect(NSApp.sendAction(action, to: retained.target, from: retained))

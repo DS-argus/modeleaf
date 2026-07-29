@@ -7,7 +7,7 @@ public enum LinkHintMerge {
     public static func mergeLinks(_ raw: [RawLink]) -> [ReaderLink] {
         var buckets: [Bucket] = []
 
-        for link in raw {
+        for link in raw.sorted(by: isBeforeCanonicalOrder) {
             if let index = buckets.firstIndex(where: { $0.sourcePageIndex == link.sourcePageIndex && targetsMatch($0.target, link.target) }) {
                 buckets[index].links.append(link)
             } else {
@@ -94,6 +94,45 @@ public enum LinkHintMerge {
         return minX(lhs) < minX(rhs)
     }
 
+    private static func isBeforeCanonicalOrder(_ lhs: RawLink, _ rhs: RawLink) -> Bool {
+        if lhs.sourcePageIndex != rhs.sourcePageIndex {
+            return lhs.sourcePageIndex < rhs.sourcePageIndex
+        }
+        if isBeforeTargetCanonicalOrder(lhs.target, rhs.target) { return true }
+        if isBeforeTargetCanonicalOrder(rhs.target, lhs.target) { return false }
+        return isBeforeRectCanonicalOrder(lhs.pageSpaceBounds, rhs.pageSpaceBounds)
+    }
+
+    private static func isBeforeTargetCanonicalOrder(_ lhs: ReaderLinkTarget, _ rhs: ReaderLinkTarget) -> Bool {
+        switch (lhs, rhs) {
+        case let (.url(lhsURL), .url(rhsURL)):
+            return lhsURL < rhsURL
+        case (.url, .goTo):
+            return true
+        case (.goTo, .url):
+            return false
+        case let (.goTo(lhsPage, lhsPoint), .goTo(rhsPage, rhsPoint)):
+            if lhsPage != rhsPage { return lhsPage < rhsPage }
+            switch (lhsPoint, rhsPoint) {
+            case (nil, .some): return true
+            case (.some, nil): return false
+            case (nil, nil): return false
+            case let (.some(lhsPoint), .some(rhsPoint)):
+                if lhsPoint.y != rhsPoint.y { return lhsPoint.y > rhsPoint.y }
+                return lhsPoint.x < rhsPoint.x
+            }
+        }
+    }
+
+    private static func isBeforeRectCanonicalOrder(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
+        if minY(lhs) != minY(rhs) { return minY(lhs) > minY(rhs) }
+        if minX(lhs) != minX(rhs) { return minX(lhs) < minX(rhs) }
+        if height(lhs) != height(rhs) { return height(lhs) < height(rhs) }
+        let lhsWidth = abs(lhs.size.width)
+        let rhsWidth = abs(rhs.size.width)
+        if lhsWidth != rhsWidth { return lhsWidth < rhsWidth }
+        return maxY(lhs) < maxY(rhs)
+    }
     private static func shouldChain(_ upper: CGRect, _ lower: CGRect) -> Bool {
         let upperHeight = height(upper)
         let lowerHeight = height(lower)

@@ -59,14 +59,22 @@ struct LinkHintMergeTests {
         #expect(links.count == 2)
     }
 
-    @Test("t8: merge order is deterministic")
+    @Test("t8: merge order is deterministic across provider permutations")
     func mergeOrderIsDeterministic() {
-        let input = [raw(0, rect(20, 50, 10, 10)), raw(0, rect(10, 100, 10, 10))]
-        #expect(mergeLinks(input) == mergeLinks(input))
-        #expect(mergeLinks(input)[0].primaryLabelRect.origin.y == 100)
-        #expect(mergeLinks(input)[0].primaryLabelRect.origin.x == 10)
-        #expect(mergeLinks(input)[1].primaryLabelRect.origin.y == 50)
-        #expect(mergeLinks(input)[1].primaryLabelRect.origin.x == 20)
+        let near = ReaderLinkTarget.goTo(pageIndex: 3, point: CGPoint(x: 1.5, y: 40))
+        let base = ReaderLinkTarget.goTo(pageIndex: 3, point: CGPoint(x: 0, y: 40))
+        let beyond = ReaderLinkTarget.goTo(pageIndex: 3, point: CGPoint(x: 3, y: 40))
+        let input = [
+            raw(0, rect(20, 50, 10, 10), target: .url("https://example.com/other")),
+            raw(0, rect(10, 100, 10, 10), target: near),
+            raw(0, rect(10, 84, 10, 10), target: base),
+            raw(0, rect(10, 68, 10, 10), target: beyond),
+        ]
+        let expected = mergeLinks(input)
+        #expect(mergeLinks(Array(input.reversed())) == expected)
+        #expect(mergeLinks([input[2], input[0], input[3], input[1]]) == expected)
+        #expect(mergeLinks([input[1], input[3], input[0], input[2]]) == expected)
+        #expect(expected.contains { $0.target == base && $0.rects.count == 2 })
     }
 
     @Test("t9: same target on separate source pages remains separate")
