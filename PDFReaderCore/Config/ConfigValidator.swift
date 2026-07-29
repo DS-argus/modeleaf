@@ -41,15 +41,49 @@ public struct ConfigValidationReport: Sendable {
     }
 }
 
+enum ConfigSeed {
+    case builtInTemplated
+    case concrete([ActionID: [KeySequence]])
+}
+
 public enum ConfigValidator {
     public static func validate(
         _ sparse: SparseAppConfig,
         source: ConfigSourceMetadata = .none,
-        defaults: EffectiveAppConfig = BuiltInDefaults.config,
         registry: ActionRegistry = .v1
     ) -> ConfigValidationReport {
+        validate(
+            sparse,
+            source: source,
+            seed: .builtInTemplated,
+            defaults: BuiltInDefaults.config,
+            registry: registry
+        )
+    }
+
+    public static func validate(
+        _ sparse: SparseAppConfig,
+        source: ConfigSourceMetadata = .none,
+        defaults: EffectiveAppConfig,
+        registry: ActionRegistry = .v1
+    ) -> ConfigValidationReport {
+        validate(
+            sparse,
+            source: source,
+            seed: .concrete(defaults.keymap),
+            defaults: defaults,
+            registry: registry
+        )
+    }
+
+    private static func validate(
+        _ sparse: SparseAppConfig,
+        source: ConfigSourceMetadata,
+        seed: ConfigSeed,
+        defaults: EffectiveAppConfig,
+        registry: ActionRegistry
+    ) -> ConfigValidationReport {
         var diagnostics: [ConfigDiagnostic] = []
-        var bindings = defaults.keymap
 
         let rawPrefix = sparse.input?.prefix ?? defaults.input.prefix
         let effectivePrefix: String
@@ -68,6 +102,13 @@ public enum ConfigValidator {
             )
         }
 
+        var bindings: [ActionID: [KeySequence]]
+        switch seed {
+        case .builtInTemplated:
+            bindings = resolvedBuiltInKeymap(prefix: effectivePrefix)
+        case let .concrete(keymap):
+            bindings = keymap
+        }
         for rawAction in sparse.keymap?.keys.sorted() ?? [] {
             let rawSequences = sparse.keymap?[rawAction] ?? []
             guard let actionID = ActionID(rawValue: rawAction), registry.descriptor(for: actionID) != nil else {
@@ -442,6 +483,17 @@ public enum ConfigValidator {
         )
     }
 
+    private static func resolvedBuiltInKeymap(prefix: String) -> [ActionID: [KeySequence]] {
+        BuiltInDefaults.templatedKeymap.mapValues { sources in
+            sources.map { source in
+                do {
+                    return try KeySequenceParser.parse(expandPrefix(source, prefix: prefix))
+                } catch {
+                    preconditionFailure("invalid built-in binding \(source): \(error)")
+                }
+            }
+        }
+    }
     private static func expandPrefix(_ raw: String, prefix: String) -> String {
         raw.replacingOccurrences(of: "<prefix>", with: prefix)
     }
