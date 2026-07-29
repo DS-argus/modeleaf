@@ -247,6 +247,7 @@ final class ReaderRootView: NSView {
     func activatePane(atWindowPoint point: NSPoint) { let localPoint = convert(point, from: nil); var view = hitTest(localPoint); while let candidate = view { if let pane = candidate as? PaneView { pane.activateForPointerEvent(); return }; view = candidate.superview } }
 
     func showDiagnostic(_ message: String, expandedDetail: String? = nil, isError: Bool = true, pinned: Bool = false) {
+        guard !(activeDiagnostic?.pinned == true && !pinned) else { return }
         activeDiagnostic = ReaderActiveDiagnostic(message: message, kind: isError ? .error : .informational, pinned: pinned, expandedDetail: expandedDetail)
         currentStatus.detail = message
         currentStatus.expandedDetail = expandedDetail

@@ -98,20 +98,35 @@ struct ConfigReloadIntegrationTests {
         }
     }
 
-    @Test("reload dismisses transient overlays before swapping the runtime generation")
-    func installDismissesOverlaysFirst() throws {
+    @Test("reload closes every transient overlay and retained menu items dispatch once")
+    func installDismissesOverlaysAndRetainedMenuDispatches() throws {
         try withTemporaryDirectory { directory in
             let configURL = directory.appendingPathComponent("config.toml")
-            let controller = makeController(configURL: configURL, store: ReaderSessionStore())
+            let store = ReaderSessionStore()
+            let session = ReloadRecordingSession(title: "reload.pdf")
+            #expect(store.insert(session))
+            let controller = makeController(configURL: configURL, store: store)
+            controller.start()
             defer { controller.mainWindowController.close() }
-            controller.mainWindowController.presentCommandPalette()
-            #expect(!controller.mainWindowController.rootView.commandPaletteOverlay.isHidden)
             try writeValidConfig(to: configURL)
 
-            controller.reloadConfig()
+            let overlays: [(String, () -> Void, () -> Bool)] = [
+                ("palette", { controller.mainWindowController.presentCommandPalette() }, { controller.mainWindowController.rootView.commandPaletteOverlay.isHidden }),
+                ("theme", { controller.mainWindowController.presentThemePicker() }, { controller.mainWindowController.rootView.themePickerOverlay.isHidden }),
+                ("recent", { controller.mainWindowController.presentRecentFilesOverlay() }, { controller.mainWindowController.rootView.recentFilesOverlay.isHidden }),
+                ("help", { controller.mainWindowController.presentHelp() }, { controller.mainWindowController.rootView.helpOverlay.isHidden }),
+            ]
+            for (name, present, isHidden) in overlays {
+                present()
+                #expect(!isHidden(), "\(name) overlay did not open")
+                controller.reloadConfig()
+                #expect(isHidden(), "\(name) overlay survived reload")
+            }
 
-            #expect(controller.mainWindowController.rootView.commandPaletteOverlay.isHidden)
-            #expect(controller.configInstallStepsForTesting == [.dismissTransientOverlays, .applyWindowConfig, .updateNavigation, .installMenu, .activateConfig])
+            let retained = try #require(menuItem(identifier: "menu.view.zoom-in", in: NSApp.mainMenu))
+            let action = try #require(retained.action)
+            #expect(NSApp.sendAction(action, to: retained.target, from: retained))
+            #expect(session.zoomFactors == [1.5])
         }
     }
 
@@ -137,6 +152,53 @@ struct ConfigReloadIntegrationTests {
             #expect(controller.mainWindowController.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "b", modifiers: [.control]))))
             #expect(controller.mainWindowController.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "r"))))
             #expect(controller.configInstallGenerationCountForTesting == 2)
+        }
+    }
+
+    @Test("pinned diagnostics reject every unpinned replacement but accept a newer pinned diagnostic")
+    func pinnedDiagnosticOwnership() {
+        let root = ReaderRootView()
+        root.showDiagnostic("pinned config failure", expandedDetail: "original", isError: true, pinned: true)
+        for message in [
+            "No configuration file to reload.",
+            "Default config written",
+            "Could not open CONFIG.md",
+            "Theme applied for this session but could not be saved",
+            "PDF opened but recent-files list could not be saved",
+        ] {
+            root.showDiagnostic(message, isError: false)
+            #expect(root.statusBar.presentation.detail == "pinned config failure")
+            #expect(root.hasPinnedDiagnostic)
+        }
+        root.showDiagnostic("new pinned config failure", expandedDetail: "new", isError: true, pinned: true)
+        #expect(root.statusBar.presentation.detail == "new pinned config failure")
+        root.clearDiagnostic(force: true)
+        #expect(!root.hasPinnedDiagnostic)
+    }
+
+    @Test("a reloaded custom prefix routes only the new reload binding and updates palette and help")
+    func customPrefixReloadUpdatesAllKeySurfaces() throws {
+        try withTemporaryDirectory { directory in
+            let configURL = directory.appendingPathComponent("config.toml")
+            try Data("""
+            [input]
+            prefix = "<C-a>"
+            """.utf8).write(to: configURL)
+            let controller = makeController(configURL: configURL, store: ReaderSessionStore())
+            controller.start()
+            defer { controller.mainWindowController.close() }
+
+            controller.reloadConfig()
+            #expect(!controller.mainWindowController.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "b", modifiers: [.control]))))
+            #expect(controller.mainWindowController.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "a", modifiers: [.control]))))
+            #expect(controller.mainWindowController.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "r"))))
+            #expect(controller.configInstallGenerationCountForTesting == 2)
+
+            controller.mainWindowController.presentCommandPalette()
+            #expect(controller.mainWindowController.rootView.commandPaletteOverlay.visibleCommandsForTesting.contains { $0.id == .configReload && $0.shortcut == "Ctrl+A r" })
+            controller.mainWindowController.dismissAllTransientOverlays()
+            controller.mainWindowController.presentHelp()
+            #expect(controller.mainWindowController.rootView.helpOverlay.visibleEntriesForTesting.contains { $0 == ("Ctrl+A r", "Reload Config") })
         }
     }
 

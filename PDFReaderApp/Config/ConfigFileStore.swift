@@ -16,12 +16,43 @@ enum ConfigFileResetResult: Equatable {
 
 /// Owns the durable, cross-process-safe mutations of config.toml.
 struct ConfigFileStore {
+    struct Operations {
+        var renameExclusive: (String, String) -> Int32
+        var link: (String, String) -> Int32
+        var unlink: (String) -> Int32
+        var replace: (String, String) -> Int32
+        var synchronizeDirectory: (String) -> Int32
+
+        static func live() -> Operations {
+            Operations(
+                renameExclusive: { source, destination in
+                    renameatx_np(AT_FDCWD, source, AT_FDCWD, destination, UInt32(RENAME_EXCL))
+                },
+                link: { source, destination in Darwin.link(source, destination) },
+                unlink: { Darwin.unlink($0) },
+                replace: { source, destination in Darwin.rename(source, destination) },
+                synchronizeDirectory: { path in
+                    let fd = path.withCString { open($0, O_RDONLY) }
+                    guard fd >= 0 else { return -1 }
+                    defer { _ = close(fd) }
+                    return fsync(fd)
+                }
+            )
+        }
+    }
+
     let fileURL: URL
     private let synchronizeTemporary: (Int32) -> Int32
+    private let operations: Operations
 
-    init(fileURL: URL, synchronizeTemporary: @escaping (Int32) -> Int32 = fsync) {
+    init(
+        fileURL: URL,
+        synchronizeTemporary: @escaping (Int32) -> Int32 = fsync,
+        operations: Operations = .live()
+    ) {
         self.fileURL = fileURL
         self.synchronizeTemporary = synchronizeTemporary
+        self.operations = operations
     }
 
     func writeDefaultExclusive(_ data: Data) -> ConfigFileWriteResult {
@@ -120,36 +151,23 @@ struct ConfigFileStore {
 
     /// Returns whether link/unlink publication left a temporary cleanup warning.
     private func publishExclusive(_ source: URL, to destination: URL) throws -> Bool {
-        let result = source.path.withCString { sourcePath in
-            destination.path.withCString { destinationPath in
-                renameatx_np(AT_FDCWD, sourcePath, AT_FDCWD, destinationPath, UInt32(RENAME_EXCL))
-            }
-        }
+        let result = operations.renameExclusive(source.path, destination.path)
         guard result != 0 else { return false }
         let renameError = errno
-        // Only filesystems that explicitly reject renameatx_np's exclusive
-        // capability use link/unlink; ordinary publication never falls back.
         guard renameError == ENOTSUP else { throw posixError(code: renameError) }
-        let linked = source.path.withCString { sourcePath in
-            destination.path.withCString { destinationPath in link(sourcePath, destinationPath) }
-        }
-        guard linked == 0 else { throw posixError() }
-        return unlink(source.path) != 0
+        guard operations.link(source.path, destination.path) == 0 else { throw posixError() }
+        return operations.unlink(source.path) != 0
     }
 
     private func replace(_ source: URL, at destination: URL) throws {
-        let result = source.path.withCString { sourcePath in
-            destination.path.withCString { destinationPath in rename(sourcePath, destinationPath) }
-        }
-        guard result == 0 else { throw posixError() }
+        guard operations.replace(source.path, destination.path) == 0 else { throw posixError() }
     }
 
     private func synchronizeDirectory() throws {
-        let fd = directoryURL.path.withCString { open($0, O_RDONLY) }
-        guard fd >= 0 else { throw posixError() }
-        defer { _ = close(fd) }
-        guard fsync(fd) == 0 else { throw posixError() }
+        guard operations.synchronizeDirectory(directoryURL.path) == 0 else { throw posixError() }
     }
 
-    private func posixError(code: Int32 = errno) -> POSIXError { POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO) }
+    private func posixError(code: Int32 = errno) -> POSIXError {
+        POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
+    }
 }

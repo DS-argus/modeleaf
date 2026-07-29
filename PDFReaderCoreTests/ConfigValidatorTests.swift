@@ -230,6 +230,7 @@ struct ConfigValidatorTests {
         #expect(active.keymap.bindings(for: .paneSplitRight) == [try sequence("<C-a>|")])
         #expect(active.keymap.bindings(for: .paneSplitDown) == [try sequence("<C-a>-")])
         #expect(active.keymap.bindings(for: .paneUnsplit) == [try sequence("<C-a>o")])
+        #expect(active.keymap.bindings(for: .configReload) == [try sequence("<C-a>r")])
     }
 
     @Test("Concrete seeds preserve their bindings when the input prefix changes")

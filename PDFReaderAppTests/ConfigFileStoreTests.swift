@@ -98,6 +98,123 @@ struct ConfigFileStoreTests {
         }
     }
 
+    @Test("publication fault boundaries preserve durable data and clean temporary files")
+    func publicationFaultMatrix() throws {
+        try withTemporaryDirectory { directory in
+            let url = directory.appendingPathComponent("config.toml")
+            let defaults = Data("default".utf8)
+
+            var renameFault = ConfigFileStore.Operations.live()
+            renameFault.renameExclusive = { _, _ in errno = EIO; return -1 }
+            #expect(failed(ConfigFileStore(fileURL: url, operations: renameFault).writeDefaultExclusive(defaults)))
+            #expect(!FileManager.default.fileExists(atPath: url.path))
+            let renameLeftovers = try temporaryFiles(in: directory)
+            #expect(renameLeftovers.isEmpty)
+
+            var linkFault = ConfigFileStore.Operations.live()
+            linkFault.renameExclusive = { _, _ in errno = ENOTSUP; return -1 }
+            linkFault.link = { _, _ in errno = EIO; return -1 }
+            #expect(failed(ConfigFileStore(fileURL: url, operations: linkFault).writeDefaultExclusive(defaults)))
+            #expect(!FileManager.default.fileExists(atPath: url.path))
+            let linkLeftovers = try temporaryFiles(in: directory)
+            #expect(linkLeftovers.isEmpty)
+
+            var unlinkFault = ConfigFileStore.Operations.live()
+            unlinkFault.renameExclusive = { _, _ in errno = ENOTSUP; return -1 }
+            unlinkFault.unlink = { _ in errno = EIO; return -1 }
+            #expect(ConfigFileStore(fileURL: url, operations: unlinkFault).writeDefaultExclusive(defaults) == .created)
+            let linked = try Data(contentsOf: url)
+            #expect(linked == defaults)
+            let unlinkLeftovers = try temporaryFiles(in: directory)
+            #expect(unlinkLeftovers.isEmpty)
+        }
+    }
+
+    @Test("directory sync failure after publication reports failure but leaves the committed config recoverable")
+    func publicationDirectorySyncFault() throws {
+        try withTemporaryDirectory { directory in
+            let url = directory.appendingPathComponent("config.toml")
+            let defaults = Data("default".utf8)
+            var operations = ConfigFileStore.Operations.live()
+            operations.synchronizeDirectory = { _ in errno = EIO; return -1 }
+
+            #expect(failed(ConfigFileStore(fileURL: url, operations: operations).writeDefaultExclusive(defaults)))
+            let committed = try Data(contentsOf: url)
+            #expect(committed == defaults)
+            let leftovers = try temporaryFiles(in: directory)
+            #expect(leftovers.isEmpty)
+            #expect(ConfigFileStore(fileURL: url).writeDefaultExclusive(defaults) == .alreadyExists)
+        }
+    }
+
+    @Test("reset fault boundaries retain backup and converge on a later reset")
+    func resetFaultMatrix() throws {
+        try withTemporaryDirectory { directory in
+            let url = directory.appendingPathComponent("config.toml")
+            let backupURL = url.appendingPathExtension("bak")
+            let original = Data("custom".utf8)
+            let defaults = Data("default".utf8)
+
+            for boundary in ["backup-sync", "final-replace", "final-sync"] {
+                try original.write(to: url)
+                try? FileManager.default.removeItem(at: backupURL)
+                let calls = CallCounter()
+                var operations = ConfigFileStore.Operations.live()
+                switch boundary {
+                case "backup-sync":
+                    operations.synchronizeDirectory = { _ in
+                        calls.count += 1
+                        if calls.count == 1 { errno = EIO; return -1 }
+                        return ConfigFileStore.Operations.live().synchronizeDirectory("")
+                    }
+                case "final-replace":
+                    operations.replace = { source, destination in
+                        calls.count += 1
+                        if calls.count == 2 { errno = EIO; return -1 }
+                        return ConfigFileStore.Operations.live().replace(source, destination)
+                    }
+                default:
+                    operations.synchronizeDirectory = { path in
+                        calls.count += 1
+                        if calls.count == 2 { errno = EIO; return -1 }
+                        return ConfigFileStore.Operations.live().synchronizeDirectory(path)
+                    }
+                }
+
+                #expect(failed(ConfigFileStore(fileURL: url, operations: operations).reset(defaultBytes: defaults)))
+                let backup = try Data(contentsOf: backupURL)
+                let leftovers = try temporaryFiles(in: directory)
+                #expect(backup == original)
+                #expect(leftovers.isEmpty)
+                if boundary == "final-sync" {
+                    let committed = try Data(contentsOf: url)
+                    #expect(committed == defaults)
+                    #expect(ConfigFileStore(fileURL: url).reset(defaultBytes: defaults) == .unchanged)
+                } else {
+                    let retained = try Data(contentsOf: url)
+                    #expect(retained == original)
+                    #expect(ConfigFileStore(fileURL: url).reset(defaultBytes: defaults) == .replaced)
+                    let converged = try Data(contentsOf: url)
+                    #expect(converged == defaults)
+                }
+            }
+        }
+    }
+
+    private final class CallCounter {
+        var count = 0
+    }
+
+    private func failed(_ result: ConfigFileWriteResult) -> Bool {
+        if case .failed = result { return true }
+        return false
+    }
+
+    private func failed(_ result: ConfigFileResetResult) -> Bool {
+        if case .failed = result { return true }
+        return false
+    }
+
     private func temporaryFiles(in directory: URL) throws -> [URL] {
         try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             .filter { $0.lastPathComponent.hasPrefix(".config-") && $0.pathExtension == "tmp" }

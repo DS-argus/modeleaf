@@ -119,7 +119,7 @@ See **[CONFIG.md](CONFIG.md)** for the complete action registry, key-token gramm
 
 ## Not in v1
 
-No bookmarks, annotations, highlights, command palette, external commands, scripts, plugins, macros, OCR, print, export, session persistence, or thumbnail sidebar. These are deliberate product constraints, not half-built features — Modeleaf is a focused reader.
+No bookmarks, annotations, highlights, external commands, scripts, plugins, macros, OCR, print, export, session persistence, or thumbnail sidebar. These are deliberate product constraints, not half-built features — Modeleaf is a focused reader.
 
 ## Built with
 
