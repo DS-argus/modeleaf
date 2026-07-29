@@ -76,6 +76,34 @@ struct PDFCapabilityPolicyTests {
         }
     }
 
+    @Test("link hint activation preserves persisted link annotations and records URL follows without blocked actions")
+    func linkHintActivationPreservesPersistedAnnotations() throws {
+        try withTemporaryDirectory { directory in
+            let fixture = try PDFFixtureFactory.makeLinkHintPDF(in: directory)
+            let before = try PDFFixtureFactory.sha256(of: fixture)
+            let document = try #require(PDFDocument(url: fixture))
+            let firstPage = try #require(document.page(at: 0))
+            let beforeAnnotations = linkAnnotationSnapshots(on: firstPage)
+            let view = ReaderPDFView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+            view.document = document
+            view.enforceReadOnlyDocumentConfiguration()
+            var opened: [URL] = []
+            view.followLinkHandler = { opened.append($0) }
+
+            view.activate(.url("https://example.invalid/link-hint"))
+            view.activate(.goTo(pageIndex: 1, point: CGPoint(x: 48, y: 700)))
+
+            #expect(opened == [URL(string: "https://example.invalid/link-hint")!])
+            #expect(view.followedLinkCount == 1)
+            #expect(view.blockedActionCount == 0)
+            #expect(view.currentPage == document.page(at: 1))
+            #expect(try PDFFixtureFactory.sha256(of: fixture) == before)
+            let persisted = try #require(PDFDocument(url: fixture))
+            #expect(linkAnnotationSnapshots(on: try #require(persisted.page(at: 0))) == beforeAnnotations)
+            view.prepareForClose()
+        }
+    }
+
     @Test("registry-owned keys never fall through to PDFKit while Command-C remains system-owned")
     func keyAndCopyRouting() throws {
         try withTemporaryDirectory { directory in
@@ -125,6 +153,17 @@ struct PDFCapabilityPolicyTests {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: url) }
         try body(url)
+    }
+}
+
+private struct LinkAnnotationSnapshot: Equatable {
+    let bounds: CGRect
+    let actionType: String
+}
+
+private func linkAnnotationSnapshots(on page: PDFPage) -> [LinkAnnotationSnapshot] {
+    page.annotations.map {
+        LinkAnnotationSnapshot(bounds: $0.bounds, actionType: $0.action is PDFActionURL ? "URL" : $0.action is PDFActionGoTo ? "GoTo" : "other")
     }
 }
 
