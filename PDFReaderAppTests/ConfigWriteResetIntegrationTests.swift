@@ -63,6 +63,51 @@ struct ConfigWriteResetIntegrationTests {
         }
     }
 
+    @Test("TOML bindings dispatch Write and Reset from palette commits and AppKit key events")
+    func configuredWriteAndResetDispatchFromBothSurfaces() throws {
+        try withTemporaryDirectory { directory in
+            let url = directory.appendingPathComponent("config.toml")
+            try configuredConfig.write(to: url, atomically: true, encoding: .utf8)
+            let controller = makeController(configURL: url, stateDirectory: directory)
+            controller.start()
+            defer { controller.mainWindowController.close() }
+
+            try FileManager.default.removeItem(at: url)
+            try commitPalette("write default config", controller: controller)
+            #expect(controller.mainWindowController.rootView.statusBar.presentation.detail == "Default config written")
+            #expect(controller.mainWindowController.routeKeyEventForTesting(try #require(makeKeyEvent(characters: functionKey(NSF11FunctionKey), modifiers: [.command], keyCode: 103))))
+            #expect(controller.mainWindowController.rootView.statusBar.presentation.detail == "Config already exists")
+
+            try configuredConfig.write(to: url, atomically: true, encoding: .utf8)
+            controller.reloadConfig()
+            try commitPalette("reset config", controller: controller)
+            #expect(controller.mainWindowController.rootView.statusBar.presentation.detail == "Config reset to defaults")
+            try configuredConfig.write(to: url, atomically: true, encoding: .utf8)
+            controller.reloadConfig()
+            #expect(controller.mainWindowController.routeKeyEventForTesting(try #require(makeKeyEvent(characters: functionKey(NSF12FunctionKey), modifiers: [.command], keyCode: 111))))
+            #expect(controller.mainWindowController.rootView.statusBar.presentation.detail == "Config reset to defaults")
+        }
+    }
+
+    private var configuredConfig: String {
+        """
+        [keymap]
+        "config.writeDefault" = ["<D-F11>"]
+        "config.resetDefault" = ["<D-F12>"]
+        """
+    }
+
+    private func functionKey(_ value: Int) -> String {
+        String(UnicodeScalar(value)!)
+    }
+    private func commitPalette(_ query: String, controller: ApplicationController) throws {
+        controller.mainWindowController.presentCommandPalette()
+        for character in query {
+            _ = controller.mainWindowController.routeKeyEventForTesting(try #require(makeKeyEvent(characters: String(character))))
+        }
+        _ = controller.mainWindowController.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "\r", keyCode: 36)))
+    }
+
     private var customConfig: String {
         """
         [keymap]
