@@ -22,6 +22,7 @@ final class ApplicationController {
     private(set) var menuBuilder: ValidatedMenuBuilder?
     private let configService: ConfigService
     private var activeConfig: ValidatedAppConfig
+    private let configFileStore: ConfigFileStore
     enum ConfigInstallStep: Equatable {
         case dismissTransientOverlays
         case applyWindowConfig
@@ -53,7 +54,8 @@ final class ApplicationController {
             recentFilesProvider: { [weak self] in self?.recentFilesStore.load() ?? [] },
             recentOpenHandler: { [weak self] path in _ = self?.openDocument(at: URL(fileURLWithPath: path)) },
             recentPruneHandler: { [weak self] path in self?.recentFilesStore.prune(absolutePath: path) ?? .failed(message: "recent-files store unavailable") },
-            recentClearHandler: { [weak self] in self?.recentFilesStore.clear() ?? .failed(message: "recent-files store unavailable") }
+            recentClearHandler: { [weak self] in self?.recentFilesStore.clear() ?? .failed(message: "recent-files store unavailable") },
+            configFileURLProvider: { [weak self] in self?.configService.source.url ?? ConfigFileSource.defaultURL() }
         )
         actionDispatcher.presentation = controller
         return controller
@@ -62,6 +64,7 @@ final class ApplicationController {
         let configResult = configService.load()
         self.application = application; self.configService = configService; self.configResult = configResult; self.activeConfig = configResult.activeConfig; self.sessionStore = sessionStore
         self.coordinator = PaneCoordinator(initialStore: sessionStore)
+        self.configFileStore = ConfigFileStore(fileURL: configService.source.url)
         self.pdfOpenService = pdfOpenService; self.openMetrics = openMetrics; self.openPanelPresenter = openPanelPresenter; self.themeStore = themeStore; self.recentFilesStore = recentFilesStore
         switch themeStore.load() {
         case let .selected(id): self.currentThemeID = id; self.themeStartupDiagnostic = nil
@@ -75,6 +78,8 @@ final class ApplicationController {
         coordinator.configureDuplication { [weak self] snapshot in self?.makeDuplicate(from: snapshot) }
         self.actionDispatcher.configureConfigReloadHandler { [weak self] in self?.reloadConfig() }
         coordinator.configureDuplicationCompletion { [weak self] session, committed in self?.completeDuplicate(session, committed: committed) }
+        self.actionDispatcher.configureConfigWriteDefaultHandler { [weak self] in self?.writeDefaultConfig() }
+        self.actionDispatcher.configureConfigResetDefaultHandler { [weak self] in self?.resetConfig() }
     }
 
     func start() { let menuBuilder = ValidatedMenuBuilder(descriptors: activeConfig.menuDescriptors, dispatch: { [weak self] action in self?.dispatch(action) }); self.menuBuilder = menuBuilder; application.mainMenu = menuBuilder.makeMainMenu(); mainWindowController.showWindow(nil); if !configResult.diagnostics.isEmpty {
@@ -123,6 +128,38 @@ final class ApplicationController {
         }
     }
 
+    func writeDefaultConfig() {
+        switch configFileStore.writeDefaultExclusive(Data(BuiltInDefaults.defaultConfigTOML.utf8)) {
+        case .created:
+            mainWindowController.showDiagnostic("Default config written", isError: false)
+        case .alreadyExists:
+            mainWindowController.showDiagnostic("Config already exists", isError: false)
+        case let .failed(message):
+            mainWindowController.showDiagnostic("Could not write default config: \(message)")
+        }
+    }
+
+    func resetConfig() {
+        let builtIn = ConfigValidator.validate(SparseAppConfig())
+        guard let config = builtIn.validatedConfig else {
+            preconditionFailure("Built-in configuration must validate")
+        }
+        let prepared = prepare(config)
+        switch configFileStore.reset(defaultBytes: Data(BuiltInDefaults.defaultConfigTOML.utf8)) {
+        case .replaced:
+            install(prepared)
+            mainWindowController.showDiagnostic("Config reset to defaults", isError: false)
+        case .unchanged:
+            if activeConfig.config != prepared.validatedConfig.config || mainWindowController.hasPinnedDiagnostic {
+                install(prepared)
+            }
+            mainWindowController.showDiagnostic("Config already matches defaults", isError: false)
+        case .missingFile:
+            mainWindowController.showDiagnostic("No config file to reset", isError: false)
+        case let .failed(message):
+            mainWindowController.showDiagnostic("Could not reset config: \(message)")
+        }
+    }
     private func prepare(_ config: ValidatedAppConfig) -> PreparedConfigGeneration {
         let builder = ValidatedMenuBuilder(descriptors: config.menuDescriptors, dispatch: { [weak self] action in self?.dispatch(action) })
         return PreparedConfigGeneration(validatedConfig: config, menuBuilder: builder, mainMenu: builder.makeMainMenu())

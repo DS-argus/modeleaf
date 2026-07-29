@@ -10,7 +10,7 @@ struct BuiltInDefaultsTests {
         #expect(
             Set(BuiltInDefaults.keymap.compactMap { action, bindings in
                 bindings.isEmpty ? action : nil
-            }) == [.viewZoomReset]
+            }) == [.viewZoomReset, .configWriteDefault, .configResetDefault]
         )
         let report = ActionBindingPolicy.evaluateEffective(BuiltInDefaults.keymap)
         #expect(report.isValid)
@@ -33,7 +33,7 @@ struct BuiltInDefaultsTests {
             .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [],
             .viewFitWidth: ["w"], .viewFitPage: ["f"],
             .themePicker: ["T"],
-            .configReload: ["<C-b>r"],
+            .configReload: ["<C-b>r"], .configWriteDefault: [], .configResetDefault: [],
             .paneSplitRight: ["<C-b>|"], .paneSplitDown: ["<C-b>-"], .paneUnsplit: ["<C-b>o"],
             .paneFocusLeft: ["<C-h>"], .paneFocusDown: ["<C-j>"], .paneFocusUp: ["<C-k>"], .paneFocusRight: ["<C-l>"],
         ]

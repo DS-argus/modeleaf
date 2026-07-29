@@ -33,6 +33,8 @@ final class ActionDispatcher {
     private var terminationHandler: () -> Void
 private var newInstanceHandler: () -> Void
     private var configReloadHandler: () -> Void
+    private var configWriteDefaultHandler: () -> Void
+    private var configResetDefaultHandler: () -> Void
 
     weak var presentation: (any ReaderWorkflowPresenting)?
 
@@ -42,7 +44,9 @@ private var newInstanceHandler: () -> Void
         openDocumentHandler: @escaping () -> Void = {},
         terminationHandler: @escaping () -> Void = {},
         newInstanceHandler: @escaping () -> Void = {},
-        configReloadHandler: @escaping () -> Void = {}
+        configReloadHandler: @escaping () -> Void = {},
+        configWriteDefaultHandler: @escaping () -> Void = {},
+        configResetDefaultHandler: @escaping () -> Void = {}
     ) {
         self.coordinator = coordinator
         self.navigation = navigation
@@ -50,6 +54,8 @@ private var newInstanceHandler: () -> Void
         self.terminationHandler = terminationHandler
 self.newInstanceHandler = newInstanceHandler
         self.configReloadHandler = configReloadHandler
+        self.configWriteDefaultHandler = configWriteDefaultHandler
+        self.configResetDefaultHandler = configResetDefaultHandler
     }
 
     func configureLifecycleHandlers(
@@ -66,6 +72,13 @@ newInstanceHandler = newInstance
         configReloadHandler = handler
     }
 
+    func configureConfigWriteDefaultHandler(_ handler: @escaping () -> Void) {
+        configWriteDefaultHandler = handler
+    }
+
+    func configureConfigResetDefaultHandler(_ handler: @escaping () -> Void) {
+        configResetDefaultHandler = handler
+    }
     func updateNavigation(_ navigation: NavigationConfiguration) {
         self.navigation = navigation
     }
@@ -97,6 +110,10 @@ newInstanceHandler = newInstance
         case .configReload:
             configReloadHandler()
 
+        case .configWriteDefault:
+            configWriteDefaultHandler()
+        case .configResetDefault:
+            configResetDefaultHandler()
         case .tabNext:
             _ = coordinator.activateNext()
         case .tabPrevious:

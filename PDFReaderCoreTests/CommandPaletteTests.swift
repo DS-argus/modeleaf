@@ -67,6 +67,18 @@ struct CommandPaletteTests {
         #expect(disabled.reason == "Open a PDF first")
     }
 
+    @Test("config commands mirror config file existence")
+    func configAvailability() {
+        let missing = PaletteContextState(hasActiveDocument: false, paneCount: 0, tabCount: 0, inSearchResults: false, configFileExists: false)
+        #expect(PaletteAvailability.evaluate(.configReload, state: missing).enabled)
+        #expect(PaletteAvailability.evaluate(.configWriteDefault, state: missing).enabled)
+        #expect(PaletteAvailability.evaluate(.configResetDefault, state: missing) == (false, "No config file to reset"))
+
+        let existing = PaletteContextState(hasActiveDocument: false, paneCount: 0, tabCount: 0, inSearchResults: false, configFileExists: true)
+        #expect(PaletteAvailability.evaluate(.configWriteDefault, state: existing) == (false, "Config already exists"))
+        #expect(PaletteAvailability.evaluate(.configResetDefault, state: existing).enabled)
+    }
+
     @Test("tab, pane, split, and search availability track runtime state")
     func stateDependentAvailability() {
         let solo = PaletteContextState(hasActiveDocument: true, paneCount: 1, tabCount: 1, inSearchResults: false)

@@ -254,6 +254,7 @@ final class ReaderRootView: NSView {
         statusBar.render(currentStatus)
     }
     func presentUpdateBanner(_ text: String?, onClick: (() -> Void)? = nil) { statusBar.onUpdateClicked = onClick; statusBar.presentUpdate(text) }
+    var hasPinnedDiagnostic: Bool { activeDiagnostic?.pinned == true }
     func clearDiagnostic(force: Bool = false) {
         guard force || activeDiagnostic?.pinned != true else { return }
         activeDiagnostic = nil

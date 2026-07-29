@@ -32,17 +32,19 @@ public struct PaletteContextState: Equatable, Sendable {
     public let paneCount: Int
     public let tabCount: Int
     public let inSearchResults: Bool
-
+    public let configFileExists: Bool
     public init(
         hasActiveDocument: Bool,
         paneCount: Int,
         tabCount: Int,
-        inSearchResults: Bool
+        inSearchResults: Bool,
+        configFileExists: Bool = false
     ) {
         self.hasActiveDocument = hasActiveDocument
         self.paneCount = paneCount
         self.tabCount = tabCount
         self.inSearchResults = inSearchResults
+        self.configFileExists = configFileExists
     }
 }
 
@@ -56,6 +58,12 @@ public enum PaletteAvailability {
     ) -> (enabled: Bool, reason: String?) {
         // Global lifecycle commands never depend on an open document.
         switch id {
+        case .configReload:
+            return (true, nil)
+        case .configWriteDefault:
+            return state.configFileExists ? (false, "Config already exists") : (true, nil)
+        case .configResetDefault:
+            return state.configFileExists ? (true, nil) : (false, "No config file to reset")
         case .documentOpen, .appNew, .appQuit, .helpShow:
             return (true, nil)
         default:

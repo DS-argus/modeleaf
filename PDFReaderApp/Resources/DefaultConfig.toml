@@ -66,6 +66,8 @@
 
 # --- Config ---
 "config.reload"    = ["<prefix>r"]  # Ctrl+B r
+"config.writeDefault" = []
+"config.resetDefault" = []
 
 # --- Theme ---
 "theme.picker"     = ["T"]  # T
