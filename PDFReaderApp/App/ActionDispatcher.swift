@@ -10,6 +10,7 @@ protocol ReaderWorkflowPresenting: AnyObject {
     func presentCommandPalette()
     func presentRecentFilesOpen()
     func presentHelp()
+    func presentLinkHints()
     func presentPrompt(_ presentation: PromptPresentation)
     func showPromptValidation(_ message: String)
     func prepareForGlobalAction()
@@ -173,7 +174,6 @@ newInstanceHandler = newInstance
             presentation?.presentCommandPalette()
         case .helpShow:
             presentation?.presentHelp()
-
         case .viewZoomIn:
             activeSession?.zoom(by: navigation.zoomFactor)
         case .viewZoomOut:
@@ -184,7 +184,8 @@ newInstanceHandler = newInstance
             activeSession?.fitWidth()
         case .viewFitPage:
             activeSession?.fitPage()
-
+        case .linkHint:
+            presentation?.presentLinkHints()
         case .paneSplitRight:
             _ = coordinator.split(direction: .sideBySide)
         case .paneSplitDown:

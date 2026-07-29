@@ -71,6 +71,20 @@ struct ActionDispatcherTests {
         #expect(presenter.helpCount == 1)
     }
 
+    @Test("link.hint presents link hints")
+    func linkHintPresentsLinkHints() {
+        let dispatcher = ActionDispatcher(
+            coordinator: PaneCoordinator(initialStore: ReaderSessionStore()),
+            navigation: BuiltInDefaults.config.navigation
+        )
+        let presenter = PromptPresenterSpy()
+        dispatcher.presentation = presenter
+
+        dispatcher.dispatch(.linkHint)
+
+        #expect(presenter.linkHintsCount == 1)
+    }
+
 
     @Test("app.new dispatches to the new-instance launcher only")
     func appNewLaunchesNewInstance() {
@@ -567,6 +581,8 @@ private final class ActionDispatcherFocusableView: NSView {
 
 @MainActor
 private final class PromptPresenterSpy: ReaderWorkflowPresenting {
+    var linkHintsCount = 0
+    func presentLinkHints() { linkHintsCount += 1 }
     func presentHelp() { helpCount += 1 }
     var presentation: PromptPresentation?
     var helpCount = 0

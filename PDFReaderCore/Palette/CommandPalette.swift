@@ -85,6 +85,8 @@ public enum PaletteAvailability {
             return state.paneCount > 1 ? (true, nil) : (false, "Only one pane is open")
         case .paneSplitRight, .paneSplitDown:
             return state.paneCount < maximumPanes ? (true, nil) : (false, "Maximum panes open")
+        case .linkHint:
+            return state.inSearchResults ? (false, "Not available in search results") : (true, nil)
         case .searchCancel:
             return state.inSearchResults ? (true, nil) : (false, "No active search")
         default:
