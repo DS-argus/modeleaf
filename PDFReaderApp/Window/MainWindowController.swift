@@ -100,6 +100,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window.geometryEventHandler = { [weak self] in self?.dismissLinkHintsAndRestoreFocus() }
         rootView.apply(theme: theme)
         rootView.setInputContext(.navigation)
+        rootView.statusBar.onHelpTap = { [weak self] in self?.presentHelp() }
         rootView.emptyState.openButton.handler = { [weak self] in self?.actionHandler(.documentOpen) }
         rootView.tabBar.onSelect = { [weak self] id in self?.dispatchTabSelection(to: id) }
         rootView.tabBar.onClose = { [weak self] id in self?.dispatchTabClose(id) }
@@ -559,37 +560,42 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             window?.makeFirstResponder(rootView.emptyState.openButton)
         }
     }
-
-    private enum HelpModalKey {
-        static let promptCommit = "Enter"
-        static let promptCancel = "Esc"
-        static let searchResults = "Enter / Shift+Enter"
-        static let overlayMove = "Ctrl+j/k"
-        static let overlayClear = "Ctrl+c"
-        static let overlayOpen = "Enter"
-        static let overlayClose = "Esc"
-    }
-
     private static func helpSections(from keymap: ValidatedKeymap) -> [HelpOverlaySection] {
+        let tabSelectionIDs: [ActionID] = [
+            .tabSelect1, .tabSelect2, .tabSelect3, .tabSelect4, .tabSelect5,
+            .tabSelect6, .tabSelect7, .tabSelect8, .tabSelect9,
+        ]
+        let usesDefaultTabSelectionBindings = tabSelectionIDs.allSatisfy {
+            keymap.bindings(for: $0) == BuiltInDefaults.keymap[$0, default: []]
+        }
         var entriesByCategory: [(title: String, entries: [(keyText: String, commandTitle: String)])] = []
+
+        func append(_ entry: (keyText: String, commandTitle: String), to title: String) {
+            if entriesByCategory.last?.title != title {
+                entriesByCategory.append((title, []))
+            }
+            entriesByCategory[entriesByCategory.count - 1].entries.append(entry)
+        }
+
         for descriptor in ActionRegistry.v1.userConfigurableDescriptors {
+            if tabSelectionIDs.contains(descriptor.id), usesDefaultTabSelectionBindings {
+                if descriptor.id == .tabSelect1 {
+                    append(("Cmd+1..9", "Select tab 1-9"), to: "Tabs")
+                }
+                continue
+            }
             let hints = keymap.bindings(for: descriptor.id).compactMap(KeyBindingHint.text(for:))
             guard !hints.isEmpty else { continue }
-            let title = BuiltInDefaults.categoryTitle(for: descriptor.id)
-            if entriesByCategory.last?.title != title { entriesByCategory.append((title, [])) }
-            entriesByCategory[entriesByCategory.count - 1].entries.append((hints.joined(separator: ", "), descriptor.title))
+            append((hints.joined(separator: ", "), descriptor.title), to: BuiltInDefaults.categoryTitle(for: descriptor.id))
         }
-        return entriesByCategory.map { HelpOverlaySection(title: $0.title, entries: $0.entries) } + [
-            HelpOverlaySection(title: "In overlays & prompts", entries: [
-                (HelpModalKey.promptCommit, "Commit prompt"),
-                (HelpModalKey.promptCancel, "Cancel prompt"),
-                (HelpModalKey.searchResults, "Next / previous search match"),
-                (HelpModalKey.overlayMove, "Move selection"),
-                (HelpModalKey.overlayClear, "Clear"),
-                (HelpModalKey.overlayOpen, "Open"),
-                (HelpModalKey.overlayClose, "Close overlay"),
-            ]),
-        ]
+        if let searchIndex = entriesByCategory.firstIndex(where: { $0.title == "Search" }) {
+            entriesByCategory[searchIndex].entries += [
+                ("Enter", "Next search match"),
+                ("Shift+Enter", "Previous search match"),
+            ]
+        }
+
+        return entriesByCategory.map { HelpOverlaySection(title: $0.title, entries: $0.entries) }
     }
 
     private func dispatchTabSelection(to targetID: TabID) {

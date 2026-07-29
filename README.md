@@ -21,7 +21,7 @@ brew install --cask modeleaf
 
 Already installed? Update with `brew upgrade --cask modeleaf` (Homebrew refreshes the tap on its own; run `brew update` first to force it).
 
-Requires macOS 14 (Sonoma) or newer. `⌘O` opens a unified picker — your recent PDFs, filtered by fuzzy filename search, plus a Browse… row for the native file dialog. You can also open via Finder → *Open With* or by dropping a file on the app; `⌘N` opens a new window and `⌘Q` quits.
+Requires macOS 14 (Sonoma) or newer. `⌘o` opens a unified picker — your recent PDFs, filtered by fuzzy filename search, plus a Browse… row for the native file dialog. You can also open via Finder → *Open With* or by dropping a file on the app; `⌘n` opens a new window and `⌘q` quits.
 
 > This build is ad-hoc signed and not yet Apple-notarized, so macOS Gatekeeper blocks it on first launch — allow it once in **System Settings → Privacy & Security → Open Anyway**.
 
@@ -52,8 +52,8 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 | zoom in / out | `=` / `-` |
 | rotate left / right | `[` / `]` |
 | search | `/`, then `Enter` — `Esc` clears |
-| new window | `⌘N` |
-| open / close / quit | `⌘O` / `⌘W` / `⌘Q` |
+| new window | `⌘n` |
+| open / close / quit | `⌘o` / `⌘w` / `⌘q` |
 | next / previous tab | `N` / `P` |
 | select tab 1…9 | `⌘1` … `⌘9` |
 | split right / down | `Ctrl-b \|` / `Ctrl-b -` |
@@ -70,7 +70,7 @@ In fit-page mode, `j`/`d` move to the next page and `k`/`u` to the previous one.
 
 ### Tabs & panes
 
-Each tab holds one document; the `+` button or `⌘O` opens another. `Ctrl-b |` and `Ctrl-b -` split the focused pane in place, tmux-style — up to four panes, each with its own tabs and document. A split keeps your current page but fits it to the smaller pane. `Ctrl-b o` closes every pane except the focused one, and `Ctrl-h/j/k/l` move focus by direction.
+Each tab holds one document; the `+` button or `⌘o` opens another. `Ctrl-b |` and `Ctrl-b -` split the focused pane in place, tmux-style — up to four panes, each with its own tabs and document. A split keeps your current page but fits it to the smaller pane. `Ctrl-b o` closes every pane except the focused one, and `Ctrl-h/j/k/l` move focus by direction.
 
 ### Links
 
@@ -114,7 +114,7 @@ prefix_timeout_ms = 350
 prefix = "<C-b>"        # pane prefix; <prefix> in any binding expands to it
 ```
 
-Key notation: `D` = Command, `C` = Control, `A` = Option, `S` = Shift (so `<D-o>` = ⌘O, `<C-j>` = Ctrl+J). `<prefix>` expands to the pane prefix, so rebinding `prefix` once moves every pane binding at once. The theme is chosen in the app, not in TOML; a legacy `[theme]` section is ignored with a warning.
+Key notation: `D` = Command, `C` = Control, `A` = Option, `S` = Shift (so `<D-o>` = ⌘o, `<C-j>` = Ctrl+j). `<prefix>` expands to the pane prefix, so rebinding `prefix` once moves every pane binding at once. The theme is chosen in the app, not in TOML; a legacy `[theme]` section is ignored with a warning.
 
 Configuration is validated as a whole: at launch, any unknown key, invalid binding, conflict, or out-of-range value rejects the entire file and activates the built-in defaults, with every error and warning shown in the status line. A missing file is normal. Use **Reload Config** to apply a valid edited file without restarting; its default `Ctrl-b r` binding follows any `prefix` rebinding. A broken runtime reload is not applied: the previous configuration stays active and a pinned error appears in the status line. The command palette also offers **Write Default Config** when no file exists, and **Reset Config**, which saves the existing file as `config.toml.bak` before restoring the defaults.
 

@@ -49,6 +49,14 @@ struct BuiltInDefaultsTests {
         })
     }
 
+    @Test("key hints preserve literal character case unless Shift is explicit")
+    func keyHintCaseContract() throws {
+        #expect(KeyBindingHint.text(for: try KeySequenceParser.parse("<D-o>")) == "Cmd+o")
+        #expect(KeyBindingHint.text(for: try KeySequenceParser.parse("<C-b>")) == "Ctrl+b")
+        #expect(KeyBindingHint.text(for: try KeySequenceParser.parse("<D-S-p>")) == "Cmd+Shift+P")
+        #expect(KeyBindingHint.text(for: try KeySequenceParser.parse("F")) == "F")
+    }
+
     @Test("Built-in numeric values and bounds are exact")
     func numericDefaultsAndBounds() {
         let config = BuiltInDefaults.config

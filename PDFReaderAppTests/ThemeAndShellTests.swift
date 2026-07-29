@@ -240,7 +240,11 @@ struct ThemeAndShellTests {
         let validation = findDescendant(in: controller.rootView.promptOverlay, identifier: "prompt.validation")
         #expect(validation?.accessibilityValue() as? String == "Enter text to search.")
         controller.dismissPromptAndRestoreFocus(to: .searchResults, reason: .promptCommitted)
-        #expect(controller.rootView.statusBar.presentation.context == "SEARCH")
+        let helpButton = findDescendant(in: controller.rootView.statusBar, identifier: "status.help")
+        #expect(helpButton?.accessibilityLabel() == "Keyboard help")
+        #expect((controller.rootView.statusBar.accessibilityValue() as? String)?.contains("Keyboard help available") == true)
+        controller.rootView.statusBar.performHelpTapForTesting()
+        #expect(!controller.rootView.helpOverlay.isHidden)
 
         controller.showDiagnostic("Malformed configuration")
         #expect(controller.rootView.statusBar.presentation.tone == .error)

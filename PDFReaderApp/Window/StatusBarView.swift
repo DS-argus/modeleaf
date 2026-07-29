@@ -6,7 +6,6 @@ enum StatusTone: Equatable {
 }
 
 struct StatusBarPresentation: Equatable {
-    var context: String
     var page: String
     var zoom: String
     var pendingPrefix: String
@@ -15,7 +14,6 @@ struct StatusBarPresentation: Equatable {
     var tone: StatusTone
 
     static let empty = StatusBarPresentation(
-        context: ReaderStatusSnapshot.empty.context,
         page: ReaderStatusSnapshot.empty.page,
         zoom: ReaderStatusSnapshot.empty.zoom,
         pendingPrefix: "",
@@ -27,7 +25,7 @@ struct StatusBarPresentation: Equatable {
 
 @MainActor
 final class StatusBarView: NSView {
-    private let contextLabel = StatusBarView.makeLabel(identifier: "status.context", monospaced: true)
+    private let helpButton = NSButton(title: "? help", target: nil, action: nil)
     private let pageLabel = StatusBarView.makeLabel(identifier: "status.page", monospaced: true)
     private let zoomLabel = StatusBarView.makeLabel(identifier: "status.zoom", monospaced: true)
     private let prefixLabel = StatusBarView.makeLabel(identifier: "status.prefix", monospaced: true)
@@ -37,6 +35,8 @@ final class StatusBarView: NSView {
     private var theme: AppKitTheme?
     private(set) var presentation = StatusBarPresentation.empty
 
+    /// Invoked when the user clicks the keyboard help hint.
+    var onHelpTap: (() -> Void)?
     /// Non-nil while an update banner is shown (the plain, unstyled text).
     private(set) var updateText: String?
     /// Invoked when the user clicks the update banner.
@@ -47,14 +47,26 @@ final class StatusBarView: NSView {
         wantsLayer = true
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
-        setAccessibilityLabel("Reader status")
+        setAccessibilityLabel("Reader status and keyboard help")
         setAccessibilityIdentifier("statusBar")
 
         separator.boxType = .separator
         separator.prepareForAutoLayout()
         addSubview(separator)
 
-        let leading = NSStackView(views: [contextLabel, pageLabel, zoomLabel, prefixLabel])
+        helpButton.isBordered = false
+        helpButton.bezelStyle = .inline
+        helpButton.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
+        helpButton.target = self
+        helpButton.action = #selector(helpTapped)
+        helpButton.setButtonType(.momentaryChange)
+        helpButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        helpButton.setContentHuggingPriority(.required, for: .horizontal)
+        helpButton.setAccessibilityIdentifier("status.help")
+        helpButton.setAccessibilityLabel("Keyboard help")
+        helpButton.setAccessibilityValue("? help")
+
+        let leading = NSStackView(views: [helpButton, pageLabel, zoomLabel, prefixLabel])
         leading.orientation = .horizontal
         leading.alignment = .centerY
         leading.spacing = 16
@@ -102,7 +114,7 @@ final class StatusBarView: NSView {
         self.theme = theme
         layer?.backgroundColor = theme[.statusline].cgColor
         separator.borderColor = theme.separator
-        contextLabel.textColor = theme[.accent]
+        helpButton.contentTintColor = theme[.accent]
         pageLabel.textColor = theme[.mutedText]
         zoomLabel.textColor = theme[.mutedText]
         prefixLabel.textColor = theme[.accent]
@@ -135,15 +147,19 @@ final class StatusBarView: NSView {
         updateButton.setAccessibilityValue(updateText)
     }
 
+    @objc private func helpTapped() {
+        onHelpTap?()
+    }
+
     @objc private func updateClicked() {
         onUpdateClicked?()
     }
 
+    func performHelpTapForTesting() { helpButton.performClick(nil) }
     func performUpdateClickForTesting() { updateButton.performClick(nil) }
 
     func render(_ presentation: StatusBarPresentation) {
         self.presentation = presentation
-        contextLabel.stringValue = presentation.context
         pageLabel.stringValue = presentation.page
         zoomLabel.stringValue = presentation.zoom
         prefixLabel.stringValue = presentation.pendingPrefix.isEmpty ? "" : "prefix  \(presentation.pendingPrefix)"
@@ -153,7 +169,7 @@ final class StatusBarView: NSView {
         detailLabel.toolTip = presentation.expandedDetail
         setAccessibilityValue(
             [
-                "\(presentation.context), page \(presentation.page), zoom \(presentation.zoom), \(presentation.detail)",
+                "Keyboard help available. Page \(presentation.page), zoom \(presentation.zoom), \(presentation.detail)",
                 presentation.expandedDetail,
             ].compactMap { $0 }.joined(separator: ". ")
         )

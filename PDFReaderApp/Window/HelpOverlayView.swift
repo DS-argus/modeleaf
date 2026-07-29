@@ -115,6 +115,18 @@ final class HelpOverlayView: NSView {
         guard let superview else { return false }
         return superview.bounds.contains(superview.convert(bounds, from: self))
     }
+    var cardsHugContentForTesting: Bool {
+        layoutSubtreeIfNeeded()
+        return cards.allSatisfy { abs($0.frame.height - $0.fittingSize.height) <= 1 }
+    }
+    var cardSpacingIsCompactForTesting: Bool {
+        layoutSubtreeIfNeeded()
+        return grid.arrangedSubviews.compactMap { $0 as? NSStackView }.allSatisfy { column in
+            zip(column.arrangedSubviews, column.arrangedSubviews.dropFirst()).allSatisfy {
+                abs($0.frame.minY - $1.frame.maxY - column.spacing) <= 1
+            }
+        }
+    }
 
     func handleKeyDown(_ event: NSEvent) -> Bool {
         if event.keyCode == 53 || event.characters == "?" {
@@ -157,13 +169,15 @@ final class HelpOverlayView: NSView {
             let stack = NSStackView()
             stack.orientation = .vertical
             stack.alignment = .leading
+            stack.distribution = .fill
+            stack.setContentHuggingPriority(.required, for: .vertical)
             stack.spacing = 12
             stack.prepareForAutoLayout()
             grid.addArrangedSubview(stack)
             return stack
         }
-        for (index, card) in cards.enumerated() {
-            let stack = stacks[index % stacks.count]
+        for card in cards {
+            let stack = stacks.min { $0.fittingSize.height < $1.fittingSize.height } ?? stacks[0]
             stack.addArrangedSubview(card)
             card.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
@@ -186,6 +200,7 @@ final class HelpOverlayView: NSView {
 @MainActor
 private final class HelpSectionCardView: NSView {
     private let titleLabel = NSTextField(labelWithString: "")
+    private let contentStack = NSStackView()
     private let entriesStack = NSStackView()
     private let section: HelpOverlaySection
 
@@ -193,6 +208,8 @@ private final class HelpSectionCardView: NSView {
         self.section = section
         super.init(frame: .zero)
         wantsLayer = true
+        setContentHuggingPriority(.required, for: .vertical)
+        setContentCompressionResistancePriority(.required, for: .vertical)
         layer?.cornerRadius = 6
         titleLabel.stringValue = section.title
         titleLabel.font = .systemFont(ofSize: 11, weight: .semibold)
@@ -200,20 +217,28 @@ private final class HelpSectionCardView: NSView {
         entriesStack.alignment = .leading
         entriesStack.spacing = 2
         for entry in section.entries {
-            entriesStack.addArrangedSubview(HelpEntryRowView(keyText: entry.keyText, commandTitle: entry.commandTitle))
+            let row = HelpEntryRowView(keyText: entry.keyText, commandTitle: entry.commandTitle)
+            entriesStack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: entriesStack.widthAnchor).isActive = true
         }
-        let stack = NSStackView(views: [titleLabel, entriesStack])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 5
-        stack.prepareForAutoLayout()
-        addSubview(stack)
+        contentStack.addArrangedSubview(titleLabel)
+        contentStack.addArrangedSubview(entriesStack)
+        contentStack.orientation = .vertical
+        contentStack.alignment = .leading
+        contentStack.spacing = 5
+        contentStack.prepareForAutoLayout()
+        addSubview(contentStack)
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: topAnchor, constant: 8),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
+            contentStack.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            contentStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            contentStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            entriesStack.widthAnchor.constraint(equalTo: contentStack.widthAnchor),
+            contentStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -8),
         ])
+    }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: NSView.noIntrinsicMetric, height: contentStack.fittingSize.height + 16)
     }
 
     required init?(coder: NSCoder) { nil }
@@ -242,17 +267,18 @@ private final class HelpEntryRowView: NSView {
         commandLabel.lineBreakMode = .byTruncatingTail
         keyLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         commandLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let stack = NSStackView(views: [keyLabel, commandLabel])
-        stack.orientation = .horizontal
-        stack.alignment = .firstBaseline
-        stack.spacing = 7
-        stack.prepareForAutoLayout()
-        addSubview(stack)
+        keyLabel.prepareForAutoLayout()
+        commandLabel.prepareForAutoLayout()
+        addSubview(commandLabel)
+        addSubview(keyLabel)
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: topAnchor),
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            commandLabel.topAnchor.constraint(equalTo: topAnchor),
+            commandLabel.leadingAnchor.constraint(equalTo: leadingAnchor),
+            commandLabel.bottomAnchor.constraint(equalTo: bottomAnchor),
+            commandLabel.trailingAnchor.constraint(lessThanOrEqualTo: keyLabel.leadingAnchor, constant: -7),
+            keyLabel.topAnchor.constraint(equalTo: topAnchor),
+            keyLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
+            keyLabel.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
     }
 

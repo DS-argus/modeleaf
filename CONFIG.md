@@ -241,7 +241,7 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 #
 # Key notation (chords are wrapped in <...>):
 #   D = Command (Cmd)   C = Control (Ctrl)   A = Option (Alt)   S = Shift
-#   e.g. <D-o> = Cmd+O, <C-j> = Ctrl+J, <S-CR> = Shift+Enter.
+#   e.g. <D-o> = Cmd+o, <C-j> = Ctrl+j, <S-CR> = Shift+Enter.
 #   Plain characters are literal keys; concatenation is a multi-key sequence (gg = g then g).
 #   <prefix> expands to the pane prefix defined under [input] below. Rebind the prefix
 #   once and every <prefix> binding follows; <prefix> may be used in any binding.
@@ -252,10 +252,10 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 [keymap]
 
 # --- Application ---
-"document.open"    = ["<D-o>"]  # Cmd+O
-"document.close"   = ["<D-w>"]  # Cmd+W
-"app.quit"         = ["<D-q>"]  # Cmd+Q
-"app.new"          = ["<D-n>"]  # Cmd+N
+"document.open"    = ["<D-o>"]  # Cmd+o
+"document.close"   = ["<D-w>"]  # Cmd+w
+"app.quit"         = ["<D-q>"]  # Cmd+q
+"app.new"          = ["<D-n>"]  # Cmd+n
 
 # --- Command palette ---
 "palette.open"     = [":", "<D-S-p>"]  # :
@@ -308,7 +308,7 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 "link.hint"        = ["f"]  # f
 
 # --- Config ---
-"config.reload"    = ["<prefix>r"]  # Ctrl+B r
+"config.reload"    = ["<prefix>r"]  # Ctrl+b r
 "config.writeDefault" = []
 "config.resetDefault" = []
 
@@ -317,13 +317,13 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 
 # --- Panes ---
 # split/unsplit use <prefix>; focus keys are direct. Change the prefix under [input].
-"pane.splitRight"  = ["<prefix>|"]  # Ctrl+B |
-"pane.splitDown"   = ["<prefix>-"]  # Ctrl+B -
-"pane.focusLeft"   = ["<C-h>"]  # Ctrl+H
-"pane.focusDown"   = ["<C-j>"]  # Ctrl+J
-"pane.focusUp"     = ["<C-k>"]  # Ctrl+K
-"pane.focusRight"  = ["<C-l>"]  # Ctrl+L
-"pane.unsplit"     = ["<prefix>o"]  # Ctrl+B o
+"pane.splitRight"  = ["<prefix>|"]  # Ctrl+b |
+"pane.splitDown"   = ["<prefix>-"]  # Ctrl+b -
+"pane.focusLeft"   = ["<C-h>"]  # Ctrl+h
+"pane.focusDown"   = ["<C-j>"]  # Ctrl+j
+"pane.focusUp"     = ["<C-k>"]  # Ctrl+k
+"pane.focusRight"  = ["<C-l>"]  # Ctrl+l
+"pane.unsplit"     = ["<prefix>o"]  # Ctrl+b o
 
 [navigation]
 small_scroll_points = 48.0

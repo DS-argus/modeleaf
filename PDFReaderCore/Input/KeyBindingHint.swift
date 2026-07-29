@@ -15,7 +15,7 @@ public enum KeyBindingHint {
         let base: String
         switch token.symbol {
         case let .character(character):
-            base = mods.isEmpty ? character : character.uppercased()
+            base = token.modifiers.contains(.shift) ? character.uppercased() : character
         case let .named(key):
             base = named(key)
         case .deadKey, .imeComposition:

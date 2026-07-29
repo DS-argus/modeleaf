@@ -14,7 +14,7 @@ struct HelpOverlayIntegrationTests {
         )
     }
 
-    @Test("help presents grouped bindings and fixed modal keys")
+    @Test("help presents grouped bindings, fixed search keys, and compact default tab selection")
     func presentsSections() {
         let controller = makeController()
         defer { controller.close() }
@@ -24,9 +24,11 @@ struct HelpOverlayIntegrationTests {
 
         #expect(!overlay.isHidden)
         #expect(overlay.visibleSectionsForTesting.contains("Application"))
-        #expect(overlay.visibleSectionsForTesting.contains("In overlays & prompts"))
+        #expect(!overlay.visibleSectionsForTesting.contains("In overlays & prompts"))
+        #expect(overlay.visibleEntriesForTesting.contains { $0.0 == "Cmd+1..9" && $0.1 == "Select tab 1-9" })
+        #expect(overlay.visibleEntriesForTesting.contains { $0.0 == "Enter" && $0.1 == "Next search match" })
+        #expect(overlay.visibleEntriesForTesting.contains { $0.0 == "Shift+Enter" && $0.1 == "Previous search match" })
         #expect(overlay.visibleEntriesForTesting.contains { $0.0 == "?" && $0.1 == "Keyboard Help" })
-        #expect(overlay.visibleEntriesForTesting.contains { $0.0 == "Ctrl+j/k" && $0.1 == "Move selection" })
     }
     @Test("help rows use the validated rebinding")
     func usesReboundKeymap() throws {
@@ -80,7 +82,39 @@ struct HelpOverlayIntegrationTests {
         #expect(controller.rootView.commandPaletteOverlay.isHidden)
         #expect(!controller.rootView.helpOverlay.isHidden)
         #expect(controller.rootView.helpOverlay.isWithinBoundsForTesting)
+
         #expect(controller.rootView.helpOverlay.listRequiresScrollingForTesting)
+    }
+    @Test("help fits a standard window without scrolling")
+    func fitsStandardWindow() {
+        let controller = makeController()
+        defer { controller.close() }
+        controller.window?.setContentSize(NSSize(width: 1000, height: 700))
+        controller.presentHelp()
+        controller.window?.contentView?.layoutSubtreeIfNeeded()
+
+        #expect(!controller.rootView.helpOverlay.listRequiresScrollingForTesting)
+        #expect(controller.rootView.helpOverlay.cardsHugContentForTesting)
+        #expect(controller.rootView.helpOverlay.cardSpacingIsCompactForTesting)
+    }
+
+    @Test("rebound tab selection expands the compact default row")
+    func expandsReboundTabSelection() throws {
+        let validated = try #require(
+            ConfigValidator.validate(SparseAppConfig(keymap: ["tab.select.1": ["x"]])).validatedConfig
+        )
+        let controller = MainWindowController(
+            coordinator: PaneCoordinator(initialStore: ReaderSessionStore()),
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { _ in },
+            validatedConfig: validated
+        )
+        defer { controller.close() }
+        controller.presentHelp()
+
+        let entries = controller.rootView.helpOverlay.visibleEntriesForTesting
+        #expect(entries.contains { $0.0 == "x" && $0.1 == "Select Tab 1" })
+        #expect(!entries.contains { $0.0 == "Cmd+1..9" && $0.1 == "Select tab 1-9" })
     }
 
     @Test("question mark remains native prompt text rather than presenting help")
@@ -94,4 +128,5 @@ struct HelpOverlayIntegrationTests {
         #expect(controller.rootView.helpOverlay.isHidden)
         #expect(controller.inputContextForTesting == .searchPrompt)
     }
+
 }
