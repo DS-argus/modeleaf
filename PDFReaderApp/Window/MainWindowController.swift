@@ -83,25 +83,21 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.keyEventHandler = { [weak self, weak inputRouter] event in
             guard let self else { return false }
-            if !self.rootView.commandPaletteOverlay.isHidden {
-                return self.rootView.commandPaletteOverlay.handleKeyDown(event) || (inputRouter?.handle(event) ?? false)
-            }
-            if !self.rootView.recentFilesOverlay.isHidden {
-                return self.rootView.recentFilesOverlay.handleKeyDown(event) || (inputRouter?.handle(event) ?? false)
-            }
-            if !self.rootView.helpOverlay.isHidden {
-                return self.rootView.helpOverlay.handleKeyDown(event)
-            }
-            if !self.rootView.themePickerOverlay.isHidden {
-                return self.rootView.themePickerOverlay.handleKeyDown(event) || (inputRouter?.handle(event) ?? false)
-            }
+            if !self.rootView.linkHintOverlay.isHidden { return self.rootView.linkHintOverlay.handleKeyDown(event) }
+            if !self.rootView.commandPaletteOverlay.isHidden { return self.rootView.commandPaletteOverlay.handleKeyDown(event) || (inputRouter?.handle(event) ?? false) }
+            if !self.rootView.recentFilesOverlay.isHidden { return self.rootView.recentFilesOverlay.handleKeyDown(event) || (inputRouter?.handle(event) ?? false) }
+            if !self.rootView.helpOverlay.isHidden { return self.rootView.helpOverlay.handleKeyDown(event) }
+            if !self.rootView.themePickerOverlay.isHidden { return self.rootView.themePickerOverlay.handleKeyDown(event) || (inputRouter?.handle(event) ?? false) }
             return inputRouter?.handle(event) ?? false
         }
         window.delegate = self
         window.mouseDownHandler = { [weak self] event in
-            guard let self, self.rootView.helpOverlay.isHidden else { return }
+            guard let self else { return }
+            self.dismissLinkHintsAndRestoreFocus()
+            guard self.rootView.helpOverlay.isHidden else { return }
             self.rootView.activatePane(atWindowPoint: event.locationInWindow)
         }
+        window.geometryEventHandler = { [weak self] in self?.dismissLinkHintsAndRestoreFocus() }
         rootView.apply(theme: theme)
         rootView.setInputContext(.navigation)
         rootView.emptyState.openButton.handler = { [weak self] in self?.actionHandler(.documentOpen) }
@@ -148,6 +144,41 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         focusActiveSurface(snapshot: coordinator.snapshot)
     }
 
+    func presentLinkHints() {
+        dismissAllTransientOverlays()
+        guard inputRouter.context == .navigation,
+              let provider = coordinator.activeSession as? any ReaderLinkProviding,
+              let session = coordinator.activeSession as? ReaderSession
+        else { return }
+        let links = LinkHintMerge.mergeLinks(provider.linkTargets())
+        guard !links.isEmpty else { return }
+        let labels = LinkHintLabels.generate(count: links.count)
+        var displayed: [(link: ReaderLink, rects: [NSRect], label: String)] = []
+        for index in links.indices {
+            let rects = session.linkHintRects(for: links[index], in: rootView.linkHintOverlay)
+            if !rects.isEmpty { displayed.append((links[index], rects, labels[index])) }
+        }
+        guard !displayed.isEmpty else { return }
+        let sessionID = session.id
+        rootView.linkHintOverlay.onCommit = { [weak self, weak provider] index in
+            guard let self, self.coordinator.snapshot.activeID == sessionID, displayed.indices.contains(index) else { return }
+            let target = displayed[index].link.target
+            self.dismissLinkHintsAndRestoreFocus()
+            provider?.activateLink(target)
+        }
+        rootView.linkHintOverlay.onDismiss = { [weak self] in self?.dismissLinkHintsAndRestoreFocus() }
+        rootView.linkHintOverlay.present(hints: displayed.map { (rects: $0.rects, label: $0.label) })
+        window?.makeFirstResponder(rootView.linkHintOverlay)
+    }
+
+    func dismissLinkHintsAndRestoreFocus() {
+        guard !rootView.linkHintOverlay.isHidden else { return }
+        rootView.linkHintOverlay.dismiss()
+        rootView.linkHintOverlay.onCommit = nil
+        rootView.linkHintOverlay.onDismiss = nil
+        focusActiveSurface(snapshot: coordinator.snapshot)
+    }
+
     func presentThemePicker() {
         dismissAllTransientOverlays()
         guard rootView.themePickerOverlay.isHidden else { return }
@@ -188,6 +219,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if !rootView.helpOverlay.isHidden { dismissHelpOverlayAndRestoreFocus() }
         if !rootView.themePickerOverlay.isHidden { cancelThemePickerAndRestoreFocus() }
         if !rootView.recentFilesOverlay.isHidden { dismissRecentFilesOverlayAndRestoreFocus() }
+        dismissLinkHintsAndRestoreFocus()
     }
     func presentRecentFilesOpen() {
         presentRecentFilesOverlay()
@@ -308,6 +340,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func applyConfig(_ config: ValidatedAppConfig) {
         resolvedConfig = config
         inputRouter.reconfigure(config: config)
+        dismissLinkHintsAndRestoreFocus()
         rootView.emptyState.setOpenBinding(config.keymap.bindings(for: .documentOpen).first)
     }
 
@@ -375,6 +408,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     @discardableResult
     func routeKeyEventForTesting(_ event: NSEvent) -> Bool {
+        if !rootView.linkHintOverlay.isHidden { return rootView.linkHintOverlay.handleKeyDown(event) }
         if !rootView.commandPaletteOverlay.isHidden {
             return rootView.commandPaletteOverlay.handleKeyDown(event) || inputRouter.handle(event)
         }
@@ -414,6 +448,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowDidResignKey(_ notification: Notification) {
+        dismissLinkHintsAndRestoreFocus()
         inputRouter.invalidate(.focusLost)
         if rootView.themePickerOverlay.isHidden {
             rootView.promptOverlay.setFocusAppearance(false)
@@ -422,7 +457,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    func windowDidResize(_ notification: Notification) {
+        dismissLinkHintsAndRestoreFocus()
+    }
+
     private func refresh(snapshot: PaneCoordinatorSnapshot) {
+        dismissLinkHintsAndRestoreFocus()
         let dismissStagedPrompt = promptCloseProjection.map {
             $0.layout == snapshot.layout && $0.paneID == snapshot.activePaneID && $0.tabID == snapshot.activeID
         } ?? false

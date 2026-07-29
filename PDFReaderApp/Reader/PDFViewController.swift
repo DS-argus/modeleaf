@@ -278,6 +278,48 @@ final class PDFViewController: NSViewController {
     }
 }
 
+extension PDFViewController: ReaderLinkProviding {
+    func linkTargets() -> [RawLink] {
+        loadViewIfNeeded()
+        readerView.layoutDocumentView()
+        return readerView.visiblePages.flatMap { page in
+            let index = initialDocument.index(for: page)
+            return page.annotations.compactMap { annotation -> RawLink? in
+                guard Self.isLink(annotation), let target = Self.linkTarget(annotation) else { return nil }
+                return RawLink(sourcePageIndex: index, pageSpaceBounds: annotation.bounds, target: target)
+            }
+        }
+    }
+
+    func activateLink(_ target: ReaderLinkTarget) {
+        loadViewIfNeeded()
+        readerView.activate(target)
+    }
+
+
+    func linkHintRects(for link: ReaderLink, in coordinateSpace: NSView) -> [NSRect] {
+        loadViewIfNeeded()
+        guard let page = initialDocument.page(at: link.sourcePageIndex) else { return [] }
+        return link.rects.map { rect in
+            let readerRect = readerView.convert(rect, from: page)
+            return readerView.convert(readerRect, to: coordinateSpace)
+        }
+    }
+    private static func isLink(_ annotation: PDFAnnotation) -> Bool {
+        annotation.type == "Link" || annotation.action != nil || annotation.url != nil
+    }
+
+    private static func linkTarget(_ annotation: PDFAnnotation) -> ReaderLinkTarget? {
+        if let goTo = annotation.action as? PDFActionGoTo {
+            let destination = goTo.destination
+            guard let page = destination.page, let document = page.document else { return nil }
+            return .goTo(pageIndex: document.index(for: page), point: destination.point)
+        }
+        if let action = annotation.action as? PDFActionURL, let url = action.url { return .url(url.absoluteString) }
+        if let url = annotation.url { return .url(url.absoluteString) }
+        return nil
+    }
+}
 extension PDFViewController: ReaderSearchResultPresenting {
     func presentSearchResults(_ selections: [PDFSelection], activeIndex: Int?) {
         searchSelections = selections
