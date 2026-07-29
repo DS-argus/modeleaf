@@ -59,7 +59,7 @@ open "$APP"
 | 오른쪽/아래로 분할 | `Ctrl-b \|` / `Ctrl-b -` |
 | 패널 포커스 이동 | `Ctrl-h` / `Ctrl-j` / `Ctrl-k` / `Ctrl-l` |
 | 다른 패널 모두 닫기 | `Ctrl-b o` |
-| 테마 선택기 | `Shift-t` |
+| 테마 선택기 | `T` |
 | 명령 팔레트 | `:` 또는 `⌘⇧P` |
 | 설정 리로드 | `Ctrl-b r` |
 | 키보드 도움말 | `?` |
@@ -83,7 +83,7 @@ open "$APP"
 
 ### 테마
 
-내장 테마 6종: 다크 **Tokyo Night**, **Gruvbox Dark**, **Solarized Dark**, **Dracula**, **Everforest**와 라이트 **Catppuccin Latte**. `Shift-t`로 실시간 미리보기 선택기를 엽니다(`Enter` 확정, `Esc` 원복). 선택은 별도로 저장되어 다음 실행에 다시 적용됩니다. 테마는 앱 UI만 칠하며 PDF 페이지는 건드리지 않습니다.
+내장 테마 6종: 다크 **Tokyo Night**, **Gruvbox Dark**, **Solarized Dark**, **Dracula**, **Everforest**와 라이트 **Catppuccin Latte**. `T`로 실시간 미리보기 선택기를 엽니다(`Enter` 확정, `Esc` 원복). 선택은 별도로 저장되어 다음 실행에 다시 적용됩니다. 테마는 앱 UI만 칠하며 PDF 페이지는 건드리지 않습니다.
 
 ## 설정
 

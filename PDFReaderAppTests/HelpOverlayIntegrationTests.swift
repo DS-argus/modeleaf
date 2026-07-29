@@ -117,6 +117,50 @@ struct HelpOverlayIntegrationTests {
         #expect(!entries.contains { $0.0 == "Cmd+1..9" && $0.1 == "Select tab 1-9" })
     }
 
+    @Test("help preserves a prompt opened before a status-bar help tap")
+    func statusBarHelpRestoresPromptResponder() throws {
+        let controller = makeController()
+        defer { controller.close() }
+        controller.presentPrompt(PromptPresentation(kind: .search, text: "", validationMessage: nil))
+
+        controller.rootView.statusBar.performHelpTapForTesting()
+        #expect(!controller.rootView.helpOverlay.isHidden)
+        #expect(!controller.rootView.promptOverlay.isHidden)
+        #expect(controller.inputContextForTesting == .searchPrompt)
+
+        #expect(controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "?"))))
+        let textField = controller.rootView.promptOverlay.textField
+        let editor = try #require(textField.currentEditor() as? NSTextView)
+        #expect(controller.window?.firstResponder === editor)
+        #expect(controller.rootView.promptOverlay.layer?.borderWidth == WindowVisualMetrics.focusIndicatorWidth)
+
+        editor.insertText("needle", replacementRange: NSRange(location: NSNotFound, length: 0))
+        #expect(textField.stringValue == "needle")
+    }
+
+    @Test("search fixed keys remain visible when search bindings are removed")
+    func unboundSearchActionsKeepFixedSearchRows() throws {
+        let validated = try #require(
+            ConfigValidator.validate(
+                SparseAppConfig(keymap: ["search.prompt": [], "search.cancel": []])
+            ).validatedConfig
+        )
+        let controller = MainWindowController(
+            coordinator: PaneCoordinator(initialStore: ReaderSessionStore()),
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { _ in },
+            validatedConfig: validated
+        )
+        defer { controller.close() }
+
+        controller.presentHelp()
+        let entries = controller.rootView.helpOverlay.visibleEntriesForTesting
+        #expect(controller.rootView.helpOverlay.visibleSectionsForTesting.contains("Search"))
+        #expect(entries.filter { $0.1 == "Next search match" || $0.1 == "Previous search match" }.count == 2)
+        #expect(entries.contains { $0 == ("Enter", "Next search match") })
+        #expect(entries.contains { $0 == ("Shift+Enter", "Previous search match") })
+    }
+
     @Test("question mark remains native prompt text rather than presenting help")
     func questionMarkStaysNativeInPrompt() throws {
         let controller = makeController()
