@@ -26,6 +26,7 @@ struct ActionDispatcherTests {
             .scrollLargeDown, .scrollLargeUp,
             .pageNext, .pagePrevious, .pageFirst, .pageLast,
             .viewZoomIn, .viewZoomOut, .viewZoomReset, .viewFitWidth, .viewFitPage,
+            .viewRotateLeft, .viewRotateRight,
         ] {
             dispatcher.dispatch(action)
         }
@@ -37,6 +38,7 @@ struct ActionDispatcherTests {
             .viewport(0.65), .viewport(-0.65),
             .nextPage, .previousPage, .firstPage, .lastPage,
             .zoom(1.25), .zoom(0.8), .resetZoom, .fitWidth, .fitPage,
+            .rotateLeft, .rotateRight,
         ])
     }
 
@@ -522,6 +524,8 @@ private enum RecordingReaderEvent: Equatable {
     case resetZoom
     case fitWidth
     case fitPage
+    case rotateLeft
+    case rotateRight
     case beginSearch(String)
     case nextSearchResult
     case previousSearchResult
@@ -559,6 +563,8 @@ private final class RecordingReaderSession: ReaderSessionPresenting {
     func resetZoom() { events.append(.resetZoom) }
     func fitWidth() { events.append(.fitWidth) }
     func fitPage() { events.append(.fitPage) }
+    func rotateLeft() { events.append(.rotateLeft) }
+    func rotateRight() { events.append(.rotateRight) }
     func beginSearch(_ query: String) {
         events.append(.beginSearch(query))
         searchSnapshot = ReaderSearchSnapshot(

@@ -216,6 +216,18 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         publishPresentationChange()
     }
 
+    func rotateLeft() {
+        guard !isClosed else { return }
+        viewController.rotateLeft()
+        publishPresentationChange()
+    }
+
+    func rotateRight() {
+        guard !isClosed else { return }
+        viewController.rotateRight()
+        publishPresentationChange()
+    }
+
     private func navigateAcrossVerticalBoundary(forward: Bool) {
         if forward {
             guard goToNextPage() else { return }

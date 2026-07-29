@@ -94,6 +94,8 @@ public struct ActionRegistry: Sendable {
         ActionDescriptor(id: .viewZoomReset, title: "Actual Size", scope: .contexts(readerContexts)),
         ActionDescriptor(id: .viewFitWidth, title: "Fit Width", scope: .contexts(readerContexts)),
         ActionDescriptor(id: .viewFitPage, title: "Fit Page", scope: .contexts(readerContexts)),
+        ActionDescriptor(id: .viewRotateLeft, title: "Rotate Left", scope: .contexts(readerContexts)),
+        ActionDescriptor(id: .viewRotateRight, title: "Rotate Right", scope: .contexts(readerContexts)),
         ActionDescriptor(id: .linkHint, title: "Link Hints", scope: .contexts([.navigation])),
         ActionDescriptor(id: .configReload, title: "Reload Config", scope: .contexts([.navigation]), repeatPolicy: .suppressed),
         ActionDescriptor(id: .configWriteDefault, title: "Write Default Config", scope: .global, repeatPolicy: .suppressed),
