@@ -179,13 +179,15 @@ struct PDFOpenMetricsTests {
         pdfOpenService: PDFOpenService = PDFOpenService(),
         metrics: any PDFOpenMetrics
     ) -> ApplicationController {
-        ApplicationController(
+        return ApplicationController(
             configService: ConfigService(
                 source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))
             ),
             sessionStore: sessionStore,
             pdfOpenService: pdfOpenService,
             openMetrics: metrics,
+            themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
+            recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")),
             terminationHandler: {}
         )
     }

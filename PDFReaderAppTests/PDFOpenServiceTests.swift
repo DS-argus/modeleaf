@@ -1,5 +1,6 @@
 import AppKit
 import PDFKit
+import PDFReaderCore
 import PDFReaderTestSupport
 import Testing
 import UniformTypeIdentifiers
@@ -74,6 +75,8 @@ struct PDFOpenServiceTests {
                 configService: ConfigService(source: ConfigFileSource(url: missingConfig)),
                 sessionStore: store,
                 openPanelPresenter: picker,
+                themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
+                recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")),
                 terminationHandler: {}
             )
 

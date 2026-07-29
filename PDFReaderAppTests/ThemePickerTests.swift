@@ -87,6 +87,7 @@ struct ThemePickerTests {
                 configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
                 sessionStore: ReaderSessionStore(),
                 themeStore: store,
+                recentFilesStore: RecentFilesStore(fileURL: dir.appendingPathComponent("recent-state.json")),
                 terminationHandler: {}
             )
             _ = controller.mainWindowController
@@ -109,6 +110,7 @@ struct ThemePickerTests {
                 configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
                 sessionStore: ReaderSessionStore(),
                 themeStore: ThemeSelectionStore(fileURL: stateURL),
+                recentFilesStore: RecentFilesStore(fileURL: dir.appendingPathComponent("recent-state.json")),
                 terminationHandler: {}
             )
             #expect(restarted.currentThemeID == .gruvboxDark)
@@ -128,6 +130,7 @@ struct ThemePickerTests {
                 configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
                 sessionStore: ReaderSessionStore(),
                 themeStore: store,
+                recentFilesStore: RecentFilesStore(fileURL: dir.appendingPathComponent("recent-state.json")),
                 terminationHandler: {}
             )
             _ = controller.mainWindowController
@@ -154,6 +157,7 @@ struct ThemePickerTests {
                 configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
                 sessionStore: ReaderSessionStore(),
                 themeStore: store,
+                recentFilesStore: RecentFilesStore(fileURL: dir.appendingPathComponent("recent-state.json")),
                 terminationHandler: {}
             )
             defer { controller.mainWindowController.close() }
@@ -181,6 +185,7 @@ struct ThemePickerTests {
                 configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
                 sessionStore: ReaderSessionStore(),
                 themeStore: ThemeSelectionStore(fileURL: stateURL),
+                recentFilesStore: RecentFilesStore(fileURL: dir.appendingPathComponent("recent-state.json")),
                 terminationHandler: {}
             )
             #expect(controller.currentThemeID == .tokyoNight)        // launch continuity
@@ -203,6 +208,7 @@ struct ThemePickerTests {
                 configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
                 sessionStore: ReaderSessionStore(),
                 themeStore: ThemeSelectionStore(fileURL: stateURL),
+                recentFilesStore: RecentFilesStore(fileURL: dir.appendingPathComponent("recent-state.json")),
                 terminationHandler: {}
             )
             _ = controller.mainWindowController
@@ -230,6 +236,7 @@ struct ThemePickerTests {
                 configService: ConfigService(source: ConfigFileSource(url: configURL)),
                 sessionStore: ReaderSessionStore(),
                 themeStore: ThemeSelectionStore(fileURL: stateURL),
+                recentFilesStore: RecentFilesStore(fileURL: dir.appendingPathComponent("recent-state.json")),
                 terminationHandler: {}
             )
             controller.start()
@@ -269,6 +276,7 @@ struct ThemePickerTests {
                     configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing.toml"))),
                     sessionStore: sessionStore,
                     themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("state.json")),
+                    recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")),
                     terminationHandler: {}
                 )
                 let first = ThemeRecordingSession(title: "First.pdf")

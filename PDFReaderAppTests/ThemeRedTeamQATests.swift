@@ -177,7 +177,7 @@ struct ThemeRedTeamQATests {
         try withTemporaryDirectory { directory in
             let config = directory.appendingPathComponent("config.toml")
             try Data("[keymap]\n\"theme.picker\" = [\"<C-t>\"]\n".utf8).write(to: config)
-            let controller = ApplicationController(configService: ConfigService(source: ConfigFileSource(url: config)), sessionStore: ReaderSessionStore(), themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("state.json")), terminationHandler: {})
+            let controller = ApplicationController(configService: ConfigService(source: ConfigFileSource(url: config)), sessionStore: ReaderSessionStore(), themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("state.json")), recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")), terminationHandler: {})
             defer { controller.mainWindowController.close() }
             let window = controller.mainWindowController
             let shiftT = try #require(makeKeyEvent(characters: "T", charactersIgnoringModifiers: "t", modifiers: [.shift], keyCode: 17))
@@ -196,7 +196,7 @@ struct ThemeRedTeamQATests {
     }
 
     private func makeController(directory: URL, stateURL: URL) -> ApplicationController {
-        ApplicationController(configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing.toml"))), sessionStore: ReaderSessionStore(), themeStore: ThemeSelectionStore(fileURL: stateURL), terminationHandler: {})
+        ApplicationController(configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing.toml"))), sessionStore: ReaderSessionStore(), themeStore: ThemeSelectionStore(fileURL: stateURL), recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")), terminationHandler: {})
     }
 
     private func storeTheme(at url: URL) -> ThemeID? { ThemeSelectionStore(fileURL: url).loadSelectedTheme() }
