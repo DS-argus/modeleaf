@@ -49,7 +49,7 @@ public enum ConfigDocumentation {
             "",
             "## Input contexts",
             "",
-            "The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `searchResults`. Only `document.open`, `app.new`, and `app.quit` are global. Contextual bindings may reuse a sequence only when their active contexts are disjoint.",
+            "The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `searchResults`. Only `document.open`, `app.new`, `app.quit`, `config.writeDefault`, and `config.resetDefault` are global. Contextual bindings may reuse a sequence only when their active contexts are disjoint.",
             "",
             "## Stable v1 actions and defaults",
             "",

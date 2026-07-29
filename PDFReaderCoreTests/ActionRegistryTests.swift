@@ -18,10 +18,10 @@ struct ActionRegistryTests {
             "view.zoomIn", "view.zoomOut", "view.zoomReset", "view.fitWidth", "view.fitPage",
             "pane.splitRight", "pane.splitDown", "pane.focusLeft", "pane.focusDown", "pane.focusUp", "pane.focusRight", "pane.unsplit",
             "theme.picker",
-            "config.reload",
+            "config.reload", "config.writeDefault", "config.resetDefault",
         ]
         let registry = ActionRegistry.v1
-        #expect(registry.descriptors.count == 48)
+        #expect(registry.descriptors.count == 50)
         #expect(Set(registry.actionIDs).count == registry.actionIDs.count)
         #expect(Set(registry.actionIDs.map(\.rawValue)) == expected)
         #expect(Set(InputContext.allCases) == [.navigation, .pagePrompt, .searchPrompt, .searchResults])
@@ -36,7 +36,7 @@ struct ActionRegistryTests {
 
         #expect(
             Set(registry.actionIDs.filter { !keymap.isBound($0) })
-                == [.viewZoomReset]
+                == [.viewZoomReset, .configWriteDefault, .configResetDefault]
         )
 
         for descriptor in registry.descriptors where keymap.isBound(descriptor.id) {
@@ -158,7 +158,7 @@ struct ActionRegistryTests {
     func contextEligibility() throws {
         let registry = ActionRegistry.v1
         let globals = Set(registry.descriptors.filter { $0.scope == .global }.map(\.id))
-        #expect(globals == [.documentOpen, .appQuit, .appNew])
+        #expect(globals == [.documentOpen, .appQuit, .appNew, .configWriteDefault, .configResetDefault])
 
         let commit = try #require(registry.descriptor(for: .promptCommit))
         let cancel = try #require(registry.descriptor(for: .promptCancel))

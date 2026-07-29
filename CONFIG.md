@@ -44,7 +44,7 @@ prefix = "<C-b>"
 
 ## Input contexts
 
-The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `searchResults`. Only `document.open`, `app.new`, and `app.quit` are global. Contextual bindings may reuse a sequence only when their active contexts are disjoint.
+The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `searchResults`. Only `document.open`, `app.new`, `app.quit`, `config.writeDefault`, and `config.resetDefault` are global. Contextual bindings may reuse a sequence only when their active contexts are disjoint.
 
 ## Stable v1 actions and defaults
 
@@ -86,6 +86,8 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `view.fitWidth` | `w` | `navigation`, `searchResults` | `suppressed` |
 | `view.fitPage` | `f` | `navigation`, `searchResults` | `suppressed` |
 | `config.reload` | `<C-b>r` | `navigation` | `suppressed` |
+| `config.writeDefault` | unbound | global | `suppressed` |
+| `config.resetDefault` | unbound | global | `suppressed` |
 | `theme.picker` | `T` | `navigation`, `searchResults` | `suppressed` |
 | `pane.splitRight` | `<C-b>|` | `navigation`, `searchResults` | `suppressed` |
 | `pane.splitDown` | `<C-b>-` | `navigation`, `searchResults` | `suppressed` |
@@ -298,6 +300,8 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 
 # --- Config ---
 "config.reload"    = ["<prefix>r"]  # Ctrl+B r
+"config.writeDefault" = []
+"config.resetDefault" = []
 
 # --- Theme ---
 "theme.picker"     = ["T"]  # T

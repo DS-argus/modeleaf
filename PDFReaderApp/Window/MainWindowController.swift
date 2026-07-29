@@ -21,6 +21,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let recentPruneHandler: (String) -> RecentFilesPersist
     private let recentClearHandler: () -> RecentFilesPersist
     private var installedKeyViewLoop: [NSView] = []
+    private let configFileURLProvider: () -> URL
     let rootView: ReaderRootView
 
     init(
@@ -38,12 +39,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         recentFilesProvider: @escaping () -> [RecentFileEntry] = { [] },
         recentOpenHandler: @escaping (String) -> Void = { _ in },
         recentPruneHandler: @escaping (String) -> RecentFilesPersist = { _ in .persisted },
-        recentClearHandler: @escaping () -> RecentFilesPersist = { .persisted }
+        recentClearHandler: @escaping () -> RecentFilesPersist = { .persisted },
+        configFileURLProvider: @escaping () -> URL = { ConfigFileSource.defaultURL() }
     ) {
         self.browseHandler = browseHandler
         self.recentFilesProvider = recentFilesProvider
         self.recentOpenHandler = recentOpenHandler
         self.recentPruneHandler = recentPruneHandler
+        self.configFileURLProvider = configFileURLProvider
         self.recentClearHandler = recentClearHandler
         self.coordinator = coordinator
         self.actionHandler = actionHandler
@@ -265,7 +268,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             hasActiveDocument: coordinator.activeSession != nil,
             paneCount: snapshot.layout.paneIDs.count,
             tabCount: snapshot.tabs.count,
-            inSearchResults: inputRouter.context == .searchResults
+            inSearchResults: inputRouter.context == .searchResults,
+            configFileExists: FileManager.default.fileExists(atPath: configFileURLProvider().path)
         )
         let commands = ActionRegistry.v1.userConfigurableDescriptors
             .filter { $0.id != .paletteOpen }
@@ -307,6 +311,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.emptyState.setOpenBinding(config.keymap.bindings(for: .documentOpen).first)
     }
 
+    var hasPinnedDiagnostic: Bool { rootView.hasPinnedDiagnostic }
     func showDiagnostic(_ message: String, expandedDetail: String? = nil, isError: Bool = true, pinned: Bool = false) {
         rootView.showDiagnostic(message, expandedDetail: expandedDetail, isError: isError, pinned: pinned)
     }

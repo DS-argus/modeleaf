@@ -48,6 +48,8 @@ public enum ActionID: String, CaseIterable, Codable, Hashable, Sendable {
     case viewFitPage = "view.fitPage"
 
     case configReload = "config.reload"
+    case configWriteDefault = "config.writeDefault"
+    case configResetDefault = "config.resetDefault"
     case themePicker = "theme.picker"
     case paneSplitRight = "pane.splitRight"
     case paneSplitDown = "pane.splitDown"
