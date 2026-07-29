@@ -1,5 +1,6 @@
 import AppKit
 import PDFKit
+import PDFReaderCore
 
 enum ReaderVerticalScrollOutcome: Equatable {
     case moved
@@ -128,13 +129,33 @@ final class ReaderPDFView: PDFView {
 
     override func perform(_ action: PDFAction) {
         if let goTo = action as? PDFActionGoTo {
-            go(to: goTo.destination)
+            activateGoTo(goTo.destination)
         } else if let urlAction = action as? PDFActionURL, let url = urlAction.url {
-            followedLinkCount += 1
-            followLinkHandler?(url)
+            activateURL(url)
         } else {
             blockedActionCount += 1
         }
+    }
+
+    /// GoTo intentionally does not increment `followedLinkCount`, matching PDFKit mouse activation.
+    func activate(_ target: ReaderLinkTarget) {
+        switch target {
+        case let .goTo(pageIndex, point):
+            guard let page = document?.page(at: pageIndex) else { return }
+            activateGoTo(PDFDestination(page: page, at: point ?? .zero))
+        case let .url(value):
+            guard let url = URL(string: value) else { return }
+            activateURL(url)
+        }
+    }
+
+    private func activateGoTo(_ destination: PDFDestination) {
+        go(to: destination)
+    }
+
+    private func activateURL(_ url: URL) {
+        followedLinkCount += 1
+        followLinkHandler?(url)
     }
 
     override func goBack(_ sender: Any?) {
@@ -168,8 +189,7 @@ final class ReaderPDFView: PDFView {
     }
 
     func pdfViewWillClick(onLink sender: PDFView, with url: URL) {
-        followedLinkCount += 1
-        followLinkHandler?(url)
+        activateURL(url)
     }
 
     func pdfViewPerformPrint(_ sender: PDFView) {

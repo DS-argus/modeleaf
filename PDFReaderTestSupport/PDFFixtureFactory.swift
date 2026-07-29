@@ -282,6 +282,44 @@ public enum PDFFixtureFactory {
     }
 
     @discardableResult
+    public static func makeLinkHintPDF(
+        in directory: URL,
+        name: String = "link-hints.pdf"
+    ) throws -> URL {
+        let sourceURL = try makeTextPDF(in: directory, name: "link-hints-source-\(UUID().uuidString).pdf", pageCount: 2)
+        defer { try? FileManager.default.removeItem(at: sourceURL) }
+        guard let document = PDFDocument(url: sourceURL),
+              let first = document.page(at: 0), let second = document.page(at: 1) else {
+            throw PDFFixtureError.couldNotOpenGeneratedDocument
+        }
+        let url = URL(string: "https://example.invalid/link-hint")!
+        let distantURL = URL(string: "https://example.invalid/distant")!
+        let linkRects = [
+            CGRect(x: 48, y: 650, width: 92, height: 10),
+            CGRect(x: 48, y: 638, width: 92, height: 10),
+            CGRect(x: 330, y: 640, width: 68, height: 69),
+            CGRect(x: 48, y: 500, width: 92, height: 10),
+            CGRect(x: 48, y: 300, width: 92, height: 10),
+        ]
+        for (index, rect) in linkRects.enumerated() {
+            let annotation = PDFAnnotation(bounds: rect, forType: .link, withProperties: nil)
+            annotation.action = PDFActionURL(url: index < 2 ? url : distantURL)
+            first.addAnnotation(annotation)
+        }
+        let goTo = PDFAnnotation(bounds: CGRect(x: 220, y: 500, width: 80, height: 12), forType: .link, withProperties: nil)
+        goTo.action = PDFActionGoTo(destination: PDFDestination(page: second, at: CGPoint(x: 48, y: 700)))
+        first.addAnnotation(goTo)
+        let outputURL = directory.appendingPathComponent(name)
+        guard document.write(to: outputURL) else { throw PDFFixtureError.couldNotWriteDocument }
+        guard let persisted = PDFDocument(url: outputURL), let persistedPage = persisted.page(at: 0),
+              persistedPage.annotations.count == 6,
+              persistedPage.annotations.filter({ $0.action is PDFActionURL }).count == 5,
+              persistedPage.annotations.contains(where: { $0.action is PDFActionGoTo })
+        else { throw PDFFixtureError.couldNotOpenGeneratedDocument }
+        return outputURL
+    }
+
+    @discardableResult
     public static func makePerformancePDF(
         _ kind: PerformancePDFFixtureKind,
         in directory: URL

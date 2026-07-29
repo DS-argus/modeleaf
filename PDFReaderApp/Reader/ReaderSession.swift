@@ -340,6 +340,22 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
 }
 
 
+extension ReaderSession: ReaderLinkProviding {
+    func linkTargets() -> [RawLink] {
+        guard !isClosed else { return [] }
+        return viewController.linkTargets()
+    }
+
+    func activateLink(_ target: ReaderLinkTarget) {
+        guard !isClosed else { return }
+        viewController.activateLink(target)
+    }
+
+    func linkHintRects(for link: ReaderLink, in coordinateSpace: NSView) -> [NSRect] {
+        guard !isClosed else { return [] }
+        return viewController.linkHintRects(for: link, in: coordinateSpace)
+    }
+}
 extension ReaderSession: ReaderDuplicationSnapshotProviding {
     var duplicationSnapshot: ReaderDuplicationSnapshot {
         ReaderDuplicationSnapshot(
