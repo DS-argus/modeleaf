@@ -23,17 +23,25 @@ struct LinkHintIntegrationTests {
         }
     }
 
-    @Test("presenting fixture links shows merged geometry and leaves fixture bytes unchanged")
+    @Test("presenting fixture links uses direct page-to-overlay geometry in single and multi-page views")
     func presentShowsMergedHints() throws {
-        try withLinkHarness { controller, _, _, url in
+        try withLinkHarness { controller, _, view, url in
             let before = try PDFFixtureFactory.sha256(of: url)
+            view.displayMode = .singlePage
+            view.layoutDocumentView()
+            #expect(view.visiblePages.count == 1)
             controller.presentLinkHints()
-            let overlay = controller.rootView.linkHintOverlay
+            assertHintRectsMatchAnnotations(controller.rootView.linkHintOverlay, in: view)
+            controller.dismissLinkHintsAndRestoreFocus()
 
-            #expect(!overlay.isHidden)
-            #expect(overlay.visibleLabels.count == 5)
-            #expect(overlay.hintRectCountsForTesting.filter { $0 == 2 }.count == 1)
-            #expect(overlay.hintRectCountsForTesting.reduce(0, +) == 6)
+            let window = try #require(controller.window)
+            window.setContentSize(NSSize(width: 1_200, height: 1_800))
+            view.displayMode = .singlePageContinuous
+            controller.rootView.layoutSubtreeIfNeeded()
+            view.layoutDocumentView()
+            #expect(view.visiblePages.count >= 2)
+            controller.presentLinkHints()
+            assertHintRectsMatchAnnotations(controller.rootView.linkHintOverlay, in: view)
             #expect(try PDFFixtureFactory.sha256(of: url) == before)
         }
     }
@@ -68,28 +76,27 @@ struct LinkHintIntegrationTests {
         }
     }
 
-    @Test("two-character labels filter prefixes, backspace, reject misses, and block modifiers")
+    @Test("two-character labels accept Shift and Caps Lock labels while rejecting command modifiers")
     func prefixAndModifierTransitions() throws {
         let overlay = LinkHintOverlayView(frame: .zero)
-        overlay.present(hints: (0..<27).map { _ in (rects: [NSRect(x: 0, y: 0, width: 1, height: 1)], label: "") })
-        // Present through the real label generator so the two-key transition is exercised, not a hand-written label table.
-        overlay.dismiss()
         overlay.present(hints: LinkHintLabels.generate(count: 27).map { (rects: [NSRect(x: 0, y: 0, width: 1, height: 1)], label: $0) })
         var rejected = 0
+        var commits: [Int] = []
         overlay.didRejectInputForTesting = { rejected += 1 }
+        overlay.onCommit = { commits.append($0) }
 
-        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "f"))))
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "F", charactersIgnoringModifiers: "f", modifiers: [.shift]))))
         #expect(overlay.currentPrefix == "f")
-        #expect(overlay.matchingLabelsForTesting.count > 1)
         #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "", keyCode: 51))))
         #expect(overlay.currentPrefix.isEmpty)
-        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "z"))))
-        #expect(rejected == 1)
-        #expect(overlay.currentPrefix.isEmpty)
-        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "w", modifiers: [.command]))))
-        #expect(overlay.isPresenting)
-        #expect(rejected == 2)
-        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "w", modifiers: [.control]))))
+        overlay.dismiss()
+        overlay.present(hints: [(rects: [.zero], label: "f")])
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "F", charactersIgnoringModifiers: "f", modifiers: [.capsLock]))))
+        #expect(commits == [0])
+
+        for modifier in [NSEvent.ModifierFlags.command, .control, .option] {
+            #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "f", modifiers: [modifier]))))
+        }
         #expect(overlay.isPresenting)
         #expect(rejected == 3)
     }
@@ -111,23 +118,25 @@ struct LinkHintIntegrationTests {
         }
     }
 
-    @Test("geometry events dismiss before forwarding and resize dismisses")
+    @Test("geometry events dismiss before forwarding, forward scroll input, and resize dismisses")
     func geometryTransitions() throws {
         try withLinkHarness { controller, _, _, _ in
             let window = try #require(controller.window as? ReaderWindow)
             var visibilityAtForwarding: [Bool] = []
-            window.geometryEventObserverForTesting = { _ in visibilityAtForwarding.append(controller.rootView.linkHintOverlay.isHidden) }
+            window.geometryEventObserverForTesting = { _ in
+                visibilityAtForwarding.append(controller.rootView.linkHintOverlay.isHidden)
+            }
 
             controller.presentLinkHints()
             let scrollSource = try #require(CGEventSource(stateID: .hidSystemState))
             let scrollCGEvent = try #require(CGEvent(scrollWheelEvent2Source: scrollSource, units: .pixel, wheelCount: 2, wheel1: 1, wheel2: 0, wheel3: 0))
             window.sendEvent(try #require(NSEvent(cgEvent: scrollCGEvent)))
+            // The observer is invoked only after ReaderWindow calls super.sendEvent.
             #expect(visibilityAtForwarding == [true])
 
             controller.presentLinkHints()
             window.sendGeometryEventForTesting(.magnify)
-
-            #expect(visibilityAtForwarding == [true, true])
+            #expect(controller.rootView.linkHintOverlay.isHidden)
             controller.presentLinkHints()
             controller.windowDidResize(Notification(name: NSWindow.didResizeNotification, object: window))
             #expect(controller.rootView.linkHintOverlay.isHidden)
@@ -210,6 +219,28 @@ struct LinkHintIntegrationTests {
             #expect(followed == 0)
             #expect(view.followedLinkCount == 0)
         }
+    }
+
+    private func assertHintRectsMatchAnnotations(_ overlay: LinkHintOverlayView, in view: ReaderPDFView) {
+        let expected = view.visiblePages.flatMap { page in
+            page.annotations.compactMap { annotation -> NSRect? in
+                guard annotation.type == "Link" || annotation.action != nil || annotation.url != nil else { return nil }
+                return view.convert(view.convert(annotation.bounds, from: page), to: overlay)
+            }
+        }
+        let actual = overlay.hintRectsForTesting.flatMap { $0 }
+        #expect(!overlay.isHidden)
+        #expect(actual.count == expected.count)
+        for rect in expected {
+            #expect(actual.contains { matches(rect, within: 1, of: $0) })
+        }
+    }
+
+    private func matches(_ lhs: NSRect, within tolerance: CGFloat, of rhs: NSRect) -> Bool {
+        abs(lhs.minX - rhs.minX) <= tolerance
+            && abs(lhs.minY - rhs.minY) <= tolerance
+            && abs(lhs.width - rhs.width) <= tolerance
+            && abs(lhs.height - rhs.height) <= tolerance
     }
 
     private func withLinkHarness(_ body: (MainWindowController, ReaderSession, ReaderPDFView, URL) throws -> Void) throws {

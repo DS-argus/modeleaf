@@ -8,8 +8,9 @@ final class ReaderWindow: NSWindow {
     var geometryEventObserverForTesting: ((NSEvent.EventType) -> Void)?
 
     override func sendEvent(_ event: NSEvent) {
-        if [.scrollWheel, .magnify, .smartMagnify, .swipe, .rotate].contains(event.type) {
-            handleGeometryEvent(event.type)
+        let geometryType = [.scrollWheel, .magnify, .smartMagnify, .swipe, .rotate].contains(event.type) ? event.type : nil
+        if let geometryType {
+            handleGeometryEvent(geometryType)
         }
         if event.type == .leftMouseDown {
             mouseDownHandler?(event)
@@ -18,6 +19,9 @@ final class ReaderWindow: NSWindow {
             return
         }
         super.sendEvent(event)
+        if let geometryType {
+            geometryEventObserverForTesting?(geometryType)
+        }
     }
 
     func sendGeometryEventForTesting(_ type: NSEvent.EventType) {
@@ -27,6 +31,5 @@ final class ReaderWindow: NSWindow {
 
     private func handleGeometryEvent(_ type: NSEvent.EventType) {
         geometryEventHandler?()
-        geometryEventObserverForTesting?(type)
     }
 }
