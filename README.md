@@ -59,7 +59,7 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 | split right / down | `Ctrl-b \|` / `Ctrl-b -` |
 | focus pane | `Ctrl-h` / `Ctrl-j` / `Ctrl-k` / `Ctrl-l` |
 | close other panes | `Ctrl-b o` |
-| theme picker | `Shift-t` |
+| theme picker | `T` |
 | command palette | `:` or `⌘⇧P` |
 | reload config | `Ctrl-b r` |
 | keyboard help | `?` |
@@ -83,7 +83,7 @@ Press `:` or `⌘⇧P` to open a fuzzy command search. Type to filter every read
 
 ### Themes
 
-Six built-in themes: dark **Tokyo Night**, **Gruvbox Dark**, **Solarized Dark**, **Dracula**, **Everforest**, and light **Catppuccin Latte**. Press `Shift-t` for a live-preview picker (`Enter` commits, `Esc` reverts); the choice is saved separately and reapplied on launch. Themes color the app chrome only — never the PDF page.
+Six built-in themes: dark **Tokyo Night**, **Gruvbox Dark**, **Solarized Dark**, **Dracula**, **Everforest**, and light **Catppuccin Latte**. Press `T` for a live-preview picker (`Enter` commits, `Esc` reverts); the choice is saved separately and reapplied on launch. Themes color the app chrome only — never the PDF page.
 
 ## Configuration
 Modeleaf reads one optional file at launch and never creates or rewrites it automatically; only the explicit **Write Default Config** and **Reset Config** command-palette commands write it:

@@ -15,6 +15,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let themeCancelHandler: (ThemeID) -> Void
     private(set) var resolvedConfig: ValidatedAppConfig
     private var themePickerPreOpenThemeID: ThemeID?
+    private var helpPresentedOverPrompt = false
     private let browseHandler: () -> Void
     private let recentFilesProvider: () -> [RecentFileEntry]
     private let recentOpenHandler: (String) -> Void
@@ -280,7 +281,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func presentHelp() {
+        let promptWasActive = !rootView.promptOverlay.isHidden
         dismissAllTransientOverlays()
+        helpPresentedOverPrompt = promptWasActive
         let sections = Self.helpSections(from: resolvedConfig.keymap)
         rootView.helpOverlay.onDismiss = { [weak self] in self?.dismissHelpOverlayAndRestoreFocus() }
         rootView.helpOverlay.present(sections: sections)
@@ -290,7 +293,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private func dismissHelpOverlayAndRestoreFocus() {
         rootView.helpOverlay.dismiss()
         rootView.helpOverlay.onDismiss = nil
-        focusActiveSurface(snapshot: coordinator.snapshot)
+        if helpPresentedOverPrompt, !rootView.promptOverlay.isHidden {
+            window?.makeFirstResponder(rootView.promptOverlay.textField)
+            rootView.promptOverlay.setFocusAppearance(true)
+        } else {
+            focusActiveSurface(snapshot: coordinator.snapshot)
+        }
+        helpPresentedOverPrompt = false
     }
 
     func presentCommandPalette() {
@@ -588,11 +597,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             guard !hints.isEmpty else { continue }
             append((hints.joined(separator: ", "), descriptor.title), to: BuiltInDefaults.categoryTitle(for: descriptor.id))
         }
+        let searchEntries = [
+            ("Enter", "Next search match"),
+            ("Shift+Enter", "Previous search match"),
+        ]
         if let searchIndex = entriesByCategory.firstIndex(where: { $0.title == "Search" }) {
-            entriesByCategory[searchIndex].entries += [
-                ("Enter", "Next search match"),
-                ("Shift+Enter", "Previous search match"),
-            ]
+            entriesByCategory[searchIndex].entries += searchEntries
+        } else {
+            entriesByCategory.append(("Search", searchEntries))
         }
 
         return entriesByCategory.map { HelpOverlaySection(title: $0.title, entries: $0.entries) }

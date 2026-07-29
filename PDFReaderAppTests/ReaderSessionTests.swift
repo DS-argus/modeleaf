@@ -402,48 +402,64 @@ struct ReaderSessionTests {
         }
     }
 
-    @Test("rotation is in-memory, re-fits, wraps, and stays pane-local")
+    @Test("rotation is in-memory, re-fits both fit modes, wraps, and stays pane-local")
     func rotationIsEphemeralAndPaneLocal() throws {
         try withTemporaryDirectory { directory in
             let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 2)
             let sourceHash = try PDFFixtureFactory.sha256(of: url)
-            let origin = try PDFOpenService().open(url: url)
-            let store = ReaderSessionStore()
-            #expect(store.insert(origin))
-            let coordinator = PaneCoordinator(initialStore: store)
-            coordinator.configureDuplication { snapshot in
-                try? PDFOpenService().open(url: snapshot.sourceURL)
+
+            for fitMode in [ReaderViewMode.fitWidth, .fitPage] {
+                let origin = try PDFOpenService().open(url: url)
+                let store = ReaderSessionStore()
+                #expect(store.insert(origin))
+                let coordinator = PaneCoordinator(initialStore: store)
+                coordinator.configureDuplication { snapshot in
+                    try? PDFOpenService().open(url: snapshot.sourceURL)
+                }
+                _ = try #require(coordinator.split(direction: .sideBySide))
+                let rotated = try #require(coordinator.activeSession as? ReaderSession)
+                defer {
+                    origin.prepareForClose()
+                    rotated.prepareForClose()
+                }
+
+                let originDocument = try #require(descendantPDFViews(in: origin.contentView).only?.document)
+                let rotatedView = try #require(descendantPDFViews(in: rotated.contentView).only)
+                let rotatedDocument = try #require(rotatedView.document)
+                switch fitMode {
+                case .fitWidth:
+                    rotated.fitWidth()
+                case .fitPage:
+                    rotated.fitPage()
+                default:
+                    Issue.record("Unexpected non-fit mode")
+                    continue
+                }
+
+                rotated.rotateRight()
+                #expect(rotated.viewMode == fitMode)
+                #expect(rotatedView.displayMode == (fitMode == .fitWidth ? .singlePageContinuous : .singlePage))
+                #expect(rotatedView.autoScales)
+                #expect((0..<rotatedDocument.pageCount).allSatisfy { rotatedDocument.page(at: $0)?.rotation == 90 })
+                #expect((0..<originDocument.pageCount).allSatisfy { originDocument.page(at: $0)?.rotation == 0 })
+
+                let freshSession = try PDFOpenService().open(url: url)
+                defer { freshSession.prepareForClose() }
+                let freshDocument = try #require(descendantPDFViews(in: freshSession.contentView).only?.document)
+                #expect((0..<freshDocument.pageCount).allSatisfy { freshDocument.page(at: $0)?.rotation == 0 })
+
+                rotated.rotateRight()
+                #expect((0..<rotatedDocument.pageCount).allSatisfy { rotatedDocument.page(at: $0)?.rotation == 180 })
+                rotated.rotateRight()
+                #expect((0..<rotatedDocument.pageCount).allSatisfy { rotatedDocument.page(at: $0)?.rotation == 270 })
+                rotated.rotateRight()
+                #expect((0..<rotatedDocument.pageCount).allSatisfy { rotatedDocument.page(at: $0)?.rotation == 0 })
+                rotated.rotateLeft()
+                #expect((0..<rotatedDocument.pageCount).allSatisfy { rotatedDocument.page(at: $0)?.rotation == 270 })
+                rotated.rotateRight()
+                #expect((0..<rotatedDocument.pageCount).allSatisfy { rotatedDocument.page(at: $0)?.rotation == 0 })
             }
-            _ = try #require(coordinator.split(direction: .sideBySide))
-            let rotated = try #require(coordinator.activeSession as? ReaderSession)
-            defer {
-                origin.prepareForClose()
-                rotated.prepareForClose()
-            }
 
-            let originView = try #require(descendantPDFViews(in: origin.contentView).only)
-            let rotatedView = try #require(descendantPDFViews(in: rotated.contentView).only)
-            let originDocument = try #require(originView.document)
-            let rotatedDocument = try #require(rotatedView.document)
-            rotated.fitWidth()
-
-            rotated.rotateRight()
-            #expect(rotated.viewMode == .fitWidth)
-            #expect(rotatedView.displayMode == .singlePageContinuous)
-            #expect(rotatedView.autoScales)
-            #expect((0..<rotatedDocument.pageCount).allSatisfy { rotatedDocument.page(at: $0)?.rotation == 90 })
-            #expect((0..<originDocument.pageCount).allSatisfy { originDocument.page(at: $0)?.rotation == 0 })
-
-            rotated.rotateRight()
-            #expect((0..<rotatedDocument.pageCount).allSatisfy { rotatedDocument.page(at: $0)?.rotation == 180 })
-            rotated.rotateRight()
-            #expect((0..<rotatedDocument.pageCount).allSatisfy { rotatedDocument.page(at: $0)?.rotation == 270 })
-            rotated.rotateRight()
-            #expect((0..<rotatedDocument.pageCount).allSatisfy { rotatedDocument.page(at: $0)?.rotation == 0 })
-            rotated.rotateLeft()
-            #expect((0..<rotatedDocument.pageCount).allSatisfy { rotatedDocument.page(at: $0)?.rotation == 270 })
-            rotated.rotateRight()
-            #expect((0..<rotatedDocument.pageCount).allSatisfy { rotatedDocument.page(at: $0)?.rotation == 0 })
             #expect(try PDFFixtureFactory.sha256(of: url) == sourceHash)
         }
     }

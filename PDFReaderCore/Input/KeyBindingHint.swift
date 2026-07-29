@@ -1,8 +1,7 @@
 import Foundation
 
-/// Renders a key sequence as a human-readable shortcut (e.g. `<C-j>` -> "Ctrl+J",
-/// `<D-o>` -> "Cmd+O", `gg` -> "g g"). Shared by the generated config comments and
-/// the command palette so both surfaces label bindings identically.
+/// Renders a key sequence as a human-readable shortcut (e.g. `Ctrl+j`, `Cmd+o`,
+/// `Cmd+Shift+P`). Shared by the generated config comments and the command palette so both
 public enum KeyBindingHint {
     public static func text(for sequence: KeySequence) -> String? {
         guard !sequence.tokens.isEmpty else { return nil }
