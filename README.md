@@ -74,6 +74,7 @@ Each tab holds one document; the `+` button or `⌘O` opens another. `Ctrl-b |` 
 ### Links
 
 Links are clickable: an in-document link jumps inside the viewer, and an external URL opens in your browser. The source PDF is never modified.
+Press `f` to show labels for annotation links, then type a label to follow it: in-document links jump in the viewer and URL links open in your browser. `Esc` cancels. A link that wraps onto another line has one hint; only annotated links are eligible, so URLs printed as text cannot be clicked or hinted—select and copy them instead. Scrolling or resizing dismisses hints.
 
 ### Command palette
 
