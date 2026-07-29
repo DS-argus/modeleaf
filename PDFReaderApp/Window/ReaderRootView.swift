@@ -213,7 +213,6 @@ final class ReaderRootView: NSView {
     }
     private func renderStatus(_ sessionStatus: ReaderStatusSnapshot?) {
         if let sessionStatus {
-            currentStatus.context = readerInputContext.map(Self.statusLabel(for:)) ?? sessionStatus.context
             currentStatus.page = sessionStatus.page
             currentStatus.zoom = sessionStatus.zoom
             if activeDiagnostic?.pinned != true {
@@ -265,8 +264,7 @@ final class ReaderRootView: NSView {
         currentStatus.tone = .normal
         statusBar.render(currentStatus)
     }
-    func setInputContext(_ context: InputContext) { readerInputContext = context; currentStatus.context = Self.statusLabel(for: context); statusBar.render(currentStatus) }
+    func setInputContext(_ context: InputContext) { readerInputContext = context }
     func setPendingPrefix(_ prefix: String) { currentStatus.pendingPrefix = prefix; statusBar.render(currentStatus) }
     private func setPresentedContentView(_ view: NSView?) { if presentedContentView !== view { presentedContentView?.removeFromSuperview() }; presentedContentView = view; attachContentView(view, to: contentHost) }
-    private static func statusLabel(for context: InputContext) -> String { switch context { case .navigation: "NORMAL"; case .pagePrompt: "PAGE"; case .searchPrompt, .searchResults: "SEARCH" } }
 }

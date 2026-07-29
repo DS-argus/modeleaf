@@ -46,7 +46,7 @@ public enum BuiltInDefaults {
             "#",
             "# Key notation (chords are wrapped in <...>):",
             "#   D = Command (Cmd)   C = Control (Ctrl)   A = Option (Alt)   S = Shift",
-            "#   e.g. <D-o> = Cmd+O, <C-j> = Ctrl+J, <S-CR> = Shift+Enter.",
+            "#   e.g. <D-o> = Cmd+o, <C-j> = Ctrl+j, <S-CR> = Shift+Enter.",
             "#   Plain characters are literal keys; concatenation is a multi-key sequence (gg = g then g).",
             "#   <prefix> expands to the pane prefix defined under [input] below. Rebind the prefix",
             "#   once and every <prefix> binding follows; <prefix> may be used in any binding.",

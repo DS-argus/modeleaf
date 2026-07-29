@@ -209,10 +209,10 @@ struct ConfigReloadIntegrationTests {
             #expect(controller.configInstallGenerationCountForTesting == 2)
 
             controller.mainWindowController.presentCommandPalette()
-            #expect(controller.mainWindowController.rootView.commandPaletteOverlay.visibleCommandsForTesting.contains { $0.id == .configReload && $0.shortcut == "Ctrl+A r" })
+            #expect(controller.mainWindowController.rootView.commandPaletteOverlay.visibleCommandsForTesting.contains { $0.id == .configReload && $0.shortcut == "Ctrl+a r" })
             controller.mainWindowController.dismissAllTransientOverlays()
             controller.mainWindowController.presentHelp()
-            #expect(controller.mainWindowController.rootView.helpOverlay.visibleEntriesForTesting.contains { $0 == ("Ctrl+A r", "Reload Config") })
+            #expect(controller.mainWindowController.rootView.helpOverlay.visibleEntriesForTesting.contains { $0 == ("Ctrl+a r", "Reload Config") })
         }
     }
 
