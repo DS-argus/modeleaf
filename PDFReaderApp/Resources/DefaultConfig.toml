@@ -63,6 +63,8 @@
 "view.zoomReset"   = []
 "view.fitWidth"    = ["w"]  # w
 "view.fitPage"     = ["F"]  # F
+"view.rotateLeft"  = ["["]  # [
+"view.rotateRight" = ["]"]  # ]
 
 # --- Links ---
 "link.hint"        = ["f"]  # f

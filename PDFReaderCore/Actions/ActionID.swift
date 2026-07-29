@@ -46,6 +46,8 @@ public enum ActionID: String, CaseIterable, Codable, Hashable, Sendable {
     case viewZoomReset = "view.zoomReset"
     case viewFitWidth = "view.fitWidth"
     case viewFitPage = "view.fitPage"
+    case viewRotateLeft = "view.rotateLeft"
+    case viewRotateRight = "view.rotateRight"
     case linkHint = "link.hint"
 
     case configReload = "config.reload"

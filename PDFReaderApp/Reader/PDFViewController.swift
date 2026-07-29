@@ -182,6 +182,14 @@ final class PDFViewController: NSViewController {
         viewMode = .fitPage
     }
 
+    func rotateLeft() {
+        rotate(byDegrees: -90)
+    }
+
+    func rotateRight() {
+        rotate(byDegrees: 90)
+    }
+
 
     /// Seed a duplicated pane's initial page. It always mounts fit-to-page in
     /// its own bounds (see ReaderDuplicationSnapshot); only the page carries.
@@ -229,6 +237,27 @@ final class PDFViewController: NSViewController {
         loadViewIfNeeded()
         readerView.removeFromSuperview()
         view.removeFromSuperview()
+    }
+
+    private func rotate(byDegrees degrees: Int) {
+        loadViewIfNeeded()
+        supersedePendingInitialPresentation()
+        for index in 0..<initialDocument.pageCount {
+            guard let page = initialDocument.page(at: index) else { continue }
+            page.rotation = (page.rotation + degrees) % 360
+            if page.rotation < 0 {
+                page.rotation += 360
+            }
+        }
+
+        switch viewMode {
+        case .fitWidth:
+            fitWidth()
+        case .fitPage:
+            fitPage()
+        case .manual, .actualSize:
+            readerView.layoutDocumentView()
+        }
     }
 
     private func applyInitialPresentationIfReady() {

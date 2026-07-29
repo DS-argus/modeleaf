@@ -50,6 +50,7 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 | link hints | `f` |
 | fit width / page | `w` / `F` |
 | zoom in / out | `=` / `-` |
+| rotate left / right | `[` / `]` |
 | search | `/`, then `Enter` — `Esc` clears |
 | new window | `⌘N` |
 | open / close / quit | `⌘O` / `⌘W` / `⌘Q` |

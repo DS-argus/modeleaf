@@ -31,7 +31,7 @@ public enum BuiltInDefaults {
         .pageNext: ["n"], .pagePrevious: ["p"], .pageFirst: ["gg"], .pageLast: ["G"], .pagePrompt: ["g"],
         .promptCommit: ["<CR>"], .promptCancel: ["<Esc>"],
         .searchPrompt: ["/"], .searchNext: ["<CR>"], .searchPrevious: ["<S-CR>"], .searchCancel: ["<Esc>"],
-        .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [], .viewFitWidth: ["w"], .viewFitPage: ["F"], .linkHint: ["f"],
+        .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [], .viewFitWidth: ["w"], .viewFitPage: ["F"], .viewRotateLeft: ["["], .viewRotateRight: ["]"], .linkHint: ["f"],
         .configReload: ["<prefix>r"], .configWriteDefault: [], .configResetDefault: [],
         .themePicker: ["T"],
         .paneSplitRight: ["<prefix>|"], .paneSplitDown: ["<prefix>-"], .paneUnsplit: ["<prefix>o"],

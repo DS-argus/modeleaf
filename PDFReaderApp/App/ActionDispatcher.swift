@@ -184,6 +184,10 @@ newInstanceHandler = newInstance
             activeSession?.fitWidth()
         case .viewFitPage:
             activeSession?.fitPage()
+        case .viewRotateLeft:
+            activeSession?.rotateLeft()
+        case .viewRotateRight:
+            activeSession?.rotateRight()
         case .linkHint:
             presentation?.presentLinkHints()
         case .paneSplitRight:
