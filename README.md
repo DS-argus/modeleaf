@@ -59,6 +59,7 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 | close other panes | `Ctrl-b o` |
 | theme picker | `Shift-t` |
 | command palette | `:` or `⌘⇧P` |
+| reload config | `Ctrl-b r` |
 | keyboard help | `?` |
 
 `Enter` / `Esc` (commit / cancel a prompt) and `Enter` / `Shift-Enter` (next / previous search match) are fixed keys and always work.
@@ -82,8 +83,7 @@ Press `:` or `⌘⇧P` to open a fuzzy command search. Type to filter every read
 Six built-in themes: dark **Tokyo Night**, **Gruvbox Dark**, **Solarized Dark**, **Dracula**, **Everforest**, and light **Catppuccin Latte**. Press `Shift-t` for a live-preview picker (`Enter` commits, `Esc` reverts); the choice is saved separately and reapplied on launch. Themes color the app chrome only — never the PDF page.
 
 ## Configuration
-
-Modeleaf reads one optional file at launch and never creates or rewrites it:
+Modeleaf reads one optional file at launch and never creates or rewrites it automatically; only the explicit **Write Default Config** and **Reset Config** command-palette commands write it:
 
 ```text
 ~/.config/modeleaf/config.toml
@@ -113,7 +113,7 @@ prefix = "<C-b>"        # pane prefix; <prefix> in any binding expands to it
 
 Key notation: `D` = Command, `C` = Control, `A` = Option, `S` = Shift (so `<D-o>` = ⌘O, `<C-j>` = Ctrl+J). `<prefix>` expands to the pane prefix, so rebinding `prefix` once moves every pane binding at once. The theme is chosen in the app, not in TOML; a legacy `[theme]` section is ignored with a warning.
 
-Configuration is validated as a whole: any unknown key, invalid binding, conflict, or out-of-range value rejects the entire file and the built-in defaults activate instead, with every error and warning shown in the status line. A missing file is normal. Restart to apply changes — there is no live reload.
+Configuration is validated as a whole: at launch, any unknown key, invalid binding, conflict, or out-of-range value rejects the entire file and activates the built-in defaults, with every error and warning shown in the status line. A missing file is normal. Use **Reload Config** to apply a valid edited file without restarting; its default `Ctrl-b r` binding follows any `prefix` rebinding. A broken runtime reload is not applied: the previous configuration stays active and a pinned error appears in the status line. The command palette also offers **Write Default Config** when no file exists, and **Reset Config**, which saves the existing file as `config.toml.bak` before restoring the defaults.
 
 See **[CONFIG.md](CONFIG.md)** for the complete action registry, key-token grammar, validation rules, and every default.
 
