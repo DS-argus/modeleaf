@@ -4,11 +4,12 @@ The optional user configuration lives at `~/.config/modeleaf/config.toml`. A mis
 
 ## Loading and activation
 
-- The app never creates the configuration file. Copy the generated example below when customization is needed.
+- The app never creates the configuration file automatically. Only the explicit `Write Default Config` and `Reset Config` palette commands write it; `Write Default Config` is available only when the file is absent, while `Reset Config` first saves the existing file as `config.toml.bak` and then restores the built-in defaults.
 - Input must be UTF-8 and no larger than 256 KiB. The size gate runs before TOML parsing.
 - The adapter recursively visits the complete parsed TOML tree. Unknown sections, keys, nested leaves, array elements, and empty unknown nodes are errors.
 - Present values decode into a sparse model, validate, overlay the typed built-ins, and then the complete effective value validates again.
-- Activation is atomic. If any error exists, every user value is discarded and the complete typed built-ins activate; diagnostics are aggregated when parsing permits. Warnings do not force fallback.
+- Launch activation is atomic. If any error exists, every user value is discarded and the complete typed built-ins activate; diagnostics are aggregated when parsing permits. Warnings do not force fallback.
+- `Reload Config` applies a valid file at runtime without restarting. Its default binding is `<prefix>r` (`Ctrl-b r` by default), so it follows any `[input] prefix` rebinding. A reload error does not activate the built-ins: the last good configuration remains active and a pinned diagnostic reports the error.
 - `PDFReaderCore.BuiltInDefaults` is the only runtime default source. The bundled `DefaultConfig.toml` and this document are generated examples, never fallback input.
 
 ## TOML schema
