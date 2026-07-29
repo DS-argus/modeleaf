@@ -85,6 +85,7 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `view.zoomReset` | unbound | `navigation`, `searchResults` | `suppressed` |
 | `view.fitWidth` | `w` | `navigation`, `searchResults` | `suppressed` |
 | `view.fitPage` | `f` | `navigation`, `searchResults` | `suppressed` |
+| `config.reload` | `<C-b>r` | `navigation` | `suppressed` |
 | `theme.picker` | `T` | `navigation`, `searchResults` | `suppressed` |
 | `pane.splitRight` | `<C-b>|` | `navigation`, `searchResults` | `suppressed` |
 | `pane.splitDown` | `<C-b>-` | `navigation`, `searchResults` | `suppressed` |
@@ -294,6 +295,9 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 "view.zoomReset"   = []
 "view.fitWidth"    = ["w"]  # w
 "view.fitPage"     = ["f"]  # f
+
+# --- Config ---
+"config.reload"    = ["<prefix>r"]  # Ctrl+B r
 
 # --- Theme ---
 "theme.picker"     = ["T"]  # T

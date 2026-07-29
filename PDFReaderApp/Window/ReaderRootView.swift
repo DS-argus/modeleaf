@@ -1,6 +1,18 @@
 import AppKit
 import PDFReaderCore
 
+
+enum ReaderActiveDiagnosticKind: Equatable {
+    case error
+    case informational
+}
+
+struct ReaderActiveDiagnostic: Equatable {
+    let message: String
+    let kind: ReaderActiveDiagnosticKind
+    let pinned: Bool
+    let expandedDetail: String?
+}
 @MainActor
 private final class BandHost: NSView {
     private weak var child: NSView?
@@ -24,6 +36,7 @@ final class ReaderRootView: NSView {
     let statusBar = StatusBarView()
     let themePickerOverlay = ThemePickerOverlayView()
     let promptOverlay = PromptOverlayView()
+    private var activeDiagnostic: ReaderActiveDiagnostic?
     let commandPaletteOverlay = CommandPaletteOverlayView()
     let recentFilesOverlay = RecentFilesOpenOverlayView()
     let helpOverlay = HelpOverlayView()
@@ -197,13 +210,27 @@ final class ReaderRootView: NSView {
             return container
         }
     }
-
+    private func renderStatus(_ sessionStatus: ReaderStatusSnapshot?) {
+        if let sessionStatus {
+            currentStatus.context = readerInputContext.map(Self.statusLabel(for:)) ?? sessionStatus.context
+            currentStatus.page = sessionStatus.page
+            currentStatus.zoom = sessionStatus.zoom
+            if activeDiagnostic?.pinned != true {
+                currentStatus.detail = sessionStatus.detail
+                currentStatus.expandedDetail = nil
+                currentStatus.tone = .normal
+            }
+        } else if activeDiagnostic?.pinned != true {
+            currentStatus = .empty
+        }
+        statusBar.render(currentStatus)
+    }
     private func configurePane(_ id: PaneID, snapshot: PaneCoordinatorSnapshot, label: String) -> PaneView {
         let pane = paneView(for: id, trafficLightInset: snapshot.layout.topLeftPaneID == id ? WindowVisualMetrics.trafficLightInset : 0)
         pane.setPositionLabel(label); pane.render(snapshot: snapshot.panes[id]!, contentView: snapshot.paneContentViews[id]); pane.setActive(snapshot.activePaneID == id); return pane
     }
-    private func renderStatus(_ sessionStatus: ReaderStatusSnapshot?) { if let sessionStatus { currentStatus.context = readerInputContext.map(Self.statusLabel(for:)) ?? sessionStatus.context; currentStatus.page = sessionStatus.page; currentStatus.zoom = sessionStatus.zoom; currentStatus.detail = sessionStatus.detail; currentStatus.expandedDetail = nil; currentStatus.tone = .normal } else if currentStatus.tone != .error { currentStatus = .empty }; statusBar.render(currentStatus) }
     private func paneView(for id: PaneID, trafficLightInset: CGFloat) -> PaneView { if let pane = paneViews[id] { pane.setTrafficLightInset(trafficLightInset); return pane }; let pane = PaneView(id: id, trafficLightInset: trafficLightInset); if let theme { pane.apply(theme: theme) }; paneViews[id] = pane; pane.onSelect = { [weak self] tabID in self?.onPaneSelect?(id, tabID) }; pane.onClose = { [weak self] tabID in self?.onPaneClose?(id, tabID) }; pane.onActivate = { [weak self] in self?.onPaneActivate?(id) }; pane.onNewTab = { [weak self] in self?.onPaneNewTab?(id) }; return pane }
+
     private func prunePaneViews(absentFrom panes: [PaneID: ReaderSessionStoreSnapshot]) {
         for id in paneViews.keys.filter({ panes[$0] == nil }) { paneViews.removeValue(forKey: id)?.retire() }
         for pair in innerDividerPositions.keys where !pair.allSatisfy({ panes[$0] != nil }) {
@@ -218,10 +245,24 @@ final class ReaderRootView: NSView {
     }
     func paneViewForTesting(_ id: PaneID) -> PaneView? { paneViews[id] }
     func activatePane(atWindowPoint point: NSPoint) { let localPoint = convert(point, from: nil); var view = hitTest(localPoint); while let candidate = view { if let pane = candidate as? PaneView { pane.activateForPointerEvent(); return }; view = candidate.superview } }
-    func setInputContext(_ context: InputContext) { readerInputContext = context; currentStatus.context = Self.statusLabel(for: context); statusBar.render(currentStatus) }
-    func showDiagnostic(_ message: String, expandedDetail: String? = nil, isError: Bool = true) { currentStatus.detail = message; currentStatus.expandedDetail = expandedDetail; currentStatus.tone = isError ? .error : .normal; statusBar.render(currentStatus) }
+
+    func showDiagnostic(_ message: String, expandedDetail: String? = nil, isError: Bool = true, pinned: Bool = false) {
+        activeDiagnostic = ReaderActiveDiagnostic(message: message, kind: isError ? .error : .informational, pinned: pinned, expandedDetail: expandedDetail)
+        currentStatus.detail = message
+        currentStatus.expandedDetail = expandedDetail
+        currentStatus.tone = isError ? .error : .normal
+        statusBar.render(currentStatus)
+    }
     func presentUpdateBanner(_ text: String?, onClick: (() -> Void)? = nil) { statusBar.onUpdateClicked = onClick; statusBar.presentUpdate(text) }
-    func clearDiagnostic() { currentStatus.detail = ReaderStatusSnapshot.empty.detail; currentStatus.expandedDetail = nil; currentStatus.tone = .normal; statusBar.render(currentStatus) }
+    func clearDiagnostic(force: Bool = false) {
+        guard force || activeDiagnostic?.pinned != true else { return }
+        activeDiagnostic = nil
+        currentStatus.detail = ReaderStatusSnapshot.empty.detail
+        currentStatus.expandedDetail = nil
+        currentStatus.tone = .normal
+        statusBar.render(currentStatus)
+    }
+    func setInputContext(_ context: InputContext) { readerInputContext = context; currentStatus.context = Self.statusLabel(for: context); statusBar.render(currentStatus) }
     func setPendingPrefix(_ prefix: String) { currentStatus.pendingPrefix = prefix; statusBar.render(currentStatus) }
     private func setPresentedContentView(_ view: NSView?) { if presentedContentView !== view { presentedContentView?.removeFromSuperview() }; presentedContentView = view; attachContentView(view, to: contentHost) }
     private static func statusLabel(for context: InputContext) -> String { switch context { case .navigation: "NORMAL"; case .pagePrompt: "PAGE"; case .searchPrompt, .searchResults: "SEARCH" } }

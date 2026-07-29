@@ -1,6 +1,7 @@
 import AppKit
 import PDFReaderCore
 
+
 @MainActor
 final class ApplicationController {
     let configResult: ConfigLoadResult
@@ -19,14 +20,30 @@ final class ApplicationController {
     private let themeStartupDiagnostic: String?
     private let recentFilesStore: RecentFilesStore
     private(set) var menuBuilder: ValidatedMenuBuilder?
+    private let configService: ConfigService
+    private var activeConfig: ValidatedAppConfig
+    enum ConfigInstallStep: Equatable {
+        case dismissTransientOverlays
+        case applyWindowConfig
+        case updateNavigation
+        case installMenu
+        case activateConfig
+    }
+    private(set) var configInstallStepsForTesting: [ConfigInstallStep] = []
+    private(set) var configInstallGenerationCountForTesting = 0
+    private struct PreparedConfigGeneration {
+        let validatedConfig: ValidatedAppConfig
+        let menuBuilder: ValidatedMenuBuilder
+        let mainMenu: NSMenu
+    }
 
     lazy var mainWindowController: MainWindowController = {
         let controller = MainWindowController(
             coordinator: coordinator,
             theme: AppKitTheme(themeID: currentThemeID),
-            actionHandler: { [weak self] action in self?.actionDispatcher.dispatch(action) },
-            keyDispatchHandler: { [weak self] dispatch in self?.actionDispatcher.dispatch(dispatch) },
-            validatedConfig: configResult.activeConfig,
+            actionHandler: { [weak self] action in self?.dispatch(action) },
+            keyDispatchHandler: { [weak self] dispatch in self?.dispatch(dispatch) },
+            validatedConfig: activeConfig,
             openPaneHandler: { [weak self] paneID in self?.presentOpenPanel(target: .existing(paneID)) },
             currentThemeID: { [weak self] in self?.currentThemeID ?? .tokyoNight },
             themePreviewHandler: { [weak self] id in self?.applyTheme(id, persist: false) },
@@ -43,7 +60,7 @@ final class ApplicationController {
     }()
     init(application: NSApplication = .shared, configService: ConfigService = ConfigService(), sessionStore: ReaderSessionStore = ReaderSessionStore(), pdfOpenService: PDFOpenService = PDFOpenService(), openMetrics: any PDFOpenMetrics = OSLogPDFOpenMetrics(), openPanelPresenter: any PDFOpenPanelPresenting = NativePDFOpenPanelPresenter(), themeStore: ThemeSelectionStore = ThemeSelectionStore(), recentFilesStore: RecentFilesStore = RecentFilesStore(), terminationHandler: (() -> Void)? = nil, newInstanceLauncher: (() -> Void)? = nil) {
         let configResult = configService.load()
-        self.application = application; self.configResult = configResult; self.sessionStore = sessionStore
+        self.application = application; self.configService = configService; self.configResult = configResult; self.activeConfig = configResult.activeConfig; self.sessionStore = sessionStore
         self.coordinator = PaneCoordinator(initialStore: sessionStore)
         self.pdfOpenService = pdfOpenService; self.openMetrics = openMetrics; self.openPanelPresenter = openPanelPresenter; self.themeStore = themeStore; self.recentFilesStore = recentFilesStore
         switch themeStore.load() {
@@ -56,10 +73,11 @@ final class ApplicationController {
         self.actionDispatcher = ActionDispatcher(coordinator: coordinator, navigation: configResult.activeConfig.config.navigation)
         self.actionDispatcher.configureLifecycleHandlers(openDocument: { [weak self] in self?.presentOpenPanel() }, terminate: { [weak self] in self?.terminationHandler() }, newInstance: { [weak self] in self?.newInstanceLauncher() })
         coordinator.configureDuplication { [weak self] snapshot in self?.makeDuplicate(from: snapshot) }
+        self.actionDispatcher.configureConfigReloadHandler { [weak self] in self?.reloadConfig() }
         coordinator.configureDuplicationCompletion { [weak self] session, committed in self?.completeDuplicate(session, committed: committed) }
     }
 
-    func start() { let menuBuilder = ValidatedMenuBuilder(descriptors: configResult.activeConfig.menuDescriptors, dispatch: { [weak self] action in self?.dispatch(action) }); self.menuBuilder = menuBuilder; application.mainMenu = menuBuilder.makeMainMenu(); mainWindowController.showWindow(nil); if !configResult.diagnostics.isEmpty {
+    func start() { let menuBuilder = ValidatedMenuBuilder(descriptors: activeConfig.menuDescriptors, dispatch: { [weak self] action in self?.dispatch(action) }); self.menuBuilder = menuBuilder; application.mainMenu = menuBuilder.makeMainMenu(); mainWindowController.showWindow(nil); if !configResult.diagnostics.isEmpty {
             // Aggregate independent startup failures so a config warning never
             // hides an operational theme-state I/O error (or vice versa).
             let presentation = ConfigDiagnosticPresentation(diagnostics: configResult.diagnostics, usedFallback: configResult.usedFallback)
@@ -81,6 +99,51 @@ final class ApplicationController {
         }
     }
     func dispatch(_ action: ActionID) { actionDispatcher.dispatch(action) }
+
+    func dispatch(_ keyDispatch: KeyActionDispatch) {
+        if keyDispatch.actionID == .configReload {
+            reloadConfig()
+        } else {
+            actionDispatcher.dispatch(keyDispatch)
+        }
+    }
+
+    func reloadConfig() {
+        switch configService.reload() {
+        case let .applied(config, warnings):
+            let prepared = prepare(config)
+            install(prepared)
+            let message = warnings.isEmpty ? "Config reloaded" : "Config reloaded (\(warnings.count) warnings)"
+            mainWindowController.showDiagnostic(message, isError: false)
+        case let .rejected(diagnostics):
+            let presentation = ConfigDiagnosticPresentation(diagnostics: diagnostics, usedFallback: false)
+            mainWindowController.showDiagnostic("Configuration rejected; previous configuration remains active.", expandedDetail: presentation.details, isError: true, pinned: true)
+        case .missing:
+            mainWindowController.showDiagnostic("No configuration file to reload.", isError: false)
+        }
+    }
+
+    private func prepare(_ config: ValidatedAppConfig) -> PreparedConfigGeneration {
+        let builder = ValidatedMenuBuilder(descriptors: config.menuDescriptors, dispatch: { [weak self] action in self?.dispatch(action) })
+        return PreparedConfigGeneration(validatedConfig: config, menuBuilder: builder, mainMenu: builder.makeMainMenu())
+    }
+
+    private func install(_ generation: PreparedConfigGeneration) {
+        configInstallStepsForTesting = []
+        mainWindowController.dismissAllTransientOverlays()
+        configInstallGenerationCountForTesting += 1
+        configInstallStepsForTesting.append(.dismissTransientOverlays)
+        mainWindowController.applyConfig(generation.validatedConfig)
+        configInstallStepsForTesting.append(.applyWindowConfig)
+        actionDispatcher.updateNavigation(generation.validatedConfig.config.navigation)
+        configInstallStepsForTesting.append(.updateNavigation)
+        application.mainMenu = generation.mainMenu
+        menuBuilder = generation.menuBuilder
+        configInstallStepsForTesting.append(.installMenu)
+        activeConfig = generation.validatedConfig
+        configInstallStepsForTesting.append(.activateConfig)
+        mainWindowController.clearDiagnostic(force: true)
+    }
     @discardableResult func openDocument(at url: URL, target: PaneOpenTarget = .createIfEmpty) -> Bool {
         let traceID = OpenTraceID(); openMetrics.record(.point(.openRequested, traceID: traceID)); openMetrics.record(.begin(.openTotal, traceID: traceID))
         do {

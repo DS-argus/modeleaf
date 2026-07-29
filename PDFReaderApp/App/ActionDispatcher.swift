@@ -28,10 +28,11 @@ extension ReaderWorkflowPresenting {
 @MainActor
 final class ActionDispatcher {
     private let coordinator: PaneCoordinator
-    private let navigation: NavigationConfiguration
+    private var navigation: NavigationConfiguration
     private var openDocumentHandler: () -> Void
     private var terminationHandler: () -> Void
 private var newInstanceHandler: () -> Void
+    private var configReloadHandler: () -> Void
 
     weak var presentation: (any ReaderWorkflowPresenting)?
 
@@ -40,13 +41,15 @@ private var newInstanceHandler: () -> Void
         navigation: NavigationConfiguration,
         openDocumentHandler: @escaping () -> Void = {},
         terminationHandler: @escaping () -> Void = {},
-        newInstanceHandler: @escaping () -> Void = {}
+        newInstanceHandler: @escaping () -> Void = {},
+        configReloadHandler: @escaping () -> Void = {}
     ) {
         self.coordinator = coordinator
         self.navigation = navigation
         self.openDocumentHandler = openDocumentHandler
         self.terminationHandler = terminationHandler
 self.newInstanceHandler = newInstanceHandler
+        self.configReloadHandler = configReloadHandler
     }
 
     func configureLifecycleHandlers(
@@ -57,6 +60,14 @@ self.newInstanceHandler = newInstanceHandler
         openDocumentHandler = openDocument
         terminationHandler = terminate
 newInstanceHandler = newInstance
+    }
+
+    func configureConfigReloadHandler(_ handler: @escaping () -> Void) {
+        configReloadHandler = handler
+    }
+
+    func updateNavigation(_ navigation: NavigationConfiguration) {
+        self.navigation = navigation
     }
 
     func dispatch(_ keyDispatch: KeyActionDispatch) {
@@ -82,6 +93,9 @@ newInstanceHandler = newInstance
         case .appNew:
             presentation?.prepareForGlobalAction()
             newInstanceHandler()
+
+        case .configReload:
+            configReloadHandler()
 
         case .tabNext:
             _ = coordinator.activateNext()

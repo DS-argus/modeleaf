@@ -354,6 +354,7 @@ struct ConfigLoadingTests {
         let source = "[keymap]\n" + zip(actions, bindings)
             .map { "\"\($0.rawValue)\" = [\"\($1)\"]" }
             .joined(separator: "\n")
+            + "\n\"config.reload\" = [\"<C-w>x\"]"
         let document = try #require(decode(source).document)
         let validation = ConfigValidator.validate(document.sparseConfig, source: document.source)
         let config = try #require(validation.validatedConfig)

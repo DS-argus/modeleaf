@@ -18,9 +18,10 @@ struct ActionRegistryTests {
             "view.zoomIn", "view.zoomOut", "view.zoomReset", "view.fitWidth", "view.fitPage",
             "pane.splitRight", "pane.splitDown", "pane.focusLeft", "pane.focusDown", "pane.focusUp", "pane.focusRight", "pane.unsplit",
             "theme.picker",
+            "config.reload",
         ]
         let registry = ActionRegistry.v1
-        #expect(registry.descriptors.count == 47)
+        #expect(registry.descriptors.count == 48)
         #expect(Set(registry.actionIDs).count == registry.actionIDs.count)
         #expect(Set(registry.actionIDs.map(\.rawValue)) == expected)
         #expect(Set(InputContext.allCases) == [.navigation, .pagePrompt, .searchPrompt, .searchResults])

@@ -32,6 +32,7 @@ public enum BuiltInDefaults {
         .promptCommit: ["<CR>"], .promptCancel: ["<Esc>"],
         .searchPrompt: ["/"], .searchNext: ["<CR>"], .searchPrevious: ["<S-CR>"], .searchCancel: ["<Esc>"],
         .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [], .viewFitWidth: ["w"], .viewFitPage: ["f"],
+        .configReload: ["<prefix>r"],
         .themePicker: ["T"],
         .paneSplitRight: ["<prefix>|"], .paneSplitDown: ["<prefix>-"], .paneUnsplit: ["<prefix>o"],
         .paneFocusLeft: ["<C-h>"], .paneFocusDown: ["<C-j>"], .paneFocusUp: ["<C-k>"], .paneFocusRight: ["<C-l>"],
@@ -123,6 +124,7 @@ public enum BuiltInDefaults {
         case "scroll": return "Scroll"
         case "page": return "Pages"
         case "search": return "Search"
+        case "config": return "Config"
         case "view": return "View / Zoom"
         case "theme": return "Theme"
         case "pane": return "Panes"

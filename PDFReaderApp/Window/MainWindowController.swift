@@ -13,7 +13,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let themePreviewHandler: (ThemeID) -> Void
     private let themeCommitHandler: (ThemeID) -> Void
     private let themeCancelHandler: (ThemeID) -> Void
-    private let resolvedConfig: ValidatedAppConfig
+    private(set) var resolvedConfig: ValidatedAppConfig
     private var themePickerPreOpenThemeID: ThemeID?
     private let browseHandler: () -> Void
     private let recentFilesProvider: () -> [RecentFileEntry]
@@ -295,18 +295,26 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.commandPaletteOverlay.onCancel = nil
         focusActiveSurface(snapshot: coordinator.snapshot)
     }
+
     func apply(theme: AppKitTheme) {
         window?.backgroundColor = theme[.background]
         rootView.apply(theme: theme)
     }
 
-    func showDiagnostic(_ message: String, expandedDetail: String? = nil, isError: Bool = true) {
-        rootView.showDiagnostic(message, expandedDetail: expandedDetail, isError: isError)
+    func applyConfig(_ config: ValidatedAppConfig) {
+        resolvedConfig = config
+        inputRouter.reconfigure(config: config)
+        rootView.emptyState.setOpenBinding(config.keymap.bindings(for: .documentOpen).first)
     }
 
-    func clearDiagnostic() {
-        rootView.clearDiagnostic()
+    func showDiagnostic(_ message: String, expandedDetail: String? = nil, isError: Bool = true, pinned: Bool = false) {
+        rootView.showDiagnostic(message, expandedDetail: expandedDetail, isError: isError, pinned: pinned)
     }
+
+    func clearDiagnostic(force: Bool = false) {
+        rootView.clearDiagnostic(force: force)
+    }
+
 
     func presentUpdateBanner(_ text: String, onClick: @escaping () -> Void) {
         rootView.presentUpdateBanner(text, onClick: onClick)
