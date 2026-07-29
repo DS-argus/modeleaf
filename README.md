@@ -47,7 +47,8 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 | next / previous page | `n` / `p` |
 | first / last page | `gg` / `G` |
 | go to page 12 | `g12`, then `Enter` |
-| fit width / page | `w` / `f` |
+| link hints | `f` |
+| fit width / page | `w` / `F` |
 | zoom in / out | `=` / `-` |
 | search | `/`, then `Enter` — `Esc` clears |
 | new window | `⌘N` |

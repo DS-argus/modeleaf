@@ -98,4 +98,16 @@ struct CommandPaletteTests {
         #expect(PaletteAvailability.evaluate(.tabSelect3, state: rich).enabled)
         #expect(!PaletteAvailability.evaluate(.tabSelect4, state: rich).enabled) // only 3 tabs
     }
+
+    @Test("link hints require a navigation document context")
+    func linkHintAvailability() {
+        let noDocument = PaletteContextState(hasActiveDocument: false, paneCount: 0, tabCount: 0, inSearchResults: false)
+        #expect(PaletteAvailability.evaluate(.linkHint, state: noDocument) == (false, "Open a PDF first"))
+
+        let navigation = PaletteContextState(hasActiveDocument: true, paneCount: 1, tabCount: 1, inSearchResults: false)
+        #expect(PaletteAvailability.evaluate(.linkHint, state: navigation) == (true, nil))
+
+        let searchResults = PaletteContextState(hasActiveDocument: true, paneCount: 1, tabCount: 1, inSearchResults: true)
+        #expect(PaletteAvailability.evaluate(.linkHint, state: searchResults) == (false, "Not available in search results"))
+    }
 }

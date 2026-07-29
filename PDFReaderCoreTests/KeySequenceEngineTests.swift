@@ -328,7 +328,7 @@ struct KeySequenceEngineTests {
             ("N", .tabNext), ("P", .tabPrevious),
             ("G", .pageLast), ("/", .searchPrompt),
             ("=", .viewZoomIn), ("-", .viewZoomOut),
-            ("w", .viewFitWidth), ("f", .viewFitPage),
+            ("w", .viewFitWidth), ("f", .linkHint), ("F", .viewFitPage),
             ("<D-1>", .tabSelect1), ("<D-9>", .tabSelect9),
             ("<D-o>", .documentOpen), ("<D-w>", .documentClose), ("<D-q>", .appQuit),
         ]
@@ -338,6 +338,8 @@ struct KeySequenceEngineTests {
                     == .dispatch(KeyActionDispatch(actionID: action))
             )
         }
+
+        #expect(engine.handle(try token("f")) != .dispatch(KeyActionDispatch(actionID: .viewFitPage)))
     }
 
     @Test("U-CTX-02 search prompt keeps literal, editing, dead-key, and IME input native")

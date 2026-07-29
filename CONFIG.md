@@ -85,7 +85,8 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `view.zoomOut` | `-` | `navigation`, `searchResults` | `allowed` |
 | `view.zoomReset` | unbound | `navigation`, `searchResults` | `suppressed` |
 | `view.fitWidth` | `w` | `navigation`, `searchResults` | `suppressed` |
-| `view.fitPage` | `f` | `navigation`, `searchResults` | `suppressed` |
+| `view.fitPage` | `F` | `navigation`, `searchResults` | `suppressed` |
+| `link.hint` | `f` | `navigation` | `suppressed` |
 | `config.reload` | `<C-b>r` | `navigation` | `suppressed` |
 | `config.writeDefault` | unbound | global | `suppressed` |
 | `config.resetDefault` | unbound | global | `suppressed` |
@@ -297,7 +298,10 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 "view.zoomOut"     = ["-"]  # -
 "view.zoomReset"   = []
 "view.fitWidth"    = ["w"]  # w
-"view.fitPage"     = ["f"]  # f
+"view.fitPage"     = ["F"]  # F
+
+# --- Links ---
+"link.hint"        = ["f"]  # f
 
 # --- Config ---
 "config.reload"    = ["<prefix>r"]  # Ctrl+B r

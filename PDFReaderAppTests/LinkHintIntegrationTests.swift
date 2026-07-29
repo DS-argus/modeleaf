@@ -168,7 +168,32 @@ struct LinkHintIntegrationTests {
             #expect(controller.rootView.linkHintOverlay.isHidden)
         }
     }
+    @Test("default f and F routes link hints and fit page, while search results leaves f unhandled")
 
+    func defaultKeyRoutesLinkHintsAndFitPage() throws {
+        try withLinkHarness { controller, session, _, _ in
+            let hintKey = try #require(makeKeyEvent(characters: "f"))
+            #expect(controller.routeKeyEventForTesting(hintKey))
+            #expect(!controller.rootView.linkHintOverlay.isHidden)
+            let escapeKey = try #require(makeKeyEvent(characters: "", keyCode: 53))
+            #expect(controller.routeKeyEventForTesting(escapeKey))
+
+            session.fitWidth()
+            let fitPageKey = try #require(makeKeyEvent(characters: "F"))
+            #expect(controller.routeKeyEventForTesting(fitPageKey))
+            #expect(session.viewMode == .fitPage)
+
+            let searchKey = try #require(makeKeyEvent(characters: "/"))
+            #expect(controller.routeKeyEventForTesting(searchKey))
+            controller.rootView.promptOverlay.textField.stringValue = "needle"
+            let commitKey = try #require(makeKeyEvent(characters: "\r", keyCode: 36))
+            #expect(controller.routeKeyEventForTesting(commitKey))
+            #expect(controller.inputContextForTesting == .searchResults)
+            let searchHintKey = try #require(makeKeyEvent(characters: "f"))
+            #expect(!controller.routeKeyEventForTesting(searchHintKey))
+            #expect(controller.rootView.linkHintOverlay.isHidden)
+        }
+    }
     @Test("closed sessions expose no targets and ignore activation")
     func closedSessionGuards() throws {
         try withTemporaryDirectory { directory in
@@ -192,7 +217,18 @@ struct LinkHintIntegrationTests {
             let url = try PDFFixtureFactory.makeLinkHintPDF(in: directory)
             let session = try PDFOpenService().open(url: url)
             let coordinator = PaneCoordinator()
-            let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(themeID: .tokyoNight), actionHandler: { _ in })
+            var dispatcher: ActionDispatcher?
+            let controller = MainWindowController(
+                coordinator: coordinator,
+                theme: AppKitTheme(themeID: .tokyoNight),
+                actionHandler: { action in dispatcher?.dispatch(action) }
+            )
+            let actionDispatcher = ActionDispatcher(
+                coordinator: coordinator,
+                navigation: BuiltInDefaults.config.navigation
+            )
+            dispatcher = actionDispatcher
+            actionDispatcher.presentation = controller
             defer { controller.close(); session.prepareForClose() }
             #expect(coordinator.insert(session, into: .createIfEmpty))
             controller.rootView.layoutSubtreeIfNeeded()
