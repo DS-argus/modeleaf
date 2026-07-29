@@ -8,6 +8,8 @@ public enum ConfigBounds {
 }
 
 public enum BuiltInDefaults {
+    private static let defaultPrefix = "<C-b>"
+
     public static let config = EffectiveAppConfig(
         keymap: keymap,
         navigation: NavigationConfiguration(
@@ -15,72 +17,27 @@ public enum BuiltInDefaults {
             largeScrollViewportFraction: 0.8,
             zoomFactor: 1.10
         ),
-        input: InputConfiguration(prefixTimeoutMilliseconds: 800, prefix: "<C-b>")
+        input: InputConfiguration(prefixTimeoutMilliseconds: 800, prefix: defaultPrefix)
     )
 
-    public static let keymap: [ActionID: [KeySequence]] = [
-        .documentOpen: sequences("<D-o>"),
-        .documentClose: sequences("<D-w>"),
-        .appQuit: sequences("<D-q>"),
-        .appNew: sequences("<D-n>"),
-        .paletteOpen: sequences(":", "<D-S-p>"),
-        .helpShow: sequences("?"),
-
-        .tabNext: sequences("N"),
-        .tabPrevious: sequences("P"),
-        .tabSelect1: sequences("<D-1>"),
-        .tabSelect2: sequences("<D-2>"),
-        .tabSelect3: sequences("<D-3>"),
-        .tabSelect4: sequences("<D-4>"),
-        .tabSelect5: sequences("<D-5>"),
-        .tabSelect6: sequences("<D-6>"),
-        .tabSelect7: sequences("<D-7>"),
-        .tabSelect8: sequences("<D-8>"),
-        .tabSelect9: sequences("<D-9>"),
-
-        .scrollLeft: sequences("h"),
-        .scrollDown: sequences("j"),
-        .scrollUp: sequences("k"),
-        .scrollRight: sequences("l"),
-        .scrollLargeDown: sequences("d"),
-        .scrollLargeUp: sequences("u"),
-
-        .pageNext: sequences("n"),
-        .pagePrevious: sequences("p"),
-        .pageFirst: sequences("gg"),
-        .pageLast: sequences("G"),
-        .pagePrompt: sequences("g"),
-
-        .promptCommit: sequences("<CR>"),
-        .promptCancel: sequences("<Esc>"),
-
-        .searchPrompt: sequences("/"),
-        .searchNext: sequences("<CR>"),
-        .searchPrevious: sequences("<S-CR>"),
-        .searchCancel: sequences("<Esc>"),
-
-        .viewZoomIn: sequences("="),
-        .viewZoomOut: sequences("-"),
-        .viewZoomReset: [],
-        .viewFitWidth: sequences("w"),
-        .viewFitPage: sequences("f"),
-
-        .themePicker: sequences("T"),
-
-        // Pane prefix: Ctrl+b (the tmux default), with tmux-style split
-        // mnemonics (| splits side-by-side, - splits stacked). Unlike
-        // Ctrl+Space it never collides with the macOS input-source switcher.
-        // The prefix is user-configurable by rebinding these sequences in
-        // config.toml.
-        .paneSplitRight: sequences("<C-b>|"),
-        .paneSplitDown: sequences("<C-b>-"),
-        .paneFocusLeft: sequences("<C-h>"),
-        .paneFocusDown: sequences("<C-j>"),
-        .paneFocusUp: sequences("<C-k>"),
-        .paneFocusRight: sequences("<C-l>"),
-        .paneUnsplit: sequences("<C-b>o"),
+    public static let templatedKeymap: [ActionID: [String]] = [
+        .documentOpen: ["<D-o>"], .documentClose: ["<D-w>"], .appQuit: ["<D-q>"], .appNew: ["<D-n>"], .paletteOpen: [":", "<D-S-p>"], .helpShow: ["?"],
+        .tabNext: ["N"], .tabPrevious: ["P"],
+        .tabSelect1: ["<D-1>"], .tabSelect2: ["<D-2>"], .tabSelect3: ["<D-3>"],
+        .tabSelect4: ["<D-4>"], .tabSelect5: ["<D-5>"], .tabSelect6: ["<D-6>"],
+        .tabSelect7: ["<D-7>"], .tabSelect8: ["<D-8>"], .tabSelect9: ["<D-9>"],
+        .scrollLeft: ["h"], .scrollDown: ["j"], .scrollUp: ["k"], .scrollRight: ["l"],
+        .scrollLargeDown: ["d"], .scrollLargeUp: ["u"],
+        .pageNext: ["n"], .pagePrevious: ["p"], .pageFirst: ["gg"], .pageLast: ["G"], .pagePrompt: ["g"],
+        .promptCommit: ["<CR>"], .promptCancel: ["<Esc>"],
+        .searchPrompt: ["/"], .searchNext: ["<CR>"], .searchPrevious: ["<S-CR>"], .searchCancel: ["<Esc>"],
+        .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [], .viewFitWidth: ["w"], .viewFitPage: ["f"],
+        .themePicker: ["T"],
+        .paneSplitRight: ["<prefix>|"], .paneSplitDown: ["<prefix>-"], .paneUnsplit: ["<prefix>o"],
+        .paneFocusLeft: ["<C-h>"], .paneFocusDown: ["<C-j>"], .paneFocusUp: ["<C-k>"], .paneFocusRight: ["<C-l>"],
     ]
 
+    public static let keymap = resolvedKeymap(templatedKeymap, prefix: defaultPrefix)
     public static var defaultConfigTOML: String {
         var lines = [
             "# Modeleaf configuration \u{2014} generated from PDFReaderCore.BuiltInDefaults.",
@@ -110,8 +67,9 @@ public enum BuiltInDefaults {
                 previousCategory = category
             }
             let sequences = keymap[descriptor.id, default: []]
-            let rendered = sequences
-                .map { "\"\(escapeTOML(templated($0.description)))\"" }
+            let templateSources = templatedKeymap[descriptor.id, default: []]
+            let rendered = templateSources
+                .map { "\"\(escapeTOML($0))\"" }
                 .joined(separator: ", ")
             let key = "\"\(descriptor.id.rawValue)\""
             let padded = key.padding(toLength: max(key.count, 18), withPad: " ", startingAt: 0)
@@ -137,12 +95,17 @@ public enum BuiltInDefaults {
         return lines.joined(separator: "\n")
     }
 
-    private static func sequences(_ sources: String...) -> [KeySequence] {
-        sources.map { source in
-            do {
-                return try KeySequenceParser.parse(source)
-            } catch {
-                preconditionFailure("invalid built-in binding \(source): \(error)")
+    private static func resolvedKeymap(
+        _ templates: [ActionID: [String]],
+        prefix: String
+    ) -> [ActionID: [KeySequence]] {
+        templates.mapValues { sources in
+            sources.map { source in
+                do {
+                    return try KeySequenceParser.parse(source.replacingOccurrences(of: "<prefix>", with: prefix))
+                } catch {
+                    preconditionFailure("invalid built-in binding \(source): \(error)")
+                }
             }
         }
     }
@@ -167,9 +130,6 @@ public enum BuiltInDefaults {
         }
     }
 
-    private static func templated(_ rendered: String) -> String {
-        rendered.replacingOccurrences(of: config.input.prefix, with: "<prefix>")
-    }
 
     private static func keyHint(_ sequences: [KeySequence]) -> String? {
         sequences.first.flatMap(KeyBindingHint.text(for:))

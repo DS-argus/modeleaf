@@ -220,6 +220,50 @@ struct ConfigValidatorTests {
         #expect(invalid.validatedConfig?.config.input.prefix == "<C-b>")
     }
 
+    @Test("Built-in templated bindings track the effective prefix")
+    func builtInTemplatedBindingsTrackPrefix() throws {
+        let report = ConfigValidator.validate(
+            SparseAppConfig(input: SparseInputConfiguration(prefix: "<C-a>"))
+        )
+        let active = try #require(report.validatedConfig)
+
+        #expect(active.keymap.bindings(for: .paneSplitRight) == [try sequence("<C-a>|")])
+        #expect(active.keymap.bindings(for: .paneSplitDown) == [try sequence("<C-a>-")])
+        #expect(active.keymap.bindings(for: .paneUnsplit) == [try sequence("<C-a>o")])
+    }
+
+    @Test("Concrete seeds preserve their bindings when the input prefix changes")
+    func concreteSeedsAreVerbatim() throws {
+        let defaults = EffectiveAppConfig(
+            keymap: BuiltInDefaults.keymap,
+            navigation: BuiltInDefaults.config.navigation,
+            input: BuiltInDefaults.config.input
+        )
+        let report = ConfigValidator.validate(
+            SparseAppConfig(input: SparseInputConfiguration(prefix: "<C-a>")),
+            defaults: defaults
+        )
+        let active = try #require(report.validatedConfig)
+
+        #expect(active.config.input.prefix == "<C-a>")
+        #expect(active.keymap.bindings(for: .paneSplitRight) == [try sequence("<C-b>|")])
+        #expect(active.keymap.bindings(for: .paneSplitDown) == [try sequence("<C-b>-")])
+        #expect(active.keymap.bindings(for: .paneUnsplit) == [try sequence("<C-b>o")])
+    }
+
+    @Test("User literal prefix-looking bindings are not reinterpreted")
+    func userLiteralBindingsRemainUnchangedAcrossPrefixChanges() throws {
+        let report = ConfigValidator.validate(
+            SparseAppConfig(
+                keymap: [ActionID.paneSplitRight.rawValue: ["<C-b>|"]],
+                input: SparseInputConfiguration(prefix: "<C-a>")
+            )
+        )
+        let active = try #require(report.validatedConfig)
+
+        #expect(active.keymap.bindings(for: .paneSplitRight) == [try sequence("<C-b>|")])
+    }
+
     private func validateBinding(_ sources: [String], for actionID: ActionID) -> ConfigValidationReport {
         ConfigValidator.validate(
             SparseAppConfig(keymap: [actionID.rawValue: sources])
