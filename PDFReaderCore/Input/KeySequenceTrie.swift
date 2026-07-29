@@ -186,7 +186,7 @@ private enum ExactPrefixSafetyPolicy {
         switch descriptor.id {
         case .documentOpen, .documentClose, .appQuit, .appNew,
              .promptCommit, .promptCancel,
-             .searchCancel:
+             .searchCancel, .configReload:
             true
         case .tabNext, .tabPrevious,
              .tabSelect1, .tabSelect2, .tabSelect3,

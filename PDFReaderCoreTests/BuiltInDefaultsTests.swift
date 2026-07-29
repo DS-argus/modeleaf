@@ -33,6 +33,7 @@ struct BuiltInDefaultsTests {
             .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [],
             .viewFitWidth: ["w"], .viewFitPage: ["f"],
             .themePicker: ["T"],
+            .configReload: ["<C-b>r"],
             .paneSplitRight: ["<C-b>|"], .paneSplitDown: ["<C-b>-"], .paneUnsplit: ["<C-b>o"],
             .paneFocusLeft: ["<C-h>"], .paneFocusDown: ["<C-j>"], .paneFocusUp: ["<C-k>"], .paneFocusRight: ["<C-l>"],
         ]

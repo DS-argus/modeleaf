@@ -50,6 +50,11 @@ final class ReaderInputRouter {
         _ = engine.changeContext(to: context)
     }
 
+    func reconfigure(config: ValidatedAppConfig) {
+        let context = engine.context
+        cancelTimeoutAndClearPrefix()
+        engine = config.makeKeyEngine(context: context)
+    }
     func invalidate(_ reason: KeyInputInvalidationReason) {
         cancelTimeoutAndClearPrefix()
         _ = engine.invalidate(reason)

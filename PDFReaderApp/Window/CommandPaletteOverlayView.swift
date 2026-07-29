@@ -126,6 +126,8 @@ final class CommandPaletteOverlayView: NSView {
     var selectedCommandID: ActionID? { filtered.indices.contains(selectedIndex) ? filtered[selectedIndex].id : nil }
     /// Test seam: the complete filtered result ids, in order.
     var visibleCommandIDs: [ActionID] { filtered.map(\.id) }
+    /// Test seam: complete filtered rows, including their displayed shortcut text.
+    var visibleCommandsForTesting: [PaletteCommand] { filtered }
     var selectedRowIsVisibleForTesting: Bool {
         guard filtered.indices.contains(selectedIndex), rows.indices.contains(selectedIndex) else { return false }
         layoutSubtreeIfNeeded()

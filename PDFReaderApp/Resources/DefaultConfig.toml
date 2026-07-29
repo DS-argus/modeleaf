@@ -64,6 +64,9 @@
 "view.fitWidth"    = ["w"]  # w
 "view.fitPage"     = ["f"]  # f
 
+# --- Config ---
+"config.reload"    = ["<prefix>r"]  # Ctrl+B r
+
 # --- Theme ---
 "theme.picker"     = ["T"]  # T
 
