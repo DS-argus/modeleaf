@@ -214,6 +214,8 @@ struct PaneRedTeamTests {
                 let controller = ApplicationController(
                     configService: ConfigService(source: ConfigFileSource(url: fixtures.appendingPathComponent("missing-config.toml"))),
                     sessionStore: ReaderSessionStore(),
+                    themeStore: ThemeSelectionStore(fileURL: fixtures.appendingPathComponent("theme-state.json")),
+                    recentFilesStore: RecentFilesStore(fileURL: fixtures.appendingPathComponent("recent-state.json")),
                     terminationHandler: {}
                 )
                 _ = controller.mainWindowController
@@ -317,6 +319,8 @@ struct PaneRedTeamTests {
                 let controller = ApplicationController(
                     configService: ConfigService(source: ConfigFileSource(url: fixtures.appendingPathComponent("missing-config.toml"))),
                     sessionStore: ReaderSessionStore(),
+                    themeStore: ThemeSelectionStore(fileURL: fixtures.appendingPathComponent("theme-state.json")),
+                    recentFilesStore: RecentFilesStore(fileURL: fixtures.appendingPathComponent("recent-state.json")),
                     terminationHandler: {}
                 )
                 defer {

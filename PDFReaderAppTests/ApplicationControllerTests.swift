@@ -60,6 +60,8 @@ struct ApplicationControllerTests {
             configService: ConfigService(source: ConfigFileSource(url: tempConfig)),
             sessionStore: sessionStore,
             openPanelPresenter: openPanel,
+            themeStore: ThemeSelectionStore(fileURL: tempConfig.appendingPathExtension("theme-state")),
+            recentFilesStore: RecentFilesStore(fileURL: tempConfig.appendingPathExtension("recent-state")),
             terminationHandler: { quit = true }
         )
 
@@ -85,6 +87,7 @@ struct ApplicationControllerTests {
             let recentStore = RecentFilesStore(fileURL: directory.appendingPathComponent("state.json"))
             let controller = ApplicationController(
                 configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
                 recentFilesStore: recentStore,
                 terminationHandler: {}
             )
@@ -92,6 +95,32 @@ struct ApplicationControllerTests {
 
             #expect(controller.openDocument(at: document))
             #expect(recentStore.load().map(\.absolutePath) == [document.path])
+        }
+    }
+    @Test("injected recent-files storage records opens without modifying the default state file")
+    func injectedRecentFilesStoreIsolatedFromDefaultState() throws {
+        try withTemporaryDirectory { directory in
+            let document = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1)
+            let recentURL = directory.appendingPathComponent("recent-state.json")
+            let defaultURL = ThemeSelectionStore.defaultFileURL
+            let defaultData = try? Data(contentsOf: defaultURL)
+            let defaultModificationDate = try? FileManager.default.attributesOfItem(atPath: defaultURL.path)[.modificationDate] as? Date
+
+            let controller = ApplicationController(
+                configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
+                recentFilesStore: RecentFilesStore(fileURL: recentURL),
+                terminationHandler: {}
+            )
+            defer {
+                while controller.coordinator.closeActiveTab() {}
+                controller.mainWindowController.close()
+            }
+
+            #expect(controller.openDocument(at: document))
+            #expect(RecentFilesStore(fileURL: recentURL).load().map(\.absolutePath) == [document.path])
+            #expect((try? Data(contentsOf: defaultURL)) == defaultData)
+            #expect((try? FileManager.default.attributesOfItem(atPath: defaultURL.path)[.modificationDate] as? Date) == defaultModificationDate)
         }
     }
     @Test("successful opens surface recent-files persistence failures without rejecting the PDF")
@@ -102,6 +131,7 @@ struct ApplicationControllerTests {
             try FileManager.default.createDirectory(at: stateURL, withIntermediateDirectories: true)
             let controller = ApplicationController(
                 configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
                 recentFilesStore: RecentFilesStore(fileURL: stateURL),
                 terminationHandler: {}
             )
@@ -125,6 +155,8 @@ struct ApplicationControllerTests {
                 sessionStore: store,
                 openMetrics: metrics,
                 openPanelPresenter: openPanel,
+                themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
+                recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")),
                 terminationHandler: {}
             )
             defer {
@@ -170,6 +202,8 @@ struct ApplicationControllerTests {
                     sessionStore: store,
                     openMetrics: metrics,
                     openPanelPresenter: openPanel,
+                    themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
+                    recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")),
                     terminationHandler: {}
                 )
                 defer {
@@ -254,7 +288,9 @@ struct ApplicationControllerTests {
         ).write(to: configURL)
 
         let controller = ApplicationController(
-            configService: ConfigService(source: ConfigFileSource(url: configURL))
+            configService: ConfigService(source: ConfigFileSource(url: configURL)),
+            themeStore: ThemeSelectionStore(fileURL: temporary.appendingPathComponent("theme-state.json")),
+            recentFilesStore: RecentFilesStore(fileURL: temporary.appendingPathComponent("recent-state.json"))
         )
         controller.start()
         defer { controller.mainWindowController.close() }
@@ -295,7 +331,9 @@ struct ApplicationControllerTests {
         ).write(to: configURL)
 
         let controller = ApplicationController(
-            configService: ConfigService(source: ConfigFileSource(url: configURL))
+            configService: ConfigService(source: ConfigFileSource(url: configURL)),
+            themeStore: ThemeSelectionStore(fileURL: temporary.appendingPathComponent("theme-state.json")),
+            recentFilesStore: RecentFilesStore(fileURL: temporary.appendingPathComponent("recent-state.json"))
         )
         controller.start()
         defer { controller.mainWindowController.close() }
@@ -318,6 +356,8 @@ struct ApplicationControllerTests {
                 configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
                 sessionStore: store,
                 openMetrics: metrics,
+                themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
+                recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")),
                 terminationHandler: {}
             )
             defer {
@@ -361,6 +401,8 @@ struct ApplicationControllerTests {
                 configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
                 sessionStore: store,
                 openMetrics: metrics,
+                themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
+                recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")),
                 terminationHandler: {}
             )
             defer {

@@ -55,6 +55,8 @@ struct FourPaneLiveDisplayTests {
         let controller = ApplicationController(
             configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing.toml"))),
             sessionStore: ReaderSessionStore(),
+            themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
+            recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")),
             terminationHandler: {}
         )
         defer {

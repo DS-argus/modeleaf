@@ -17,7 +17,7 @@ import Testing
         let store = ThemeSelectionStore(fileURL: dir.appendingPathComponent("state.json"))
         let controller = ApplicationController(
             configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
-            sessionStore: ReaderSessionStore(), themeStore: store, terminationHandler: {})
+            sessionStore: ReaderSessionStore(), themeStore: store, recentFilesStore: RecentFilesStore(fileURL: dir.appendingPathComponent("recent-state.json")), terminationHandler: {})
         defer { controller.mainWindowController.close() }
         _ = controller.mainWindowController
         let w = controller.mainWindowController.window!

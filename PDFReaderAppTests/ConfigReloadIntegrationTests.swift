@@ -226,6 +226,8 @@ struct ConfigReloadIntegrationTests {
         ApplicationController(
             configService: ConfigService(source: ConfigFileSource(url: configURL)),
             sessionStore: store,
+            themeStore: ThemeSelectionStore(fileURL: configURL.deletingLastPathComponent().appendingPathComponent("theme-state.json")),
+            recentFilesStore: RecentFilesStore(fileURL: configURL.deletingLastPathComponent().appendingPathComponent("recent-state.json")),
             terminationHandler: {}
         )
     }
