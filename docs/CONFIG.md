@@ -240,11 +240,11 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 - `<D-S-4>`
 - `<D-S-5>`
 - `<D-S-Tab>`
-- `<D-S-`>`
+- ``<D-S-`>``
 - `<D-S-q>`
 - `<D-Space>`
 - `<D-Tab>`
-- `<D-`>`
+- ``<D-`>``
 - `<D-h>`
 - `<D-m>`
 <!-- END GENERATED: SYSTEM_KEY_RESERVATION_V1 -->

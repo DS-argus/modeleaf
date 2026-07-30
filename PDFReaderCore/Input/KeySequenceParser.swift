@@ -10,7 +10,7 @@ public struct KeySequenceParseError: Error, Equatable, Sendable, CustomStringCon
         case duplicateModifier(String)
         case unknownModifier(String)
         case unknownKey(String)
-        case uppercaseLatinBase(String)
+        case uppercaseLatinBase(String, KeyModifiers)
         case removedNamedKey(String)
         case unsupportedLiteral(String)
     }
@@ -39,7 +39,7 @@ public struct KeySequenceParseError: Error, Equatable, Sendable, CustomStringCon
         case let .duplicateModifier(modifier): "duplicate modifier \(modifier)"
         case let .unknownModifier(modifier): "unknown modifier \(modifier)"
         case let .unknownKey(key): "unknown or unsupported key \(key)"
-        case let .uppercaseLatinBase(key): "uppercase Latin chord base \(key); use <D-S-\(key.lowercased())> or <D-\(key.lowercased())>"
+        case let .uppercaseLatinBase(key, modifiers): "uppercase Latin chord base \(key); use \(KeySequenceParser.uppercaseLatinBaseGuidance(key, modifiers: modifiers))"
         case let .removedNamedKey(key): "unsupported named key \(key)"
         case let .unsupportedLiteral(literal): "unsupported literal \(literal.debugDescription)"
         }
@@ -137,7 +137,14 @@ public enum KeySequenceParser {
             modifiers.insert(modifier)
         }
 
-        let parsed = try parseBase(rawBase, source: source, offset: offset)
+        if isUppercaseLatinLetter(rawBase) {
+            throw KeySequenceParseError(
+                source: source,
+                characterOffset: offset,
+                reason: .uppercaseLatinBase(rawBase, modifiers)
+            )
+        }
+        let parsed = try parseBase(rawBase, modifiers: modifiers, source: source, offset: offset)
         if parsed.backtabAlias {
             guard !modifiers.contains(.shift) else {
                 throw KeySequenceParseError(
@@ -148,26 +155,15 @@ public enum KeySequenceParser {
             }
             modifiers.insert(.shift)
         }
-        if modifiers == [.shift], case let .character(character) = parsed.symbol,
-           isLowercaseLatinLetter(character)
-        {
-            return KeyToken(symbol: .character(character.uppercased()))
-        }
         return KeyToken(symbol: parsed.symbol, modifiers: modifiers)
     }
 
     private static func parseBase(
         _ rawBase: String,
+        modifiers: KeyModifiers,
         source: String,
         offset: Int
     ) throws -> (symbol: KeySymbol, backtabAlias: Bool) {
-        if isUppercaseLatinLetter(rawBase) {
-            throw KeySequenceParseError(
-                source: source,
-                characterOffset: offset,
-                reason: .uppercaseLatinBase(rawBase)
-            )
-        }
 
         let lower = rawBase.lowercased()
         let named: NamedKey?
@@ -190,14 +186,14 @@ public enum KeySequenceParser {
         case "lt": named = .lessThan
         case "gt": named = .greaterThan
         case "minus": named = .minus
-        case "escape": throw removedNamedKeyError(rawBase, replacement: "Esc", source: source, offset: offset)
-        case "cr", "return": throw removedNamedKeyError(rawBase, replacement: "Enter", source: source, offset: offset)
-        case "backspace": throw removedNamedKeyError(rawBase, replacement: "BS", source: source, offset: offset)
-        case "delete": throw removedNamedKeyError(rawBase, replacement: "Del", source: source, offset: offset)
-        case "backtick": throw removedNamedKeyError(rawBase, replacement: "literal `", source: source, offset: offset)
-        case "plus": throw removedNamedKeyError(rawBase, replacement: "literal +", source: source, offset: offset)
-        case "equal": throw removedNamedKeyError(rawBase, replacement: "literal =", source: source, offset: offset)
-        case "slash": throw removedNamedKeyError(rawBase, replacement: "literal /", source: source, offset: offset)
+        case "escape": throw removedNamedKeyError(rawBase, replacement: canonicalReplacement(.named(.escape), modifiers: modifiers), source: source, offset: offset)
+        case "cr", "return": throw removedNamedKeyError(rawBase, replacement: canonicalReplacement(.named(.carriageReturn), modifiers: modifiers), source: source, offset: offset)
+        case "backspace": throw removedNamedKeyError(rawBase, replacement: canonicalReplacement(.named(.backspace), modifiers: modifiers), source: source, offset: offset)
+        case "delete": throw removedNamedKeyError(rawBase, replacement: canonicalReplacement(.named(.deleteForward), modifiers: modifiers), source: source, offset: offset)
+        case "backtick": throw removedNamedKeyError(rawBase, replacement: canonicalReplacement(.character("`"), modifiers: modifiers), source: source, offset: offset)
+        case "plus": throw removedNamedKeyError(rawBase, replacement: canonicalReplacement(.character("+"), modifiers: modifiers), source: source, offset: offset)
+        case "equal": throw removedNamedKeyError(rawBase, replacement: canonicalReplacement(.character("="), modifiers: modifiers), source: source, offset: offset)
+        case "slash": throw removedNamedKeyError(rawBase, replacement: canonicalReplacement(.character("/"), modifiers: modifiers), source: source, offset: offset)
         default:
             if lower.first == "f", let number = Int(lower.dropFirst()), (1...12).contains(number) {
                 named = .function(number)
@@ -228,12 +224,27 @@ public enum KeySequenceParser {
         )
     }
 
-    private static func isLowercaseLatinLetter(_ value: String) -> Bool {
-        value.count == 1 && value.unicodeScalars.allSatisfy { (0x61...0x7A).contains($0.value) }
-    }
 
     private static func isUppercaseLatinLetter(_ value: String) -> Bool {
         value.count == 1 && value.unicodeScalars.allSatisfy { (0x41...0x5A).contains($0.value) }
+    }
+
+    static func uppercaseLatinBaseGuidance(
+        _ key: String,
+        modifiers: KeyModifiers
+    ) -> String {
+        let base = key.lowercased()
+        let shifted = KeyToken(symbol: .character(base), modifiers: modifiers.union(.shift)).description
+        let unshifted = KeyToken(symbol: .character(base), modifiers: modifiers.subtracting(.shift)).description
+        if modifiers == [.shift] { return shifted }
+        return "\(shifted) or \(unshifted)"
+    }
+
+    private static func canonicalReplacement(
+        _ symbol: KeySymbol,
+        modifiers: KeyModifiers
+    ) -> String {
+        KeyToken(symbol: symbol, modifiers: modifiers).description
     }
 
     private static func isSupportedLiteral(_ character: Character) -> Bool {

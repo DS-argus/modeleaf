@@ -12,18 +12,24 @@ struct KeyGrammarAndPromptSafetyTests {
         #expect(bare.tokens == shifted.tokens)
         #expect(shifted.description == "O")
         #expect(try KeySequenceParser.parse("<D-S-o>").description == "<D-S-o>")
+        #expect(KeyToken(symbol: .character("o"), modifiers: [.shift]) == KeyToken(symbol: .character("O")))
     }
 
-    @Test("U-KEY-02 uppercase Latin chord bases give corrective guidance")
+    @Test("U-KEY-02 uppercase Latin chord bases give modifier-preserving corrective guidance")
     func uppercaseLatinChordBasesAreRejected() {
-        for source in ["<D-P>", "<S-P>"] {
+        let expected = [
+            ("<S-P>", "use P"),
+            ("<C-P>", "use <C-S-p> or <C-p>"),
+            ("<A-C-P>", "use <C-A-S-p> or <C-A-p>"),
+        ]
+        for (source, guidance) in expected {
             #expect(throws: KeySequenceParseError.self) {
                 try KeySequenceParser.parse(source)
             }
             do {
                 _ = try KeySequenceParser.parse(source)
             } catch {
-                #expect(String(describing: error).contains("use <D-S-p> or <D-p>"))
+                #expect(String(describing: error).contains(guidance))
             }
         }
     }
@@ -40,12 +46,13 @@ struct KeyGrammarAndPromptSafetyTests {
         }
     }
 
-    @Test("U-KEY-04 removed named spellings give replacement guidance")
+    @Test("U-KEY-04 removed named spellings preserve modifiers in replacement guidance")
     func removedNamedSpellingsAreRejected() {
         let expected = [
-            ("<Escape>", "Esc"), ("<CR>", "Enter"), ("<Return>", "Enter"),
-            ("<Backspace>", "BS"), ("<Delete>", "Del"), ("<Backtick>", "literal `"),
-            ("<Plus>", "literal +"), ("<Equal>", "literal ="), ("<Slash>", "literal /"),
+            ("<Escape>", "<Esc>"), ("<CR>", "<Enter>"), ("<Return>", "<Enter>"),
+            ("<Backspace>", "<BS>"), ("<Delete>", "<Del>"), ("<Backtick>", "`"),
+            ("<Plus>", "+"), ("<Equal>", "="), ("<Slash>", "/"),
+            ("<D-Backtick>", "<D-`>"), ("<C-CR>", "<C-Enter>"), ("<D-plus>", "<D-+>"),
             ("<F13>", "F1~F12 only"), ("<F24>", "F1~F12 only"),
         ]
         for (source, guidance) in expected {

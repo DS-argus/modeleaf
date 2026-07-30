@@ -28,7 +28,7 @@ struct AppKitKeyEventAdapterTests {
         ))
 
         try withPinnedUnmodifiedCharacters("g") {
-            #expect(AppKitKeyEventAdapter.tokens(for: event).map(\.description) == ["G", "<S-g>"])
+            #expect(AppKitKeyEventAdapter.tokens(for: event).map(\.description) == ["G"])
         }
     }
 
@@ -44,7 +44,7 @@ struct AppKitKeyEventAdapterTests {
         try withPinnedUnmodifiedCharacters("n") {
             let candidates = AppKitKeyEventAdapter.tokens(for: event).map(\.description)
             #expect(candidates.first == "N")
-            #expect(candidates.contains("<S-n>"))
+            #expect(candidates == ["N"])
         }
     }
 

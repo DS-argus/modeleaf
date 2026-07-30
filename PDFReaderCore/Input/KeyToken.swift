@@ -97,8 +97,9 @@ public struct KeyToken: Hashable, Sendable, CustomStringConvertible {
     public let modifiers: KeyModifiers
 
     public init(symbol: KeySymbol, modifiers: KeyModifiers = []) {
-        self.symbol = Self.normalized(symbol, modifiers: modifiers)
-        self.modifiers = modifiers
+        let normalized = Self.normalized(symbol, modifiers: modifiers)
+        self.symbol = normalized.symbol
+        self.modifiers = normalized.modifiers
     }
 
     public static let deadKey = KeyToken(symbol: .deadKey)
@@ -155,8 +156,19 @@ public struct KeyToken: Hashable, Sendable, CustomStringConvertible {
         return "<\(components.joined(separator: "-"))>"
     }
 
-    private static func normalized(_ symbol: KeySymbol, modifiers: KeyModifiers) -> KeySymbol {
-        guard !modifiers.isEmpty, case let .character(character) = symbol else { return symbol }
-        return .character(character.lowercased())
+    private static func normalized(
+        _ symbol: KeySymbol,
+        modifiers: KeyModifiers
+    ) -> (symbol: KeySymbol, modifiers: KeyModifiers) {
+        guard case let .character(character) = symbol else { return (symbol, modifiers) }
+        if modifiers == [.shift], isLowercaseASCIILatinLetter(character) {
+            return (.character(character.uppercased()), [])
+        }
+        guard !modifiers.isEmpty else { return (symbol, modifiers) }
+        return (.character(character.lowercased()), modifiers)
+    }
+
+    private static func isLowercaseASCIILatinLetter(_ value: String) -> Bool {
+        value.count == 1 && value.unicodeScalars.allSatisfy { (0x61...0x7A).contains($0.value) }
     }
 }
