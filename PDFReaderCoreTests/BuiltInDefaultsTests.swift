@@ -108,8 +108,6 @@ struct BuiltInDefaultsTests {
         let checkedIn = try String(contentsOf: root.appendingPathComponent("CONFIG.md"), encoding: .utf8)
         #expect(checkedIn == ConfigDocumentation.markdown)
         #expect(checkedIn.contains("<!-- BEGIN GENERATED: PROMPT_NATIVE_RESERVATION_V1 -->"))
-        let localized = try String(contentsOf: root.appendingPathComponent("docs/CONFIG.md"), encoding: .utf8)
-        #expect(localized == ConfigDocumentation.markdown)
         #expect(checkedIn.contains("<!-- BEGIN GENERATED: SYSTEM_KEY_RESERVATION_V1 -->"))
         #expect(checkedIn.contains("Configuration is declarative data only"))
     }

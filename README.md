@@ -2,7 +2,7 @@
 
 A native, read-only macOS PDF **viewer** — keyboard-first, Vim-flavored, with real tabs and tmux-style panes. The page stays visually dominant, and the app never touches your file.
 
-[한국어 README](docs/README.md) · [Configuration reference](CONFIG.md) · [설정 가이드](docs/CONFIG.md)
+[Korean](docs/README.md)
 
 ## Philosophy
 
@@ -19,9 +19,7 @@ brew trust DS-argus/tap        # Homebrew 6+ asks you to trust a third-party tap
 brew install --cask modeleaf
 ```
 
-Already installed? Update with `brew upgrade --cask modeleaf` (Homebrew refreshes the tap on its own; run `brew update` first to force it).
-
-Requires macOS 14 (Sonoma) or newer. `⌘o` opens a unified picker — your recent PDFs, filtered by fuzzy filename search, plus a Browse… row for the native file dialog. You can also open via Finder → *Open With* or by dropping a file on the app; `⌘n` opens a new window and `⌘q` quits.
+Requires macOS 14 (Sonoma) or newer.
 
 > This build is ad-hoc signed and not yet Apple-notarized, so macOS Gatekeeper blocks it on first launch — allow it once in **System Settings → Privacy & Security → Open Anyway**.
 
@@ -34,9 +32,19 @@ open "$APP"
 
 For development, `swift run Modeleaf` also works but is an unoptimized build and slower to start.
 
+## Update
+
+```sh
+brew upgrade --cask modeleaf
+```
+
+Homebrew refreshes the tap on its own; run `brew update` first to force it. Modeleaf also checks GitHub Releases at launch: when a newer version exists, the status bar shows an update notice — for a Homebrew install it names the upgrade command, otherwise clicking it opens the Releases page. The check is silent when offline, and the app never updates itself.
+
 ## Using it
 
 Documents live in tabs, the view can be split into panes, and everything is driven from the keyboard. A document opens on page 1, fit inside the visible area.
+
+`⌘o` opens a unified picker — your recent PDFs, filtered by fuzzy filename search, plus a Browse… row for the native file dialog. You can also open via Finder → *Open With* or by dropping a file on the app; `⌘n` opens a new window and `⌘q` quits.
 
 ### Keys (defaults)
 
@@ -64,9 +72,9 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 | reload config | `Ctrl-b r` |
 | keyboard help | `?` |
 
-`Enter` / `Esc` (commit / cancel a prompt) and `Enter` / `Shift-Enter` (next / previous search match) are fixed keys and always work.
+`Enter` / `Esc` (commit / cancel a prompt) and `Enter` / `Shift-Enter` (next / previous search match) are fixed keys and always work. Press `?` any time you're just reading for a keyboard-help overlay with every shortcut, grouped by section — the status bar's `? help` hint opens it too.
 
-In fit-page mode, `j`/`d` move to the next page and `k`/`u` to the previous one. After you zoom, scroll keys move only along an axis where the page overflows the viewport — Modeleaf never pans into blank space.
+In fit-page mode, `j`/`d` move to the next page and `k`/`u` to the previous one. After you zoom, scroll keys move only along an axis where the page overflows the viewport — Modeleaf never pans into blank space. `[` and `]` rotate the view in 90° steps; rotation is view-only, per pane, and never written to the file.
 
 ### Tabs & panes
 
@@ -74,18 +82,18 @@ Each tab holds one document; the `+` button or `⌘o` opens another. `Ctrl-b |` 
 
 ### Links
 
-Links are clickable: an in-document link jumps inside the viewer, and an external URL opens in your browser. The source PDF is never modified.
-Press `f` to show labels for annotation links, then type a label to follow it: in-document links jump in the viewer and URL links open in your browser. `Esc` cancels. A link that wraps onto another line has one hint; only annotated links are eligible, so URLs printed as text cannot be clicked or hinted—select and copy them instead. Scrolling or resizing dismisses hints.
+Links are clickable: an in-document link jumps inside the viewer, and an external URL opens in your browser. Press `f` to show labels for annotation links, then type a label to follow it; `Esc` cancels. A link that wraps onto another line has one hint; only annotated links are eligible, so URLs printed as text cannot be clicked or hinted — select and copy them instead. Scrolling or resizing dismisses hints.
 
 ### Command palette
 
-Press `:` or `⌘⇧P` to open a fuzzy command search. Type to filter every reader command by name, `↑`/`↓` (or `Ctrl-j`/`Ctrl-k`) to move, `Enter` to run, `Esc` to dismiss. Each row shows the command's current shortcut; commands that can't run in the current context (no document, single pane, etc.) are listed but greyed out. Press `?` any time you're just reading to open a keyboard-help overlay with every shortcut, grouped by section.
+Press `:` or `⌘⇧P` to open a fuzzy command search. Type to filter every reader command by name, `↑`/`↓` (or `Ctrl-j`/`Ctrl-k`) to move, `Enter` to run, `Esc` to dismiss. Each row shows the command's current shortcut; commands that can't run in the current context (no document, single pane, etc.) are listed but greyed out.
 
 ### Themes
 
 Six built-in themes: dark **Tokyo Night**, **Gruvbox Dark**, **Solarized Dark**, **Dracula**, **Everforest**, and light **Catppuccin Latte**. Press `T` for a live-preview picker (`Enter` commits, `Esc` reverts); the choice is saved separately and reapplied on launch. Themes color the app chrome only — never the PDF page.
 
 ## Configuration
+
 Modeleaf reads one optional file at launch and never creates or rewrites it automatically; only the explicit **Write Default Config** and **Reset Config** command-palette commands write it:
 
 ```text
@@ -120,10 +128,6 @@ Configuration is validated as a whole: at launch, any unknown key, invalid bindi
 
 See **[CONFIG.md](CONFIG.md)** for the complete action registry, key-token grammar, validation rules, and every default.
 
-## Not in v1
+---
 
-No bookmarks, annotations, highlights, external commands, scripts, plugins, macros, OCR, print, export, session persistence, or thumbnail sidebar. These are deliberate product constraints, not half-built features — Modeleaf is a focused reader.
-
-## Built with
-
-macOS 14+ · Swift 6 with complete strict concurrency · AppKit + PDFKit · a Foundation-only core (`PDFReaderCore`) for actions, keys, config, tabs, and themes · one pinned dependency, `TOMLDecoder`. Theme palette attributions: [ThemeAttributions.md](PDFReaderApp/Theme/ThemeAttributions.md).
+Theme palette attributions: [ThemeAttributions.md](PDFReaderApp/Theme/ThemeAttributions.md)
