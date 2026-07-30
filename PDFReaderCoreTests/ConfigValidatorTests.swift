@@ -78,8 +78,8 @@ struct ConfigValidatorTests {
         let conflict = ConfigValidator.validate(
             SparseAppConfig(
                 keymap: [
-                    ActionID.scrollDown.rawValue: ["x"],
-                    ActionID.scrollUp.rawValue: ["x"],
+                    ActionID.scrollDown.rawValue: ["O"],
+                    ActionID.scrollUp.rawValue: ["<S-o>"],
                 ]
             )
         )
@@ -90,8 +90,8 @@ struct ConfigValidatorTests {
 
         let disjoint = ConfigValidator.validate(SparseAppConfig())
         #expect(disjoint.isValid)
-        #expect(disjoint.validatedConfig?.keymap.bindings(for: .promptCommit) == [try sequence("<CR>")])
-        #expect(disjoint.validatedConfig?.keymap.bindings(for: .searchNext) == [try sequence("<CR>")])
+        #expect(disjoint.validatedConfig?.keymap.bindings(for: .promptCommit) == [try sequence("<Enter>")])
+        #expect(disjoint.validatedConfig?.keymap.bindings(for: .searchNext) == [try sequence("<Enter>")])
 
         let invalidPrefix = ConfigValidator.validate(
             SparseAppConfig(
@@ -182,12 +182,12 @@ struct ConfigValidatorTests {
                 ActionID.searchNext.rawValue, ActionID.searchPrevious.rawValue,
             ]
         )
-        #expect(active.keymap.bindings(for: .promptCommit) == [try sequence("<CR>")])
+        #expect(active.keymap.bindings(for: .promptCommit) == [try sequence("<Enter>")])
         #expect(active.keymap.bindings(for: .promptCancel) == [try sequence("<Esc>")])
-        #expect(active.keymap.bindings(for: .searchNext) == [try sequence("<CR>")])
-        #expect(active.keymap.bindings(for: .searchPrevious) == [try sequence("<S-CR>")])
+        #expect(active.keymap.bindings(for: .searchNext) == [try sequence("<Enter>")])
+        #expect(active.keymap.bindings(for: .searchPrevious) == [try sequence("<S-Enter>")])
         var engine = active.makeKeyEngine(context: .pagePrompt)
-        #expect(engine.handle(try token("<CR>")) != .ignored(.noBinding))
+        #expect(engine.handle(try token("<Enter>")) != .ignored(.noBinding))
         #expect(engine.handle(try token("<Esc>")) != .ignored(.noBinding))
     }
 

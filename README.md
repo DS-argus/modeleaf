@@ -114,7 +114,7 @@ prefix_timeout_ms = 350
 prefix = "<C-b>"        # pane prefix; <prefix> in any binding expands to it
 ```
 
-Key notation: `D` = Command, `C` = Control, `A` = Option, `S` = Shift (so `<D-o>` = ⌘o, `<C-j>` = Ctrl+j). `<prefix>` expands to the pane prefix, so rebinding `prefix` once moves every pane binding at once. The theme is chosen in the app, not in TOML; a legacy `[theme]` section is ignored with a warning.
+Key notation: `D` = Command, `C` = Control, `A` = Option, `S` = Shift (so `<D-o>` = ⌘o, `<C-j>` = Ctrl+j). Uppercase letters are bare literals (`O`); `<S-o>` is the same token, while modified Shift chords use `<D-S-o>`. `<prefix>` expands to the pane prefix, so rebinding `prefix` once moves every pane binding at once. The theme is chosen in the app, not in TOML; a legacy `[theme]` section is ignored with a warning.
 
 Configuration is validated as a whole: at launch, any unknown key, invalid binding, conflict, or out-of-range value rejects the entire file and activates the built-in defaults, with every error and warning shown in the status line. A missing file is normal. Use **Reload Config** to apply a valid edited file without restarting; its default `Ctrl-b r` binding follows any `prefix` rebinding. A broken runtime reload is not applied: the previous configuration stays active and a pinned error appears in the status line. The command palette also offers **Write Default Config** when no file exists, and **Reset Config**, which saves the existing file as `config.toml.bak` before restoring the defaults.
 

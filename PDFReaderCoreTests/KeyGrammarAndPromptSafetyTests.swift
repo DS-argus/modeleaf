@@ -4,54 +4,63 @@ import Testing
 
 @Suite("Key grammar and prompt safety")
 struct KeyGrammarAndPromptSafetyTests {
-    @Test("U-KEY-01 logical character normalization")
-    func logicalCharacters() throws {
-        let sequence = try KeySequenceParser.parse("jG한é")
-        #expect(sequence.tokens.count == 4)
-        #expect(sequence.description == "jG한é")
-        #expect(sequence.tokens[0] == KeyToken(symbol: .character("j")))
-        #expect(sequence.tokens[1] == KeyToken(symbol: .character("G")))
-        #expect(try KeySequenceParser.parse("<S-D-O>").description == "<D-S-o>")
-        #expect(try KeySequenceParser.parse("<Backtab>").description == "<S-Tab>")
+    @Test("U-KEY-01 shift-only lowercase Latin chords normalize to bare uppercase literals")
+    func shiftOnlyLatinNormalization() throws {
+        let bare = try KeySequenceParser.parse("O")
+        let shifted = try KeySequenceParser.parse("<S-o>")
+        #expect(bare == shifted)
+        #expect(bare.tokens == shifted.tokens)
+        #expect(shifted.description == "O")
+        #expect(try KeySequenceParser.parse("<D-S-o>").description == "<D-S-o>")
     }
 
-    @Test("U-KEY-02 built-in and modifier grammar round-trips")
-    func builtInGrammarRoundTrips() throws {
-        let expected = [
-            "<Esc>", "<CR>", "<S-CR>", "<D-o>", "<D-w>", "<D-q>", "<D-F12>",
-            "<BS>", "<Del>", "<Tab>", "<Left>", "<Right>", "<Up>", "<Down>",
-            "<Home>", "<End>", "<PageUp>", "<PageDown>", "<D-A-S-q>",
-        ]
-        for source in expected {
-            #expect(try KeySequenceParser.parse(source).description == source)
-        }
-        for sequences in BuiltInDefaults.keymap.values {
-            for sequence in sequences {
-                #expect(try KeySequenceParser.parse(sequence.description) == sequence)
+    @Test("U-KEY-02 uppercase Latin chord bases give corrective guidance")
+    func uppercaseLatinChordBasesAreRejected() {
+        for source in ["<D-P>", "<S-P>"] {
+            #expect(throws: KeySequenceParseError.self) {
+                try KeySequenceParser.parse(source)
+            }
+            do {
+                _ = try KeySequenceParser.parse(source)
+            } catch {
+                #expect(String(describing: error).contains("use <D-S-p> or <D-p>"))
             }
         }
-        for source in PromptNativeReservationV1.shared.normalizedEntries
-            + SystemKeyReservationV1.shared.normalizedEntries
-        {
-            #expect(try KeySequenceParser.parseSingleToken(source).description == source)
+    }
+
+    @Test("U-KEY-03 named vocabulary round-trips canonically")
+    func namedVocabularyRoundTrips() throws {
+        let expected = [
+            "<Esc>", "<Enter>", "<BS>", "<Del>", "<Tab>", "<S-Tab>",
+            "<Left>", "<Right>", "<Up>", "<Down>", "<Home>", "<End>",
+            "<PageUp>", "<PageDown>", "<Space>", "<LT>", "<GT>", "<Minus>",
+        ] + (1...12).map { "<F\($0)>" }
+        for source in expected {
+            #expect(try KeySequenceParser.parse(source.lowercased()).description == source)
         }
     }
 
-    @Test("U-KEY-03 multi-key sequences preserve order")
-    func multiKeySequences() throws {
-        #expect(try KeySequenceParser.parse("gt").tokens.map(\.description) == ["g", "t"])
-        #expect(try KeySequenceParser.parse("gT").tokens.map(\.description) == ["g", "T"])
-        #expect(try KeySequenceParser.parse("gg").tokens.map(\.description) == ["g", "g"])
+    @Test("U-KEY-04 removed named spellings give replacement guidance")
+    func removedNamedSpellingsAreRejected() {
+        let expected = [
+            ("<Escape>", "Esc"), ("<CR>", "Enter"), ("<Return>", "Enter"),
+            ("<Backspace>", "BS"), ("<Delete>", "Del"), ("<Backtick>", "literal `"),
+            ("<Plus>", "literal +"), ("<Equal>", "literal ="), ("<Slash>", "literal /"),
+            ("<F13>", "F1~F12 only"), ("<F24>", "F1~F12 only"),
+        ]
+        for (source, guidance) in expected {
+            do {
+                _ = try KeySequenceParser.parse(source)
+                Issue.record("expected \(source) to fail")
+            } catch {
+                #expect(String(describing: error).contains(guidance))
+            }
+        }
     }
 
-    @Test(
-        "U-KEY-04 invalid grammar is rejected",
-        arguments: ["", "<", "<>", "g>", "<Fn>", "<Globe>", "<MediaPlay>", "<Power>", "<F25>", "<D-D-o>", "<Hyper-o>", " "]
-    )
+    @Test("U-KEY-05 invalid grammar is rejected", arguments: ["", "<", "<>", "g>", "<Fn>", "<Globe>", "<MediaPlay>", "<Power>", "<F25>", "<D-D-o>", "<Hyper-o>", " "])
     func invalidGrammar(_ source: String) {
-        #expect(throws: KeySequenceParseError.self) {
-            try KeySequenceParser.parse(source)
-        }
+        #expect(throws: KeySequenceParseError.self) { try KeySequenceParser.parse(source) }
     }
 
     @Test("U-KEY-05 repeat metadata follows descriptors")
@@ -107,9 +116,9 @@ struct KeyGrammarAndPromptSafetyTests {
         #expect(!decision(global, KeySequence(tokens: [.deadKey])).isValid)
         #expect(!decision(global, KeySequence(tokens: [.imeComposition])).isValid)
 
-        #expect(decision(lifecycle, try sequence("<CR>")).isValid)
+        #expect(decision(lifecycle, try sequence("<Enter>")).isValid)
         #expect(decision(lifecycle, try sequence("<Esc>")).isValid)
-        #expect(!decision(global, try sequence("<CR>")).isValid)
+        #expect(!decision(global, try sequence("<Enter>")).isValid)
         #expect(!decision(global, try sequence("<Esc>")).isValid)
 
         #expect(PromptSafeBindingPredicate.evaluate(

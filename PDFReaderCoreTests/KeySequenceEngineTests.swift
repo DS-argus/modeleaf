@@ -356,7 +356,7 @@ struct KeySequenceEngineTests {
                 == .dispatch(KeyActionDispatch(actionID: .documentOpen))
         )
         #expect(
-            engine.handle(try token("<CR>"))
+            engine.handle(try token("<Enter>"))
                 == .dispatch(KeyActionDispatch(actionID: .promptCommit))
         )
         #expect(
@@ -374,7 +374,7 @@ struct KeySequenceEngineTests {
         #expect(engine.handle(.deadKey) == .native(.deadKey))
         #expect(engine.handle(.imeComposition) == .native(.imeComposition))
         #expect(
-            engine.handle(try token("<CR>"))
+            engine.handle(try token("<Enter>"))
                 == .dispatch(KeyActionDispatch(actionID: .promptCommit))
         )
         #expect(
@@ -413,11 +413,11 @@ struct KeySequenceEngineTests {
     func searchResultsContext() throws {
         var engine = try makeEngine(context: .searchResults)
         #expect(
-            engine.handle(try token("<CR>"))
+            engine.handle(try token("<Enter>"))
                 == .dispatch(KeyActionDispatch(actionID: .searchNext))
         )
         #expect(
-            engine.handle(try token("<S-CR>"))
+            engine.handle(try token("<S-Enter>"))
                 == .dispatch(KeyActionDispatch(actionID: .searchPrevious))
         )
         #expect(

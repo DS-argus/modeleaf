@@ -88,7 +88,7 @@ struct AppKitKeyEventAdapterTests {
         let shiftedReturn = try #require(makeKeyEvent(characters: "\r", modifiers: [.shift], keyCode: 36))
 
         #expect(AppKitKeyEventAdapter.tokens(for: commandOpen).map(\.description) == ["<D-o>"])
-        #expect(AppKitKeyEventAdapter.tokens(for: shiftedReturn).map(\.description) == ["<S-CR>"])
+        #expect(AppKitKeyEventAdapter.tokens(for: shiftedReturn).map(\.description) == ["<S-Enter>"])
     }
 
     @Test("named navigation keys map to the stable key-token grammar")

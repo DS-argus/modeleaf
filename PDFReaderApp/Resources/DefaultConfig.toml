@@ -3,8 +3,9 @@
 #
 # Key notation (chords are wrapped in <...>):
 #   D = Command (Cmd)   C = Control (Ctrl)   A = Option (Alt)   S = Shift
-#   e.g. <D-o> = Cmd+o, <C-j> = Ctrl+j, <S-CR> = Shift+Enter.
-#   Plain characters are literal keys; concatenation is a multi-key sequence (gg = g then g).
+#   Bare printable characters are literal; use <Space> for space. Concatenate tokens for sequences (gg).
+#   Uppercase letters are bare literals (O). In a chord, write Shift explicitly (<D-S-o>).
+#   e.g. <D-o> = Cmd+o, <C-j> = Ctrl+j, <S-Enter> = Shift+Enter.
 #   <prefix> expands to the pane prefix defined under [input] below. Rebind the prefix
 #   once and every <prefix> binding follows; <prefix> may be used in any binding.
 #
