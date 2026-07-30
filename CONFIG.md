@@ -33,15 +33,32 @@ prefix = "<C-b>"
 
 ## Key grammar
 
-- Printable Unicode characters are logical keys: `j`, `G`, `/`, `한`.
-- Multi-key sequences concatenate tokens: `gg`, `zx`, `g12`.
-- Named keys and chords use angle brackets, for example `<Esc>`, `<CR>`, `<S-CR>`, `<D-o>`, `<D-1>`, and `<D-F12>`.
-- Modifier order is normalized as `D` (Command), `C` (Control), `A` (Option), `S` (Shift).
-- Supported named keys are Esc, CR, BS, Del, Tab/Backtab, arrows, Home/End, PageUp/PageDown, Space, Backtick, LT/GT, Plus/Minus/Equal/Slash, and F1…F24.
-- Fn, Globe, media, power, raw key codes, action chains, and general Vim numeric counts are not part of the grammar.
-- An empty array unbinds an action. An empty sequence string is invalid.
-- `prompt.commit`, `prompt.cancel`, `search.next`, and `search.previous` are fixed keys (Enter/Esc, Enter/Shift+Enter). They are not rebindable and are omitted from `[keymap]`; a `[keymap]` entry for them is ignored with a warning.
+### Tokens and sequences
+
+- A bare printable Unicode character is a literal token: `j`, `G`, `/`, `한`, and `O`. Whitespace is not a bare token; write `<Space>`.
+- Concatenate tokens without separators for a sequence: `gg`, `zx`, `g12`, or `<C-b>r`.
+- A coded token is `<modifier-base>`. Modifiers are `D` (Command), `C` (Control), `A` (Option), and `S` (Shift), normalized in that order.
+- Shift rule: an uppercase Latin letter is always a bare literal (`O`). `<S-o>` normalizes to that same `O` token. In a chord with another modifier, write Shift explicitly: `<D-S-o>`; `<D-O>` and `<S-O>` are invalid.
+
+### Named keys
+
+Named-key spelling is case-insensitive and canonical output uses this table:
+
+| Keys | Canonical notation |
+|---|---|
+| Escape | `<Esc>` |
+| Enter | `<Enter>` |
+| Backspace / forward delete | `<BS>`, `<Del>` |
+| Tabs | `<Tab>`, `<Backtab>` (`<S-Tab>`) |
+| Navigation | `<Left>`, `<Right>`, `<Up>`, `<Down>`, `<Home>`, `<End>`, `<PageUp>`, `<PageDown>` |
+| Space and punctuation keys | `<Space>`, `<LT>`, `<GT>`, `<Minus>` |
+| Function keys | `<F1>` through `<F12>` |
+
+Use bare literals for backtick (`` ` ``), plus (`+`), equal (`=`), and slash (`/`); their former named spellings are rejected. Fn, Globe, media, power, raw key codes, action chains, and general Vim numeric counts are not part of the grammar.
+
 - `<prefix>` in any binding expands to the `[input] prefix` chord (default `<C-b>`). Rebind the prefix once and every `<prefix>` binding follows.
+- An empty array (`[]`) unbinds an action. An empty sequence string is invalid.
+- `prompt.commit`, `prompt.cancel`, `search.next`, and `search.previous` are fixed keys (Enter/Esc, Enter/Shift+Enter). They are not rebindable and are omitted from `[keymap]`; a `[keymap]` entry for them is ignored with a warning.
 
 ## Input contexts
 
@@ -100,7 +117,6 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `pane.focusUp` | `<C-k>` | `navigation`, `searchResults` | `suppressed` |
 | `pane.focusRight` | `<C-l>` | `navigation`, `searchResults` | `suppressed` |
 | `pane.unsplit` | `<C-b>o` | `navigation`, `searchResults` | `suppressed` |
-
 ## Built-in values
 
 - Small scroll: `48 pt` (valid `1...512`).
@@ -115,7 +131,7 @@ A newly opened document starts on page 1 in fit-page mode. In that mode, `j`/`d`
 
 ## Prompt-safe bindings
 
-Prompt text, dead keys, and IME composition stay on the native text-input path. A binding active in a prompt must be unbound or contain exactly one safe token. `<CR>` and `<Esc>` are reserved for prompt lifecycle actions; other printable or non-Command modifier chords are rejected. The following two generated tables are compatibility-sensitive v1 constants.
+Prompt text, dead keys, and IME composition stay on the native text-input path. A binding active in a prompt must be unbound or contain exactly one safe token. `<Enter>` and `<Esc>` are reserved for prompt lifecycle actions; other printable or non-Command modifier chords are rejected. The following two generated tables are compatibility-sensitive v1 constants.
 
 <!-- BEGIN GENERATED: PROMPT_NATIVE_RESERVATION_V1 -->
 ### PromptNativeReservationV1
@@ -217,18 +233,18 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 - `<D-A-S-q>`
 - `<D-A-d>`
 - `<D-A-h>`
-- `<D-Backtick>`
 - `<D-C-Space>`
 - `<D-C-f>`
 - `<D-C-q>`
 - `<D-S-3>`
 - `<D-S-4>`
 - `<D-S-5>`
-- `<D-S-Backtick>`
 - `<D-S-Tab>`
+- `<D-S-`>`
 - `<D-S-q>`
 - `<D-Space>`
 - `<D-Tab>`
+- `<D-`>`
 - `<D-h>`
 - `<D-m>`
 <!-- END GENERATED: SYSTEM_KEY_RESERVATION_V1 -->
@@ -241,8 +257,9 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 #
 # Key notation (chords are wrapped in <...>):
 #   D = Command (Cmd)   C = Control (Ctrl)   A = Option (Alt)   S = Shift
-#   e.g. <D-o> = Cmd+o, <C-j> = Ctrl+j, <S-CR> = Shift+Enter.
-#   Plain characters are literal keys; concatenation is a multi-key sequence (gg = g then g).
+#   Bare printable characters are literal; use <Space> for space. Concatenate tokens for sequences (gg).
+#   Uppercase letters are bare literals (O). In a chord, write Shift explicitly (<D-S-o>).
+#   e.g. <D-o> = Cmd+o, <C-j> = Ctrl+j, <S-Enter> = Shift+Enter.
 #   <prefix> expands to the pane prefix defined under [input] below. Rebind the prefix
 #   once and every <prefix> binding follows; <prefix> may be used in any binding.
 #

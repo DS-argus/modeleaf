@@ -10,6 +10,8 @@ public struct KeySequenceParseError: Error, Equatable, Sendable, CustomStringCon
         case duplicateModifier(String)
         case unknownModifier(String)
         case unknownKey(String)
+        case uppercaseLatinBase(String)
+        case removedNamedKey(String)
         case unsupportedLiteral(String)
     }
 
@@ -37,6 +39,8 @@ public struct KeySequenceParseError: Error, Equatable, Sendable, CustomStringCon
         case let .duplicateModifier(modifier): "duplicate modifier \(modifier)"
         case let .unknownModifier(modifier): "unknown modifier \(modifier)"
         case let .unknownKey(key): "unknown or unsupported key \(key)"
+        case let .uppercaseLatinBase(key): "uppercase Latin chord base \(key); use <D-S-\(key.lowercased())> or <D-\(key.lowercased())>"
+        case let .removedNamedKey(key): "unsupported named key \(key)"
         case let .unsupportedLiteral(literal): "unsupported literal \(literal.debugDescription)"
         }
     }
@@ -144,6 +148,11 @@ public enum KeySequenceParser {
             }
             modifiers.insert(.shift)
         }
+        if modifiers == [.shift], case let .character(character) = parsed.symbol,
+           isLowercaseLatinLetter(character)
+        {
+            return KeyToken(symbol: .character(character.uppercased()))
+        }
         return KeyToken(symbol: parsed.symbol, modifiers: modifiers)
     }
 
@@ -152,13 +161,21 @@ public enum KeySequenceParser {
         source: String,
         offset: Int
     ) throws -> (symbol: KeySymbol, backtabAlias: Bool) {
+        if isUppercaseLatinLetter(rawBase) {
+            throw KeySequenceParseError(
+                source: source,
+                characterOffset: offset,
+                reason: .uppercaseLatinBase(rawBase)
+            )
+        }
+
         let lower = rawBase.lowercased()
         let named: NamedKey?
         switch lower {
-        case "esc", "escape": named = .escape
-        case "cr", "return", "enter": named = .carriageReturn
-        case "bs", "backspace": named = .backspace
-        case "del", "delete": named = .deleteForward
+        case "esc": named = .escape
+        case "enter": named = .carriageReturn
+        case "bs": named = .backspace
+        case "del": named = .deleteForward
         case "tab": named = .tab
         case "backtab": return (.named(.tab), true)
         case "left": named = .left
@@ -170,16 +187,22 @@ public enum KeySequenceParser {
         case "pageup": named = .pageUp
         case "pagedown": named = .pageDown
         case "space": named = .space
-        case "backtick": named = .backtick
         case "lt": named = .lessThan
         case "gt": named = .greaterThan
-        case "plus": named = .plus
         case "minus": named = .minus
-        case "equal": named = .equal
-        case "slash": named = .slash
+        case "escape": throw removedNamedKeyError(rawBase, replacement: "Esc", source: source, offset: offset)
+        case "cr", "return": throw removedNamedKeyError(rawBase, replacement: "Enter", source: source, offset: offset)
+        case "backspace": throw removedNamedKeyError(rawBase, replacement: "BS", source: source, offset: offset)
+        case "delete": throw removedNamedKeyError(rawBase, replacement: "Del", source: source, offset: offset)
+        case "backtick": throw removedNamedKeyError(rawBase, replacement: "literal `", source: source, offset: offset)
+        case "plus": throw removedNamedKeyError(rawBase, replacement: "literal +", source: source, offset: offset)
+        case "equal": throw removedNamedKeyError(rawBase, replacement: "literal =", source: source, offset: offset)
+        case "slash": throw removedNamedKeyError(rawBase, replacement: "literal /", source: source, offset: offset)
         default:
-            if lower.first == "f", let number = Int(lower.dropFirst()), (1...24).contains(number) {
+            if lower.first == "f", let number = Int(lower.dropFirst()), (1...12).contains(number) {
                 named = .function(number)
+            } else if lower.first == "f", let number = Int(lower.dropFirst()), (13...24).contains(number) {
+                throw removedNamedKeyError(rawBase, replacement: "F1~F12 only", source: source, offset: offset)
             } else {
                 named = nil
             }
@@ -190,6 +213,27 @@ public enum KeySequenceParser {
             return (.character(String(character)), false)
         }
         throw KeySequenceParseError(source: source, characterOffset: offset, reason: .unknownKey(rawBase))
+    }
+
+    private static func removedNamedKeyError(
+        _ key: String,
+        replacement: String,
+        source: String,
+        offset: Int
+    ) -> KeySequenceParseError {
+        KeySequenceParseError(
+            source: source,
+            characterOffset: offset,
+            reason: .removedNamedKey("\(key); use \(replacement)")
+        )
+    }
+
+    private static func isLowercaseLatinLetter(_ value: String) -> Bool {
+        value.count == 1 && value.unicodeScalars.allSatisfy { (0x61...0x7A).contains($0.value) }
+    }
+
+    private static func isUppercaseLatinLetter(_ value: String) -> Bool {
+        value.count == 1 && value.unicodeScalars.allSatisfy { (0x41...0x5A).contains($0.value) }
     }
 
     private static func isSupportedLiteral(_ character: Character) -> Bool {

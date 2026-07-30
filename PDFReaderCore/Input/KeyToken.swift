@@ -51,7 +51,7 @@ public enum NamedKey: Hashable, Sendable {
     public var canonicalName: String {
         switch self {
         case .escape: "Esc"
-        case .carriageReturn: "CR"
+        case .carriageReturn: "Enter"
         case .backspace: "BS"
         case .deleteForward: "Del"
         case .tab: "Tab"
