@@ -77,7 +77,7 @@ public enum ConfigDocumentation {
 
         for descriptor in ActionRegistry.v1.userConfigurableDescriptors {
             let defaults = BuiltInDefaults.keymap[descriptor.id, default: []]
-                .map { "`\($0.description)`" }
+                .map { inlineCode($0.description) }
                 .joined(separator: ", ")
             lines.append(
                 "| `\(descriptor.id.rawValue)` | \(defaults.isEmpty ? "unbound" : defaults) | \(contextDescription(descriptor.scope)) | `\(descriptor.repeatPolicy.rawValue)` |"
@@ -105,7 +105,7 @@ public enum ConfigDocumentation {
             "### PromptNativeReservationV1",
             "",
         ]
-        lines += PromptNativeReservationV1.shared.normalizedEntries.map { "- `\($0)`" }
+        lines += PromptNativeReservationV1.shared.normalizedEntries.map { "- \(inlineCode($0))" }
         lines += [
             "<!-- END GENERATED: PROMPT_NATIVE_RESERVATION_V1 -->",
             "",
@@ -113,7 +113,7 @@ public enum ConfigDocumentation {
             "### SystemKeyReservationV1",
             "",
         ]
-        lines += SystemKeyReservationV1.shared.normalizedEntries.map { "- `\($0)`" }
+        lines += SystemKeyReservationV1.shared.normalizedEntries.map { "- \(inlineCode($0))" }
         lines += [
             "<!-- END GENERATED: SYSTEM_KEY_RESERVATION_V1 -->",
             "",
@@ -136,5 +136,9 @@ public enum ConfigDocumentation {
                 .map { "`\($0.rawValue)`" }
                 .joined(separator: ", ")
         }
+    }
+
+    private static func inlineCode(_ value: String) -> String {
+        value.contains("`") ? "``\(value)``" : "`\(value)`"
     }
 }
