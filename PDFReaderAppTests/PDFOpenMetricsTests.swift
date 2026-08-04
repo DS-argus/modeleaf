@@ -219,7 +219,7 @@ private final class RecordingPDFOpenMetrics: PDFOpenMetrics {
 }
 
 @MainActor
-private final class MetricsStubSession: ReaderSessionPresenting {
+private final class MetricsStubSession: HistoryNeutralTestSessionPresenting {
     func applyTheme(_ theme: AppKitTheme) {}
     let id: TabID
     let title = "existing.pdf"

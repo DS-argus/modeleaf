@@ -107,6 +107,24 @@ struct ReaderSessionTests {
         }
     }
 
+    @Test("page prompt, first, and last preserve the active presentation while committing actual landings")
+    func pageJumpsPreservePresentation() throws {
+        try withSession(pageCount: 3) { session, _ in
+            session.contentView.frame = NSRect(x: 0, y: 0, width: 720, height: 480)
+            session.contentView.layoutSubtreeIfNeeded()
+            session.fitWidth()
+
+            #expect(session.goToLastPage())
+            #expect(session.currentPageNumber == 3)
+            #expect(session.viewMode == .fitWidth)
+            #expect(session.goToFirstPage())
+            #expect(session.currentPageNumber == 1)
+            #expect(session.viewMode == .fitWidth)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(session.currentPageNumber == 3)
+        }
+    }
+
     @Test("I-PDF-04 manual, actual-size, fit-width, and fit-page are distinct view states")
     func zoomAndFitStates() throws {
         try withSession(pageCount: 2) { session, _ in
@@ -521,7 +539,7 @@ struct ReaderSessionTests {
             let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1)
             let document = try #require(PDFDocument(url: url))
             let search = SearchLifecycleSpy()
-            var session: ReaderSession? = ReaderSession(sourceURL: url, document: document, searchLifecycle: search)
+            var session: ReaderSession? = ReaderSession(sourceURL: url, document: document, searchControllerFactory: { _, _ in search })
             let weakSession = WeakReaderSession(session)
             let view = try #require(descendantPDFViews(in: session!.contentView).only)
             view.currentSelection = document.selectionForEntireDocument
@@ -599,10 +617,10 @@ struct ReaderSessionTests {
             #expect(session.activateSearchNavigation(searchGeneration: 1) == .armed)
             #expect(session.activateSearchNavigation(searchGeneration: 2) == .retagged)
             #expect(session.goToNextPage())
-            #expect(session.recordVerifiedSearchLanding(searchGeneration: 1) == .ignored)
-            #expect(session.recordVerifiedSearchLanding(searchGeneration: 2) == .firstCommitted)
+            #expect(session.recordVerifiedSearchLanding(searchGeneration: 1, landing: NavigationSnapshot(pageIndex: 1, pageSpacePoint: .zero)!) == .ignored)
+            #expect(session.recordVerifiedSearchLanding(searchGeneration: 2, landing: NavigationSnapshot(pageIndex: 1, pageSpacePoint: .zero)!) == .firstCommitted)
             #expect(session.activateSearchNavigation(searchGeneration: 3) == .retagged)
-            #expect(session.recordVerifiedSearchLanding(searchGeneration: 2) == .ignored)
+            #expect(session.recordVerifiedSearchLanding(searchGeneration: 2, landing: NavigationSnapshot(pageIndex: 1, pageSpacePoint: .zero)!) == .ignored)
         }
     }
 
@@ -649,6 +667,24 @@ struct ReaderSessionTests {
         }
     }
 
+    @Test("missing post-attempt landing compensates instead of disabling history")
+    func missingLandingCompensates() throws {
+        let origin = try #require(NavigationSnapshot(pageIndex: 0, pageSpacePoint: .zero))
+        let destination = try #require(NavigationSnapshot(pageIndex: 1, pageSpacePoint: .zero))
+        try withScriptedSession(
+            captures: [origin, nil],
+            restores: [.verifiedLanding, .compensatedFailure]
+        ) { session, script in
+            #expect(
+                session.performNavigation(.meaningfulJump(producer: .pagePrompt, destination: destination))
+                    == .uncompensatedInvariantFailure(actualLanding: nil)
+            )
+            #expect(!session.isNavigationHistoryHealthy)
+            #expect(!session.canGoBack && !session.canGoForward)
+            #expect(script.restoreRequests == [destination, origin])
+        }
+    }
+
     @Test("navigation adapter invariant failure fails closed with final landing")
     func navigationAdapterUncompensatedFailure() throws {
         let origin = try #require(NavigationSnapshot(pageIndex: 0, pageSpacePoint: .zero))
@@ -657,11 +693,14 @@ struct ReaderSessionTests {
         try withScriptedSession(captures: [origin], restores: [.uncompensatedInvariantFailure(actualLanding: final)]) { session, _ in
             var publications = 0
             session.setPresentationChangeHandler { publications += 1 }
+            var outcomes: [NavigationTransactionOutcome] = []
+            session.setNavigationOutcomeHandler { outcomes.append($0) }
             #expect(session.performNavigation(.meaningfulJump(producer: .pagePrompt, destination: destination)) == .uncompensatedInvariantFailure(actualLanding: final))
             #expect(!session.isNavigationHistoryHealthy)
             #expect(!session.canGoBack && !session.canGoForward)
             #expect(session.navigationAvailabilityDetail == "Navigation history unavailable")
             #expect(publications == 1)
+            #expect(outcomes == [.uncompensatedInvariantFailure(actualLanding: final)])
         }
     }
 
@@ -842,12 +881,14 @@ struct ReaderSessionTests {
             #expect(navigation.current == a)
         }
     }
-    @Test("search capture preflight still presents results without history")
-    func searchCapturePreflightDoesNotGatePresentation() throws {
+    @Test("search capture preflight preserves presentation and fails history closed after movement")
+    func searchCapturePreflightFailsHistoryClosed() throws {
         try withSearchHistoryHarness { session, navigation, driver, coordinator, presenter in
             let s1 = navigation.position(1)
             let s2 = navigation.position(2)
             navigation.captureEnabled = false
+            var outcomes: [NavigationTransactionOutcome] = []
+            session.setNavigationOutcomeHandler { outcomes.append($0) }
             coordinator.request("needle")
             let generation = try #require(driver.generations.last)
             presenter.nextLanding = s1
@@ -855,14 +896,46 @@ struct ReaderSessionTests {
             driver.match(generation: generation)
             driver.end(generation: generation)
             #expect(coordinator.snapshot.activeMatchIndex == 0)
-            #expect(!session.canGoBack && !session.canGoForward)
+            #expect(navigation.current == s1)
+            #expect(presenter.nextLanding == nil)
             presenter.nextLanding = s2
             #expect(coordinator.selectNext())
-            #expect(coordinator.snapshot.activeMatchIndex == 1)
+            #expect(navigation.current == s2)
             #expect(!session.canGoBack && !session.canGoForward)
+            #expect(!session.isNavigationHistoryHealthy)
+            #expect(outcomes == [.uncompensatedInvariantFailure(actualLanding: s1)])
         }
     }
 
+    @Test("mounted search remains usable when shared navigation capture fails")
+    func mountedSearchSurvivesSharedCaptureFailure() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 3)
+            let document = try #require(PDFDocument(url: url))
+            let session = ReaderSession(sourceURL: url, document: document, navigationCapture: { nil })
+            defer { session.prepareForClose() }
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 480), styleMask: [.titled], backing: .buffered, defer: false)
+            window.contentView = session.contentView
+            session.contentView.frame = window.contentLayoutRect
+            session.contentView.layoutSubtreeIfNeeded()
+
+            session.beginSearch("needle")
+            let deadline = Date().addingTimeInterval(2)
+            while session.searchSnapshot.isRunning, Date() < deadline {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+            }
+
+            try #require(!session.searchSnapshot.isRunning)
+            try #require(session.searchSnapshot.matchCount == 3)
+            try #require(session.searchSnapshot.activeMatchIndex == 0)
+            try #require(session.currentPageNumber == 1)
+            try #require(session.selectNextSearchResult())
+            try #require(session.searchSnapshot.activeMatchIndex == 1)
+            try #require(session.currentPageNumber == 2)
+            try #require(!session.isNavigationHistoryHealthy)
+            try #require(!session.canGoBack && !session.canGoForward)
+        }
+    }
 
     @Test("initial no-result and cancelled-before-first searches leave session history empty")
     func initialSearchWithoutLandingLeavesHistoryEmpty() throws {
@@ -888,11 +961,21 @@ struct ReaderSessionTests {
             let navigation = SearchNavigationScript()
             let driver = SessionSearchDriver()
             let presenter = SessionSearchPresenter(navigation: navigation)
-            let coordinator = ReaderSearchCoordinator(driver: driver, presenter: presenter, scheduler: driver)
+            var coordinator: ReaderSearchCoordinator!
             let session = ReaderSession(
                 sourceURL: url,
                 document: try #require(PDFDocument(url: url)),
-                searchLifecycle: coordinator,
+                searchControllerFactory: { activate, reportOutcome in
+                    let value = ReaderSearchCoordinator(
+                        driver: driver,
+                        presenter: presenter,
+                        scheduler: driver,
+                        activateNavigation: activate,
+                        reportNavigationOutcome: reportOutcome
+                    )
+                    coordinator = value
+                    return value
+                },
                 navigationCapture: { navigation.capture() },
                 navigationRestore: { destination in navigation.current = destination; return .verifiedLanding }
             )
@@ -937,9 +1020,15 @@ struct ReaderSessionTests {
 }
 
 @MainActor
-private final class SearchLifecycleSpy: ReaderSearchLifecycle {
+private final class SearchLifecycleSpy: ReaderSearchControlling {
     private(set) var events: [String] = []
+    let snapshot = ReaderSearchSnapshot.empty
 
+    func setChangeHandler(_ handler: (() -> Void)?) {}
+    func request(_ query: String) {}
+    func selectNext() -> Bool { false }
+    func selectPrevious() -> Bool { false }
+    func clear() {}
     func requestCancellation() { events.append("cancel") }
     func detachCallbacks() { events.append("detach") }
     func clearHighlights() { events.append("clear") }
@@ -1000,21 +1089,23 @@ private final class SessionSearchPresenter: ReaderSearchResultPresenting {
     var nextLanding: NavigationSnapshot?
     var presentationOutcomes: [ReaderSearchResultDisplayOutcome] = []
     var activationOutcomes: [ReaderSearchResultDisplayOutcome] = []
+    private(set) var restoredIndices: [Int?] = []
 
     init(navigation: SearchNavigationScript) { self.navigation = navigation }
 
     @discardableResult
     func presentSearchResults(_ selections: [PDFSelection], activeIndex: Int?) -> ReaderSearchResultDisplayOutcome {
         if let nextLanding { navigation.current = nextLanding; self.nextLanding = nil }
-        return presentationOutcomes.isEmpty ? .displayedDistinct : presentationOutcomes.removeFirst()
+        return presentationOutcomes.isEmpty ? .displayedDistinct(landing: navigation.current) : presentationOutcomes.removeFirst()
     }
 
     @discardableResult
     func activateSearchResult(at index: Int) -> ReaderSearchResultDisplayOutcome {
         if let nextLanding { navigation.current = nextLanding; self.nextLanding = nil }
-        return activationOutcomes.isEmpty ? .displayedDistinct : activationOutcomes.removeFirst()
+        return activationOutcomes.isEmpty ? .displayedDistinct(landing: navigation.current) : activationOutcomes.removeFirst()
     }
 
+    func restoreSearchResultSelection(at index: Int?) { restoredIndices.append(index) }
     func clearSearchResults() {}
 }
 

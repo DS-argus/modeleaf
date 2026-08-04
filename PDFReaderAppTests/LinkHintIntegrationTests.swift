@@ -61,6 +61,21 @@ struct LinkHintIntegrationTests {
         }
     }
 
+    @Test("help consumes history traversal while it owns modal routing")
+    func helpStaysModalForHistoryTraversal() throws {
+        try withLinkHarness { controller, session, _, _ in
+            session.activateLink(.goTo(pageIndex: 1, point: CGPoint(x: 48, y: 700)))
+            #expect(session.currentPageNumber == 2)
+            controller.presentHelp()
+
+            let historyEvent = try #require(makeKeyEvent(
+                characters: "o", charactersIgnoringModifiers: "o", modifiers: [.control]
+            ))
+            #expect(controller.routeKeyEventForTesting(historyEvent))
+            #expect(session.currentPageNumber == 2)
+            #expect(!controller.rootView.helpOverlay.isHidden)
+        }
+    }
     @Test("unique URL hint commits through the PDF view and dismisses")
     func uniqueURLCommit() throws {
         try withLinkHarness { controller, session, view, _ in
@@ -111,6 +126,38 @@ struct LinkHintIntegrationTests {
             #expect(view.blockedHistoryCount == 0)
             #expect(try PDFFixtureFactory.sha256(of: url) == before)
             _ = controller
+        }
+    }
+
+    @Test("same-page non-centre mouse and hint GoTo land once without history")
+    func samePageNonCentreGoToDoesNotRecordHistory() throws {
+        try withLinkHarness { _, session, view, _ in
+            let target = ReaderLinkTarget.goTo(pageIndex: 0, point: CGPoint(x: 48, y: 700))
+            session.activateLink(target)
+            #expect(session.currentPageNumber == 1)
+            #expect(!session.canGoBack && !session.canGoForward)
+
+            let page = try #require(view.document?.page(at: 0))
+            view.perform(PDFActionGoTo(destination: PDFDestination(page: page, at: CGPoint(x: 48, y: 700))))
+            #expect(session.currentPageNumber == 1)
+            #expect(!session.canGoBack && !session.canGoForward)
+            #expect(view.blockedActionCount == 0)
+        }
+    }
+    @Test("unresolved and foreign PDF GoTo actions are blocked without history")
+    func unresolvedAndForeignGoToStayClosed() throws {
+        try withLinkHarness { _, session, view, url in
+            let before = try PDFFixtureFactory.sha256(of: url)
+            let foreignDocument = try #require(PDFDocument(url: url))
+            let foreignPage = try #require(foreignDocument.page(at: 1))
+
+            view.perform(PDFActionGoTo(destination: PDFDestination(page: PDFPage(), at: .zero)))
+            view.perform(PDFActionGoTo(destination: PDFDestination(page: foreignPage, at: .zero)))
+
+            #expect(session.currentPageNumber == 1)
+            #expect(!session.canGoBack && !session.canGoForward)
+            #expect(view.blockedActionCount == 2)
+            #expect(try PDFFixtureFactory.sha256(of: url) == before)
         }
     }
     @Test("same unresolved and URL targets never create internal-link history")

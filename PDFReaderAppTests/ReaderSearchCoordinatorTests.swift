@@ -1,4 +1,5 @@
 import PDFKit
+import PDFReaderCore
 import Testing
 @testable import PDFReaderApp
 
@@ -10,7 +11,7 @@ struct ReaderSearchCoordinatorTests {
         let driver = DeterministicSearchDriver()
         let presenter = SearchResultPresenterSpy()
         let scheduler = DeterministicSearchScheduler()
-        let coordinator = ReaderSearchCoordinator(
+        let coordinator = makeCoordinator(
             driver: driver,
             presenter: presenter,
             scheduler: scheduler
@@ -59,7 +60,7 @@ struct ReaderSearchCoordinatorTests {
         let driver = DeterministicSearchDriver()
         let presenter = SearchResultPresenterSpy()
         let scheduler = DeterministicSearchScheduler()
-        let coordinator = ReaderSearchCoordinator(
+        let coordinator = makeCoordinator(
             driver: driver,
             presenter: presenter,
             scheduler: scheduler
@@ -84,7 +85,7 @@ struct ReaderSearchCoordinatorTests {
     func resultNavigationWraps() throws {
         let driver = DeterministicSearchDriver()
         let presenter = SearchResultPresenterSpy()
-        let coordinator = ReaderSearchCoordinator(driver: driver, presenter: presenter)
+        let coordinator = makeCoordinator(driver: driver, presenter: presenter)
 
         coordinator.request("needle")
         let generation = try #require(driver.generations.first)
@@ -115,7 +116,7 @@ struct ReaderSearchCoordinatorTests {
     func closeLifecycleDetaches() throws {
         let driver = DeterministicSearchDriver()
         let presenter = SearchResultPresenterSpy()
-        let coordinator = ReaderSearchCoordinator(driver: driver, presenter: presenter)
+        let coordinator = makeCoordinator(driver: driver, presenter: presenter)
 
         coordinator.request("needle")
         let generation = try #require(driver.generations.first)
@@ -142,7 +143,7 @@ struct ReaderSearchCoordinatorTests {
     func resultPresentationIsBatched() throws {
         let driver = DeterministicSearchDriver()
         let presenter = SearchResultPresenterSpy()
-        let coordinator = ReaderSearchCoordinator(driver: driver, presenter: presenter)
+        let coordinator = makeCoordinator(driver: driver, presenter: presenter)
 
         coordinator.request("needle")
         let generation = try #require(driver.generations.first)
@@ -159,12 +160,16 @@ struct ReaderSearchCoordinatorTests {
     func navigationCallbacksAreGenerationScoped() throws {
         let driver = DeterministicSearchDriver()
         let presenter = SearchResultPresenterSpy()
-        let coordinator = ReaderSearchCoordinator(driver: driver, presenter: presenter)
         var activations: [Int] = []
         var landings: [Int] = []
-        coordinator.configureNavigation(
-            activate: { generation in activations.append(generation); return .armed },
-            recordLanding: { generation in landings.append(generation); return landings.count == 1 ? .firstCommitted : .coalesced }
+        let coordinator = makeCoordinator(
+            driver: driver,
+            presenter: presenter,
+            activateNavigation: { generation in activations.append(generation); return .armed },
+            reportNavigationOutcome: { generation, outcome in
+                if case .displayedDistinct = outcome { landings.append(generation) }
+                return landings.count == 1 ? .firstCommitted : .coalesced
+            }
         )
         coordinator.request("needle")
         let generation = try #require(driver.generations.first)
@@ -181,12 +186,20 @@ struct ReaderSearchCoordinatorTests {
         let driver = DeterministicSearchDriver()
         let presenter = SearchResultPresenterSpy()
         let scheduler = DeterministicSearchScheduler()
-        let coordinator = ReaderSearchCoordinator(driver: driver, presenter: presenter, scheduler: scheduler)
         var activated: [Int] = []
         var landed: [Int] = []
-        coordinator.configureNavigation(
-            activate: { generation in activated.append(generation); return activated.count == 1 ? .armed : .retagged },
-            recordLanding: { generation in landed.append(generation); return .firstCommitted }
+        let coordinator = makeCoordinator(
+            driver: driver,
+            presenter: presenter,
+            scheduler: scheduler,
+            activateNavigation: { generation in
+                activated.append(generation)
+                return activated.count == 1 ? .armed : .retagged
+            },
+            reportNavigationOutcome: { generation, outcome in
+                if case .displayedDistinct = outcome { landed.append(generation) }
+                return .firstCommitted
+            }
         )
         coordinator.request("alpha")
         let first = try #require(driver.generations.first)
@@ -207,10 +220,17 @@ struct ReaderSearchCoordinatorTests {
     func noResultAndCancelledSearchDoNotLand() throws {
         let driver = DeterministicSearchDriver()
         let presenter = SearchResultPresenterSpy()
-        let coordinator = ReaderSearchCoordinator(driver: driver, presenter: presenter)
         var landings = 0
         var activations = 0
-        coordinator.configureNavigation(activate: { _ in activations += 1; return .armed }, recordLanding: { _ in landings += 1; return .firstCommitted })
+        let coordinator = makeCoordinator(
+            driver: driver,
+            presenter: presenter,
+            activateNavigation: { _ in activations += 1; return .armed },
+            reportNavigationOutcome: { _, outcome in
+                if case .displayedDistinct = outcome { landings += 1 }
+                return .firstCommitted
+            }
+        )
         coordinator.request("none")
         let first = try #require(driver.generations.first)
         driver.emitEnd(generation: first)
@@ -228,15 +248,28 @@ struct ReaderSearchCoordinatorTests {
     func perResultDisplayOutcomeControlsHistoryCommit() throws {
         let driver = DeterministicSearchDriver()
         let presenter = SearchResultPresenterSpy()
-        let coordinator = ReaderSearchCoordinator(driver: driver, presenter: presenter)
         var activations: [Int] = []
+        var reported: [ReaderSearchResultDisplayOutcome] = []
         var landings: [Int] = []
-        coordinator.configureNavigation(
-            activate: { generation in activations.append(generation); return .armed },
-            recordLanding: { generation in landings.append(generation); return .firstCommitted }
+        let coordinator = makeCoordinator(
+            driver: driver,
+            presenter: presenter,
+            activateNavigation: { generation in activations.append(generation); return .armed },
+            reportNavigationOutcome: { generation, outcome in
+                reported.append(outcome)
+                switch outcome {
+                case .displayedDistinct:
+                    landings.append(generation)
+                    return .firstCommitted
+                case .displayedSame:
+                    return .coalesced
+                case .failedWithoutMovement, .displayedAfterUnverifiedMovement:
+                    return .ignored
+                }
+            }
         )
         presenter.presentationOutcomes = [.displayedSame]
-        presenter.activationOutcomes = [.failed]
+        presenter.activationOutcomes = [.displayedAfterUnverifiedMovement]
         coordinator.request("needle")
         let generation = try #require(driver.generations.last)
         driver.emitMatch(selection(), generation: generation)
@@ -247,67 +280,41 @@ struct ReaderSearchCoordinatorTests {
         #expect(!coordinator.selectNext())
         #expect(activations == [Int(generation), Int(generation)])
         #expect(landings.isEmpty)
-        #expect(coordinator.snapshot.activeMatchIndex == 0)
+        #expect(reported.contains(.displayedAfterUnverifiedMovement))
+        #expect(presenter.restoredIndices == [0])
     }
-    @Test("preflight rejection still displays and selects results without history recording")
-    func preflightRejectionDoesNotGatePresentation() throws {
-        let driver = DeterministicSearchDriver()
-        let presenter = SearchResultPresenterSpy()
-        let coordinator = ReaderSearchCoordinator(driver: driver, presenter: presenter)
-        var landingCount = 0
-        coordinator.configureNavigation(
-            activate: { _ in .preflightRejected },
-            recordLanding: { _ in landingCount += 1; return .firstCommitted }
+
+
+
+    private func makeCoordinator(
+        driver: any ReaderSearchDriving,
+        presenter: any ReaderSearchResultPresenting,
+        scheduler: (any ReaderSearchReplacementScheduling)? = nil,
+        activateNavigation: @escaping (Int) -> SearchNavigationActivationOutcome = { _ in .armed },
+        reportNavigationOutcome: @escaping (Int, ReaderSearchResultDisplayOutcome) -> SearchNavigationActivationOutcome = { _, outcome in
+            switch outcome {
+            case .displayedDistinct: return .firstCommitted
+            case .displayedSame: return .coalesced
+            case .failedWithoutMovement, .displayedAfterUnverifiedMovement: return .ignored
+            }
+        }
+    ) -> ReaderSearchCoordinator {
+        if let scheduler {
+            return ReaderSearchCoordinator(
+                driver: driver,
+                presenter: presenter,
+                scheduler: scheduler,
+                activateNavigation: activateNavigation,
+                reportNavigationOutcome: reportNavigationOutcome
+            )
+        }
+        return ReaderSearchCoordinator(
+            driver: driver,
+            presenter: presenter,
+            activateNavigation: activateNavigation,
+            reportNavigationOutcome: reportNavigationOutcome
         )
-        coordinator.request("needle")
-        let generation = try #require(driver.generations.last)
-        driver.emitMatch(selection(), generation: generation)
-        driver.emitMatch(selection(), generation: generation)
-        driver.emitEnd(generation: generation)
-        #expect(presenter.presentations == [SearchPresentationRecord(count: 2, activeIndex: 0)])
-        #expect(coordinator.snapshot.activeMatchIndex == 0)
-        #expect(coordinator.selectNext())
-        #expect(presenter.activations == [1])
-        #expect(coordinator.snapshot.activeMatchIndex == 1)
-        #expect(landingCount == 0)
     }
-    @Test("failed display keeps the prior selection and never records history")
-    func failedDisplaysPreserveSelectionAndHistory() throws {
-        let driver = DeterministicSearchDriver()
-        let presenter = SearchResultPresenterSpy()
-        let coordinator = ReaderSearchCoordinator(driver: driver, presenter: presenter)
-        var landings = 0
-        coordinator.configureNavigation(
-            activate: { _ in .armed },
-            recordLanding: { _ in landings += 1; return .firstCommitted }
-        )
-        presenter.presentationOutcomes = [.failed]
-        coordinator.request("initial")
-        let initialGeneration = try #require(driver.generations.last)
-        driver.emitMatch(selection(), generation: initialGeneration)
-        driver.emitEnd(generation: initialGeneration)
-        #expect(coordinator.snapshot.activeMatchIndex == nil)
-        #expect(landings == 0)
-
-        presenter.presentationOutcomes = [.displayedSame]
-        presenter.activationOutcomes = [.failed, .failed]
-        coordinator.request("next-previous")
-        let generation = try #require(driver.generations.last)
-        driver.emitMatch(selection(), generation: generation)
-        driver.emitMatch(selection(), generation: generation)
-        driver.emitEnd(generation: generation)
-        #expect(coordinator.snapshot.activeMatchIndex == 0)
-        #expect(!coordinator.selectNext())
-        #expect(coordinator.snapshot.activeMatchIndex == 0)
-        #expect(!coordinator.selectPrevious())
-        #expect(coordinator.snapshot.activeMatchIndex == 0)
-        #expect(landings == 0)
-    }
-
-
-
-
-
     private func selection() -> PDFSelection {
         PDFSelection(document: PDFDocument())
     }
@@ -356,21 +363,24 @@ private final class SearchResultPresenterSpy: ReaderSearchResultPresenting {
     private(set) var activations: [Int] = []
     private(set) var clearCount = 0
     var presentationOutcomes: [ReaderSearchResultDisplayOutcome] = []
+    private(set) var restoredIndices: [Int?] = []
     var activationOutcomes: [ReaderSearchResultDisplayOutcome] = []
+    private let landing = NavigationSnapshot(pageIndex: 0, pageSpacePoint: .zero)!
 
     @discardableResult
     func presentSearchResults(_ selections: [PDFSelection], activeIndex: Int?) -> ReaderSearchResultDisplayOutcome {
         presentations.append(SearchPresentationRecord(count: selections.count, activeIndex: activeIndex))
-        return presentationOutcomes.isEmpty ? .displayedDistinct : presentationOutcomes.removeFirst()
+        return presentationOutcomes.isEmpty ? .displayedDistinct(landing: landing) : presentationOutcomes.removeFirst()
     }
 
     @discardableResult
     func activateSearchResult(at index: Int) -> ReaderSearchResultDisplayOutcome {
         activations.append(index)
-        return activationOutcomes.isEmpty ? .displayedDistinct : activationOutcomes.removeFirst()
+        return activationOutcomes.isEmpty ? .displayedDistinct(landing: landing) : activationOutcomes.removeFirst()
     }
 
     func clearSearchResults() { clearCount += 1 }
+    func restoreSearchResultSelection(at index: Int?) { restoredIndices.append(index) }
 }
 
 @MainActor

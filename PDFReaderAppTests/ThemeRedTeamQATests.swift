@@ -220,7 +220,8 @@ struct ThemeRedTeamQATests {
 }
 
 @MainActor
-private final class QARecordingSession: ReaderSessionPresenting, ReaderDuplicationSnapshotProviding {
+private final class QARecordingSession: HistoryNeutralTestSessionPresenting, ReaderDuplicationSnapshotProviding, ReaderDuplicateValidating {
+    func configureDuplicateValidation(_ handler: @escaping (Bool) -> Void) { handler(true) }
     let id = TabID()
     let title: String
     let contentView = NSView()

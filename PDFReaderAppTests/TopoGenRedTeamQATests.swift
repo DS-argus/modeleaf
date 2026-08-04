@@ -246,7 +246,8 @@ private struct FocusModel {
 }
 
 @MainActor
-private final class QASession: ReaderSessionPresenting, ReaderDuplicationSnapshotProviding {
+private final class QASession: HistoryNeutralTestSessionPresenting, ReaderDuplicationSnapshotProviding, ReaderDuplicateValidating {
+    func configureDuplicateValidation(_ handler: @escaping (Bool) -> Void) { handler(true) }
     func applyTheme(_ theme: AppKitTheme) {}
     let id = TabID()
     let title: String

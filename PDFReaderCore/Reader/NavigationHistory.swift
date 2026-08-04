@@ -26,8 +26,8 @@ public struct NavigationSnapshot: Equatable, Sendable {
     /// Returns whether two captures identify the same reading location.
     public func isSameLocation(as other: NavigationSnapshot) -> Bool {
         pageIndex == other.pageIndex
-            && abs(pageSpacePoint.x - other.pageSpacePoint.x) <= Self.locationTolerance
-            && abs(pageSpacePoint.y - other.pageSpacePoint.y) <= Self.locationTolerance
+            && abs(pageSpacePoint.x - other.pageSpacePoint.x) <= Self.locationTolerance + 1e-9
+            && abs(pageSpacePoint.y - other.pageSpacePoint.y) <= Self.locationTolerance + 1e-9
     }
 }
 
@@ -96,16 +96,12 @@ public struct NavigationHistory: Sendable {
     }
 }
 
-/// The result of inspecting a generation-tagged, verified distinct search landing.
-public enum SearchEpochResult: Equatable, Sendable {
-    /// No epoch accepts this landing, including stale-generation callbacks.
-    case ignored
-    /// The first result requires the reported origin to be committed to history before the epoch commits.
+/// The non-mutating outcome of inspecting a generation-current search landing.
+public enum SearchEpochInspection: Equatable, Sendable {
     case first(origin: NavigationSnapshot)
-    /// A current result belongs to an already committed epoch and creates no history entry.
     case coalesced
+    case ignored
 }
-
 /// The lifecycle that coalesces a run of successful search-result landings.
 public enum SearchEpoch: Equatable, Sendable {
     case idle
@@ -114,9 +110,7 @@ public enum SearchEpoch: Equatable, Sendable {
 
     /// Starts an epoch only when the caller has captured a valid live origin.
     public mutating func arm(origin: NavigationSnapshot, searchGeneration: Int) {
-        guard case .idle = self else {
-            return
-        }
+        guard case .idle = self else { return }
         self = .armed(origin: origin, searchGeneration: searchGeneration)
     }
 
@@ -132,19 +126,21 @@ public enum SearchEpoch: Equatable, Sendable {
         }
     }
 
-    /// Inspects a verified distinct search landing without changing lifecycle state.
-    public func inspectDisplayedDistinct(searchGeneration: Int) -> SearchEpochResult {
+    /// Inspects a generation-current verified distinct landing without changing lifecycle state.
+    /// The caller commits the returned origin first, then completes the transition only on success.
+    public func inspectDisplayedDistinct(searchGeneration: Int) -> SearchEpochInspection {
         switch self {
         case let .armed(origin, activeGeneration) where activeGeneration == searchGeneration:
-            .first(origin: origin)
+            return .first(origin: origin)
         case let .coalescing(activeGeneration) where activeGeneration == searchGeneration:
-            .coalesced
+            return .coalesced
         case .idle, .armed, .coalescing:
-            .ignored
+            return .ignored
         }
     }
 
-    /// Commits the first result only after its inspected origin has been successfully committed to history.
+    /// Completes the first-result transition after the session commits history.
+    /// A rejected history commit leaves the epoch armed for a later valid landing.
     @discardableResult
     public mutating func commitFirstDisplayedDistinct(
         searchGeneration: Int,
@@ -153,10 +149,7 @@ public enum SearchEpoch: Equatable, Sendable {
         guard historyCommitted,
               case let .armed(_, activeGeneration) = self,
               activeGeneration == searchGeneration
-        else {
-            return false
-        }
-
+        else { return false }
         self = .coalescing(searchGeneration: searchGeneration)
         return true
     }

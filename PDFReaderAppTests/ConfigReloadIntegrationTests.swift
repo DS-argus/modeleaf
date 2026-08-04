@@ -278,7 +278,7 @@ struct ConfigReloadIntegrationTests {
 }
 
 @MainActor
-private final class ReloadRecordingSession: ReaderSessionPresenting {
+private final class ReloadRecordingSession: HistoryNeutralTestSessionPresenting {
     let id = TabID()
     let title: String
     let contentView = NSView()

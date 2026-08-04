@@ -555,7 +555,7 @@ private enum RecordingReaderEvent: Equatable {
 }
 
 @MainActor
-private final class RecordingReaderSession: ReaderSessionPresenting {
+private final class RecordingReaderSession: ReaderSessionPresenting, ReaderNavigationHistoryPresenting {
     func applyTheme(_ theme: AppKitTheme) {}
     let id = TabID()
     let title: String
@@ -564,6 +564,10 @@ private final class RecordingReaderSession: ReaderSessionPresenting {
     private(set) var events: [RecordingReaderEvent] = []
     private(set) var prepareForCloseCount = 0
     private(set) var searchSnapshot = ReaderSearchSnapshot.empty
+    var canGoBack: Bool { true }
+    var canGoForward: Bool { true }
+    var isNavigationHistoryHealthy: Bool { true }
+    var navigationAvailabilityDetail: String { "History available" }
 
     init(title: String, pageCount: Int = 10) {
         self.title = title
