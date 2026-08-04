@@ -39,6 +39,7 @@ final class PDFViewController: NSViewController {
     private var searchPalette = SearchHighlightPalette.default
     private var searchSelections: [PDFSelection] = []
     private var activeSearchIndex: Int?
+    private var internalLinkHandler: ((ReaderLinkTarget) -> Void)?
 
     init(document: PDFDocument, traceID: OpenTraceID, metrics: any PDFOpenMetrics) {
         self.initialDocument = document
@@ -78,6 +79,7 @@ final class PDFViewController: NSViewController {
         openMetrics.record(.begin(.pdfViewDocumentAttach, traceID: openTraceID))
         readerView.document = initialDocument
         readerView.enforceReadOnlyDocumentConfiguration()
+        readerView.internalLinkHandler = self
         readerView.followLinkHandler = { NSWorkspace.shared.open($0) }
         openMetrics.record(.end(.pdfViewDocumentAttach, traceID: openTraceID, outcome: .success))
         view = container
@@ -138,6 +140,23 @@ final class PDFViewController: NSViewController {
         let pageIndex = oneBasedPage - 1
         guard let page = initialDocument.page(at: pageIndex) else { return nil }
         return pageCenterSnapshot(pageIndex: pageIndex, page: page)
+    }
+
+    /// Resolves a GoTo target to an anchor that the normal transaction can
+    /// verify without weakening restore semantics for history traversal.
+    func navigationDestination(for target: ReaderLinkTarget) -> NavigationSnapshot? {
+        loadViewIfNeeded()
+        guard case let .goTo(pageIndex, point) = target,
+              let page = initialDocument.page(at: pageIndex)
+        else { return nil }
+        let bounds = page.bounds(for: .mediaBox)
+        let requested = point ?? NSPoint(x: bounds.midX, y: bounds.midY)
+        guard bounds.contains(requested) else { return nil }
+        readerView.layoutDocumentView()
+        let fullyFitVisible = readerView.displayMode == .singlePage && readerView.autoScales
+        return fullyFitVisible
+            ? pageCenterSnapshot(pageIndex: pageIndex, page: page)
+            : NavigationSnapshot(pageIndex: pageIndex, pageSpacePoint: requested)
     }
 
     @discardableResult
@@ -290,6 +309,8 @@ final class PDFViewController: NSViewController {
 
     func detachDelegates() {
         loadViewIfNeeded()
+        readerView.internalLinkHandler = nil
+        internalLinkHandler = nil
         readerView.delegate = nil
         readerView.keyEventHandler = nil
     }
@@ -421,57 +442,49 @@ final class PDFViewController: NSViewController {
     }
 }
 
-extension PDFViewController: ReaderLinkProviding {
+extension PDFViewController: ReaderLinkProviding, ReaderPDFViewInternalLinkHandling {
+    func readerPDFView(_ view: ReaderPDFView, activateInternalLink target: ReaderLinkTarget) { internalLinkHandler?(target) }
     func linkTargets() -> [RawLink] {
-        loadViewIfNeeded()
-        readerView.layoutDocumentView()
+        loadViewIfNeeded(); readerView.layoutDocumentView()
         return readerView.visiblePages.flatMap { page in
             let index = initialDocument.index(for: page)
-            return page.annotations.compactMap { annotation -> RawLink? in
+            return page.annotations.compactMap { (annotation: PDFAnnotation) -> RawLink? in
                 guard Self.isLink(annotation), let target = Self.linkTarget(annotation) else { return nil }
                 return RawLink(sourcePageIndex: index, pageSpaceBounds: annotation.bounds, target: target)
             }
         }
     }
-
-    func activateLink(_ target: ReaderLinkTarget) {
-        loadViewIfNeeded()
-        readerView.activate(target)
-    }
-
-
+    func activateLink(_ target: ReaderLinkTarget) { loadViewIfNeeded(); readerView.activate(target) }
+    func setInternalLinkHandler(_ handler: ((ReaderLinkTarget) -> Void)?) { internalLinkHandler = handler }
     func linkHintRects(for link: ReaderLink, in coordinateSpace: NSView) -> [NSRect] {
-        loadViewIfNeeded()
-        guard let page = initialDocument.page(at: link.sourcePageIndex) else { return [] }
-        return link.rects.map { rect in
-            let readerRect = readerView.convert(rect, from: page)
-            return readerView.convert(readerRect, to: coordinateSpace)
-        }
+        loadViewIfNeeded(); guard let page = initialDocument.page(at: link.sourcePageIndex) else { return [] }
+        return link.rects.map { readerView.convert(readerView.convert($0, from: page), to: coordinateSpace) }
     }
-    private static func isLink(_ annotation: PDFAnnotation) -> Bool {
-        annotation.type == "Link" || annotation.action != nil || annotation.url != nil
-    }
-
+    private static func isLink(_ annotation: PDFAnnotation) -> Bool { annotation.type == "Link" || annotation.action != nil || annotation.url != nil }
     private static func linkTarget(_ annotation: PDFAnnotation) -> ReaderLinkTarget? {
-        if let goTo = annotation.action as? PDFActionGoTo {
-            let destination = goTo.destination
-            guard let page = destination.page, let document = page.document else { return nil }
-            return .goTo(pageIndex: document.index(for: page), point: destination.point)
-        }
+        if let goTo = annotation.action as? PDFActionGoTo { let destination = goTo.destination; guard let page = destination.page, let document = page.document else { return nil }; return .goTo(pageIndex: document.index(for: page), point: destination.point) }
         if let action = annotation.action as? PDFActionURL, let url = action.url { return .url(url.absoluteString) }
         if let url = annotation.url { return .url(url.absoluteString) }
         return nil
     }
 }
 extension PDFViewController: ReaderSearchResultPresenting {
-    func presentSearchResults(_ selections: [PDFSelection], activeIndex: Int?) {
+    @discardableResult
+    func presentSearchResults(_ selections: [PDFSelection], activeIndex: Int?) -> ReaderSearchResultDisplayOutcome {
+        if let activeIndex, !selections.indices.contains(activeIndex) { return .failed }
+        let origin = activeIndex == nil ? nil : captureNavigationSnapshot()
         searchSelections = selections
         activeSearchIndex = activeIndex
         renderSearchResults()
+        guard let origin, let landing = captureNavigationSnapshot() else {
+            return activeIndex == nil ? .displayedSame : .failed
+        }
+        return landing.isSameLocation(as: origin) ? .displayedSame : .displayedDistinct
     }
 
-    func activateSearchResult(at index: Int) {
-        guard searchSelections.indices.contains(index) else { return }
+    @discardableResult
+    func activateSearchResult(at index: Int) -> ReaderSearchResultDisplayOutcome {
+        guard searchSelections.indices.contains(index), let origin = captureNavigationSnapshot() else { return .failed }
         if let activeSearchIndex, searchSelections.indices.contains(activeSearchIndex) {
             searchSelections[activeSearchIndex].color = searchPalette.allResults
         }
@@ -480,6 +493,8 @@ extension PDFViewController: ReaderSearchResultPresenting {
         activeSearchIndex = index
         readerView.setCurrentSelection(active, animate: false)
         readerView.scrollSelectionToVisible(nil)
+        guard let landing = captureNavigationSnapshot() else { return .failed }
+        return landing.isSameLocation(as: origin) ? .displayedSame : .displayedDistinct
     }
 
     func clearSearchResults() {

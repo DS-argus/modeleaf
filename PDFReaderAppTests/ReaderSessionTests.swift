@@ -712,6 +712,195 @@ struct ReaderSessionTests {
         }
     }
 
+    @Test("search producer history matrix coalesces, branches, replaces, and ignores stale callbacks")
+    func searchProducerHistoryMatrix() throws {
+        try withSearchHistoryHarness { session, navigation, driver, coordinator, presenter in
+            let a = navigation.position(0)
+            let s1 = navigation.position(1)
+            let s2 = navigation.position(2)
+            let m = navigation.position(3)
+
+            coordinator.request("alpha")
+            let first = try #require(driver.generations.last)
+            presenter.nextLanding = s1
+            driver.match(generation: first)
+            driver.end(generation: first)
+            presenter.nextLanding = s2
+            #expect(coordinator.selectNext()) // S1 → S2 coalesces.
+            #expect(session.canGoBack)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(navigation.current == a)
+            #expect(session.goForward() == .verifiedLanding)
+            // A successful traversal ended the epoch; a new result branches.
+            #expect(session.goBack() == .verifiedLanding)
+            coordinator.request("branch")
+            let branch = try #require(driver.generations.last)
+            presenter.nextLanding = s1
+            driver.match(generation: branch)
+            driver.end(generation: branch)
+            #expect(!session.canGoForward)
+            #expect(coordinator.selectNext())
+            #expect(!session.canGoForward)
+
+            // Pending search followed by meaningful M splits the epoch.
+            coordinator.request("pending")
+            let pending = try #require(driver.generations.last)
+            #expect(session.performNavigation(.meaningfulJump(producer: .pagePrompt, destination: m)) == .verifiedLanding)
+            driver.end(generation: pending) // no result, cannot commit.
+
+            coordinator.request("beta")
+            let beta = try #require(driver.generations.last)
+            presenter.nextLanding = s2
+            driver.match(generation: beta)
+            driver.end(generation: beta)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(navigation.current == m)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(navigation.current == s1)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(navigation.current == a)
+            #expect(session.goForward() == .verifiedLanding)
+            #expect(navigation.current == s1)
+            #expect(session.goForward() == .verifiedLanding)
+            #expect(navigation.current == m)
+            #expect(session.goForward() == .verifiedLanding)
+            #expect(navigation.current == s2)
+
+            // Replacement retags; stale callbacks cannot alter history.
+            coordinator.request("old")
+            let old = try #require(driver.generations.last)
+            coordinator.request("new")
+            driver.end(generation: old)
+            driver.runScheduled()
+            let replacement = try #require(driver.generations.last)
+            presenter.nextLanding = s1
+            driver.match(generation: old)
+            driver.end(generation: old)
+            driver.match(generation: replacement)
+            driver.end(generation: replacement)
+            #expect(session.canGoBack)
+
+            session.clearSearch()
+            coordinator.request("none")
+            let none = try #require(driver.generations.last)
+            driver.end(generation: none)
+            #expect(session.canGoBack) // no-result adds nothing.
+            session.prepareForClose()
+            let ignored = coordinator.ignoredCallbackCount
+            driver.match(generation: replacement)
+            driver.end(generation: replacement)
+            #expect(coordinator.ignoredCallbackCount == ignored)
+        }
+    }
+
+    @Test("same-generation result re-arms after Back and branches from the live origin")
+    func sameGenerationResultAfterBackRearms() throws {
+        try withSearchHistoryHarness { session, navigation, driver, coordinator, presenter in
+            let a = navigation.position(0)
+            let s1 = navigation.position(1)
+            let s2 = navigation.position(2)
+            coordinator.request("needle")
+            let generation = try #require(driver.generations.last)
+            presenter.nextLanding = s1
+            driver.match(generation: generation)
+            driver.match(generation: generation)
+            driver.end(generation: generation)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(navigation.current == a)
+            presenter.nextLanding = s2
+            #expect(coordinator.selectNext())
+            #expect(!session.canGoForward)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(navigation.current == a)
+            #expect(session.goForward() == .verifiedLanding)
+            #expect(navigation.current == s2)
+        }
+    }
+
+    @Test("same-generation result after meaningful jump branches from that jump")
+    func sameGenerationResultAfterMeaningfulJumpRearms() throws {
+        try withSearchHistoryHarness { session, navigation, driver, coordinator, presenter in
+            let a = navigation.position(0)
+            let s1 = navigation.position(1)
+            let s2 = navigation.position(2)
+            let m = navigation.position(3)
+            coordinator.request("needle")
+            let generation = try #require(driver.generations.last)
+            presenter.nextLanding = s1
+            driver.match(generation: generation)
+            driver.match(generation: generation)
+            driver.end(generation: generation)
+            #expect(session.performNavigation(.meaningfulJump(producer: .pagePrompt, destination: m)) == .verifiedLanding)
+            presenter.nextLanding = s2
+            #expect(coordinator.selectNext())
+            #expect(!session.canGoForward)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(navigation.current == m)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(navigation.current == s1)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(navigation.current == a)
+        }
+    }
+    @Test("search capture preflight still presents results without history")
+    func searchCapturePreflightDoesNotGatePresentation() throws {
+        try withSearchHistoryHarness { session, navigation, driver, coordinator, presenter in
+            let s1 = navigation.position(1)
+            let s2 = navigation.position(2)
+            navigation.captureEnabled = false
+            coordinator.request("needle")
+            let generation = try #require(driver.generations.last)
+            presenter.nextLanding = s1
+            driver.match(generation: generation)
+            driver.match(generation: generation)
+            driver.end(generation: generation)
+            #expect(coordinator.snapshot.activeMatchIndex == 0)
+            #expect(!session.canGoBack && !session.canGoForward)
+            presenter.nextLanding = s2
+            #expect(coordinator.selectNext())
+            #expect(coordinator.snapshot.activeMatchIndex == 1)
+            #expect(!session.canGoBack && !session.canGoForward)
+        }
+    }
+
+
+    @Test("initial no-result and cancelled-before-first searches leave session history empty")
+    func initialSearchWithoutLandingLeavesHistoryEmpty() throws {
+        try withSearchHistoryHarness { session, _, driver, coordinator, _ in
+            coordinator.request("none")
+            let none = try #require(driver.generations.last)
+            driver.end(generation: none)
+            #expect(!session.canGoBack)
+            coordinator.request("cancel")
+            let cancelled = try #require(driver.generations.last)
+            session.clearSearch()
+            driver.match(generation: cancelled)
+            driver.end(generation: cancelled)
+            #expect(!session.canGoBack && !session.canGoForward)
+        }
+    }
+
+    private func withSearchHistoryHarness(
+        body: (ReaderSession, SearchNavigationScript, SessionSearchDriver, ReaderSearchCoordinator, SessionSearchPresenter) throws -> Void
+    ) throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 4)
+            let navigation = SearchNavigationScript()
+            let driver = SessionSearchDriver()
+            let presenter = SessionSearchPresenter(navigation: navigation)
+            let coordinator = ReaderSearchCoordinator(driver: driver, presenter: presenter, scheduler: driver)
+            let session = ReaderSession(
+                sourceURL: url,
+                document: try #require(PDFDocument(url: url)),
+                searchLifecycle: coordinator,
+                navigationCapture: { navigation.capture() },
+                navigationRestore: { destination in navigation.current = destination; return .verifiedLanding }
+            )
+            defer { session.prepareForClose() }
+            try body(session, navigation, driver, coordinator, presenter)
+        }
+    }
+
     private func withSession(
         pageCount: Int,
         pageSize: CGSize = CGSize(width: 612, height: 792),
@@ -780,23 +969,61 @@ private final class NavigationScript {
 @MainActor
 private final class WeakReaderSession {
     weak var value: ReaderSession?
+    init(_ value: ReaderSession?) { self.value = value }
+}
 
-    init(_ value: ReaderSession?) {
-        self.value = value
+@MainActor
+private final class SearchNavigationScript {
+    var current: NavigationSnapshot = NavigationSnapshot(pageIndex: 0, pageSpacePoint: .zero)!
+    var captureEnabled = true
+    func capture() -> NavigationSnapshot? { captureEnabled ? current : nil }
+    func position(_ pageIndex: Int) -> NavigationSnapshot { NavigationSnapshot(pageIndex: pageIndex, pageSpacePoint: .zero)! }
+}
+
+@MainActor
+private final class SessionSearchDriver: ReaderSearchDriving, ReaderSearchReplacementScheduling {
+    weak var sink: (any ReaderSearchDriverSink)?
+    private(set) var generations: [UInt64] = []
+    private var scheduled: [@MainActor @Sendable () -> Void] = []
+    func begin(query: String, generation: UInt64) { generations.append(generation); sink?.searchDriverDidBegin(generation: generation) }
+    func cancel(generation: UInt64) {}
+    func detach() { sink = nil }
+    func match(generation: UInt64) { sink?.searchDriverDidMatch(PDFSelection(document: PDFDocument()), generation: generation) }
+    func end(generation: UInt64) { sink?.searchDriverDidEnd(generation: generation) }
+    func schedule(_ operation: @escaping @MainActor @Sendable () -> Void) { scheduled.append(operation) }
+    func runScheduled() { guard !scheduled.isEmpty else { return }; scheduled.removeFirst()() }
+}
+
+@MainActor
+private final class SessionSearchPresenter: ReaderSearchResultPresenting {
+    private let navigation: SearchNavigationScript
+    var nextLanding: NavigationSnapshot?
+    var presentationOutcomes: [ReaderSearchResultDisplayOutcome] = []
+    var activationOutcomes: [ReaderSearchResultDisplayOutcome] = []
+
+    init(navigation: SearchNavigationScript) { self.navigation = navigation }
+
+    @discardableResult
+    func presentSearchResults(_ selections: [PDFSelection], activeIndex: Int?) -> ReaderSearchResultDisplayOutcome {
+        if let nextLanding { navigation.current = nextLanding; self.nextLanding = nil }
+        return presentationOutcomes.isEmpty ? .displayedDistinct : presentationOutcomes.removeFirst()
     }
+
+    @discardableResult
+    func activateSearchResult(at index: Int) -> ReaderSearchResultDisplayOutcome {
+        if let nextLanding { navigation.current = nextLanding; self.nextLanding = nil }
+        return activationOutcomes.isEmpty ? .displayedDistinct : activationOutcomes.removeFirst()
+    }
+
+    func clearSearchResults() {}
 }
 
 private extension ReaderTeardownStep {
     static let allExpected: [ReaderTeardownStep] = [
-        .searchCancellationRequested,
-        .callbacksAndDelegatesDetached,
-        .notificationsDetached,
-        .selectionAndHighlightsCleared,
-        .documentDetached,
-        .contentViewRemoved,
+        .searchCancellationRequested, .callbacksAndDelegatesDetached,
+        .notificationsDetached, .selectionAndHighlightsCleared,
+        .documentDetached, .contentViewRemoved,
     ]
 }
 
-private extension Array {
-    var only: Element? { count == 1 ? self[0] : nil }
-}
+private extension Array { var only: Element? { count == 1 ? self[0] : nil } }

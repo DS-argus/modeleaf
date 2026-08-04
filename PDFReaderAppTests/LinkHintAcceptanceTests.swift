@@ -28,6 +28,11 @@ struct LinkHintAcceptanceTests {
             try type(goToLabel, through: controller)
             #expect(session.currentPageNumber == 2)
             #expect(view.followedLinkCount == 1)
+            #expect(session.canGoBack)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(session.currentPageNumber == 1)
+            #expect(session.goForward() == .verifiedLanding)
+            #expect(session.currentPageNumber == 2)
 
             for _ in 0..<2 {
                 #expect(session.goToPage(1))
