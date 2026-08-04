@@ -10,7 +10,11 @@ struct ReaderStatusSnapshot: Equatable {
 }
 
 @MainActor
-protocol ReaderSessionPresenting: AnyObject {
+protocol ReaderDuplicateValidating: AnyObject {
+    func configureDuplicateValidation(_ handler: @escaping (Bool) -> Void)
+}
+@MainActor
+protocol ReaderSessionPresenting: ReaderNavigationHistoryPresenting {
     var id: TabID { get }
     var title: String { get }
     var contentView: NSView { get }
@@ -19,9 +23,7 @@ protocol ReaderSessionPresenting: AnyObject {
     var pageCount: Int { get }
     var searchSnapshot: ReaderSearchSnapshot { get }
     var preferredInputContext: InputContext { get }
-    var canGoBack: Bool { get }
-    var canGoForward: Bool { get }
-    var navigationAvailabilityDetail: String { get }
+
     func setPresentationChangeHandler(_ handler: (() -> Void)?)
     func applyTheme(_ theme: AppKitTheme)
     func scrollBy(xPoints: Double, yPoints: Double)
@@ -34,11 +36,6 @@ protocol ReaderSessionPresenting: AnyObject {
     @discardableResult func goToPreviousPage() -> Bool
     @discardableResult func goToFirstPage() -> Bool
     @discardableResult func goToLastPage() -> Bool
-    @discardableResult func goBack() -> NavigationTransactionOutcome
-    @discardableResult func goForward() -> NavigationTransactionOutcome
-    @discardableResult func performNavigation(_ request: NavigationTransactionRequest) -> NavigationTransactionOutcome
-    @discardableResult func activateSearchNavigation(searchGeneration: Int) -> SearchNavigationActivationOutcome
-    @discardableResult func recordVerifiedSearchLanding(searchGeneration: Int) -> SearchNavigationActivationOutcome
     func zoom(by factor: Double)
     func resetZoom()
     func fitWidth()
@@ -50,46 +47,53 @@ protocol ReaderSessionPresenting: AnyObject {
     @discardableResult func selectPreviousSearchResult() -> Bool
     func clearSearch()
     func prepareForClose()
-    func configureDuplicateValidation(_ handler: @escaping (Bool) -> Void)
 }
 
 extension ReaderSessionPresenting {
     var focusView: NSView { contentView }
     var pageCount: Int { 0 }
+    func scrollBy(xPoints: Double, yPoints: Double) {}
+    func zoom(by factor: Double) {}
     var searchSnapshot: ReaderSearchSnapshot { .empty }
     var preferredInputContext: InputContext { searchSnapshot.isActive ? .searchResults : .navigation }
-    var canGoBack: Bool { false }
-    var canGoForward: Bool { false }
-    var navigationAvailabilityDetail: String { "History unavailable" }
     func setPresentationChangeHandler(_ handler: (() -> Void)?) {}
-    func scrollBy(xPoints: Double, yPoints: Double) {}
-    func scrollVerticallyByViewportFraction(_ fraction: Double) {}
-    func moveHorizontally(byPoints points: Double) { scrollBy(xPoints: points, yPoints: 0) }
-    func moveVertically(byPoints points: Double) { scrollBy(xPoints: 0, yPoints: points) }
-    func moveVertically(byViewportFraction fraction: Double) { scrollVerticallyByViewportFraction(fraction) }
-    func goToPage(_ oneBasedPage: Int) -> Bool { false }
-    func goToNextPage() -> Bool { false }
-    func goToPreviousPage() -> Bool { false }
-    func goToFirstPage() -> Bool { false }
-    func goToLastPage() -> Bool { false }
-    func goBack() -> NavigationTransactionOutcome { .unavailable }
-    func goForward() -> NavigationTransactionOutcome { .unavailable }
-    func performNavigation(_ request: NavigationTransactionRequest) -> NavigationTransactionOutcome { .unavailable }
-    func activateSearchNavigation(searchGeneration: Int) -> SearchNavigationActivationOutcome { .preflightRejected }
-    func recordVerifiedSearchLanding(searchGeneration: Int) -> SearchNavigationActivationOutcome { .ignored }
-    func zoom(by factor: Double) {}
     func resetZoom() {}
     func fitWidth() {}
     func fitPage() {}
     func rotateLeft() {}
     func rotateRight() {}
+    func scrollVerticallyByViewportFraction(_ fraction: Double) {}
+    func moveHorizontally(byPoints points: Double) { scrollBy(xPoints: points, yPoints: 0) }
+    func moveVertically(byPoints points: Double) { scrollBy(xPoints: 0, yPoints: points) }
+    func moveVertically(byViewportFraction fraction: Double) { scrollVerticallyByViewportFraction(fraction) }
+    func goToPage(_ oneBasedPage: Int) -> Bool { false }
     func beginSearch(_ query: String) {}
     func selectNextSearchResult() -> Bool { false }
     func selectPreviousSearchResult() -> Bool { false }
     func clearSearch() {}
     func prepareForClose() {}
-    func configureDuplicateValidation(_ handler: @escaping (Bool) -> Void) { handler(true) }
+    func goToNextPage() -> Bool { false }
+    func goToPreviousPage() -> Bool { false }
+    func goToFirstPage() -> Bool { false }
+    func goToLastPage() -> Bool { false }
 }
+
+@MainActor
+protocol ReaderNavigationHistoryPresenting: AnyObject {
+    var canGoBack: Bool { get }
+    var canGoForward: Bool { get }
+    var isNavigationHistoryHealthy: Bool { get }
+    var navigationAvailabilityDetail: String { get }
+    @discardableResult func goBack() -> NavigationTransactionOutcome
+    @discardableResult func goForward() -> NavigationTransactionOutcome
+    func setNavigationOutcomeHandler(_ handler: ((NavigationTransactionOutcome) -> Void)?)
+}
+
+@MainActor
+extension ReaderNavigationHistoryPresenting {
+    func setNavigationOutcomeHandler(_ handler: ((NavigationTransactionOutcome) -> Void)?) {}
+}
+
 
 struct ReaderTabSnapshot: Equatable { let id: TabID; let title: String }; struct ReaderSessionStoreSnapshot: Equatable { let tabs: [ReaderTabSnapshot]; let activeID: TabID?; var isEmpty: Bool { tabs.isEmpty } }; struct PreparedTabClose: Equatable { let closingTab: TabID; let closingIndex: Int; let priorSelection: TabID?; let projectedSelection: TabID? }
 @MainActor final class ReaderSessionStore { private var tabStore = TabStore(); private var sessionsByID: [TabID: any ReaderSessionPresenting] = [:]; private var changeHandler: ((ReaderSessionStoreSnapshot) -> Void)?

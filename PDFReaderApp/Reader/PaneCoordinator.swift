@@ -125,7 +125,8 @@ final class PaneCoordinator {
         guard let destinationLayout = layout.applyingSplit(direction, to: sourcePaneID, inserting: destinationID),
               let source = activeSession as? any ReaderDuplicationSnapshotProviding,
               let snapshot = source.duplicationSnapshot,
-              let candidate = duplicateSession?(snapshot)
+              let candidate = duplicateSession?(snapshot),
+              let validator = candidate as? any ReaderDuplicateValidating
         else { return nil }
 
         let originalLayout = layout
@@ -146,7 +147,7 @@ final class PaneCoordinator {
 
         var finalized = false
         var succeeded = false
-        candidate.configureDuplicateValidation { [weak self, weak candidate] success in
+        validator.configureDuplicateValidation { [weak self, weak candidate] success in
             guard let self, let candidate, !finalized else { return }
             finalized = true
             succeeded = success

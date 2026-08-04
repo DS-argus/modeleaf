@@ -125,7 +125,7 @@ struct ReaderSessionStoreTests {
 }
 
 @MainActor
-final class StubReaderSession: ReaderSessionPresenting {
+final class StubReaderSession: HistoryNeutralTestSessionPresenting, ReaderDuplicateValidating {
     func applyTheme(_ theme: AppKitTheme) {}
     let id: TabID
     let title: String

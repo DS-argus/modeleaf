@@ -131,14 +131,17 @@ final class ReaderPDFView: PDFView {
         return resigned
     }
     override func perform(_ action: PDFAction) {
-        if let goTo = action as? PDFActionGoTo,
-           let target = internalTarget(for: goTo.destination) {
-            internalLinkHandler?.readerPDFView(self, activateInternalLink: target)
-        } else if let urlAction = action as? PDFActionURL, let url = urlAction.url {
+        if let urlAction = action as? PDFActionURL, let url = urlAction.url {
             activateURL(url)
-        } else {
-            blockedActionCount += 1
+            return
         }
+        guard let goTo = action as? PDFActionGoTo,
+              let target = internalTarget(for: goTo.destination)
+        else {
+            blockedActionCount += 1
+            return
+        }
+        internalLinkHandler?.readerPDFView(self, activateInternalLink: target)
     }
 
     /// Hint and mouse GoTo links share the session-owned transaction executor.
@@ -153,9 +156,12 @@ final class ReaderPDFView: PDFView {
     }
 
     private func internalTarget(for destination: PDFDestination) -> ReaderLinkTarget? {
-        guard let page = destination.page, let document = page.document else { return nil }
+        guard let document,
+              let page = destination.page,
+              page.document === document
+        else { return nil }
         let pageIndex = document.index(for: page)
-        guard pageIndex >= 0 else { return nil }
+        guard pageIndex >= 0, pageIndex < document.pageCount else { return nil }
         return .goTo(pageIndex: pageIndex, point: destination.point)
     }
 

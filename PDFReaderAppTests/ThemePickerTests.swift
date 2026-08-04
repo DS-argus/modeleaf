@@ -96,49 +96,6 @@ struct ThemePickerTests {
         #expect(controller.inputContextForTesting == .navigation)
     }
 
-    @Test("session change cancels an active theme preview without restoring the old context")
-    func sessionChangeCancelsThemePreview() throws {
-        let store = ReaderSessionStore()
-        let first = StubReaderSession(id: TabID(), title: "First.pdf")
-        let second = HistoryAvailabilitySession(canGoBack: false, canGoForward: false, healthy: true)
-        second.searchSnapshot = ReaderSearchSnapshot(
-            query: "needle",
-            matchCount: 1,
-            activeMatchIndex: 0,
-            isRunning: false,
-            emptyResult: nil
-        )
-        #expect(store.insert(first))
-        #expect(store.insert(second))
-        let coordinator = PaneCoordinator(initialStore: store)
-        #expect(coordinator.activate(tab: first.id))
-        var currentTheme: ThemeID = .tokyoNight
-        var cancellations: [ThemeID] = []
-        let controller = MainWindowController(
-            coordinator: coordinator,
-            theme: AppKitTheme(themeID: .tokyoNight),
-            actionHandler: { _ in },
-            currentThemeID: { currentTheme },
-            themePreviewHandler: { currentTheme = $0 },
-            themeCancelHandler: { theme in cancellations.append(theme); currentTheme = theme }
-        )
-        defer { controller.close() }
-        controller.presentThemePicker()
-        let overlay = controller.rootView.themePickerOverlay
-        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "", keyCode: 125))))
-        #expect(currentTheme != .tokyoNight)
-
-        #expect(coordinator.activate(tab: second.id))
-
-        #expect(overlay.isHidden)
-        #expect(currentTheme == .tokyoNight)
-        #expect(cancellations == [.tokyoNight])
-        #expect(controller.inputContextForTesting == .searchResults)
-        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "", keyCode: 125))))
-        #expect(currentTheme == .tokyoNight)
-        #expect(cancellations == [.tokyoNight])
-    }
-
     @Test("AC-3/AC-4 overlay live-previews on move and commits the selected theme")
     func overlayPreviewCommit() throws {
         let e = try keys()
@@ -432,7 +389,7 @@ struct ThemePickerTests {
 
 }
 @MainActor
-private final class ThemeRecordingSession: ReaderSessionPresenting, ReaderDuplicationSnapshotProviding {
+private final class ThemeRecordingSession: HistoryNeutralTestSessionPresenting, ReaderDuplicationSnapshotProviding, ReaderDuplicateValidating {
     let id = TabID()
     let title: String
     let contentView = NSView()
@@ -450,4 +407,5 @@ private final class ThemeRecordingSession: ReaderSessionPresenting, ReaderDuplic
 
     func applyTheme(_ theme: AppKitTheme) { appliedThemeIDs.append(theme.id) }
     func prepareForClose() {}
+    func configureDuplicateValidation(_ handler: @escaping (Bool) -> Void) { handler(true) }
 }

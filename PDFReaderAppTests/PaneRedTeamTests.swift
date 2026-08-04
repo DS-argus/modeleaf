@@ -476,7 +476,8 @@ struct PaneRedTeamTests {
 }
 
 @MainActor
-private final class RedTeamSession: ReaderSessionPresenting, ReaderDuplicationSnapshotProviding {
+private final class RedTeamSession: HistoryNeutralTestSessionPresenting, ReaderDuplicationSnapshotProviding, ReaderDuplicateValidating {
+    func configureDuplicateValidation(_ handler: @escaping (Bool) -> Void) { handler(true) }
     func applyTheme(_ theme: AppKitTheme) {}
     let id = TabID()
     let title: String

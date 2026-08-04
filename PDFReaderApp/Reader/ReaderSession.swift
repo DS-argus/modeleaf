@@ -57,6 +57,7 @@ enum SearchNavigationActivationOutcome: Equatable, Sendable {
     case ignored
     case firstCommitted
     case coalesced
+    case presentationAcceptedWithoutHistory
 }
 
 private enum DuplicateValidationState {
@@ -72,18 +73,27 @@ protocol ReaderSearchLifecycle: AnyObject {
     func clearHighlights()
 }
 
+typealias ReaderSearchControllerFactory = (
+    @escaping (Int) -> SearchNavigationActivationOutcome,
+    @escaping (Int, ReaderSearchResultDisplayOutcome) -> SearchNavigationActivationOutcome
+) -> any ReaderSearchControlling
+
 @MainActor
-final class ReaderSession: NSObject, ReaderSessionPresenting {
+final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateValidating {
     let id: TabID
     let title: String
     let sourceURL: URL
 
     private let document: PDFDocument
     private let viewController: PDFViewController
-    private let searchLifecycle: any ReaderSearchLifecycle
-    private let searchController: (any ReaderSearchControlling)?
+    private let searchControllerFactory: ReaderSearchControllerFactory
+    private lazy var searchController: any ReaderSearchControlling = searchControllerFactory(
+        { [weak self] generation in self?.activateSearchNavigation(searchGeneration: generation) ?? .preflightRejected },
+        { [weak self] generation, outcome in
+            self?.reportSearchPresentationOutcome(searchGeneration: generation, outcome: outcome) ?? .preflightRejected
+        }
+    )
     private let openTraceID: OpenTraceID
-    private let searchNavigationCoordinator: ReaderSearchCoordinator?
     private let navigationCapture: () -> NavigationSnapshot?
     private var duplicateValidationState: DuplicateValidationState = .pending
     private var duplicateValidationHandler: ((Bool) -> Void)?
@@ -93,8 +103,10 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
     private var cachedSearchableTextPresence: Bool?
     private var notificationTokens: [NSObjectProtocol] = []
     private var presentationChangeHandler: (() -> Void)?
+    private var navigationOutcomeHandler: ((NavigationTransactionOutcome) -> Void)?
     private var navigationHistory = NavigationHistory()
     private var searchEpoch: SearchEpoch = .idle
+    private var searchOrigins: [Int: NavigationSnapshot] = [:]
     private(set) var isNavigationHistoryHealthy = true
 
     private(set) var completedTeardownSteps: [ReaderTeardownStep] = []
@@ -104,7 +116,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         id: TabID = TabID(),
         sourceURL: URL,
         document: PDFDocument,
-        searchLifecycle: (any ReaderSearchLifecycle)? = nil,
+        searchControllerFactory: ReaderSearchControllerFactory? = nil,
         traceID: OpenTraceID = OpenTraceID(),
         metrics: any PDFOpenMetrics = NoopPDFOpenMetrics(),
         navigationCapture: (() -> NavigationSnapshot?)? = nil,
@@ -119,24 +131,19 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         self.openMetrics = metrics
         let viewController = PDFViewController(document: document, traceID: traceID, metrics: metrics)
         self.viewController = viewController
+        if let navigationCapture { viewController.setNavigationSnapshotCaptureOverride(navigationCapture) }
         self.navigationCapture = navigationCapture ?? { viewController.captureNavigationSnapshot() }
         self.navigationRestore = navigationRestore ?? { viewController.restoreNavigationSnapshot($0) }
-        if let searchLifecycle {
-            self.searchLifecycle = searchLifecycle
-            self.searchController = searchLifecycle as? any ReaderSearchControlling
-            self.searchNavigationCoordinator = searchLifecycle as? ReaderSearchCoordinator
-        } else {
-            let coordinator = ReaderSearchCoordinator(driver: PDFKitSearchDriver(document: document), presenter: viewController)
-            self.searchLifecycle = coordinator
-            self.searchController = coordinator
-            self.searchNavigationCoordinator = coordinator
+        self.searchControllerFactory = searchControllerFactory ?? { activate, reportOutcome in
+            ReaderSearchCoordinator(
+                driver: PDFKitSearchDriver(document: document),
+                presenter: viewController,
+                activateNavigation: activate,
+                reportNavigationOutcome: reportOutcome
+            )
         }
         super.init()
-        searchNavigationCoordinator?.configureNavigation(
-            activate: { [weak self] generation in self?.activateSearchNavigation(searchGeneration: generation) ?? .preflightRejected },
-            recordLanding: { [weak self] generation in self?.recordVerifiedSearchLanding(searchGeneration: generation) ?? .preflightRejected }
-        )
-        searchController?.setChangeHandler { [weak self] in self?.publishPresentationChange() }
+        searchController.setChangeHandler { [weak self] in self?.publishPresentationChange() }
         installNotifications()
         viewController.setInternalLinkHandler { [weak self] target in
             self?.executeInternalLink(target)
@@ -162,41 +169,51 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
 
     @discardableResult
     func performNavigation(_ request: NavigationTransactionRequest) -> NavigationTransactionOutcome {
-        guard !isClosed, isNavigationHistoryHealthy else { return .unavailable }
+        let outcome: NavigationTransactionOutcome
+        guard !isClosed, isNavigationHistoryHealthy else {
+            return publishNavigationOutcome(.unavailable)
+        }
         switch request {
         case let .meaningfulJump(producer, destination):
-            guard producer != .searchResult else { return .preflightRejected }
-            return performMeaningfulJump(producer: producer, destination: destination)
+            outcome = producer == .searchResult
+                ? .preflightRejected
+                : performMeaningfulJump(producer: producer, destination: destination)
         case .back:
-            return performTraversal(backward: true)
+            outcome = performTraversal(backward: true)
         case .forward:
-            return performTraversal(backward: false)
+            outcome = performTraversal(backward: false)
         }
+        return publishNavigationOutcome(outcome)
     }
 
     @discardableResult
     func activateSearchNavigation(searchGeneration: Int) -> SearchNavigationActivationOutcome {
-        guard !isClosed, isNavigationHistoryHealthy else { return .preflightRejected }
+        guard !isClosed,
+              isNavigationHistoryHealthy,
+              let attemptOrigin = captureNavigation()
+        else { return .preflightRejected }
+
+        searchOrigins.removeAll(keepingCapacity: true)
+        searchOrigins[searchGeneration] = attemptOrigin
         guard searchEpoch == .idle else {
             searchEpoch.replaceQuery(searchGeneration: searchGeneration)
             return .retagged
         }
-        guard let origin = captureNavigation() else { return .preflightRejected }
-        searchEpoch.arm(origin: origin, searchGeneration: searchGeneration)
+        searchEpoch.arm(origin: attemptOrigin, searchGeneration: searchGeneration)
         return .armed
     }
 
-    /// PR-C calls this only after it has visibly landed a search result.
+    /// Commits the presenter-supplied actual landing after a verified distinct display.
     @discardableResult
-    func recordVerifiedSearchLanding(searchGeneration: Int) -> SearchNavigationActivationOutcome {
-        guard !isClosed, isNavigationHistoryHealthy,
-              let landing = captureNavigation()
-        else { return .preflightRejected }
+    func recordVerifiedSearchLanding(
+        searchGeneration: Int,
+        landing: NavigationSnapshot
+    ) -> SearchNavigationActivationOutcome {
+        guard !isClosed, isNavigationHistoryHealthy else { return .preflightRejected }
         switch searchEpoch.inspectDisplayedDistinct(searchGeneration: searchGeneration) {
         case let .first(origin):
             guard navigationHistory.commitMeaningfulJump(origin: origin, landing: landing) else { return .ignored }
             _ = searchEpoch.commitFirstDisplayedDistinct(searchGeneration: searchGeneration, historyCommitted: true)
-            publishPresentationChange()
             return .firstCommitted
         case .coalesced:
             return .coalesced
@@ -205,7 +222,53 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         }
     }
 
+    @discardableResult
+    private func reportSearchPresentationOutcome(
+        searchGeneration: Int,
+        outcome: ReaderSearchResultDisplayOutcome
+    ) -> SearchNavigationActivationOutcome {
+        guard !isClosed else { return .preflightRejected }
+        let origin = searchOrigins.removeValue(forKey: searchGeneration)
+        guard isNavigationHistoryHealthy else {
+            return outcome.presentationWasApplied ? .presentationAcceptedWithoutHistory : .ignored
+        }
+        guard let origin else {
+            switch outcome {
+            case let .displayedDistinct(landing):
+                _ = publishNavigationOutcome(disableHistory(actualLanding: landing, publishes: false))
+                return .presentationAcceptedWithoutHistory
+            case .displayedAfterUnverifiedMovement:
+                _ = publishNavigationOutcome(disableHistory(actualLanding: captureNavigation(), publishes: false))
+                return .presentationAcceptedWithoutHistory
+            case .displayedSame:
+                _ = publishNavigationOutcome(.preflightRejected)
+                return .coalesced
+            case .failedWithoutMovement:
+                _ = publishNavigationOutcome(.preflightRejected)
+                return .ignored
+            }
+        }
+
+        switch outcome {
+        case let .displayedDistinct(landing):
+            let activation = recordVerifiedSearchLanding(searchGeneration: searchGeneration, landing: landing)
+            let transaction: NavigationTransactionOutcome = (activation == .firstCommitted || activation == .coalesced) ? .verifiedLanding : .noOp
+            _ = publishNavigationOutcome(transaction)
+            return activation
+        case .displayedSame:
+            _ = publishNavigationOutcome(.noOp)
+            return .coalesced
+        case .failedWithoutMovement:
+            _ = publishNavigationOutcome(.preflightRejected)
+            return .ignored
+        case .displayedAfterUnverifiedMovement:
+            let compensation = publishNavigationOutcome(compensateUnverifiedAttempt(from: origin, publishesFailure: false))
+            if case .uncompensatedInvariantFailure = compensation { return .preflightRejected }
+            return .ignored
+        }
+    }
     var contentView: NSView { viewController.view }
+
     var focusView: NSView { viewController.focusView }
     var pageCount: Int { viewController.pageCount }
     var currentPageNumber: Int? { viewController.currentPageNumber }
@@ -215,7 +278,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         viewController.initialPresentationState
     }
     var searchSnapshot: ReaderSearchSnapshot {
-        var snapshot = searchController?.snapshot ?? .empty
+        var snapshot = searchController.snapshot
         if snapshot.isActive, !snapshot.isRunning, snapshot.matchCount == 0 {
             let hasSearchableText = cachedSearchableTextPresence ?? documentContainsSearchableText()
             cachedSearchableTextPresence = hasSearchableText
@@ -257,10 +320,13 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         presentationChangeHandler = handler
     }
 
+    func setNavigationOutcomeHandler(_ handler: ((NavigationTransactionOutcome) -> Void)?) {
+        navigationOutcomeHandler = handler
+    }
+
     @discardableResult
     func goToPage(_ oneBasedPage: Int) -> Bool {
-        guard let destination = viewController.navigationSnapshot(forPageNumber: oneBasedPage) else { return false }
-        let outcome = performNavigation(.meaningfulJump(producer: .pagePrompt, destination: destination))
+        let outcome = publishNavigationOutcome(performPageJump(producer: .pagePrompt, to: oneBasedPage))
         return outcome == .verifiedLanding || outcome == .noOp
     }
 
@@ -278,15 +344,13 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
 
     @discardableResult
     func goToFirstPage() -> Bool {
-        guard let destination = viewController.navigationSnapshot(forPageNumber: 1) else { return false }
-        let outcome = performNavigation(.meaningfulJump(producer: .firstPage, destination: destination))
+        let outcome = publishNavigationOutcome(performPageJump(producer: .firstPage, to: 1))
         return outcome == .verifiedLanding || outcome == .noOp
     }
 
     @discardableResult
     func goToLastPage() -> Bool {
-        guard let destination = viewController.navigationSnapshot(forPageNumber: pageCount) else { return false }
-        let outcome = performNavigation(.meaningfulJump(producer: .lastPage, destination: destination))
+        let outcome = publishNavigationOutcome(performPageJump(producer: .lastPage, to: pageCount))
         return outcome == .verifiedLanding || outcome == .noOp
     }
 
@@ -384,6 +448,51 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         return true
     }
 
+    private func performPageJump(
+        producer: MeaningfulJumpProducer,
+        to oneBasedPage: Int
+    ) -> NavigationTransactionOutcome {
+        guard !isClosed,
+              isNavigationHistoryHealthy,
+              producer != .searchResult,
+              oneBasedPage >= 1,
+              oneBasedPage <= pageCount,
+              let origin = captureNavigation()
+        else { return .preflightRejected }
+
+        guard currentPageNumber != oneBasedPage else {
+            searchEpoch.failedOrSameNonSearchAttempt()
+            return .noOp
+        }
+        guard viewController.goToPage(oneBasedPage) else {
+            searchEpoch.failedOrSameNonSearchAttempt()
+            return .preflightRejected
+        }
+        guard let landing = captureNavigation() else {
+            return compensateUnverifiedAttempt(from: origin)
+        }
+        guard navigationHistory.commitMeaningfulJump(origin: origin, landing: landing) else {
+            return .noOp
+        }
+        searchEpoch.successfulNonSearchJump()
+        publishPresentationChange()
+        return .verifiedLanding
+    }
+
+    private func compensateUnverifiedAttempt(
+        from origin: NavigationSnapshot,
+        publishesFailure: Bool = true
+    ) -> NavigationTransactionOutcome {
+        switch restoreNavigation(origin) {
+        case .verifiedLanding:
+            return .compensatedFailure
+        case .compensatedFailure, .preflightRejected:
+            return disableHistory(actualLanding: captureNavigation(), publishes: publishesFailure)
+        case let .uncompensatedInvariantFailure(actualLanding):
+            return disableHistory(actualLanding: actualLanding, publishes: publishesFailure)
+        }
+    }
+
     private func performMeaningfulJump(producer: MeaningfulJumpProducer, destination: NavigationSnapshot) -> NavigationTransactionOutcome {
         guard producer != .searchResult, let origin = captureNavigation() else { return .preflightRejected }
         guard !origin.isSameLocation(as: destination) else {
@@ -393,7 +502,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         let restoration = restoreNavigation(destination)
         guard restoration == .verifiedLanding else { return handleRestorationFailure(restoration) }
         guard let actualLanding = captureNavigation() else {
-            return disableHistory(actualLanding: nil)
+            return compensateUnverifiedAttempt(from: origin)
         }
         guard navigationHistory.commitMeaningfulJump(origin: origin, landing: actualLanding) else { return .noOp }
         searchEpoch.successfulNonSearchJump()
@@ -433,10 +542,19 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         navigationRestore(destination)
     }
 
-    private func disableHistory(actualLanding: NavigationSnapshot?) -> NavigationTransactionOutcome {
+    private func disableHistory(
+        actualLanding: NavigationSnapshot?,
+        publishes: Bool = true
+    ) -> NavigationTransactionOutcome {
         isNavigationHistoryHealthy = false
-        publishPresentationChange()
+        if publishes { publishPresentationChange() }
         return .uncompensatedInvariantFailure(actualLanding: actualLanding)
+    }
+
+    @discardableResult
+    private func publishNavigationOutcome(_ outcome: NavigationTransactionOutcome) -> NavigationTransactionOutcome {
+        navigationOutcomeHandler?(outcome)
+        return outcome
     }
 
     func applySearchPalette(_ palette: SearchHighlightPalette) {
@@ -451,26 +569,26 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
 
     func beginSearch(_ query: String) {
         guard !isClosed else { return }
-        searchController?.request(query)
+        searchController.request(query)
     }
-
 
     @discardableResult
     func selectNextSearchResult() -> Bool {
         guard !isClosed else { return false }
-        return searchController?.selectNext() ?? false
+        return searchController.selectNext()
     }
 
     @discardableResult
     func selectPreviousSearchResult() -> Bool {
         guard !isClosed else { return false }
-        return searchController?.selectPrevious() ?? false
+        return searchController.selectPrevious()
     }
 
     func clearSearch() {
         guard !isClosed else { return }
-        searchController?.clear()
+        searchController.clear()
         searchEpoch.clearOrCancel()
+        searchOrigins.removeAll(keepingCapacity: false)
     }
 
     func prepareForClose() {
@@ -480,15 +598,17 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
     func prepareForClose(reason: ReaderSessionCloseReason) {
         guard !isClosed else { return }
 
-        searchLifecycle.requestCancellation()
+        searchController.requestCancellation()
         searchEpoch.clearOrCancel()
+        searchOrigins.removeAll(keepingCapacity: false)
         completedTeardownSteps.append(.searchCancellationRequested)
 
         navigationHistory = NavigationHistory()
         searchEpoch.teardown()
+        searchOrigins.removeAll(keepingCapacity: false)
         isNavigationHistoryHealthy = false
 
-        searchLifecycle.detachCallbacks()
+        searchController.detachCallbacks()
         document.delegate = nil
         viewController.detachDelegates()
         completedTeardownSteps.append(.callbacksAndDelegatesDetached)
@@ -498,7 +618,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         completedTeardownSteps.append(.notificationsDetached)
 
         viewController.clearSelection()
-        searchLifecycle.clearHighlights()
+        searchController.clearHighlights()
         completedTeardownSteps.append(.selectionAndHighlightsCleared)
 
         viewController.detachDocument()
@@ -508,6 +628,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         completedTeardownSteps.append(.contentViewRemoved)
 
         presentationChangeHandler = nil
+        navigationOutcomeHandler = nil
         isClosed = true
         openMetrics.record(
             .point(.sessionClosed, traceID: openTraceID, outcome: reason.metricOutcome)
@@ -567,18 +688,11 @@ extension ReaderSession: ReaderLinkProviding {
 
     func activateLink(_ target: ReaderLinkTarget) {
         guard !isClosed else { return }
-        switch target {
-        case .goTo:
-            viewController.activateLink(target)
-        case .url:
-            viewController.activateLink(target)
-        }
+        viewController.activateLink(target)
     }
 
     private func executeInternalLink(_ target: ReaderLinkTarget) {
-        guard !isClosed,
-              let destination = viewController.navigationDestination(for: target)
-        else { return }
+        guard let destination = viewController.navigationSnapshot(forInternalLink: target) else { return }
         _ = performNavigation(.meaningfulJump(producer: .internalLink, destination: destination))
     }
 

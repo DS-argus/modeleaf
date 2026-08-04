@@ -1193,7 +1193,8 @@ private final class WeakPaneReference {
 }
 
 @MainActor
-private final class EventRecordingSession: ReaderSessionPresenting, ReaderDuplicationSnapshotProviding {
+private final class EventRecordingSession: HistoryNeutralTestSessionPresenting, ReaderDuplicationSnapshotProviding, ReaderDuplicateValidating {
+    func configureDuplicateValidation(_ handler: @escaping (Bool) -> Void) { handler(true) }
     func applyTheme(_ theme: AppKitTheme) {}
     let id: TabID
     let title: String

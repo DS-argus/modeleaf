@@ -5,7 +5,7 @@ import Testing
 
 
 @MainActor
-final class HistoryAvailabilitySession: ReaderSessionPresenting {
+final class HistoryAvailabilitySession: ReaderSessionPresenting, ReaderNavigationHistoryPresenting {
     let id = TabID()
     let title = "History.pdf"
     var statusSnapshot: ReaderStatusSnapshot { .empty }
@@ -14,6 +14,7 @@ final class HistoryAvailabilitySession: ReaderSessionPresenting {
     var canGoBack: Bool
     var canGoForward: Bool
     var navigationAvailabilityDetail: String
+    let isNavigationHistoryHealthy: Bool
     var searchSnapshot = ReaderSearchSnapshot.empty
     private var presentationChangeHandler: (() -> Void)?
 
@@ -28,8 +29,12 @@ final class HistoryAvailabilitySession: ReaderSessionPresenting {
     init(canGoBack: Bool, canGoForward: Bool, healthy: Bool) {
         self.canGoBack = canGoBack
         self.canGoForward = canGoForward
+        isNavigationHistoryHealthy = healthy
         navigationAvailabilityDetail = healthy ? "History available" : "Navigation history unavailable"
     }
+
+    func goBack() -> NavigationTransactionOutcome { canGoBack ? .verifiedLanding : .unavailable }
+    func goForward() -> NavigationTransactionOutcome { canGoForward ? .verifiedLanding : .unavailable }
 }
 @Suite("Command palette integration")
 @MainActor

@@ -545,7 +545,7 @@ struct PaneCoordinatorTests {
                     coordinator.configureDuplication { _ in
                         let document = PDFDocument(url: url)!
                         let search = PaneSearchLifecycleSpy()
-                        let session = ReaderSession(sourceURL: url, document: document, searchLifecycle: search)
+                        let session = ReaderSession(sourceURL: url, document: document, searchControllerFactory: { _, _ in search })
                         pendingReferences = WeakSessionObjects(session: session, view: descendantPDFViews(in: session.contentView).only!, document: document, search: search)
                         return session
                     }
@@ -1040,7 +1040,14 @@ private final class WeakObject<Value: AnyObject> {
 }
 
 @MainActor
-private final class PaneSearchLifecycleSpy: ReaderSearchLifecycle {
+private final class PaneSearchLifecycleSpy: ReaderSearchControlling {
+    let snapshot = ReaderSearchSnapshot.empty
+
+    func setChangeHandler(_ handler: (() -> Void)?) {}
+    func request(_ query: String) {}
+    func selectNext() -> Bool { false }
+    func selectPrevious() -> Bool { false }
+    func clear() {}
     func requestCancellation() {}
     func detachCallbacks() {}
     func clearHighlights() {}

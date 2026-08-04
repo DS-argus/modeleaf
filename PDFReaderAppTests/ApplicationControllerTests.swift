@@ -451,7 +451,7 @@ private final class ControllerOpenPanelStub: PDFOpenPanelPresenting {
 }
 
 @MainActor
-private final class ControllerStubSession: ReaderSessionPresenting {
+private final class ControllerStubSession: HistoryNeutralTestSessionPresenting {
     func applyTheme(_ theme: AppKitTheme) {}
     let id: TabID
     let title: String
