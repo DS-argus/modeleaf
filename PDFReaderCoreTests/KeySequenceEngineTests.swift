@@ -499,6 +499,52 @@ struct KeySequenceEngineTests {
         var searchResults = try makeEngine(context: .searchResults)
         #expect(searchResults.handle(try token("?")) != .dispatch(KeyActionDispatch(actionID: .helpShow)))
     }
+    @Test("history defaults and user remaps dispatch through the navigation trie")
+    func historyDefaultsAndRemaps() throws {
+        var defaults = try makeEngine()
+        #expect(defaults.handle(try token("<C-o>")) == .dispatch(KeyActionDispatch(actionID: .historyBack)))
+        #expect(defaults.handle(try token("<C-i>")) == .dispatch(KeyActionDispatch(actionID: .historyForward)))
+
+        var bindings = BuiltInDefaults.keymap
+        bindings[.historyBack] = [try sequence("x")]
+        bindings[.historyForward] = [try sequence("y")]
+        var remapped = try makeEngine(bindings: bindings)
+        #expect(remapped.handle(try token("x")) == .dispatch(KeyActionDispatch(actionID: .historyBack)))
+        #expect(remapped.handle(try token("y")) == .dispatch(KeyActionDispatch(actionID: .historyForward)))
+        #expect(remapped.handle(try token("<C-o>")) == .ignored(.noBinding))
+        #expect(remapped.handle(try token("<C-i>")) == .ignored(.noBinding))
+    }
+
+    @Test("history bindings are excluded outside navigation")
+    func historyBindingsRespectNavigationOnlyScope() throws {
+        for context in [InputContext.pagePrompt, .searchPrompt, .searchResults] {
+            var engine = try makeEngine(context: context)
+            #expect(engine.handle(try token("<C-o>")) == .ignored(.noBinding))
+            #expect(engine.handle(try token("<C-i>")) == .ignored(.noBinding))
+        }
+    }
+
+    @Test("control-I character token is distinct from Tab at the core level")
+    func controlICharacterTokenIsDistinctFromTab() throws {
+        let controlI = try token("<C-i>")
+        let tab = try token("<Tab>")
+        #expect(controlI == KeyToken(symbol: .character("i"), modifiers: [.control]))
+        #expect(controlI != tab)
+        #expect(controlI.description == "<C-i>")
+        #expect(tab.description == "<Tab>")
+
+        var engine = try makeEngine()
+        #expect(engine.handle(controlI) == .dispatch(KeyActionDispatch(actionID: .historyForward)))
+        #expect(engine.handle(tab) == .ignored(.noBinding))
+    }
+
+    @Test("history dispatch suppresses repeated key events")
+    func historyRepeatSuppression() throws {
+        var engine = try makeEngine()
+        #expect(engine.handle(try token("<C-o>"), eventIsRepeat: true) == .ignored(.repeatSuppressed(.historyBack)))
+        #expect(engine.handle(try token("<C-i>"), eventIsRepeat: true) == .ignored(.repeatSuppressed(.historyForward)))
+    }
+
     private func makeEngine(
         context: InputContext = .navigation,
         bindings: [ActionID: [KeySequence]] = BuiltInDefaults.keymap,

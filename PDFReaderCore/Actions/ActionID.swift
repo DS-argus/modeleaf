@@ -32,6 +32,8 @@ public enum ActionID: String, CaseIterable, Codable, Hashable, Sendable {
     case pageFirst = "page.first"
     case pageLast = "page.last"
     case pagePrompt = "page.prompt"
+    case historyBack = "history.back"
+    case historyForward = "history.forward"
 
     case promptCommit = "prompt.commit"
     case promptCancel = "prompt.cancel"

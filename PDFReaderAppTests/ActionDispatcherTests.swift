@@ -42,6 +42,26 @@ struct ActionDispatcherTests {
         ])
     }
 
+    @Test("history actions target only the active session and empty dispatch is quiet")
+    func historyActionsUseActiveSessionOnly() {
+        let store = ReaderSessionStore()
+        let first = RecordingReaderSession(title: "First.pdf")
+        let active = RecordingReaderSession(title: "Active.pdf")
+        #expect(store.insert(first))
+        #expect(store.insert(active))
+        let dispatcher = ActionDispatcher(coordinator: PaneCoordinator(initialStore: store), navigation: BuiltInDefaults.config.navigation)
+
+        dispatcher.dispatch(.historyBack)
+        dispatcher.dispatch(.historyForward)
+
+        #expect(first.events.isEmpty)
+        #expect(active.events == [.goBack, .goForward])
+
+        let empty = ActionDispatcher(coordinator: PaneCoordinator(initialStore: ReaderSessionStore()), navigation: BuiltInDefaults.config.navigation)
+        empty.dispatch(.historyBack)
+        empty.dispatch(.historyForward)
+    }
+
     @Test("document.open presents the recent-files workflow instead of invoking the legacy open handler")
     func documentOpenPresentsRecentFiles() {
         let coordinator = PaneCoordinator(initialStore: ReaderSessionStore())
@@ -526,6 +546,8 @@ private enum RecordingReaderEvent: Equatable {
     case fitPage
     case rotateLeft
     case rotateRight
+    case goBack
+    case goForward
     case beginSearch(String)
     case nextSearchResult
     case previousSearchResult
@@ -558,6 +580,8 @@ private final class RecordingReaderSession: ReaderSessionPresenting {
     func goToPreviousPage() -> Bool { events.append(.previousPage); return true }
     func goToFirstPage() -> Bool { events.append(.firstPage); return true }
     func goToLastPage() -> Bool { events.append(.lastPage); return true }
+    func goBack() -> NavigationTransactionOutcome { events.append(.goBack); return .verifiedLanding }
+    func goForward() -> NavigationTransactionOutcome { events.append(.goForward); return .verifiedLanding }
     func goToPage(_ oneBasedPage: Int) -> Bool { events.append(.goToPage(oneBasedPage)); return true }
     func zoom(by factor: Double) { events.append(.zoom(factor)) }
     func resetZoom() { events.append(.resetZoom) }

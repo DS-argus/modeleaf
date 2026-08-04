@@ -54,6 +54,10 @@
 "page.last"        = ["G"]  # G
 "page.prompt"      = ["g"]  # g
 
+# --- Navigation ---
+"history.back"     = ["<C-o>"]  # Ctrl+o
+"history.forward"  = ["<C-i>"]  # Ctrl+i
+
 # --- Search ---
 "search.prompt"    = ["/"]  # /
 "search.cancel"    = ["<Esc>"]  # Esc

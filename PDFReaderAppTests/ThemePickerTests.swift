@@ -18,6 +18,127 @@ struct ThemePickerTests {
         )
     }
 
+    @Test("theme picker consumes effective history bindings and restores saved contexts")
+    func historyBindingsStayModalAndEscapeRestoresContexts() throws {
+        let remapped = try #require(ConfigValidator.validate(SparseAppConfig(
+            keymap: [ActionID.historyBack.rawValue: ["x"]]
+        )).validatedConfig)
+        let defaultHistory = try #require(makeKeyEvent(
+            characters: "o", charactersIgnoringModifiers: "o", modifiers: [.control]
+        ))
+        let repeatedDefaultHistory = try #require(makeKeyEvent(
+            characters: "o", charactersIgnoringModifiers: "o", modifiers: [.control], isRepeat: true
+        ))
+        let remappedHistory = try #require(makeKeyEvent(characters: "x"))
+        let repeatedRemappedHistory = try #require(makeKeyEvent(characters: "x", isRepeat: true))
+        let escape = try #require(makeKeyEvent(characters: "\u{1B}", keyCode: 53))
+
+        for prompt in [
+            PromptPresentation(kind: .page, text: "", validationMessage: nil),
+            PromptPresentation(kind: .search, text: "", validationMessage: nil),
+        ] {
+            var dispatched: [ActionID] = []
+            let controller = MainWindowController(
+                coordinator: PaneCoordinator(initialStore: ReaderSessionStore()),
+                theme: AppKitTheme(themeID: .tokyoNight),
+                actionHandler: { dispatched.append($0) },
+                validatedConfig: remapped
+            )
+            defer { controller.close() }
+            controller.presentPrompt(prompt)
+            controller.presentThemePicker()
+            #expect(controller.routeKeyEventForTesting(remappedHistory))
+            #expect(controller.routeKeyEventForTesting(repeatedRemappedHistory))
+            #expect(dispatched.isEmpty)
+            #expect(!controller.rootView.themePickerOverlay.isHidden)
+            #expect(controller.routeKeyEventForTesting(escape))
+            #expect(controller.rootView.themePickerOverlay.isHidden)
+            #expect(controller.inputContextForTesting == (prompt.kind == .page ? .pagePrompt : .searchPrompt))
+        }
+
+        var dispatched: [ActionID] = []
+        let controller = MainWindowController(
+            coordinator: PaneCoordinator(initialStore: ReaderSessionStore()),
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { dispatched.append($0) }
+        )
+        defer { controller.close() }
+        controller.presentThemePicker()
+        #expect(controller.routeKeyEventForTesting(defaultHistory))
+        #expect(controller.routeKeyEventForTesting(repeatedDefaultHistory))
+        #expect(dispatched.isEmpty)
+        #expect(!controller.rootView.themePickerOverlay.isHidden)
+        #expect(controller.routeKeyEventForTesting(escape))
+
+        let searchStore = ReaderSessionStore()
+        let searchSession = HistoryAvailabilitySession(canGoBack: true, canGoForward: true, healthy: true)
+        searchSession.searchSnapshot = ReaderSearchSnapshot(
+            query: "needle",
+            matchCount: 1,
+            activeMatchIndex: 0,
+            isRunning: false,
+            emptyResult: nil
+        )
+        #expect(searchStore.insert(searchSession))
+        let searchController = MainWindowController(
+            coordinator: PaneCoordinator(initialStore: searchStore),
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { dispatched.append($0) },
+            validatedConfig: remapped
+        )
+        defer { searchController.close() }
+        #expect(searchController.inputContextForTesting == .searchResults)
+        searchController.presentThemePicker()
+        #expect(searchController.routeKeyEventForTesting(remappedHistory))
+        #expect(dispatched.isEmpty)
+        #expect(searchController.routeKeyEventForTesting(escape))
+        #expect(searchController.inputContextForTesting == .searchResults)
+        #expect(controller.inputContextForTesting == .navigation)
+    }
+
+    @Test("session change cancels an active theme preview without restoring the old context")
+    func sessionChangeCancelsThemePreview() throws {
+        let store = ReaderSessionStore()
+        let first = StubReaderSession(id: TabID(), title: "First.pdf")
+        let second = HistoryAvailabilitySession(canGoBack: false, canGoForward: false, healthy: true)
+        second.searchSnapshot = ReaderSearchSnapshot(
+            query: "needle",
+            matchCount: 1,
+            activeMatchIndex: 0,
+            isRunning: false,
+            emptyResult: nil
+        )
+        #expect(store.insert(first))
+        #expect(store.insert(second))
+        let coordinator = PaneCoordinator(initialStore: store)
+        #expect(coordinator.activate(tab: first.id))
+        var currentTheme: ThemeID = .tokyoNight
+        var cancellations: [ThemeID] = []
+        let controller = MainWindowController(
+            coordinator: coordinator,
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { _ in },
+            currentThemeID: { currentTheme },
+            themePreviewHandler: { currentTheme = $0 },
+            themeCancelHandler: { theme in cancellations.append(theme); currentTheme = theme }
+        )
+        defer { controller.close() }
+        controller.presentThemePicker()
+        let overlay = controller.rootView.themePickerOverlay
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "", keyCode: 125))))
+        #expect(currentTheme != .tokyoNight)
+
+        #expect(coordinator.activate(tab: second.id))
+
+        #expect(overlay.isHidden)
+        #expect(currentTheme == .tokyoNight)
+        #expect(cancellations == [.tokyoNight])
+        #expect(controller.inputContextForTesting == .searchResults)
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "", keyCode: 125))))
+        #expect(currentTheme == .tokyoNight)
+        #expect(cancellations == [.tokyoNight])
+    }
+
     @Test("AC-3/AC-4 overlay live-previews on move and commits the selected theme")
     func overlayPreviewCommit() throws {
         let e = try keys()

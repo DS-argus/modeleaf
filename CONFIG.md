@@ -96,6 +96,8 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `page.first` | `gg` | `navigation`, `searchResults` | `suppressed` |
 | `page.last` | `G` | `navigation`, `searchResults` | `suppressed` |
 | `page.prompt` | `g` | `navigation`, `searchResults` | `suppressed` |
+| `history.back` | `<C-o>` | `navigation` | `suppressed` |
+| `history.forward` | `<C-i>` | `navigation` | `suppressed` |
 | `search.prompt` | `/` | `navigation`, `searchResults` | `suppressed` |
 | `search.cancel` | `<Esc>` | `searchResults` | `suppressed` |
 | `view.zoomIn` | `=` | `navigation`, `searchResults` | `allowed` |
@@ -307,6 +309,10 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 "page.first"       = ["gg"]  # g g
 "page.last"        = ["G"]  # G
 "page.prompt"      = ["g"]  # g
+
+# --- Navigation ---
+"history.back"     = ["<C-o>"]  # Ctrl+o
+"history.forward"  = ["<C-i>"]  # Ctrl+i
 
 # --- Search ---
 "search.prompt"    = ["/"]  # /

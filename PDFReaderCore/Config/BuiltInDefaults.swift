@@ -29,6 +29,7 @@ public enum BuiltInDefaults {
         .scrollLeft: ["h"], .scrollDown: ["j"], .scrollUp: ["k"], .scrollRight: ["l"],
         .scrollLargeDown: ["d"], .scrollLargeUp: ["u"],
         .pageNext: ["n"], .pagePrevious: ["p"], .pageFirst: ["gg"], .pageLast: ["G"], .pagePrompt: ["g"],
+        .historyBack: ["<C-o>"], .historyForward: ["<C-i>"],
         .promptCommit: ["<Enter>"], .promptCancel: ["<Esc>"],
         .searchPrompt: ["/"], .searchNext: ["<Enter>"], .searchPrevious: ["<S-Enter>"], .searchCancel: ["<Esc>"],
         .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [], .viewFitWidth: ["w"], .viewFitPage: ["F"], .viewRotateLeft: ["["], .viewRotateRight: ["]"], .linkHint: ["f"],
@@ -125,6 +126,7 @@ public enum BuiltInDefaults {
         case "scroll": return "Scroll"
         case "page": return "Pages"
         case "search": return "Search"
+        case "history": return "Navigation"
         case "link": return "Links"
         case "config": return "Config"
         case "view": return "View / Zoom"

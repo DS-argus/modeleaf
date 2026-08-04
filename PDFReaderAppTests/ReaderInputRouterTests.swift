@@ -239,4 +239,117 @@ struct ReaderInputRouterTests {
         _ = router.handle(try #require(makeKeyEvent(characters: "l", charactersIgnoringModifiers: "l", modifiers: [.control])))
         #expect(dispatches == [.paneFocusRight])
     }
+
+    @Test("history bindings dispatch only in navigation and suppress repeats")
+    func historyBindingScopesAndRepeats() throws {
+        let validated = try #require(ConfigValidator.validate(SparseAppConfig()).validatedConfig)
+        let controlO = try #require(makeKeyEvent(
+            characters: "o",
+            charactersIgnoringModifiers: "o",
+            modifiers: [.control],
+            isRepeat: false
+        ))
+        let repeatedControlO = try #require(makeKeyEvent(
+            characters: "o",
+            charactersIgnoringModifiers: "o",
+            modifiers: [.control],
+            isRepeat: true
+        ))
+        let controlI = try #require(makeKeyEvent(
+            characters: "\t",
+            charactersIgnoringModifiers: "\t",
+            modifiers: [.control],
+            keyCode: 34
+        ))
+
+        for context in [InputContext.navigation, .pagePrompt, .searchPrompt, .searchResults] {
+            var actions: [ActionID] = []
+            let router = ReaderInputRouter(
+                config: validated,
+                automaticallySchedulesTimeouts: false,
+                pendingHandler: { _ in },
+                dispatchHandler: { actions.append($0.actionID) }
+            )
+            router.synchronizeContext(context)
+            #expect(router.handle(controlO) == (context == .navigation))
+            if context == .navigation {
+                #expect(router.handle(repeatedControlO))
+                #expect(router.handle(controlI))
+                #expect(actions == [.historyBack, .historyForward])
+            } else {
+                #expect(!router.handle(controlI))
+                #expect(actions.isEmpty)
+            }
+        }
+    }
+
+    @Test("remapped history binding dispatches in navigation only")
+    func remappedHistoryBindingScope() throws {
+        let validated = try #require(ConfigValidator.validate(SparseAppConfig(
+            keymap: [ActionID.historyForward.rawValue: ["x"]]
+        )).validatedConfig)
+        for context in [InputContext.navigation, .pagePrompt, .searchPrompt, .searchResults] {
+            var actions: [ActionID] = []
+            let router = ReaderInputRouter(
+                config: validated,
+                automaticallySchedulesTimeouts: false,
+                pendingHandler: { _ in },
+                dispatchHandler: { actions.append($0.actionID) }
+            )
+            router.synchronizeContext(context)
+            _ = router.handle(try #require(makeKeyEvent(characters: "x")))
+            #expect(actions == (context == .navigation ? [.historyForward] : []))
+        }
+    }
+
+    @Test("modal history suppression uses remapped bindings independently of saved context")
+    func modalHistorySuppressionUsesEffectiveBindings() throws {
+        let validated = try #require(ConfigValidator.validate(SparseAppConfig(
+            keymap: [ActionID.historyBack.rawValue: ["x"]]
+        )).validatedConfig)
+        for context in [InputContext.searchResults, .pagePrompt, .searchPrompt] {
+            var dispatches: [ActionID] = []
+            let router = ReaderInputRouter(
+                config: validated,
+                automaticallySchedulesTimeouts: false,
+                pendingHandler: { _ in },
+                dispatchHandler: { dispatches.append($0.actionID) }
+            )
+            #expect(router.handleHistoryWhileModal(try #require(makeKeyEvent(
+                characters: "\t",
+                charactersIgnoringModifiers: "\t",
+                modifiers: [.control],
+                keyCode: 34
+            ))))
+            router.synchronizeContext(context)
+            #expect(router.handleHistoryWhileModal(try #require(makeKeyEvent(characters: "x"))))
+            #expect(!router.handleHistoryWhileModal(try #require(makeKeyEvent(characters: "z"))))
+            #expect(dispatches.isEmpty)
+            #expect(router.context == context)
+        }
+    }
+
+    @Test("modal history resolver bounds prefixes by timeout and mismatch")
+    func modalHistoryResolverLifecycle() throws {
+        let validated = try #require(ConfigValidator.validate(SparseAppConfig(
+            keymap: [ActionID.historyBack.rawValue: ["ab"]]
+        )).validatedConfig)
+        let router = ReaderInputRouter(
+            config: validated,
+            automaticallySchedulesTimeouts: false,
+            pendingHandler: { _ in },
+            dispatchHandler: { _ in }
+        )
+        #expect(router.handleHistoryWhileModal(try #require(makeKeyEvent(characters: "a"))))
+        let epoch = router.modalHistoryEpochForTesting
+        router.fireModalHistoryTimeoutForTesting(epoch: epoch)
+        #expect(!router.handleHistoryWhileModal(try #require(makeKeyEvent(characters: "b"))))
+        #expect(router.handleHistoryWhileModal(try #require(makeKeyEvent(characters: "a"))))
+        #expect(!router.handleHistoryWhileModal(try #require(makeKeyEvent(characters: "x"))))
+        #expect(!router.handleHistoryWhileModal(try #require(makeKeyEvent(characters: "b"))))
+        #expect(router.handleHistoryWhileModal(try #require(makeKeyEvent(characters: "a"))))
+        #expect(router.handleHistoryWhileModal(try #require(makeKeyEvent(characters: "b"))))
+        router.resetModalHistorySuppression()
+        #expect(!router.handleHistoryWhileModal(try #require(makeKeyEvent(characters: "b"))))
+    }
 }

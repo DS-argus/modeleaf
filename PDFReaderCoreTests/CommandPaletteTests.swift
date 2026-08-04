@@ -110,4 +110,92 @@ struct CommandPaletteTests {
         let searchResults = PaletteContextState(hasActiveDocument: true, paneCount: 1, tabCount: 1, inSearchResults: true)
         #expect(PaletteAvailability.evaluate(.linkHint, state: searchResults) == (false, "Not available in search results"))
     }
+    @Test("history commands prioritize saved navigation context")
+    func historyAvailabilityRequiresSavedNavigationContext() {
+        let overridingStates = [
+            (hasActiveDocument: false, canGoBack: true, canGoForward: true, isNavigationHistoryHealthy: false),
+            (hasActiveDocument: true, canGoBack: false, canGoForward: false, isNavigationHistoryHealthy: true),
+        ]
+        for context in [InputContext.pagePrompt, .searchPrompt, .searchResults] {
+            for state in overridingStates {
+                let paletteState = historyState(
+                    hasActiveDocument: state.hasActiveDocument,
+                    savedInputContext: context,
+                    canGoBack: state.canGoBack,
+                    canGoForward: state.canGoForward,
+                    isNavigationHistoryHealthy: state.isNavigationHistoryHealthy
+                )
+                #expect(PaletteAvailability.evaluate(.historyBack, state: paletteState) == (false, "Available in Navigation only"))
+                #expect(PaletteAvailability.evaluate(.historyForward, state: paletteState) == (false, "Available in Navigation only"))
+            }
+        }
+    }
+
+    @Test("history commands report missing document before history state")
+    func historyAvailabilityRequiresDocument() {
+        let state = historyState(
+            hasActiveDocument: false,
+            savedInputContext: .navigation,
+            canGoBack: true,
+            canGoForward: true,
+            isNavigationHistoryHealthy: true
+        )
+        #expect(PaletteAvailability.evaluate(.historyBack, state: state) == (false, "No previous location"))
+        #expect(PaletteAvailability.evaluate(.historyForward, state: state) == (false, "No next location"))
+    }
+
+    @Test("unhealthy history takes precedence over empty directions")
+    func historyAvailabilityReportsUnhealthyHistoryBeforeDirections() {
+        let state = historyState(
+            hasActiveDocument: true,
+            savedInputContext: .navigation,
+            canGoBack: false,
+            canGoForward: false,
+            isNavigationHistoryHealthy: false
+        )
+        #expect(PaletteAvailability.evaluate(.historyBack, state: state) == (false, "Navigation history unavailable"))
+        #expect(PaletteAvailability.evaluate(.historyForward, state: state) == (false, "Navigation history unavailable"))
+    }
+
+    @Test("healthy history reports empty and available directions independently")
+    func healthyHistoryAvailabilityTracksDirections() {
+        let empty = historyState(
+            hasActiveDocument: true,
+            savedInputContext: .navigation,
+            canGoBack: false,
+            canGoForward: false,
+            isNavigationHistoryHealthy: true
+        )
+        #expect(PaletteAvailability.evaluate(.historyBack, state: empty) == (false, "No previous location"))
+        #expect(PaletteAvailability.evaluate(.historyForward, state: empty) == (false, "No next location"))
+
+        let available = historyState(
+            hasActiveDocument: true,
+            savedInputContext: .navigation,
+            canGoBack: true,
+            canGoForward: true,
+            isNavigationHistoryHealthy: true
+        )
+        #expect(PaletteAvailability.evaluate(.historyBack, state: available) == (true, nil))
+        #expect(PaletteAvailability.evaluate(.historyForward, state: available) == (true, nil))
+    }
+
+    private func historyState(
+        hasActiveDocument: Bool,
+        savedInputContext: InputContext,
+        canGoBack: Bool,
+        canGoForward: Bool,
+        isNavigationHistoryHealthy: Bool
+    ) -> PaletteContextState {
+        PaletteContextState(
+            hasActiveDocument: hasActiveDocument,
+            paneCount: 1,
+            tabCount: 1,
+            inSearchResults: savedInputContext == .searchResults,
+            savedInputContext: savedInputContext,
+            canGoBack: canGoBack,
+            canGoForward: canGoForward,
+            isNavigationHistoryHealthy: isNavigationHistoryHealthy
+        )
+    }
 }
