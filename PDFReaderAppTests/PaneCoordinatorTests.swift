@@ -108,7 +108,7 @@ struct PaneCoordinatorTests {
         let origin = StubReaderSession(id: TabID(), title: "Origin.pdf", page: 4, zoom: 1.5)
         let duplicate = StubReaderSession(id: TabID(), title: "Origin.pdf", page: 4, zoom: 1.5)
         coordinator.configureDuplication { snapshot in
-            #expect(snapshot.oneBasedPage == 4)
+            #expect(snapshot.navigation.pageIndex == 3)
             return duplicate
         }
         #expect(coordinator.insert(origin, into: .createIfEmpty))
@@ -118,6 +118,74 @@ struct PaneCoordinatorTests {
         #expect(coordinator.store(for: destination)?.snapshot.tabs.map(\.id) == [duplicate.id])
         #expect(coordinator.split(direction: .stacked) != nil)
     }
+
+    @Test("delayed duplicate validation rolls back pane topology and reports failure")
+    func delayedDuplicateValidationRollsBack() throws {
+        let coordinator = PaneCoordinator()
+        let origin = StubReaderSession(id: TabID(), title: "Origin.pdf")
+        let duplicate = StubReaderSession(id: TabID(), title: "Duplicate.pdf")
+        duplicate.automaticallyValidateDuplicate = false
+        var completions: [Bool] = []
+        coordinator.configureDuplication { _ in duplicate }
+        coordinator.configureDuplicationCompletion { _, success in completions.append(success) }
+        #expect(coordinator.insert(origin, into: .createIfEmpty))
+        let originalLayout = coordinator.layout
+        let originalPane = coordinator.activePaneID
+        #expect(coordinator.split(direction: .sideBySide) != nil)
+        #expect(coordinator.layout.isMultiPane)
+        duplicate.completeDuplicateValidation(false)
+        #expect(coordinator.layout == originalLayout)
+        #expect(coordinator.activePaneID == originalPane)
+        #expect(completions == [false])
+        #expect(duplicate.prepareForCloseCount == 1)
+    }
+    @Test("real duplicate mount finalizes valid and rolls back invalid seed validation")
+    func realDuplicateMountValidationFinalizesOrRollsBack() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 2)
+            for invalid in [false, true] {
+                let coordinator = PaneCoordinator()
+                let origin = try PDFOpenService().open(url: url)
+                defer { origin.prepareForClose() }
+                var candidate: ReaderSession?
+                var completions: [Bool] = []
+                coordinator.configureDuplication { snapshot in
+                    let session = try! PDFOpenService().open(url: snapshot.sourceURL)
+                    let navigation = invalid
+                        ? NavigationSnapshot(pageIndex: 1, pageSpacePoint: CGPoint(x: -1, y: -1))!
+                        : snapshot.navigation
+                    session.seedPendingPresentation(ReaderDuplicationSnapshot(sourceURL: snapshot.sourceURL, navigation: navigation))
+                    candidate = session
+                    return session
+                }
+                coordinator.configureDuplicationCompletion { _, success in completions.append(success) }
+                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 480), styleMask: [.titled], backing: .buffered, defer: false)
+                coordinator.onSnapshot = { snapshot in
+                    guard let content = snapshot.activeContentView else { return }
+                    window.contentView = content
+                    content.frame = window.contentLayoutRect
+                    content.layoutSubtreeIfNeeded()
+                }
+                #expect(coordinator.insert(origin, into: .createIfEmpty))
+                let originalLayout = coordinator.layout
+                let split = coordinator.split(direction: .sideBySide)
+                if invalid {
+                    #expect(split == nil)
+                    #expect(coordinator.layout == originalLayout)
+                    #expect(coordinator.snapshot.panes.count == 1)
+                    #expect(completions == [false])
+                    #expect(candidate?.isClosed == true)
+                } else {
+                    #expect(split != nil)
+                    #expect(coordinator.layout.isMultiPane)
+                    #expect(completions == [true])
+                    #expect(candidate?.initialPresentationState == .applied)
+                    candidate?.prepareForClose()
+                }
+            }
+        }
+    }
+
 
     @Test("split target matrix supports both axes through four panes")
     func splitTargetMatrix() throws {
@@ -957,10 +1025,8 @@ struct PaneCoordinatorTests {
 
 
 extension StubReaderSession: ReaderDuplicationSnapshotProviding {
-    var duplicationSnapshot: ReaderDuplicationSnapshot {
-        ReaderDuplicationSnapshot(
-            sourceURL: URL(fileURLWithPath: "/tmp/\(title)"),
-            oneBasedPage: page)
+    var duplicationSnapshot: ReaderDuplicationSnapshot? {
+        ReaderDuplicationSnapshot(sourceURL: URL(fileURLWithPath: "/tmp/\(title)"), navigation: NavigationSnapshot(pageIndex: page - 1, pageSpacePoint: .zero)!)
     }
 }
 

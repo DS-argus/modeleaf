@@ -254,7 +254,7 @@ private final class QASession: ReaderSessionPresenting, ReaderDuplicationSnapsho
     private var handler: (() -> Void)?
     init(title: String) { self.title = title; contentView.setAccessibilityIdentifier("qaCanvas") }
     var statusSnapshot: ReaderStatusSnapshot { ReaderStatusSnapshot(context: "NORMAL", page: "1 / 1", zoom: "100%", detail: title) }
-    var duplicationSnapshot: ReaderDuplicationSnapshot { ReaderDuplicationSnapshot(sourceURL: URL(fileURLWithPath: "/tmp/\(title).pdf"), oneBasedPage: 1) }
+    var duplicationSnapshot: ReaderDuplicationSnapshot? { ReaderDuplicationSnapshot(sourceURL: URL(fileURLWithPath: "/tmp/\(title).pdf"), navigation: NavigationSnapshot(pageIndex: 0, pageSpacePoint: .zero)!) }
     func setPresentationChangeHandler(_ handler: (() -> Void)?) { self.handler = handler }
     func prepareForClose() {}
 }

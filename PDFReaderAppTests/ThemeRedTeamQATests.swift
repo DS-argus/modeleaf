@@ -227,7 +227,7 @@ private final class QARecordingSession: ReaderSessionPresenting, ReaderDuplicati
     var applied: [ThemeID] = []
     init(title: String) { self.title = title }
     var statusSnapshot: ReaderStatusSnapshot { ReaderStatusSnapshot(context: "NORMAL", page: "1 / 1", zoom: "100%", detail: title) }
-    var duplicationSnapshot: ReaderDuplicationSnapshot { ReaderDuplicationSnapshot(sourceURL: URL(fileURLWithPath: "/tmp/\(title)"), oneBasedPage: 1) }
+    var duplicationSnapshot: ReaderDuplicationSnapshot? { ReaderDuplicationSnapshot(sourceURL: URL(fileURLWithPath: "/tmp/\(title)"), navigation: NavigationSnapshot(pageIndex: 0, pageSpacePoint: .zero)!) }
     func applyTheme(_ theme: AppKitTheme) { applied.append(theme.id) }
     func prepareForClose() {}
 }
