@@ -53,6 +53,27 @@ struct RecentFilesOverlayIntegrationTests {
         }
     }
 
+    @Test("history actions are consumed while recent files owns routing")
+    func historyActionsStayModal() throws {
+        var dispatched: [ActionID] = []
+        let controller = MainWindowController(
+            coordinator: PaneCoordinator(initialStore: ReaderSessionStore()),
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { dispatched.append($0) },
+            recentFilesProvider: { [] }
+        )
+        defer { controller.close() }
+        controller.presentRecentFilesOverlay()
+        #expect(controller.routeKeyEventForTesting(try #require(makeKeyEvent(
+            characters: "o", charactersIgnoringModifiers: "o", modifiers: [.control]
+        ))))
+        #expect(dispatched.isEmpty)
+        #expect(!controller.rootView.recentFilesOverlay.isHidden)
+        #expect(controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "", keyCode: 53))))
+        #expect(controller.rootView.recentFilesOverlay.isHidden)
+        #expect(controller.inputContextForTesting == .navigation)
+    }
+
     @Test("shows Browse first, filters recent filenames, and commits selection")
     func filtersAndCommits() throws {
         try withTemporaryDirectory { directory in

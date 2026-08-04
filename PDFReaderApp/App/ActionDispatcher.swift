@@ -158,6 +158,10 @@ newInstanceHandler = newInstance
             _ = activeSession?.goToFirstPage()
         case .pageLast:
             _ = activeSession?.goToLastPage()
+        case .historyBack:
+            activeSession?.goBack()
+        case .historyForward:
+            activeSession?.goForward()
         case .pagePrompt:
             presentPagePrompt(initialText: "")
 

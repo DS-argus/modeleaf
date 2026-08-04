@@ -46,6 +46,21 @@ struct LinkHintIntegrationTests {
         }
     }
 
+    @Test("history actions are consumed while link hints own routing")
+    func historyActionsStayModal() throws {
+        try withLinkHarness { controller, _, _, _ in
+            controller.presentLinkHints()
+            #expect(!controller.rootView.linkHintOverlay.isHidden)
+            let historyEvent = try #require(makeKeyEvent(
+                characters: "o", charactersIgnoringModifiers: "o", modifiers: [.control]
+            ))
+            #expect(controller.routeKeyEventForTesting(historyEvent))
+            let escapeEvent = try #require(makeKeyEvent(characters: "", keyCode: 53))
+            #expect(controller.routeKeyEventForTesting(escapeEvent))
+            #expect(controller.rootView.linkHintOverlay.isHidden)
+        }
+    }
+
     @Test("unique URL hint commits through the PDF view and dismisses")
     func uniqueURLCommit() throws {
         try withLinkHarness { controller, session, view, _ in

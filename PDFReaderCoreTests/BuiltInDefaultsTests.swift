@@ -28,6 +28,7 @@ struct BuiltInDefaultsTests {
             .scrollLeft: ["h"], .scrollDown: ["j"], .scrollUp: ["k"], .scrollRight: ["l"],
             .scrollLargeDown: ["d"], .scrollLargeUp: ["u"],
             .pageNext: ["n"], .pagePrevious: ["p"], .pageFirst: ["gg"], .pageLast: ["G"], .pagePrompt: ["g"],
+            .historyBack: ["<C-o>"], .historyForward: ["<C-i>"],
             .promptCommit: ["<Enter>"], .promptCancel: ["<Esc>"],
             .searchPrompt: ["/"], .searchNext: ["<Enter>"], .searchPrevious: ["<S-Enter>"], .searchCancel: ["<Esc>"],
             .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [],
@@ -47,6 +48,27 @@ struct BuiltInDefaultsTests {
         #expect(ActionRegistry.v1.actionIDs.allSatisfy { action in
             excludedTerms.allSatisfy { !action.rawValue.lowercased().contains($0) }
         })
+    }
+
+    @Test("History commands have navigation-only registry defaults")
+    func historyCommandDefaults() {
+        let back = ActionRegistry.v1.descriptor(for: .historyBack)
+        let forward = ActionRegistry.v1.descriptor(for: .historyForward)
+
+        #expect(ActionID.historyBack.rawValue == "history.back")
+        #expect(ActionID.historyForward.rawValue == "history.forward")
+        #expect(back?.title == "Back")
+        #expect(forward?.title == "Forward")
+        #expect(BuiltInDefaults.keymap[.historyBack]?.map(\.description) == ["<C-o>"])
+        #expect(BuiltInDefaults.keymap[.historyForward]?.map(\.description) == ["<C-i>"])
+        #expect(back?.scope == .contexts([.navigation]))
+        #expect(forward?.scope == .contexts([.navigation]))
+        #expect(back?.repeatPolicy == .suppressed)
+        #expect(forward?.repeatPolicy == .suppressed)
+        #expect(back?.isFixedBinding == false)
+        #expect(forward?.isFixedBinding == false)
+        #expect(BuiltInDefaults.categoryTitle(for: .historyBack) == "Navigation")
+        #expect(BuiltInDefaults.categoryTitle(for: .historyForward) == "Navigation")
     }
 
     @Test("key hints preserve literal character case unless Shift is explicit")

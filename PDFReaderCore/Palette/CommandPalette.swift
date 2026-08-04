@@ -33,18 +33,31 @@ public struct PaletteContextState: Equatable, Sendable {
     public let tabCount: Int
     public let inSearchResults: Bool
     public let configFileExists: Bool
+    public let savedInputContext: InputContext
+    public let canGoBack: Bool
+    public let canGoForward: Bool
+    public let isNavigationHistoryHealthy: Bool
+
     public init(
         hasActiveDocument: Bool,
         paneCount: Int,
         tabCount: Int,
         inSearchResults: Bool,
-        configFileExists: Bool = false
+        configFileExists: Bool = false,
+        savedInputContext: InputContext = .navigation,
+        canGoBack: Bool = false,
+        canGoForward: Bool = false,
+        isNavigationHistoryHealthy: Bool = false
     ) {
         self.hasActiveDocument = hasActiveDocument
         self.paneCount = paneCount
         self.tabCount = tabCount
         self.inSearchResults = inSearchResults
         self.configFileExists = configFileExists
+        self.savedInputContext = savedInputContext
+        self.canGoBack = canGoBack
+        self.canGoForward = canGoForward
+        self.isNavigationHistoryHealthy = isNavigationHistoryHealthy
     }
 }
 
@@ -65,6 +78,21 @@ public enum PaletteAvailability {
         case .configResetDefault:
             return state.configFileExists ? (true, nil) : (false, "No config file to reset")
         case .documentOpen, .appNew, .appQuit, .helpShow:
+            return (true, nil)
+        case .historyBack, .historyForward:
+            guard state.savedInputContext == .navigation else {
+                return (false, "Available in Navigation only")
+            }
+            guard state.hasActiveDocument else {
+                return (false, id == .historyBack ? "No previous location" : "No next location")
+            }
+            guard state.isNavigationHistoryHealthy else {
+                return (false, "Navigation history unavailable")
+            }
+            let canNavigate = id == .historyBack ? state.canGoBack : state.canGoForward
+            guard canNavigate else {
+                return (false, id == .historyBack ? "No previous location" : "No next location")
+            }
             return (true, nil)
         default:
             break

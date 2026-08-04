@@ -5,7 +5,7 @@ import PDFReaderCore
 final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let coordinator: PaneCoordinator
     private let actionHandler: (ActionID) -> Void
-    private let inputRouter: ReaderInputRouter
+    private var inputRouter: ReaderInputRouter!
     private var lastActiveSessionID: TabID?
     private let openPaneHandler: ((PaneID) -> Void)?
     private var promptCloseProjection: (layout: PaneLayout, paneID: PaneID?, tabID: TabID?)?
@@ -14,6 +14,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let themeCommitHandler: (ThemeID) -> Void
     private let themeCancelHandler: (ThemeID) -> Void
     private(set) var resolvedConfig: ValidatedAppConfig
+    private struct TransientContextFrame {
+        let sessionID: TabID?
+        let context: InputContext
+    }
+    private var transientContextFrame: TransientContextFrame?
+    private var defersTransientContextRestoration = false
     private var themePickerPreOpenThemeID: ThemeID?
     private var helpPresentedOverPrompt = false
     private let browseHandler: () -> Void
@@ -59,11 +65,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         self.rootView = ReaderRootView(frame: NSRect(origin: .zero, size: WindowVisualMetrics.initialSize))
         let config = validatedConfig ?? Self.builtInValidatedConfig()
         self.resolvedConfig = config
-        self.inputRouter = ReaderInputRouter(
-            config: config,
-            pendingHandler: { [weak rootView] prefix in rootView?.setPendingPrefix(prefix) },
-            dispatchHandler: keyDispatchHandler ?? { actionHandler($0.actionID) }
-        )
         rootView.emptyState.setOpenBinding(config.keymap.bindings(for: .documentOpen).first)
 
         let window = ReaderWindow(
@@ -82,14 +83,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window.setAccessibilityIdentifier("mainWindow")
 
         super.init(window: window)
-        window.keyEventHandler = { [weak self, weak inputRouter] event in
-            guard let self else { return false }
-            if !self.rootView.linkHintOverlay.isHidden { return self.rootView.linkHintOverlay.handleKeyDown(event) }
-            if !self.rootView.commandPaletteOverlay.isHidden { return self.rootView.commandPaletteOverlay.handleKeyDown(event) || (inputRouter?.handle(event) ?? false) }
-            if !self.rootView.recentFilesOverlay.isHidden { return self.rootView.recentFilesOverlay.handleKeyDown(event) || (inputRouter?.handle(event) ?? false) }
-            if !self.rootView.helpOverlay.isHidden { return self.rootView.helpOverlay.handleKeyDown(event) }
-            if !self.rootView.themePickerOverlay.isHidden { return self.rootView.themePickerOverlay.handleKeyDown(event) || (inputRouter?.handle(event) ?? false) }
-            return inputRouter?.handle(event) ?? false
+        inputRouter = ReaderInputRouter(
+            config: config,
+            pendingHandler: { [weak rootView] prefix in rootView?.setPendingPrefix(prefix) },
+            dispatchHandler: { [weak self] dispatch in self?.handleKeyDispatch(dispatch, fallback: keyDispatchHandler) }
+        )
+        window.keyEventHandler = { [weak self] event in
+            self?.routeKeyEvent(event) ?? false
         }
         window.delegate = self
         window.mouseDownHandler = { [weak self] event in
@@ -147,7 +147,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func presentLinkHints() {
-        dismissAllTransientOverlays()
+        dismissAllTransientOverlays(restoringContext: false)
         guard inputRouter.context == .navigation,
               let provider = coordinator.activeSession as? any ReaderLinkProviding,
               let session = coordinator.activeSession as? ReaderSession
@@ -161,6 +161,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             if !rects.isEmpty { displayed.append((links[index], rects, labels[index])) }
         }
         guard !displayed.isEmpty else { return }
+        beginTransientOverlay()
         let sessionID = session.id
         rootView.linkHintOverlay.onCommit = { [weak self, weak provider] index in
             guard let self, self.coordinator.snapshot.activeID == sessionID, displayed.indices.contains(index) else { return }
@@ -178,11 +179,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.linkHintOverlay.dismiss()
         rootView.linkHintOverlay.onCommit = nil
         rootView.linkHintOverlay.onDismiss = nil
+        restoreTransientContextFrame()
         focusActiveSurface(snapshot: coordinator.snapshot)
     }
 
     func presentThemePicker() {
-        dismissAllTransientOverlays()
+        beginTransientOverlay()
+        dismissAllTransientOverlays(restoringContext: false)
         guard rootView.themePickerOverlay.isHidden else { return }
         let preOpenThemeID = currentThemeID()
         rootView.themePickerOverlay.onPreview = { [weak self] id in self?.themePreviewHandler(id) }
@@ -192,9 +195,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             self.themeCommitHandler(id)
             self.dismissThemePickerAndRestoreFocus()
         }
-        rootView.themePickerOverlay.onCancel = { [weak self] in
-            self?.cancelThemePickerAndRestoreFocus()
-        }
+        rootView.themePickerOverlay.onCancel = { [weak self] in self?.cancelThemePickerAndRestoreFocus() }
         rootView.themePickerOverlay.present(selectedThemeID: preOpenThemeID)
         rebuildKeyViewLoop(snapshot: coordinator.snapshot)
         window?.makeFirstResponder(rootView.themePickerOverlay)
@@ -206,29 +207,36 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         dismissThemePickerAndRestoreFocus()
         if let preOpenThemeID { themeCancelHandler(preOpenThemeID) }
     }
+
     private func dismissThemePickerAndRestoreFocus() {
         rootView.themePickerOverlay.dismiss()
         rootView.themePickerOverlay.onPreview = nil
         rootView.themePickerOverlay.onCommit = nil
         themePickerPreOpenThemeID = nil
         rootView.themePickerOverlay.onCancel = nil
+        restoreTransientContextFrame()
         rebuildKeyViewLoop(snapshot: coordinator.snapshot)
         focusActiveSurface(snapshot: coordinator.snapshot)
-
     }
-    func dismissAllTransientOverlays() {
+
+    func dismissAllTransientOverlays(restoringContext: Bool = true) {
+        defersTransientContextRestoration = !restoringContext
         if !rootView.commandPaletteOverlay.isHidden { dismissCommandPaletteAndRestoreFocus() }
         if !rootView.helpOverlay.isHidden { dismissHelpOverlayAndRestoreFocus() }
         if !rootView.themePickerOverlay.isHidden { cancelThemePickerAndRestoreFocus() }
         if !rootView.recentFilesOverlay.isHidden { dismissRecentFilesOverlayAndRestoreFocus() }
         dismissLinkHintsAndRestoreFocus()
+        defersTransientContextRestoration = false
+        if restoringContext { restoreTransientContextFrame() }
     }
+
     func presentRecentFilesOpen() {
         presentRecentFilesOverlay()
     }
 
     func presentRecentFilesOverlay() {
-        dismissAllTransientOverlays()
+        beginTransientOverlay()
+        dismissAllTransientOverlays(restoringContext: false)
         rootView.recentFilesOverlay.onBrowse = { [weak self] in
             guard let self else { return }
             self.dismissRecentFilesOverlayAndRestoreFocus()
@@ -277,12 +285,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.recentFilesOverlay.onOpenRecent = nil
         rootView.recentFilesOverlay.onCancel = nil
         focusActiveSurface(snapshot: coordinator.snapshot)
+        restoreTransientContextFrame()
         rootView.recentFilesOverlay.onClear = nil
     }
 
     func presentHelp() {
         let promptWasActive = !rootView.promptOverlay.isHidden
-        dismissAllTransientOverlays()
+        beginTransientOverlay()
+        dismissAllTransientOverlays(restoringContext: false)
         helpPresentedOverPrompt = promptWasActive
         let sections = Self.helpSections(from: resolvedConfig.keymap)
         rootView.helpOverlay.onDismiss = { [weak self] in self?.dismissHelpOverlayAndRestoreFocus() }
@@ -294,25 +304,36 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.helpOverlay.dismiss()
         rootView.helpOverlay.onDismiss = nil
         if helpPresentedOverPrompt, !rootView.promptOverlay.isHidden {
+            _ = consumeTransientContextFrame()
             window?.makeFirstResponder(rootView.promptOverlay.textField)
             rootView.promptOverlay.setFocusAppearance(true)
         } else {
+            restoreTransientContextFrame()
             focusActiveSurface(snapshot: coordinator.snapshot)
         }
         helpPresentedOverPrompt = false
     }
 
-    func presentCommandPalette() {
-        dismissAllTransientOverlays()
-        guard rootView.commandPaletteOverlay.isHidden else { return }
+    private func paletteContextState() -> PaletteContextState {
         let snapshot = coordinator.snapshot
-        let state = PaletteContextState(
+        return PaletteContextState(
             hasActiveDocument: coordinator.activeSession != nil,
             paneCount: snapshot.layout.paneIDs.count,
             tabCount: snapshot.tabs.count,
-            inSearchResults: inputRouter.context == .searchResults,
-            configFileExists: FileManager.default.fileExists(atPath: configFileURLProvider().path)
+            inSearchResults: (transientContextFrame?.context ?? inputRouter.context) == .searchResults,
+            configFileExists: FileManager.default.fileExists(atPath: configFileURLProvider().path),
+            savedInputContext: transientContextFrame?.context ?? inputRouter.context,
+            canGoBack: coordinator.activeSession?.canGoBack ?? false,
+            canGoForward: coordinator.activeSession?.canGoForward ?? false,
+            isNavigationHistoryHealthy: coordinator.activeSession?.navigationAvailabilityDetail == "History available"
         )
+    }
+
+    func presentCommandPalette() {
+        beginTransientOverlay()
+        dismissAllTransientOverlays(restoringContext: false)
+        guard rootView.commandPaletteOverlay.isHidden else { return }
+        let state = paletteContextState()
         let commands = ActionRegistry.v1.userConfigurableDescriptors
             .filter { $0.id != .paletteOpen }
             .map { descriptor -> PaletteCommand in
@@ -326,7 +347,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
                 )
             }
         rootView.commandPaletteOverlay.onCommit = { [weak self] id in
-            guard let self else { return }
+            guard let self,
+                  PaletteAvailability.evaluate(id, state: self.paletteContextState()).enabled
+            else { return }
             self.dismissCommandPaletteAndRestoreFocus()
             self.actionHandler(id)
         }
@@ -339,6 +362,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.commandPaletteOverlay.dismiss()
         rootView.commandPaletteOverlay.onCommit = nil
         rootView.commandPaletteOverlay.onCancel = nil
+        restoreTransientContextFrame()
         focusActiveSurface(snapshot: coordinator.snapshot)
     }
 
@@ -389,6 +413,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         to context: InputContext,
         reason: KeyInputInvalidationReason
     ) {
+        _ = consumeTransientContextFrame()
         rootView.promptOverlay.dismiss()
         inputRouter.synchronizeContext(context)
         inputRouter.invalidate(reason)
@@ -418,22 +443,73 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     @discardableResult
     func routeKeyEventForTesting(_ event: NSEvent) -> Bool {
-        if !rootView.linkHintOverlay.isHidden { return rootView.linkHintOverlay.handleKeyDown(event) }
-        if !rootView.commandPaletteOverlay.isHidden {
-            return rootView.commandPaletteOverlay.handleKeyDown(event) || inputRouter.handle(event)
-        }
-        if !rootView.recentFilesOverlay.isHidden {
-            return rootView.recentFilesOverlay.handleKeyDown(event) || inputRouter.handle(event)
-        }
-        if !rootView.helpOverlay.isHidden {
-            return rootView.helpOverlay.handleKeyDown(event)
-        }
-        if !rootView.themePickerOverlay.isHidden {
-            return rootView.themePickerOverlay.handleKeyDown(event) || inputRouter.handle(event)
-        }
+        routeKeyEvent(event)
+    }
+
+    @discardableResult
+    private func routeKeyEvent(_ event: NSEvent) -> Bool {
+        if !rootView.linkHintOverlay.isHidden, rootView.linkHintOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
+        if !rootView.commandPaletteOverlay.isHidden, rootView.commandPaletteOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
+        if !rootView.recentFilesOverlay.isHidden, rootView.recentFilesOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
+        if !rootView.helpOverlay.isHidden, rootView.helpOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
+        if !rootView.themePickerOverlay.isHidden, rootView.themePickerOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
+        if isTransientModalRoutingActive, inputRouter.handleHistoryWhileModal(event) { return true }
         return inputRouter.handle(event)
     }
 
+    private func handleKeyDispatch(_ dispatch: KeyActionDispatch, fallback: ((KeyActionDispatch) -> Void)?) {
+        if isTransientModalRoutingActive, isHistoryAction(dispatch.actionID) { return }
+        if let fallback {
+            fallback(dispatch)
+        } else {
+            actionHandler(dispatch.actionID)
+        }
+    }
+    private var isTransientModalRoutingActive: Bool {
+        !rootView.commandPaletteOverlay.isHidden || !rootView.recentFilesOverlay.isHidden ||
+            !rootView.helpOverlay.isHidden || !rootView.themePickerOverlay.isHidden ||
+            !rootView.linkHintOverlay.isHidden || !rootView.promptOverlay.isHidden
+    }
+
+    private func isHistoryAction(_ action: ActionID) -> Bool {
+        action == .historyBack || action == .historyForward
+    }
+
+    private func beginTransientOverlay() {
+        inputRouter.resetModalHistorySuppression()
+        if transientContextFrame == nil {
+            transientContextFrame = TransientContextFrame(sessionID: coordinator.snapshot.activeID, context: inputRouter.context)
+        }
+    }
+
+    @discardableResult
+    private func consumeTransientContextFrame() -> TransientContextFrame? {
+        inputRouter.resetModalHistorySuppression()
+        defer { transientContextFrame = nil }
+        return transientContextFrame
+    }
+
+    private func restoreTransientContextFrame() {
+        guard !defersTransientContextRestoration,
+              let frame = consumeTransientContextFrame(),
+              frame.sessionID == coordinator.snapshot.activeID
+        else { return }
+        inputRouter.synchronizeContext(frame.context)
+        inputRouter.invalidate(.explicitCancel)
+        rootView.setInputContext(frame.context)
+    }
+
+    private func discardTransientOverlayOwnership() {
+        guard transientContextFrame != nil else { return }
+        _ = consumeTransientContextFrame()
+        defersTransientContextRestoration = true
+        if !rootView.commandPaletteOverlay.isHidden { dismissCommandPaletteAndRestoreFocus() }
+        if !rootView.helpOverlay.isHidden { dismissHelpOverlayAndRestoreFocus() }
+        if !rootView.themePickerOverlay.isHidden { cancelThemePickerAndRestoreFocus() }
+        if !rootView.recentFilesOverlay.isHidden { dismissRecentFilesOverlayAndRestoreFocus() }
+        dismissLinkHintsAndRestoreFocus()
+        defersTransientContextRestoration = false
+    }
     func windowDidBecomeKey(_ notification: Notification) {
         if !rootView.commandPaletteOverlay.isHidden {
             window?.makeFirstResponder(rootView.commandPaletteOverlay)
@@ -491,6 +567,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             let reason: KeyInputInvalidationReason = lastActiveSessionID != nil && snapshot.activeID == nil
                 ? .sessionClosed
                 : .sessionChanged
+            if transientContextFrame?.sessionID != snapshot.activeID {
+                discardTransientOverlayOwnership()
+            }
             if !rootView.promptOverlay.isHidden {
                 rootView.promptOverlay.discardMarkedComposition()
                 rootView.promptOverlay.dismiss()

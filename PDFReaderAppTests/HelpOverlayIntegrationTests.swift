@@ -50,6 +50,31 @@ struct HelpOverlayIntegrationTests {
         })
     }
 
+    @Test("help shows effective history remaps and preserves prompt context")
+    func historyRowsAndPromptRestoration() throws {
+        let validated = try #require(ConfigValidator.validate(SparseAppConfig(keymap: [
+            ActionID.historyBack.rawValue: ["x"],
+            ActionID.historyForward.rawValue: ["y"],
+        ])).validatedConfig)
+        var dispatched: [ActionID] = []
+        let controller = MainWindowController(
+            coordinator: PaneCoordinator(initialStore: ReaderSessionStore()),
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { dispatched.append($0) },
+            validatedConfig: validated
+        )
+        defer { controller.close() }
+        controller.presentPrompt(PromptPresentation(kind: .search, text: "", validationMessage: nil))
+        controller.presentHelp()
+        let entries = controller.rootView.helpOverlay.visibleEntriesForTesting
+        #expect(entries.contains { $0.0 == "x" && $0.1 == "Back" })
+        #expect(entries.contains { $0.0 == "y" && $0.1 == "Forward" })
+        #expect(controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "x"))))
+        #expect(dispatched.isEmpty)
+        #expect(controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "", keyCode: 53))))
+        #expect(controller.inputContextForTesting == .searchPrompt)
+    }
+
 
     @Test("question mark and escape dismiss while other keys are ignored")
     func modalKeysDismissAndIgnoreOthers() throws {

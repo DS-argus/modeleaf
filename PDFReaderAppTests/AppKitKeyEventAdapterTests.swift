@@ -99,6 +99,20 @@ struct AppKitKeyEventAdapterTests {
         #expect(AppKitKeyEventAdapter.tokens(for: event).map(\.description) == ["<Left>"])
     }
 
+    @Test("physical Ctrl-I remains distinct from hardware Tab")
+    func controlIVersusTab() throws {
+        let controlI = try #require(makeKeyEvent(
+            characters: "\t",
+            charactersIgnoringModifiers: "\t",
+            modifiers: [.control],
+            keyCode: 34
+        ))
+        let tab = try #require(makeKeyEvent(characters: "\t", keyCode: 48))
+
+        #expect(AppKitKeyEventAdapter.tokens(for: controlI).map(\.description) == ["<C-i>"])
+        #expect(AppKitKeyEventAdapter.tokens(for: tab).map(\.description) == ["<Tab>"])
+    }
+
     @Test("empty and multi-scalar composition events stay native-capable tokens")
     func compositionTokens() throws {
         let deadKey = try #require(makeKeyEvent(characters: ""))

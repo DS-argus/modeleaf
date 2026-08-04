@@ -69,6 +69,9 @@ public struct ActionRegistry: Sendable {
             prefixFallbackPolicy: .transitionAndReplay(to: .pagePrompt, acceptedToken: .decimalDigit)
         ),
 
+        ActionDescriptor(id: .historyBack, title: "Back", scope: .contexts([.navigation]), repeatPolicy: .suppressed),
+        ActionDescriptor(id: .historyForward, title: "Forward", scope: .contexts([.navigation]), repeatPolicy: .suppressed),
+
         ActionDescriptor(
             id: .promptCommit,
             title: "Commit Prompt",

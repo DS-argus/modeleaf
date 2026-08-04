@@ -14,6 +14,12 @@ enum AppKitKeyEventAdapter {
             return [.imeComposition]
         }
 
+        // Ctrl-I is a printable physical chord, not the Tab hardware key.
+        // AppKit may report it as a control character, so key code is the
+        // stable distinction between Ctrl-I (34) and Tab (48).
+        if event.keyCode == 34, modifiers == [.control] {
+            return [KeyToken(symbol: .character("i"), modifiers: .control)]
+        }
         if let namedKey = namedKey(for: character, keyCode: event.keyCode) {
             return [KeyToken(symbol: .named(namedKey), modifiers: modifiers)]
         }

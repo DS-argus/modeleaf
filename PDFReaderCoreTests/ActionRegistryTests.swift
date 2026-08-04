@@ -13,6 +13,7 @@ struct ActionRegistryTests {
             "tab.select.7", "tab.select.8", "tab.select.9",
             "scroll.left", "scroll.down", "scroll.up", "scroll.right", "scroll.largeDown", "scroll.largeUp",
             "page.next", "page.previous", "page.first", "page.last", "page.prompt",
+            "history.back", "history.forward",
             "prompt.commit", "prompt.cancel",
             "search.prompt", "search.next", "search.previous", "search.cancel",
             "view.zoomIn", "view.zoomOut", "view.zoomReset", "view.fitWidth", "view.fitPage", "view.rotateLeft", "view.rotateRight", "link.hint",
@@ -21,7 +22,7 @@ struct ActionRegistryTests {
             "config.reload", "config.writeDefault", "config.resetDefault",
         ]
         let registry = ActionRegistry.v1
-        #expect(registry.descriptors.count == 53)
+        #expect(registry.descriptors.count == 55)
         #expect(Set(registry.actionIDs).count == registry.actionIDs.count)
         #expect(Set(registry.actionIDs.map(\.rawValue)) == expected)
         #expect(Set(InputContext.allCases) == [.navigation, .pagePrompt, .searchPrompt, .searchResults])
