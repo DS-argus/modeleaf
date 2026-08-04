@@ -83,6 +83,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
     private let searchLifecycle: any ReaderSearchLifecycle
     private let searchController: (any ReaderSearchControlling)?
     private let openTraceID: OpenTraceID
+    private let searchNavigationCoordinator: ReaderSearchCoordinator?
     private let navigationCapture: () -> NavigationSnapshot?
     private var duplicateValidationState: DuplicateValidationState = .pending
     private var duplicateValidationHandler: ((Bool) -> Void)?
@@ -123,14 +124,23 @@ final class ReaderSession: NSObject, ReaderSessionPresenting {
         if let searchLifecycle {
             self.searchLifecycle = searchLifecycle
             self.searchController = searchLifecycle as? any ReaderSearchControlling
+            self.searchNavigationCoordinator = searchLifecycle as? ReaderSearchCoordinator
         } else {
             let coordinator = ReaderSearchCoordinator(driver: PDFKitSearchDriver(document: document), presenter: viewController)
             self.searchLifecycle = coordinator
             self.searchController = coordinator
+            self.searchNavigationCoordinator = coordinator
         }
         super.init()
+        searchNavigationCoordinator?.configureNavigation(
+            activate: { [weak self] generation in self?.activateSearchNavigation(searchGeneration: generation) ?? .preflightRejected },
+            recordLanding: { [weak self] generation in self?.recordVerifiedSearchLanding(searchGeneration: generation) ?? .preflightRejected }
+        )
         searchController?.setChangeHandler { [weak self] in self?.publishPresentationChange() }
         installNotifications()
+        viewController.setInternalLinkHandler { [weak self] target in
+            self?.executeInternalLink(target)
+        }
         metrics.record(.end(.sessionConstruct, traceID: traceID, outcome: .success))
     }
     var navigationAvailabilityDetail: String {
@@ -557,7 +567,19 @@ extension ReaderSession: ReaderLinkProviding {
 
     func activateLink(_ target: ReaderLinkTarget) {
         guard !isClosed else { return }
-        viewController.activateLink(target)
+        switch target {
+        case .goTo:
+            viewController.activateLink(target)
+        case .url:
+            viewController.activateLink(target)
+        }
+    }
+
+    private func executeInternalLink(_ target: ReaderLinkTarget) {
+        guard !isClosed,
+              let destination = viewController.navigationDestination(for: target)
+        else { return }
+        _ = performNavigation(.meaningfulJump(producer: .internalLink, destination: destination))
     }
 
     func linkHintRects(for link: ReaderLink, in coordinateSpace: NSView) -> [NSRect] {

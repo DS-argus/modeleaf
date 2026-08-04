@@ -76,6 +76,45 @@ struct LinkHintIntegrationTests {
         }
     }
 
+    @Test("mouse GoTo and hint GoTo share one canonical history transaction")
+    func mouseAndHintGoToConvergeOnce() throws {
+        try withLinkHarness { controller, session, view, url in
+            let before = try PDFFixtureFactory.sha256(of: url)
+            let target = ReaderLinkTarget.goTo(pageIndex: 1, point: CGPoint(x: 48, y: 700))
+            session.activateLink(target)
+            #expect(session.currentPageNumber == 2)
+            #expect(session.canGoBack)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(session.currentPageNumber == 1)
+            let page = try #require(view.document?.page(at: 1))
+            #expect(!session.canGoBack)
+            view.perform(PDFActionGoTo(destination: PDFDestination(page: page, at: CGPoint(x: 48, y: 700))))
+            #expect(session.currentPageNumber == 2)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(session.currentPageNumber == 1)
+            #expect(!session.canGoBack)
+            #expect(view.blockedHistoryCount == 0)
+            #expect(try PDFFixtureFactory.sha256(of: url) == before)
+            _ = controller
+        }
+    }
+    @Test("same unresolved and URL targets never create internal-link history")
+    func excludedLinkTargetsLeaveHistoryEmpty() throws {
+        try withLinkHarness { _, session, view, _ in
+            var opened: [URL] = []
+            view.followLinkHandler = { opened.append($0) }
+            session.activateLink(.url("https://example.invalid/link-hint"))
+            session.activateLink(.goTo(pageIndex: 99, point: .zero))
+            session.activateLink(.goTo(pageIndex: 0, point: CGPoint(x: 306, y: 396)))
+            #expect(opened == [URL(string: "https://example.invalid/link-hint")!])
+            #expect(session.currentPageNumber == 1)
+            #expect(!session.canGoBack && !session.canGoForward)
+            #expect(view.followedLinkCount == 1)
+        }
+    }
+
+
+
     @Test("two-character labels accept Shift and Caps Lock labels while rejecting command modifiers")
     func prefixAndModifierTransitions() throws {
         let overlay = LinkHintOverlayView(frame: .zero)
@@ -212,11 +251,13 @@ struct LinkHintIntegrationTests {
             var followed = 0
             view.followLinkHandler = { _ in followed += 1 }
             let target = ReaderLinkTarget.url("https://example.invalid/link-hint")
+            let destinationPage = try #require(view.document?.page(at: 1))
             session.prepareForClose()
 
             #expect(session.linkTargets().isEmpty)
             session.activateLink(target)
             #expect(followed == 0)
+            view.perform(PDFActionGoTo(destination: PDFDestination(page: destinationPage, at: CGPoint(x: 48, y: 700))))
             #expect(view.followedLinkCount == 0)
         }
     }

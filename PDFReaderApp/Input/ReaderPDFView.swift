@@ -12,10 +12,16 @@ enum ReaderVerticalBoundary {
     case start
     case end
 }
+@MainActor
+protocol ReaderPDFViewInternalLinkHandling: AnyObject {
+    func readerPDFView(_ view: ReaderPDFView, activateInternalLink target: ReaderLinkTarget)
+}
+
 
 @MainActor
 final class ReaderPDFView: PDFView {
     var keyEventHandler: ((NSEvent) -> Bool)?
+    weak var internalLinkHandler: (any ReaderPDFViewInternalLinkHandling)?
 
     /// Invoked with a URL link's target when the user clicks it; the shell opens
     /// it in the browser. In-document (GoTo) links navigate without this handler.
@@ -121,15 +127,13 @@ final class ReaderPDFView: PDFView {
 
     override func resignFirstResponder() -> Bool {
         let resigned = super.resignFirstResponder()
-        if resigned {
-            updateFocusAppearance(isFocused: false)
-        }
+        if resigned { updateFocusAppearance(isFocused: false) }
         return resigned
     }
-
     override func perform(_ action: PDFAction) {
-        if let goTo = action as? PDFActionGoTo {
-            activateGoTo(goTo.destination)
+        if let goTo = action as? PDFActionGoTo,
+           let target = internalTarget(for: goTo.destination) {
+            internalLinkHandler?.readerPDFView(self, activateInternalLink: target)
         } else if let urlAction = action as? PDFActionURL, let url = urlAction.url {
             activateURL(url)
         } else {
@@ -137,20 +141,22 @@ final class ReaderPDFView: PDFView {
         }
     }
 
-    /// GoTo intentionally does not increment `followedLinkCount`, matching PDFKit mouse activation.
+    /// Hint and mouse GoTo links share the session-owned transaction executor.
     func activate(_ target: ReaderLinkTarget) {
         switch target {
-        case let .goTo(pageIndex, point):
-            guard let page = document?.page(at: pageIndex) else { return }
-            activateGoTo(PDFDestination(page: page, at: point ?? .zero))
+        case .goTo:
+            internalLinkHandler?.readerPDFView(self, activateInternalLink: target)
         case let .url(value):
             guard let url = URL(string: value) else { return }
             activateURL(url)
         }
     }
 
-    private func activateGoTo(_ destination: PDFDestination) {
-        go(to: destination)
+    private func internalTarget(for destination: PDFDestination) -> ReaderLinkTarget? {
+        guard let page = destination.page, let document = page.document else { return nil }
+        let pageIndex = document.index(for: page)
+        guard pageIndex >= 0 else { return nil }
+        return .goTo(pageIndex: pageIndex, point: destination.point)
     }
 
     private func activateURL(_ url: URL) {

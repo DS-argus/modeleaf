@@ -96,8 +96,9 @@ struct PDFCapabilityPolicyTests {
             #expect(opened == [URL(string: "https://example.invalid/link-hint")!])
             #expect(view.followedLinkCount == 1)
             #expect(view.blockedActionCount == 0)
-            #expect(view.currentPage == document.page(at: 1))
+            #expect(view.currentPage == document.page(at: 0)) // GoTo requires the session-owned canonical handler
             #expect(try PDFFixtureFactory.sha256(of: fixture) == before)
+            #expect(view.blockedHistoryCount == 0)
             let persisted = try #require(PDFDocument(url: fixture))
             #expect(linkAnnotationSnapshots(on: try #require(persisted.page(at: 0))) == beforeAnnotations)
             view.prepareForClose()
