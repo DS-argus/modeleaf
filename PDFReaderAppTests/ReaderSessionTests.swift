@@ -71,7 +71,8 @@ struct ReaderSessionTests {
         // zoom are not carried (ReaderDuplicationSnapshot).
         for size in [NSSize(width: 720, height: 480), NSSize(width: 360, height: 620)] {
             try withSession(pageCount: 3) { session, sourceURL in
-                session.seedPendingPresentation(ReaderDuplicationSnapshot(sourceURL: sourceURL, oneBasedPage: 2))
+                let navigation = try #require(NavigationSnapshot(pageIndex: 1, pageSpacePoint: CGPoint(x: 306, y: 396)))
+                session.seedPendingPresentation(ReaderDuplicationSnapshot(sourceURL: sourceURL, navigation: navigation))
                 let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
                 window.contentView = session.contentView
                 session.contentView.frame = window.contentLayoutRect
@@ -566,6 +567,151 @@ struct ReaderSessionTests {
         }
     }
 
+    @Test("meaningful jumps commit only verified landings while next and previous remain unrecorded")
+    func readerOwnedNavigationHistory() throws {
+        try withSession(pageCount: 3) { session, _ in
+            #expect(!session.canGoBack)
+            #expect(session.goToPage(2))
+            #expect(session.canGoBack)
+            #expect(session.goToNextPage())
+            #expect(session.currentPageNumber == 3)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(session.currentPageNumber == 1)
+            #expect(session.canGoForward)
+            #expect(session.goForward() == .verifiedLanding)
+            #expect(session.currentPageNumber == 3)
+        }
+    }
+
+    @Test("duplicate snapshots contain position but never source history")
+    func duplicationSnapshotContainsNavigationPosition() throws {
+        try withSession(pageCount: 3) { session, sourceURL in
+            #expect(session.goToPage(2))
+            let snapshot = try #require(session.duplicationSnapshot)
+            #expect(snapshot.sourceURL == sourceURL)
+            #expect(snapshot.navigation.pageIndex == 1)
+        }
+    }
+
+    @Test("search generation replacement retains the epoch boundary and ignores stale landings")
+    func searchGenerationReplacement() throws {
+        try withSession(pageCount: 3) { session, _ in
+            #expect(session.activateSearchNavigation(searchGeneration: 1) == .armed)
+            #expect(session.activateSearchNavigation(searchGeneration: 2) == .retagged)
+            #expect(session.goToNextPage())
+            #expect(session.recordVerifiedSearchLanding(searchGeneration: 1) == .ignored)
+            #expect(session.recordVerifiedSearchLanding(searchGeneration: 2) == .firstCommitted)
+            #expect(session.activateSearchNavigation(searchGeneration: 3) == .retagged)
+            #expect(session.recordVerifiedSearchLanding(searchGeneration: 2) == .ignored)
+        }
+    }
+
+    @Test("duplicate initialization rejects an anchor outside the required source page")
+    func duplicateInitializationRejectsInvalidAnchor() throws {
+        try withSession(pageCount: 2) { session, sourceURL in
+            let invalidAnchor = try #require(NavigationSnapshot(pageIndex: 1, pageSpacePoint: CGPoint(x: -1, y: -1)))
+            session.seedPendingPresentation(ReaderDuplicationSnapshot(sourceURL: sourceURL, navigation: invalidAnchor))
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 480), styleMask: [.titled], backing: .buffered, defer: false)
+            window.contentView = session.contentView
+            session.contentView.frame = window.contentLayoutRect
+            session.contentView.layoutSubtreeIfNeeded()
+            #expect(session.isClosed)
+            #expect(session.completedTeardownSteps == ReaderTeardownStep.allExpected)
+        }
+    }
+
+    @Test("navigation adapter preflight rejection leaves history and presentation unchanged")
+    func navigationAdapterPreflightRejection() throws {
+        try withScriptedSession(captures: [nil], restores: []) { session, script in
+            var publications = 0
+            session.setPresentationChangeHandler { publications += 1 }
+            let destination = try #require(NavigationSnapshot(pageIndex: 1, pageSpacePoint: .zero))
+            #expect(session.performNavigation(.meaningfulJump(producer: .pagePrompt, destination: destination)) == .preflightRejected)
+            #expect(session.isNavigationHistoryHealthy)
+            #expect(!session.canGoBack && !session.canGoForward)
+            #expect(publications == 0)
+            #expect(script.restoreRequests.isEmpty)
+        }
+    }
+
+    @Test("navigation adapter compensated failure preserves committed topology and epoch")
+    func navigationAdapterCompensatedFailure() throws {
+        let origin = try #require(NavigationSnapshot(pageIndex: 0, pageSpacePoint: .zero))
+        let destination = try #require(NavigationSnapshot(pageIndex: 1, pageSpacePoint: .zero))
+        try withScriptedSession(captures: [origin], restores: [.compensatedFailure]) { session, script in
+            var publications = 0
+            session.setPresentationChangeHandler { publications += 1 }
+            #expect(session.performNavigation(.meaningfulJump(producer: .pagePrompt, destination: destination)) == .compensatedFailure)
+            #expect(session.isNavigationHistoryHealthy)
+            #expect(!session.canGoBack && !session.canGoForward)
+            #expect(publications == 0)
+            #expect(script.restoreRequests == [destination])
+        }
+    }
+
+    @Test("navigation adapter invariant failure fails closed with final landing")
+    func navigationAdapterUncompensatedFailure() throws {
+        let origin = try #require(NavigationSnapshot(pageIndex: 0, pageSpacePoint: .zero))
+        let final = try #require(NavigationSnapshot(pageIndex: 2, pageSpacePoint: CGPoint(x: 7, y: 9)))
+        let destination = try #require(NavigationSnapshot(pageIndex: 1, pageSpacePoint: .zero))
+        try withScriptedSession(captures: [origin], restores: [.uncompensatedInvariantFailure(actualLanding: final)]) { session, _ in
+            var publications = 0
+            session.setPresentationChangeHandler { publications += 1 }
+            #expect(session.performNavigation(.meaningfulJump(producer: .pagePrompt, destination: destination)) == .uncompensatedInvariantFailure(actualLanding: final))
+            #expect(!session.isNavigationHistoryHealthy)
+            #expect(!session.canGoBack && !session.canGoForward)
+            #expect(session.navigationAvailabilityDetail == "Navigation history unavailable")
+            #expect(publications == 1)
+        }
+    }
+
+    @Test("navigation adapter commits the verified actual landing")
+    func navigationAdapterCommitsActualLanding() throws {
+        let origin = try #require(NavigationSnapshot(pageIndex: 0, pageSpacePoint: .zero))
+        let requested = try #require(NavigationSnapshot(pageIndex: 1, pageSpacePoint: .zero))
+        let actual = try #require(NavigationSnapshot(pageIndex: 1, pageSpacePoint: CGPoint(x: 12, y: 18)))
+        try withScriptedSession(captures: [origin, actual, actual], restores: [.verifiedLanding, .verifiedLanding]) { session, script in
+            #expect(session.performNavigation(.meaningfulJump(producer: .pagePrompt, destination: requested)) == .verifiedLanding)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(script.restoreRequests == [requested, origin])
+        }
+    }
+
+    private func withScriptedSession(
+        captures: [NavigationSnapshot?],
+        restores: [NavigationRestoreOutcome],
+        body: (ReaderSession, NavigationScript) throws -> Void
+    ) throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 3)
+            let script = NavigationScript(captures: captures, restores: restores)
+            let document = try #require(PDFDocument(url: url))
+            let session = ReaderSession(sourceURL: url, document: document, navigationCapture: { script.capture() }, navigationRestore: { script.restore($0) })
+            defer { session.prepareForClose() }
+            try body(session, script)
+        }
+    }
+
+    @Test("normal restore centers the page-space anchor without changing fit presentation")
+    func normalRestorePreservesFitPresentationAndAnchor() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 2)
+            let document = try #require(PDFDocument(url: url))
+            let controller = PDFViewController(document: document, traceID: OpenTraceID(), metrics: NoopPDFOpenMetrics())
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 480), styleMask: [.titled], backing: .buffered, defer: false)
+            window.contentView = controller.view
+            controller.view.frame = window.contentLayoutRect
+            controller.view.layoutSubtreeIfNeeded()
+            let target = try #require(NavigationSnapshot(pageIndex: 1, pageSpacePoint: CGPoint(x: 306, y: 396)))
+            #expect(controller.restoreNavigationSnapshot(target) == .verifiedLanding)
+            let captured = try #require(controller.captureNavigationSnapshot())
+            #expect(captured.isSameLocation(as: target))
+            #expect(controller.viewMode == .fitPage)
+            let view = try #require(descendantPDFViews(in: controller.view).only)
+            #expect(view.autoScales && view.displayMode == .singlePage)
+        }
+    }
+
     private func withSession(
         pageCount: Int,
         pageSize: CGSize = CGSize(width: 612, height: 792),
@@ -609,6 +755,27 @@ private final class SearchLifecycleSpy: ReaderSearchLifecycle {
     func detachCallbacks() { events.append("detach") }
     func clearHighlights() { events.append("clear") }
 }
+@MainActor
+private final class NavigationScript {
+    private var captures: [NavigationSnapshot?]
+    private var restores: [NavigationRestoreOutcome]
+    private(set) var restoreRequests: [NavigationSnapshot] = []
+
+    init(captures: [NavigationSnapshot?], restores: [NavigationRestoreOutcome]) {
+        self.captures = captures
+        self.restores = restores
+    }
+
+    func capture() -> NavigationSnapshot? {
+        captures.isEmpty ? nil : captures.removeFirst()
+    }
+
+    func restore(_ destination: NavigationSnapshot) -> NavigationRestoreOutcome {
+        restoreRequests.append(destination)
+        return restores.isEmpty ? .preflightRejected : restores.removeFirst()
+    }
+}
+
 
 @MainActor
 private final class WeakReaderSession {

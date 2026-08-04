@@ -120,23 +120,52 @@ final class PaneCoordinator {
 
     @discardableResult
     func split(direction: PaneOrientation) -> PaneID? {
-        guard let activePaneID else { return nil }
+        guard let sourcePaneID = activePaneID else { return nil }
         let destinationID = PaneID()
-        guard let destinationLayout = layout.applyingSplit(direction, to: activePaneID, inserting: destinationID) else { return nil }
-        guard let source = activeSession as? any ReaderDuplicationSnapshotProviding,
-              let candidate = duplicateSession?(source.duplicationSnapshot)
+        guard let destinationLayout = layout.applyingSplit(direction, to: sourcePaneID, inserting: destinationID),
+              let source = activeSession as? any ReaderDuplicationSnapshotProviding,
+              let snapshot = source.duplicationSnapshot,
+              let candidate = duplicateSession?(snapshot)
         else { return nil }
-        let previous = suppressCallbacks; suppressCallbacks = true
+
+        let originalLayout = layout
+        let originalActivePaneID = activePaneID
+        let previous = suppressCallbacks
+        suppressCallbacks = true
         defer { suppressCallbacks = previous }
         let destination = ReaderSessionStore()
         destination.registerChangeHandler { [weak self] _ in self?.storeDidChange() }
-        guard destination.insert(candidate) else { candidate.prepareForClose(); duplicationCompletion?(candidate, false); return nil }
+        guard destination.insert(candidate) else {
+            candidate.prepareForClose()
+            duplicationCompletion?(candidate, false)
+            return nil
+        }
         stores[destinationID] = destination
         layout = destinationLayout
         setActivePane(destinationID)
-        suppressCallbacks = previous; publish(); suppressCallbacks = true
-        duplicationCompletion?(candidate, true)
-        return destinationID
+
+        var finalized = false
+        var succeeded = false
+        candidate.configureDuplicateValidation { [weak self, weak candidate] success in
+            guard let self, let candidate, !finalized else { return }
+            finalized = true
+            succeeded = success
+            if success {
+                self.duplicationCompletion?(candidate, true)
+                return
+            }
+            self.stores.removeValue(forKey: destinationID)
+            self.layout = originalLayout
+            self.setActivePane(originalActivePaneID)
+            candidate.prepareForClose()
+            self.duplicationCompletion?(candidate, false)
+            if !self.suppressCallbacks { self.publish() }
+        }
+
+        suppressCallbacks = previous
+        publish()
+        suppressCallbacks = true
+        return finalized && !succeeded ? nil : destinationID
     }
     @discardableResult
     func focus(_ direction: PaneFocusDirection) -> Bool {

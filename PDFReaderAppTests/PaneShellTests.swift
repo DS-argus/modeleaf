@@ -1212,10 +1212,8 @@ private final class EventRecordingSession: ReaderSessionPresenting, ReaderDuplic
 
 
     func prepareForClose() {}
-    var duplicationSnapshot: ReaderDuplicationSnapshot {
-        ReaderDuplicationSnapshot(
-            sourceURL: URL(fileURLWithPath: "/tmp/\(title)"),
-            oneBasedPage: 1)
+    var duplicationSnapshot: ReaderDuplicationSnapshot? {
+        ReaderDuplicationSnapshot(sourceURL: URL(fileURLWithPath: "/tmp/\(title)"), navigation: NavigationSnapshot(pageIndex: 0, pageSpacePoint: .zero)!)
     }
 }
 

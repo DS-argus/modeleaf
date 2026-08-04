@@ -135,6 +135,8 @@ final class StubReaderSession: ReaderSessionPresenting {
     var searchQuery = ""
     private(set) var prepareForCloseCount = 0
     private var presentationChangeHandler: (() -> Void)?
+    var automaticallyValidateDuplicate = true
+    private var duplicateValidationHandler: ((Bool) -> Void)?
 
     init(id: TabID, title: String, page: Int = 1, zoom: Double = 1.0) {
         self.id = id
@@ -164,6 +166,15 @@ final class StubReaderSession: ReaderSessionPresenting {
 
     func prepareForClose() {
         prepareForCloseCount += 1
+    }
+
+    func configureDuplicateValidation(_ handler: @escaping (Bool) -> Void) {
+        duplicateValidationHandler = handler
+        if automaticallyValidateDuplicate { completeDuplicateValidation(true) }
+    }
+    func completeDuplicateValidation(_ success: Bool) {
+        duplicateValidationHandler?(success)
+        duplicateValidationHandler = nil
     }
 }
 
