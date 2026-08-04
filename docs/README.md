@@ -1,4 +1,7 @@
-# Modeleaf
+<div align="center">
+  <img src="../Assets/AppIcon/AppIcon-1024.png" alt="Modeleaf 앱 아이콘" width="160">
+  <h1>Modeleaf</h1>
+</div>
 
 키보드 중심의 Vim 스타일 조작에 진짜 탭과 tmux 방식 패널을 더한 macOS 네이티브 **읽기 전용** PDF 뷰어입니다. 페이지가 항상 화면의 중심이며, 앱은 원본 파일을 절대 건드리지 않습니다.
 

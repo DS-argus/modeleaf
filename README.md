@@ -1,4 +1,7 @@
-# Modeleaf
+<div align="center">
+  <img src="Assets/AppIcon/AppIcon-1024.png" alt="Modeleaf app icon" width="160">
+  <h1>Modeleaf</h1>
+</div>
 
 A native, read-only macOS PDF **viewer** — keyboard-first, Vim-flavored, with real tabs and tmux-style panes. The page stays visually dominant, and the app never touches your file.
 
