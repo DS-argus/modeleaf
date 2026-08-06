@@ -15,7 +15,7 @@ cd "$ROOT"
 # build_release_app.sh regenerates/validates the Xcode project, builds Release,
 # ad-hoc signs, and prints the .app path on its last stdout line.
 BUILD_OUTPUT=$("$ROOT/Tools/build_release_app.sh")
-printf '%s\n' "$BUILD_OUTPUT"
+printf '%s\n' "$BUILD_OUTPUT" >&2
 APP=$(printf '%s\n' "$BUILD_OUTPUT" | tail -n 1)
 if [ ! -d "$APP" ]; then
   echo "package_release: no app bundle at '$APP'" >&2
