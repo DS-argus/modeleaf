@@ -8,6 +8,7 @@ LOG_DIR="$LOCAL/release"
 APP="$DERIVED_DATA/Build/Products/Release/Modeleaf.app"
 
 mkdir -p "$LOG_DIR"
+rm -rf "$DERIVED_DATA"
 cd "$ROOT"
 
 python3 Tools/generate_xcode_project.py
@@ -20,6 +21,9 @@ xcodebuild \
   -configuration Release \
   -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath "$DERIVED_DATA" \
+  ARCHS=arm64 \
+  ONLY_ACTIVE_ARCH=YES \
+  SWIFT_COMPILATION_MODE=incremental \
   ${XCODEBUILD_EXTRA_ARGS:-} \
   build 2>&1 | tee "$LOG_DIR/xcode-release-build.log"
 

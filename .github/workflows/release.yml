@@ -33,7 +33,9 @@ jobs:
 
       - name: Build and package
         id: pkg
-        run: Tools/package_release.sh | tee -a "$GITHUB_OUTPUT"
+        run: |
+          set -o pipefail
+          Tools/package_release.sh | tee -a "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
         env:
