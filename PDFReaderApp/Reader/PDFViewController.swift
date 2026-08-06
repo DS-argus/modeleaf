@@ -262,6 +262,21 @@ final class PDFViewController: NSViewController {
         rotate(byDegrees: 90)
     }
 
+    @discardableResult
+    func printDocument() -> Bool {
+        loadViewIfNeeded()
+        guard readerView.document === initialDocument,
+              let operation = initialDocument.printOperation(
+                  for: NSPrintInfo.shared,
+                  scalingMode: .pageScaleToFit,
+                  autoRotate: true
+              )
+        else { return false }
+        operation.showsPrintPanel = true
+        operation.showsProgressPanel = true
+        return operation.run()
+    }
+
     /// Seed a duplicate's verified position. Layout applies fit-page before
     /// restoring it, so source zoom and presentation are never copied.
     func seedPresentation(

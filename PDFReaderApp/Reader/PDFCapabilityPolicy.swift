@@ -14,7 +14,8 @@ enum PDFCapability: String, CaseIterable, Sendable {
     case formEditing
     case annotationEditing
     case contextMenuOutsideAllowlist
-    case printExport
+    case registryPrint
+    case export
     case pageHistory
     case linkActivation
     case embeddedMedia
@@ -43,9 +44,9 @@ enum PDFCapabilityPolicy {
             .allowed
         case .copy:
             .systemOwned
-        case .registryNavigation, .registryZoom, .registrySearch, .registryDocument, .registryTab:
+        case .registryNavigation, .registryZoom, .registrySearch, .registryDocument, .registryTab, .registryPrint:
             .registryRouted
-        case .formEditing, .annotationEditing, .contextMenuOutsideAllowlist, .printExport,
+        case .formEditing, .annotationEditing, .contextMenuOutsideAllowlist, .export,
              .pageHistory, .embeddedMedia:
             .suppressed
         }

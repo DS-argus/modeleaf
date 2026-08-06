@@ -51,6 +51,7 @@ public enum MenuItemRegistry {
         MenuItemDefinition(identifier: "file.new", title: "New Window", actionID: .appNew, placement: .file),
         MenuItemDefinition(identifier: "file.open", title: "Open PDF…", actionID: .documentOpen, placement: .file),
         MenuItemDefinition(identifier: "file.close", title: "Close PDF", actionID: .documentClose, placement: .file),
+        MenuItemDefinition(identifier: "file.print", title: "Print…", actionID: .documentPrint, placement: .file),
         MenuItemDefinition(identifier: "tabs.next", title: "Next Tab", actionID: .tabNext, placement: .tabs),
         MenuItemDefinition(identifier: "tabs.previous", title: "Previous Tab", actionID: .tabPrevious, placement: .tabs),
         MenuItemDefinition(identifier: "navigation.next-page", title: "Next Page", actionID: .pageNext, placement: .navigation),

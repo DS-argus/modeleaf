@@ -184,7 +184,7 @@ public enum SemanticReplayPolicy {
 private enum ExactPrefixSafetyPolicy {
     static func isForbidden(_ descriptor: ActionDescriptor) -> Bool {
         switch descriptor.id {
-        case .documentOpen, .documentClose, .appQuit, .appNew,
+        case .documentOpen, .documentClose, .documentPrint, .appQuit, .appNew,
              .promptCommit, .promptCancel,
              .searchCancel, .configReload, .configWriteDefault, .configResetDefault:
             true

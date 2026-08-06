@@ -21,7 +21,7 @@ public enum BuiltInDefaults {
     )
 
     public static let templatedKeymap: [ActionID: [String]] = [
-        .documentOpen: ["<D-o>"], .documentClose: ["<D-w>"], .appQuit: ["<D-q>"], .appNew: ["<D-n>"], .paletteOpen: [":", "<D-S-p>"], .helpShow: ["?"],
+        .documentOpen: ["<D-o>"], .documentClose: ["<D-w>"], .documentPrint: ["<D-p>"], .appQuit: ["<D-q>"], .appNew: ["<D-n>"], .paletteOpen: [":", "<D-S-p>"], .helpShow: ["?"],
         .tabNext: ["N"], .tabPrevious: ["P"],
         .tabSelect1: ["<D-1>"], .tabSelect2: ["<D-2>"], .tabSelect3: ["<D-3>"],
         .tabSelect4: ["<D-4>"], .tabSelect5: ["<D-5>"], .tabSelect6: ["<D-6>"],

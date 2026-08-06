@@ -3,6 +3,7 @@ import Foundation
 public enum ActionID: String, CaseIterable, Codable, Hashable, Sendable {
     case documentOpen = "document.open"
     case documentClose = "document.close"
+    case documentPrint = "document.print"
     case appQuit = "app.quit"
     case appNew = "app.new"
     case paletteOpen = "palette.open"

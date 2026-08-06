@@ -20,7 +20,7 @@ struct BuiltInDefaultsTests {
     @Test("Exact default vocabulary remains compact and viewer-first")
     func exactDefaultVocabulary() throws {
         let expected: [ActionID: [String]] = [
-            .documentOpen: ["<D-o>"], .documentClose: ["<D-w>"], .appQuit: ["<D-q>"], .appNew: ["<D-n>"], .paletteOpen: [":", "<D-S-p>"], .helpShow: ["?"],
+            .documentOpen: ["<D-o>"], .documentClose: ["<D-w>"], .documentPrint: ["<D-p>"], .appQuit: ["<D-q>"], .appNew: ["<D-n>"], .paletteOpen: [":", "<D-S-p>"], .helpShow: ["?"],
             .tabNext: ["N"], .tabPrevious: ["P"],
             .tabSelect1: ["<D-1>"], .tabSelect2: ["<D-2>"], .tabSelect3: ["<D-3>"],
             .tabSelect4: ["<D-4>"], .tabSelect5: ["<D-5>"], .tabSelect6: ["<D-6>"],
@@ -43,7 +43,7 @@ struct BuiltInDefaultsTests {
         #expect(try KeySequenceParser.parse("g12").tokens.map(\.description) == ["g", "1", "2"])
 
         let excludedTerms = [
-            "bookmark", "annotation", "mark", "highlight", "portal", "smart", "command", "script", "plugin", "ocr", "print", "export",
+            "bookmark", "annotation", "mark", "highlight", "portal", "smart", "command", "script", "plugin", "ocr", "export",
         ]
         #expect(ActionRegistry.v1.actionIDs.allSatisfy { action in
             excludedTerms.allSatisfy { !action.rawValue.lowercased().contains($0) }

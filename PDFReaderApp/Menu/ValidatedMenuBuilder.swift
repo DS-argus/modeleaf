@@ -6,9 +6,13 @@ final class ValidatedMenuBuilder {
     private let descriptors: [MenuDescriptor]
     private let actionTarget: MenuActionTarget
 
-    init(descriptors: [MenuDescriptor], dispatch: @escaping (ActionID) -> Void) {
+    init(
+        descriptors: [MenuDescriptor],
+        dispatch: @escaping (ActionID) -> Void,
+        isEnabled: @escaping (ActionID) -> Bool = { _ in true }
+    ) {
         self.descriptors = descriptors
-        self.actionTarget = MenuActionTarget(dispatch: dispatch)
+        self.actionTarget = MenuActionTarget(dispatch: dispatch, isEnabled: isEnabled)
     }
 
     func makeMainMenu(applicationName: String = "Modeleaf") -> NSMenu {
@@ -55,11 +59,13 @@ final class ValidatedMenuBuilder {
 }
 
 @MainActor
-private final class MenuActionTarget: NSObject {
+private final class MenuActionTarget: NSObject, NSMenuItemValidation {
     private let dispatch: (ActionID) -> Void
+    private let isEnabled: (ActionID) -> Bool
 
-    init(dispatch: @escaping (ActionID) -> Void) {
+    init(dispatch: @escaping (ActionID) -> Void, isEnabled: @escaping (ActionID) -> Bool) {
         self.dispatch = dispatch
+        self.isEnabled = isEnabled
     }
 
     @objc func performAction(_ sender: NSMenuItem) {
@@ -69,7 +75,15 @@ private final class MenuActionTarget: NSObject {
             assertionFailure("Validated menu item lost its action identifier")
             return
         }
+        guard isEnabled(action) else { return }
         dispatch(action)
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        guard let rawValue = menuItem.representedObject as? String,
+              let action = ActionID(rawValue: rawValue)
+        else { return false }
+        return isEnabled(action)
     }
 }
 

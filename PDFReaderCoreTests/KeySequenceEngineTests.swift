@@ -330,7 +330,7 @@ struct KeySequenceEngineTests {
             ("=", .viewZoomIn), ("-", .viewZoomOut),
             ("w", .viewFitWidth), ("f", .linkHint), ("F", .viewFitPage),
             ("<D-1>", .tabSelect1), ("<D-9>", .tabSelect9),
-            ("<D-o>", .documentOpen), ("<D-w>", .documentClose), ("<D-q>", .appQuit),
+            ("<D-o>", .documentOpen), ("<D-w>", .documentClose), ("<D-p>", .documentPrint), ("<D-q>", .appQuit),
         ]
         for (source, action) in expectations {
             #expect(

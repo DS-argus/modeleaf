@@ -65,6 +65,7 @@ struct CommandPaletteTests {
         let disabled = PaletteAvailability.evaluate(.pageNext, state: empty)
         #expect(!disabled.enabled)
         #expect(disabled.reason == "Open a PDF first")
+        #expect(PaletteAvailability.evaluate(.documentPrint, state: empty) == (false, "Open a PDF first"))
     }
 
     @Test("config commands mirror config file existence")
@@ -88,6 +89,7 @@ struct CommandPaletteTests {
         #expect(PaletteAvailability.evaluate(.paneSplitRight, state: solo).enabled)
         #expect(!PaletteAvailability.evaluate(.searchCancel, state: solo).enabled)
         #expect(PaletteAvailability.evaluate(.pageNext, state: solo).enabled)
+        #expect(PaletteAvailability.evaluate(.documentPrint, state: solo).enabled)
         #expect(!PaletteAvailability.evaluate(.tabSelect3, state: solo).enabled)
 
         let rich = PaletteContextState(hasActiveDocument: true, paneCount: 4, tabCount: 3, inSearchResults: true)

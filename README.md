@@ -9,7 +9,7 @@ A native, read-only macOS PDF **viewer** — keyboard-first, Vim-flavored, with 
 
 ## Philosophy
 
-- **Read-only, always.** No annotations, editing, or saving. The source PDF is never modified — even search highlights are transient chrome, never written back.
+- **Read-only, always.** No annotations, editing, or saving. The source PDF is never modified — even search highlights are transient chrome, never written back. Printing is an explicit system output operation and never writes to the source.
 - **Viewer-first.** Restrained AppKit chrome surrounds the page; PDF pixels are never recolored, and the reading surface stays dominant.
 - **Keyboard-first.** Short Vim-style key sequences drive everything. The idea is borrowed from [Sioyek](https://github.com/ahrm/sioyek) but kept deliberately minimal — just the reading loop, native tabs, and split panes.
 - **Fully configurable, strictly declarative.** Every command and value is remappable in one TOML file. Configuration is data only — no scripts, macros, or plugins.
@@ -49,6 +49,8 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 
 `⌘o` opens a unified picker — your recent PDFs, filtered by fuzzy filename search, plus a Browse… row for the native file dialog. You can also open via Finder → *Open With* or by dropping a file on the app; `⌘n` opens a new window and `⌘q` quits.
 
+`⌘p` opens the standard macOS Print panel for the PDF in the active pane. Printing is an explicit system output operation; it does not modify or save over the source PDF.
+
 `Ctrl+o` and `Ctrl+i` provide Vim-like Back and Forward history, kept only in memory for each tab and pane. They record meaningful jumps — page prompts, first/last page commands, internal GoTo links or hints, and distinct displayed search landings — while one uninterrupted search epoch continues across query replacement and coalesces its result navigation. Ordinary scrolling, next/previous page, zoom, fit, and rotation do not enter history. Restoring returns to the saved page and in-page anchor while keeping the current zoom, fit, rotation, and search presentation; a new jump after Back clears Forward. When unavailable, the command palette explains why. Feature implementation never packages or publishes a release; release remains a separate, explicit operation.
 
 ### Keys (defaults)
@@ -67,6 +69,7 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 | rotate left / right | `[` / `]` |
 | search | `/`, then `Enter` — `Esc` clears |
 | new window | `⌘n` |
+| print active PDF | `⌘p` |
 | open / close / quit | `⌘o` / `⌘w` / `⌘q` |
 | next / previous tab | `N` / `P` |
 | select tab 1…9 | `⌘1` … `⌘9` |

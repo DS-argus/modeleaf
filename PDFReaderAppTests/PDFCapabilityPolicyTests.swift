@@ -15,9 +15,10 @@ struct PDFCapabilityPolicyTests {
         #expect(Set(grouped[.systemOwned] ?? []) == [.copy])
         #expect(Set(grouped[.registryRouted] ?? []) == Set([
             .registryNavigation, .registryZoom, .registrySearch, .registryDocument, .registryTab,
+            .registryPrint,
         ]))
         #expect(Set(grouped[.suppressed] ?? []) == Set([
-            .formEditing, .annotationEditing, .contextMenuOutsideAllowlist, .printExport,
+            .formEditing, .annotationEditing, .contextMenuOutsideAllowlist, .export,
             .pageHistory, .embeddedMedia,
         ]))
     }

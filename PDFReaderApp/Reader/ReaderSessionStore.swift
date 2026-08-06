@@ -42,6 +42,7 @@ protocol ReaderSessionPresenting: ReaderNavigationHistoryPresenting {
     func fitPage()
     func rotateLeft()
     func rotateRight()
+    @discardableResult func printDocument() -> Bool
     func beginSearch(_ query: String)
     @discardableResult func selectNextSearchResult() -> Bool
     @discardableResult func selectPreviousSearchResult() -> Bool
@@ -62,6 +63,7 @@ extension ReaderSessionPresenting {
     func fitPage() {}
     func rotateLeft() {}
     func rotateRight() {}
+    func printDocument() -> Bool { false }
     func scrollVerticallyByViewportFraction(_ fraction: Double) {}
     func moveHorizontally(byPoints points: Double) { scrollBy(xPoints: points, yPoints: 0) }
     func moveVertically(byPoints points: Double) { scrollBy(xPoints: 0, yPoints: points) }

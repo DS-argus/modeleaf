@@ -82,7 +82,7 @@ final class ApplicationController {
         self.actionDispatcher.configureConfigResetDefaultHandler { [weak self] in self?.resetConfig() }
     }
 
-    func start() { let menuBuilder = ValidatedMenuBuilder(descriptors: activeConfig.menuDescriptors, dispatch: { [weak self] action in self?.dispatch(action) }); self.menuBuilder = menuBuilder; application.mainMenu = menuBuilder.makeMainMenu(); mainWindowController.showWindow(nil); if !configResult.diagnostics.isEmpty {
+    func start() { let menuBuilder = ValidatedMenuBuilder(descriptors: activeConfig.menuDescriptors, dispatch: { [weak self] action in self?.dispatch(action) }, isEnabled: { [weak self] action in self?.actionDispatcher.isActionEnabled(action) ?? false }); self.menuBuilder = menuBuilder; application.mainMenu = menuBuilder.makeMainMenu(); mainWindowController.showWindow(nil); if !configResult.diagnostics.isEmpty {
             // Aggregate independent startup failures so a config warning never
             // hides an operational theme-state I/O error (or vice versa).
             let presentation = ConfigDiagnosticPresentation(diagnostics: configResult.diagnostics, usedFallback: configResult.usedFallback)
@@ -161,7 +161,11 @@ final class ApplicationController {
         }
     }
     private func prepare(_ config: ValidatedAppConfig) -> PreparedConfigGeneration {
-        let builder = ValidatedMenuBuilder(descriptors: config.menuDescriptors, dispatch: { [weak self] action in self?.dispatch(action) })
+        let builder = ValidatedMenuBuilder(
+            descriptors: config.menuDescriptors,
+            dispatch: { [weak self] action in self?.dispatch(action) },
+            isEnabled: { [weak self] action in self?.actionDispatcher.isActionEnabled(action) ?? false }
+        )
         return PreparedConfigGeneration(validatedConfig: config, menuBuilder: builder, mainMenu: builder.makeMainMenu())
     }
 

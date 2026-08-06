@@ -100,6 +100,10 @@ newInstanceHandler = newInstance
             presentation?.presentRecentFilesOpen()
         case .documentClose:
             _ = coordinator.closeActiveTab()
+        case .documentPrint:
+            guard activeSession != nil else { return }
+            presentation?.prepareForGlobalAction()
+            _ = activeSession?.printDocument()
         case .appQuit:
             presentation?.prepareForGlobalAction()
             terminationHandler()
@@ -222,6 +226,9 @@ newInstanceHandler = newInstance
     }
 
     private var activeSession: (any ReaderSessionPresenting)? { coordinator.activeSession }
+    func isActionEnabled(_ action: ActionID) -> Bool {
+        action != .documentPrint || activeSession != nil
+    }
     private func presentPagePrompt(initialText: String) {
         guard activeSession != nil else {
             presentation?.dismissPromptAndRestoreFocus(to: .navigation, reason: .explicitCancel)

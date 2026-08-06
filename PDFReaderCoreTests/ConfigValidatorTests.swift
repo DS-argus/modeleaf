@@ -138,7 +138,7 @@ struct ConfigValidatorTests {
     @Test("U-CFG-13 every prompt-active action shares one strict binding predicate")
     func promptActiveActionsUseSharedPredicate() throws {
         let promptActive = ActionRegistry.v1.descriptors.filter { $0.isPromptActive && !$0.isFixedBinding }
-        #expect(promptActive.map(\.id) == [.documentOpen, .appQuit, .appNew, .configWriteDefault, .configResetDefault])
+        #expect(promptActive.map(\.id) == [.documentOpen, .documentPrint, .appQuit, .appNew, .configWriteDefault, .configResetDefault])
 
         for descriptor in promptActive {
             let unbound = validateBinding([], for: descriptor.id)

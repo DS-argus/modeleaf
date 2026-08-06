@@ -101,6 +101,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
     private var duplicateValidationDelivered = false
     private let openMetrics: any PDFOpenMetrics
     private var cachedSearchableTextPresence: Bool?
+    private let printHandler: () -> Bool
     private var notificationTokens: [NSObjectProtocol] = []
     private var presentationChangeHandler: (() -> Void)?
     private var navigationOutcomeHandler: ((NavigationTransactionOutcome) -> Void)?
@@ -120,7 +121,8 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
         traceID: OpenTraceID = OpenTraceID(),
         metrics: any PDFOpenMetrics = NoopPDFOpenMetrics(),
         navigationCapture: (() -> NavigationSnapshot?)? = nil,
-        navigationRestore: ((NavigationSnapshot) -> NavigationRestoreOutcome)? = nil
+        navigationRestore: ((NavigationSnapshot) -> NavigationRestoreOutcome)? = nil,
+        printHandler: (() -> Bool)? = nil
     ) {
         metrics.record(.begin(.sessionConstruct, traceID: traceID))
         self.id = id
@@ -134,6 +136,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
         if let navigationCapture { viewController.setNavigationSnapshotCaptureOverride(navigationCapture) }
         self.navigationCapture = navigationCapture ?? { viewController.captureNavigationSnapshot() }
         self.navigationRestore = navigationRestore ?? { viewController.restoreNavigationSnapshot($0) }
+        self.printHandler = printHandler ?? { viewController.printDocument() }
         self.searchControllerFactory = searchControllerFactory ?? { activate, reportOutcome in
             ReaderSearchCoordinator(
                 driver: PDFKitSearchDriver(document: document),
@@ -429,6 +432,12 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
         guard !isClosed else { return }
         viewController.rotateRight()
         publishPresentationChange()
+    }
+
+    @discardableResult
+    func printDocument() -> Bool {
+        guard !isClosed else { return false }
+        return printHandler()
     }
 
     private func navigateAcrossVerticalBoundary(forward: Bool) {

@@ -984,6 +984,29 @@ struct ReaderSessionTests {
         }
     }
 
+    @Test("print delegates once while open and never after teardown")
+    func printLifecycle() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1)
+            let document = try #require(PDFDocument(url: url))
+            var printCount = 0
+            let session = ReaderSession(
+                sourceURL: url,
+                document: document,
+                printHandler: {
+                    printCount += 1
+                    return true
+                }
+            )
+
+            #expect(session.printDocument())
+            #expect(printCount == 1)
+            session.prepareForClose()
+            #expect(!session.printDocument())
+            #expect(printCount == 1)
+        }
+    }
+
     private func withSession(
         pageCount: Int,
         pageSize: CGSize = CGSize(width: 612, height: 792),

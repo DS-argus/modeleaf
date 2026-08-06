@@ -62,6 +62,35 @@ struct ActionDispatcherTests {
         empty.dispatch(.historyForward)
     }
 
+    @Test("print targets only the active document and is inert without one")
+    func printUsesActiveDocumentOnly() {
+        let store = ReaderSessionStore()
+        let first = RecordingReaderSession(title: "First.pdf")
+        let active = RecordingReaderSession(title: "Active.pdf")
+        #expect(store.insert(first))
+        #expect(store.insert(active))
+        let dispatcher = ActionDispatcher(
+            coordinator: PaneCoordinator(initialStore: store),
+            navigation: BuiltInDefaults.config.navigation
+        )
+        let presenter = PromptPresenterSpy()
+        dispatcher.presentation = presenter
+
+        #expect(dispatcher.isActionEnabled(.documentPrint))
+        dispatcher.dispatch(.documentPrint)
+
+        #expect(first.events.isEmpty)
+        #expect(active.events == [.printDocument])
+        #expect(presenter.globalPreparationCount == 1)
+
+        let empty = ActionDispatcher(
+            coordinator: PaneCoordinator(initialStore: ReaderSessionStore()),
+            navigation: BuiltInDefaults.config.navigation
+        )
+        #expect(!empty.isActionEnabled(.documentPrint))
+        empty.dispatch(.documentPrint)
+    }
+
     @Test("document.open presents the recent-files workflow instead of invoking the legacy open handler")
     func documentOpenPresentsRecentFiles() {
         let coordinator = PaneCoordinator(initialStore: ReaderSessionStore())
@@ -546,6 +575,7 @@ private enum RecordingReaderEvent: Equatable {
     case fitPage
     case rotateLeft
     case rotateRight
+    case printDocument
     case goBack
     case goForward
     case beginSearch(String)
@@ -593,6 +623,7 @@ private final class RecordingReaderSession: ReaderSessionPresenting, ReaderNavig
     func fitPage() { events.append(.fitPage) }
     func rotateLeft() { events.append(.rotateLeft) }
     func rotateRight() { events.append(.rotateRight) }
+    func printDocument() -> Bool { events.append(.printDocument); return true }
     func beginSearch(_ query: String) {
         events.append(.beginSearch(query))
         searchSnapshot = ReaderSearchSnapshot(

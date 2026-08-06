@@ -21,6 +21,9 @@ struct ValidatedMenuBuilderTests {
         #expect(quit.keyEquivalent == "q")
         #expect(quit.keyEquivalentModifierMask == NSEvent.ModifierFlags.command)
 
+        let printItem = try #require(menu.descendant(title: "Print…"))
+        #expect(printItem.keyEquivalent == "p")
+        #expect(printItem.keyEquivalentModifierMask == NSEvent.ModifierFlags.command)
         let close = try #require(menu.descendant(title: "Close PDF"))
         #expect(close.keyEquivalent.isEmpty)
         #expect(close.keyEquivalentModifierMask.isEmpty)
@@ -52,6 +55,26 @@ struct ValidatedMenuBuilderTests {
 
         #expect(open.keyEquivalent == UnicodeScalar(NSF12FunctionKey).map(String.init))
         #expect(open.keyEquivalentModifierMask == NSEvent.ModifierFlags.command)
+    }
+
+    @Test("print menu uses configured Cmd+p and disables without an active document")
+    func printAvailability() throws {
+        let validated = try #require(ConfigValidator.validate(SparseAppConfig()).validatedConfig)
+        var dispatched: [ActionID] = []
+        let builder = ValidatedMenuBuilder(
+            descriptors: validated.menuDescriptors,
+            dispatch: { dispatched.append($0) },
+            isEnabled: { $0 != .documentPrint }
+        )
+        let printItem = try #require(builder.makeMainMenu().descendant(title: "Print…"))
+        let validator = try #require(printItem.target as? NSMenuItemValidation)
+
+        #expect(printItem.keyEquivalent == "p")
+        #expect(printItem.keyEquivalentModifierMask == .command)
+        #expect(!validator.validateMenuItem(printItem))
+        let action = try #require(printItem.action)
+        _ = printItem.target?.perform(action, with: printItem)
+        #expect(dispatched.isEmpty)
     }
 }
 
