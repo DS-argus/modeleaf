@@ -136,4 +136,8 @@ See **[CONFIG.md](CONFIG.md)** for the complete action registry, key-token gramm
 
 ---
 
+## License
+
+Modeleaf is available under the [MIT License](LICENSE).
+
 Theme palette attributions: [ThemeAttributions.md](PDFReaderApp/Theme/ThemeAttributions.md)

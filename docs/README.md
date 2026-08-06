@@ -136,4 +136,8 @@ prefix = "<C-b>"        # 패널 prefix; 어떤 바인딩이든 <prefix>가 이 
 
 ---
 
+## 라이선스
+
+Modeleaf는 [MIT License](../LICENSE)로 배포됩니다.
+
 테마 팔레트 출처: [ThemeAttributions.md](../PDFReaderApp/Theme/ThemeAttributions.md)
