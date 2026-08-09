@@ -256,6 +256,44 @@ final class ReaderPDFView: PDFView {
         scrollView.reflectScrolledClipView(clipView)
     }
 
+    /// Moves a PDF page-space point onto the visible viewport centre using the
+    /// scroll view's document coordinate space. Returns whether PDFKit clamped
+    /// the requested centre at a document boundary.
+    @discardableResult
+    func centerPagePoint(_ pagePoint: CGPoint, on page: PDFPage) -> Bool? {
+        guard let scrollView = documentScrollView,
+              let documentView = scrollView.documentView
+        else { return nil }
+
+        let clipView = scrollView.contentView
+        var wasConstrained = false
+        for _ in 0..<3 {
+            layoutDocumentView()
+            let anchorInDocument = convert(convert(pagePoint, from: page), to: documentView)
+            let viewportCenterInDocument = convert(
+                NSPoint(x: bounds.midX, y: bounds.midY),
+                to: documentView
+            )
+            let proposedOrigin = NSPoint(
+                x: clipView.bounds.origin.x + anchorInDocument.x - viewportCenterInDocument.x,
+                y: clipView.bounds.origin.y + anchorInDocument.y - viewportCenterInDocument.y
+            )
+            let constrained = clipView.constrainBoundsRect(
+                NSRect(origin: proposedOrigin, size: clipView.bounds.size)
+            ).origin
+            wasConstrained = wasConstrained
+                || abs(constrained.x - proposedOrigin.x) > 0.5
+                || abs(constrained.y - proposedOrigin.y) > 0.5
+            guard abs(constrained.x - clipView.bounds.origin.x) > 0.01
+                    || abs(constrained.y - clipView.bounds.origin.y) > 0.01
+            else { break }
+            clipView.scroll(to: constrained)
+            scrollView.reflectScrolledClipView(clipView)
+        }
+        layoutDocumentView()
+        return wasConstrained
+    }
+
     @discardableResult
     func scrollVertically(byPoints points: Double) -> ReaderVerticalScrollOutcome {
         guard points.isFinite, points != 0,

@@ -97,12 +97,44 @@ struct LinkHintIntegrationTests {
         try withLinkHarness { controller, session, view, _ in
             controller.presentLinkHints()
 
-            let event = try #require(makeKeyEvent(characters: "k"))
-            #expect(controller.routeKeyEventForTesting(event))
+            let displayedLinks = LinkHintMerge.mergeLinks(session.linkTargets()).filter {
+                !session.linkHintRects(for: $0, in: controller.rootView.linkHintOverlay).isEmpty
+            }
+            let goToIndex = try #require(displayedLinks.firstIndex {
+                if case .goTo = $0.target { return true }
+                return false
+            })
+            let label = controller.rootView.linkHintOverlay.visibleLabels[goToIndex]
+            for character in label {
+                let event = try #require(makeKeyEvent(characters: String(character)))
+                #expect(controller.routeKeyEventForTesting(event))
+            }
             #expect(session.currentPageNumber == 2)
             // GoTo navigation intentionally mirrors PDFKit mouse activation: it is not a URL follow.
             #expect(view.followedLinkCount == 0)
             #expect(controller.rootView.linkHintOverlay.isHidden)
+        }
+    }
+    @Test("PDF destinations with unspecified coordinates normalize to a navigable page anchor")
+    func sentinelGoToDestinationNormalizes() throws {
+        try withLinkHarness { _, session, view, _ in
+            session.fitWidth()
+            let targetPage = try #require(view.document?.page(at: 1))
+            let bounds = targetPage.bounds(for: .mediaBox)
+            let sentinel = CGFloat(Float.greatestFiniteMagnitude)
+            session.activateLink(.goTo(
+                pageIndex: 1,
+                point: CGPoint(x: sentinel, y: bounds.maxY + 3)
+            ))
+
+            #expect(session.currentPageNumber == 2)
+            #expect(session.canGoBack)
+            let landing = try #require(session.duplicationSnapshot?.navigation)
+            #expect(landing.pageIndex == 1)
+            #expect(abs(landing.pageSpacePoint.x - bounds.midX) < 0.5)
+            #expect(landing.pageSpacePoint.y <= bounds.maxY)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(session.currentPageNumber == 1)
         }
     }
 
@@ -129,19 +161,23 @@ struct LinkHintIntegrationTests {
         }
     }
 
-    @Test("same-page non-centre mouse and hint GoTo land once without history")
-    func samePageNonCentreGoToDoesNotRecordHistory() throws {
+    @Test("same-page point-bearing GoTo records and restores the exact prior viewport")
+    func samePageNonCentreGoToRecordsHistory() throws {
         try withLinkHarness { _, session, view, _ in
-            let target = ReaderLinkTarget.goTo(pageIndex: 0, point: CGPoint(x: 48, y: 700))
+            let origin = try #require(session.duplicationSnapshot?.navigation)
+            let target = ReaderLinkTarget.goTo(pageIndex: 0, point: CGPoint(x: 306, y: 120))
             session.activateLink(target)
             #expect(session.currentPageNumber == 1)
-            #expect(!session.canGoBack && !session.canGoForward)
+            #expect(session.canGoBack)
+            #expect(session.goBack() == .verifiedLanding)
+            let restored = try #require(session.duplicationSnapshot?.navigation)
+            #expect(restored.isSameLocation(as: origin))
 
             let page = try #require(view.document?.page(at: 0))
-            view.perform(PDFActionGoTo(destination: PDFDestination(page: page, at: CGPoint(x: 48, y: 700))))
-            #expect(session.currentPageNumber == 1)
-            #expect(!session.canGoBack && !session.canGoForward)
-            #expect(view.blockedActionCount == 0)
+            view.perform(PDFActionGoTo(destination: PDFDestination(page: page, at: CGPoint(x: 306, y: 120))))
+            #expect(session.canGoBack)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(try #require(session.duplicationSnapshot?.navigation).isSameLocation(as: origin))
         }
     }
     @Test("unresolved and foreign PDF GoTo actions are blocked without history")
@@ -160,14 +196,13 @@ struct LinkHintIntegrationTests {
             #expect(try PDFFixtureFactory.sha256(of: url) == before)
         }
     }
-    @Test("same unresolved and URL targets never create internal-link history")
+    @Test("unresolved and URL targets never create internal-link history")
     func excludedLinkTargetsLeaveHistoryEmpty() throws {
         try withLinkHarness { _, session, view, _ in
             var opened: [URL] = []
             view.followLinkHandler = { opened.append($0) }
             session.activateLink(.url("https://example.invalid/link-hint"))
             session.activateLink(.goTo(pageIndex: 99, point: .zero))
-            session.activateLink(.goTo(pageIndex: 0, point: CGPoint(x: 306, y: 396)))
             #expect(opened == [URL(string: "https://example.invalid/link-hint")!])
             #expect(session.currentPageNumber == 1)
             #expect(!session.canGoBack && !session.canGoForward)
@@ -177,6 +212,54 @@ struct LinkHintIntegrationTests {
 
 
 
+    @Test("mid-scroll internal jump supports stable Back and Forward round trips")
+    func midScrollHistoryRoundTrip() throws {
+        try withLinkHarness { _, session, view, _ in
+            _ = view.scrollVertically(byPoints: 180)
+            view.layoutDocumentView()
+            let origin = try #require(session.duplicationSnapshot?.navigation)
+            let target = ReaderLinkTarget.goTo(pageIndex: 1, point: CGPoint(x: 306, y: 396))
+
+            session.activateLink(target)
+            let landing = try #require(session.duplicationSnapshot?.navigation)
+            #expect(session.canGoBack)
+            #expect(session.goBack() == .verifiedLanding)
+            #expect(try #require(session.duplicationSnapshot?.navigation).isSameLocation(as: origin))
+            #expect(session.goForward() == .verifiedLanding)
+            #expect(try #require(session.duplicationSnapshot?.navigation).isSameLocation(as: landing))
+        }
+    }
+
+    @Test("offscreen links are removed before hint label width is chosen")
+    func offscreenLinksDoNotPromoteVisibleHintsToTwoCharacters() throws {
+        try withLinkHarness { controller, session, view, _ in
+            let page = try #require(view.document?.page(at: 0))
+            let viewportCenter = NSPoint(x: view.bounds.midX, y: view.bounds.midY)
+            let center = view.convert(viewportCenter, to: page)
+            for index in 0..<21 {
+                let annotation = PDFAnnotation(
+                    bounds: CGRect(x: center.x + CGFloat(index % 4), y: center.y + CGFloat(index / 4), width: 12, height: 8),
+                    forType: .link,
+                    withProperties: nil
+                )
+                annotation.action = PDFActionURL(url: URL(string: "https://example.invalid/visible-\(index)")!)
+                page.addAnnotation(annotation)
+            }
+            let offscreen = PDFAnnotation(
+                bounds: CGRect(x: -10_000, y: -10_000, width: 12, height: 8),
+                forType: .link,
+                withProperties: nil
+            )
+            offscreen.action = PDFActionURL(url: URL(string: "https://example.invalid/offscreen")!)
+            page.addAnnotation(offscreen)
+
+            #expect(LinkHintMerge.mergeLinks(session.linkTargets()).count > 26)
+            controller.presentLinkHints()
+            let labels = controller.rootView.linkHintOverlay.visibleLabels
+            #expect(!labels.isEmpty && labels.count <= 26)
+            #expect(labels.allSatisfy { $0.count == 1 })
+        }
+    }
     @Test("two-character labels accept Shift and Caps Lock labels while rejecting command modifiers")
     func prefixAndModifierTransitions() throws {
         let overlay = LinkHintOverlayView(frame: .zero)
@@ -285,13 +368,16 @@ struct LinkHintIntegrationTests {
             let hintKey = try #require(makeKeyEvent(characters: "f"))
             #expect(controller.routeKeyEventForTesting(hintKey))
             #expect(!controller.rootView.linkHintOverlay.isHidden)
-            let escapeKey = try #require(makeKeyEvent(characters: "", keyCode: 53))
+            let escapeKey = try #require(makeKeyEvent(characters: "\u{1b}", keyCode: 53))
             #expect(controller.routeKeyEventForTesting(escapeKey))
 
             session.fitWidth()
             let fitPageKey = try #require(makeKeyEvent(characters: "F"))
             #expect(controller.routeKeyEventForTesting(fitPageKey))
             #expect(session.viewMode == .fitPage)
+            let fitModeLabel = findDescendant(in: controller.rootView.statusBar, identifier: "status.mode") as? NSTextField
+            #expect(fitModeLabel?.stringValue == "FIT PAGE")
+            #expect(fitModeLabel?.isHidden == false)
 
             let searchKey = try #require(makeKeyEvent(characters: "/"))
             #expect(controller.routeKeyEventForTesting(searchKey))
@@ -299,9 +385,14 @@ struct LinkHintIntegrationTests {
             let commitKey = try #require(makeKeyEvent(characters: "\r", keyCode: 36))
             #expect(controller.routeKeyEventForTesting(commitKey))
             #expect(controller.inputContextForTesting == .searchResults)
+            let searchModeLabel = findDescendant(in: controller.rootView.statusBar, identifier: "status.searchMode") as? NSTextField
+            #expect(searchModeLabel?.stringValue == "SEARCH")
+            #expect(searchModeLabel?.isHidden == false)
             let searchHintKey = try #require(makeKeyEvent(characters: "f"))
             #expect(!controller.routeKeyEventForTesting(searchHintKey))
             #expect(controller.rootView.linkHintOverlay.isHidden)
+            #expect(controller.routeKeyEventForTesting(escapeKey))
+            #expect(searchModeLabel?.isHidden == true)
         }
     }
     @Test("closed sessions expose no targets and ignore activation")
@@ -328,7 +419,9 @@ struct LinkHintIntegrationTests {
         let expected = view.visiblePages.flatMap { page in
             page.annotations.compactMap { annotation -> NSRect? in
                 guard annotation.type == "Link" || annotation.action != nil || annotation.url != nil else { return nil }
-                return view.convert(view.convert(annotation.bounds, from: page), to: overlay)
+                let converted = view.convert(view.convert(annotation.bounds, from: page), to: overlay)
+                let clipped = converted.intersection(overlay.bounds)
+                return clipped.isNull || clipped.width <= 0 || clipped.height <= 0 ? nil : clipped
             }
         }
         let actual = overlay.hintRectsForTesting.flatMap { $0 }
@@ -379,6 +472,13 @@ struct LinkHintIntegrationTests {
         try body(directory)
     }
 
+    private func findDescendant(in view: NSView, identifier: String) -> NSView? {
+        if view.accessibilityIdentifier() == identifier { return view }
+        for subview in view.subviews {
+            if let found = findDescendant(in: subview, identifier: identifier) { return found }
+        }
+        return nil
+    }
     private func descendantReaderPDFViews(in view: NSView) -> [ReaderPDFView] {
         let own = (view as? ReaderPDFView).map { [$0] } ?? []
         return own + view.subviews.flatMap(descendantReaderPDFViews(in:))

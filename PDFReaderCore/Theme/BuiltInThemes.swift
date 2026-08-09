@@ -93,6 +93,24 @@ public enum BuiltInThemes {
             ]
         ),
         make(
+            .nord,
+            "Nord",
+            [
+                .background: "#2E3440",
+                .foreground: "#D8DEE9",
+                .mutedText: "#81A1C1",
+                .border: "#4C566A",
+                .accent: "#88C0D0",
+                .activeTab: "#3B4252",
+                .inactiveTab: "#272C36",
+                .statusline: "#242933",
+                .error: "#BF616A",
+                .searchHighlight: "#EBCB8B",
+                .activeSearchHighlight: "#D08770",
+                .focusIndicator: "#88C0D0",
+            ]
+        ),
+        make(
             .catppuccinLatte,
             "Catppuccin Latte",
             [

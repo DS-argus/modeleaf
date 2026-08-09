@@ -87,6 +87,24 @@ struct StateFileStoreTests {
             #expect(permissions.intValue & 0o777 == 0o600)
         }
     }
+    @Test("State updates use stable human-readable JSON")
+    func stateFileFormattingIsReadable() throws {
+        try withFileURL { fileURL in
+            #expect(StateFileStore(fileURL: fileURL).update {
+                $0.selectedTheme = "dracula"
+                $0.recentFiles = [RecentFileEntryDTO(
+                    absolutePath: "/tmp/readable.pdf",
+                    lastOpenedAt: Date(timeIntervalSince1970: 0)
+                )]
+            } == .persisted)
+
+            let text = try String(contentsOf: fileURL, encoding: .utf8)
+            #expect(text.split(separator: "\n", omittingEmptySubsequences: false).count > 4)
+            #expect(text.contains("\n  \"selected_theme\" : \"dracula\"\n"))
+            #expect(text.contains("/tmp/readable.pdf"))
+            #expect(!text.contains("\\/tmp\\/readable.pdf"))
+        }
+    }
     private func withFileURL(_ body: (URL) throws -> Void) throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("StateFileStoreTests-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }

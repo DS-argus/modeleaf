@@ -100,6 +100,32 @@ struct RecentFilesOverlayIntegrationTests {
             #expect(overlay.isHidden)
         }
     }
+    @Test("mouse hover selects and click opens Browse or a recent PDF")
+    func pointerSelectsAndOpens() throws {
+        try withTemporaryDirectory { directory in
+            let alpha = directory.appendingPathComponent("alpha.pdf")
+            try Data().write(to: alpha)
+            var opened: [String] = []
+            var browsed = 0
+            let controller = makeController(
+                entries: [RecentFileEntry(absolutePath: alpha.path, lastOpenedAt: .now)],
+                browse: { browsed += 1 },
+                open: { opened.append($0) }
+            )
+            defer { controller.close() }
+
+            controller.presentRecentFilesOverlay()
+            let overlay = controller.rootView.recentFilesOverlay
+            overlay.pointerEnterRowForTesting(at: 1)
+            #expect(overlay.selectedIndexForTesting == 1)
+            overlay.pointerActivateRowForTesting(at: 1)
+            #expect(opened == [alpha.path])
+
+            controller.presentRecentFilesOverlay()
+            overlay.pointerActivateRowForTesting(at: 0)
+            #expect(browsed == 1)
+        }
+    }
 
     @Test("the fifteenth recent row remains reachable and commits its path")
     func fifteenthRecentRowCommits() throws {
@@ -247,9 +273,30 @@ struct RecentFilesOverlayIntegrationTests {
 
             controller.presentRecentFilesOverlay()
             let overlay = controller.rootView.recentFilesOverlay
-            #expect(overlay.keyHintForTesting.contains("Ctrl+j/k"))
-            #expect(overlay.keyHintForTesting.contains("Ctrl+c"))
+            #expect(overlay.keyHintForTesting.contains("⌃j / ⌃k"))
+            #expect(overlay.keyHintForTesting.contains("⌃c"))
+            #expect(!overlay.keyHintForTesting.contains("Corrupt reset"))
+            let hint = overlay.keyHintAttributedForTesting
+            let text = hint.string as NSString
+            let shortcutRange = text.range(of: "⌃j / ⌃k")
+            let actionRange = text.range(of: "Move selection")
+            let shortcutFont = try #require(hint.attribute(.font, at: shortcutRange.location, effectiveRange: nil) as? NSFont)
+            let actionFont = try #require(hint.attribute(.font, at: actionRange.location, effectiveRange: nil) as? NSFont)
+            let shortcutColor = try #require(hint.attribute(.foregroundColor, at: shortcutRange.location, effectiveRange: nil) as? NSColor)
+            let actionColor = try #require(hint.attribute(.foregroundColor, at: actionRange.location, effectiveRange: nil) as? NSColor)
+            #expect(shortcutFont.fontDescriptor.symbolicTraits.contains(.monoSpace))
+            #expect(!actionFont.fontDescriptor.symbolicTraits.contains(.monoSpace))
+            #expect(shortcutColor != actionColor)
+            #expect(!actionFont.fontDescriptor.symbolicTraits.contains(.bold))
+            #expect(!overlay.keyHintForTesting.contains("\n"))
+            #expect(overlay.keyHintIsWithinBoundsForTesting)
             #expect(overlay.visibleRowsForTesting == ["Browse\u{2026}", first.path, second.path])
+            #expect(overlay.widthFitsKeyHintForTesting)
+            #expect(overlay.displayedDirectoriesForTesting == [
+                first.deletingLastPathComponent().path,
+                second.deletingLastPathComponent().path,
+            ])
+            #expect(overlay.displayedDirectoriesForTesting.allSatisfy { !$0.hasSuffix("report.pdf") })
         }
     }
 

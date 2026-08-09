@@ -69,6 +69,9 @@ struct CommandPaletteIntegrationTests {
         #expect(!overlay.isHidden)
         #expect(overlay.visibleCommandIDs.contains(.documentOpen))
         #expect(!overlay.visibleCommandIDs.contains(.paletteOpen)) // never lists itself
+        #expect(overlay.keyHintForTesting == "⌃j / ⌃k  Move selection    ↩  Run    Esc  Close")
+        #expect(overlay.keyHintIsWithinBoundsForTesting)
+        #expect(overlay.visibleCommandsForTesting.first { $0.id == .viewFitWidth }?.shortcut == "w")
 
         try type("fitw", into: controller)
         #expect(overlay.currentQuery == "fitw")
@@ -77,6 +80,23 @@ struct CommandPaletteIntegrationTests {
         _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "\r", keyCode: 36)))
         #expect(overlay.isHidden)
         #expect(executed == [.viewFitWidth])
+    }
+    @Test("mouse hover selects and click runs an enabled command")
+    func pointerSelectsAndExecutes() throws {
+        var executed: [ActionID] = []
+        let store = ReaderSessionStore()
+        let controller = makeController(with: store) { executed.append($0) }
+        defer { controller.close() }
+        #expect(store.insert(StubReaderSession(id: TabID(), title: "A.pdf")))
+        let overlay = controller.rootView.commandPaletteOverlay
+        controller.presentCommandPalette()
+
+        let index = try #require(overlay.visibleCommandIDs.firstIndex(of: .viewFitWidth))
+        overlay.pointerEnterRowForTesting(at: index)
+        #expect(overlay.selectedCommandID == .viewFitWidth)
+        overlay.pointerActivateRowForTesting(at: index)
+        #expect(executed == [.viewFitWidth])
+        #expect(overlay.isHidden)
     }
 
     @Test("escape cancels without dispatching")
@@ -112,6 +132,9 @@ struct CommandPaletteIntegrationTests {
 
         _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "\r", keyCode: 36)))
         #expect(!overlay.isHidden)     // inert commit keeps the palette open
+        #expect(overlay.pointerEnabledRowsForTesting == [false])
+        overlay.pointerActivateRowForTesting(at: 0)
+        #expect(!overlay.isHidden)
         #expect(executed.isEmpty)
     }
 

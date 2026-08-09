@@ -322,7 +322,10 @@ struct KeySequenceEngineTests {
     func navigationContext() throws {
         var engine = try makeEngine()
         let expectations: [(String, ActionID)] = [
-            ("h", .scrollLeft), ("j", .scrollDown), ("k", .scrollUp), ("l", .scrollRight),
+            ("h", .scrollLeft), ("<Left>", .scrollLeft),
+            ("j", .scrollDown), ("<Down>", .scrollDown),
+            ("k", .scrollUp), ("<Up>", .scrollUp),
+            ("l", .scrollRight), ("<Right>", .scrollRight),
             ("d", .scrollLargeDown), ("u", .scrollLargeUp),
             ("n", .pageNext), ("p", .pagePrevious),
             ("N", .tabNext), ("P", .tabPrevious),

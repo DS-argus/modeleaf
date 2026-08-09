@@ -3,12 +3,12 @@ import PDFReaderCore
 
 @MainActor
 final class EmptyStateView: NSView {
-    private let titleLabel = NSTextField(labelWithString: "Open a PDF")
-    private let subtitleLabel = NSTextField(labelWithString: "Choose a document to start reading")
+    private let actionPill = PointerActionView()
+    private let folderIcon = NSImageView()
+    private let separator = NSView()
     private let shortcutBadge = NSView()
     private let shortcutLabel = NSTextField(labelWithString: "⌘O")
-    private let footerLabel = NSTextField(labelWithString: "read-only  ·  tabs  ·  vim keys")
-    let openButton = ClosureButton(title: "Open PDF…", target: nil, action: nil)
+    let openButton = ClosureButton(title: "Open PDF", target: nil, action: nil)
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -17,62 +17,79 @@ final class EmptyStateView: NSView {
         setAccessibilityLabel("PDF reader empty state")
         setAccessibilityIdentifier("emptyState")
 
-        titleLabel.font = .systemFont(ofSize: 24, weight: .semibold)
-        titleLabel.alignment = .center
-        titleLabel.maximumNumberOfLines = 1
+        actionPill.wantsLayer = true
+        actionPill.layer?.cornerRadius = 25
+        actionPill.setAccessibilityIdentifier("empty.openActionPill")
+        actionPill.prepareForAutoLayout()
+        actionPill.onPointerActivate = { [weak openButton] in
+            openButton?.performClick(nil)
+        }
 
-        subtitleLabel.font = .systemFont(ofSize: 13, weight: .regular)
-        subtitleLabel.alignment = .center
-        subtitleLabel.maximumNumberOfLines = 2
+        folderIcon.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
+        folderIcon.imageScaling = .scaleProportionallyUpOrDown
+        folderIcon.setAccessibilityIdentifier("empty.openFolderIcon")
+        folderIcon.contentTintColor = .controlAccentColor
+        folderIcon.prepareForAutoLayout()
 
-        shortcutLabel.font = .monospacedSystemFont(ofSize: 12, weight: .medium)
+        openButton.controlSize = .large
+        openButton.isBordered = false
+        openButton.focusRingType = .none
+        openButton.wantsLayer = true
+        openButton.showsPointingHandCursor = true
+        openButton.setAccessibilityIdentifier("empty.openButton")
+        openButton.setAccessibilityLabel("Open PDF")
+        openButton.prepareForAutoLayout()
+
+        separator.wantsLayer = true
+        separator.prepareForAutoLayout()
+
+        shortcutLabel.font = .monospacedSystemFont(ofSize: 14, weight: .medium)
         shortcutLabel.alignment = .center
         shortcutLabel.setAccessibilityIdentifier("empty.openShortcut")
         shortcutLabel.setAccessibilityLabel("Open PDF shortcut")
         shortcutLabel.prepareForAutoLayout()
 
         shortcutBadge.wantsLayer = true
-        shortcutBadge.layer?.cornerRadius = 4
+        shortcutBadge.layer?.cornerRadius = 7
         shortcutBadge.setAccessibilityIdentifier("empty.openShortcutBadge")
         shortcutBadge.prepareForAutoLayout()
         shortcutBadge.addSubview(shortcutLabel)
         NSLayoutConstraint.activate([
-            shortcutLabel.leadingAnchor.constraint(equalTo: shortcutBadge.leadingAnchor, constant: 8),
-            shortcutLabel.trailingAnchor.constraint(equalTo: shortcutBadge.trailingAnchor, constant: -8),
-            shortcutLabel.topAnchor.constraint(equalTo: shortcutBadge.topAnchor, constant: 3),
-            shortcutLabel.bottomAnchor.constraint(equalTo: shortcutBadge.bottomAnchor, constant: -3),
+            shortcutLabel.leadingAnchor.constraint(equalTo: shortcutBadge.leadingAnchor, constant: 9),
+            shortcutLabel.trailingAnchor.constraint(equalTo: shortcutBadge.trailingAnchor, constant: -9),
+            shortcutLabel.topAnchor.constraint(equalTo: shortcutBadge.topAnchor, constant: 5),
+            shortcutLabel.bottomAnchor.constraint(equalTo: shortcutBadge.bottomAnchor, constant: -5),
         ])
 
-        footerLabel.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
-        footerLabel.alignment = .center
-
-        openButton.controlSize = .large
-        openButton.isBordered = false
-        openButton.focusRingType = .none
-        openButton.wantsLayer = true
-        openButton.layer?.cornerRadius = WindowVisualMetrics.cornerRadius
-        openButton.layer?.borderWidth = 0
-        openButton.setAccessibilityIdentifier("empty.openButton")
-        openButton.setAccessibilityLabel("Open PDF")
-
-        let stack = NSStackView(views: [titleLabel, subtitleLabel, openButton, shortcutBadge, footerLabel])
-        stack.orientation = .vertical
-        stack.alignment = .centerX
-        stack.spacing = 12
-        stack.setCustomSpacing(20, after: subtitleLabel)
-        stack.setCustomSpacing(6, after: openButton)
-        stack.setCustomSpacing(18, after: shortcutBadge)
-        stack.prepareForAutoLayout()
-        addSubview(stack)
+        actionPill.addSubview(folderIcon)
+        actionPill.addSubview(openButton)
+        actionPill.addSubview(separator)
+        actionPill.addSubview(shortcutBadge)
+        addSubview(actionPill)
 
         NSLayoutConstraint.activate([
-            stack.centerXAnchor.constraint(equalTo: centerXAnchor),
-            stack.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -8),
-            stack.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 32),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -32),
-            subtitleLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 420),
-            openButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 132),
-            openButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 34),
+            actionPill.centerXAnchor.constraint(equalTo: centerXAnchor),
+            actionPill.centerYAnchor.constraint(equalTo: centerYAnchor),
+            actionPill.widthAnchor.constraint(equalToConstant: 286),
+            actionPill.heightAnchor.constraint(equalToConstant: 50),
+
+            folderIcon.leadingAnchor.constraint(equalTo: actionPill.leadingAnchor, constant: 18),
+            folderIcon.centerYAnchor.constraint(equalTo: actionPill.centerYAnchor),
+            folderIcon.widthAnchor.constraint(equalToConstant: 24),
+            folderIcon.heightAnchor.constraint(equalToConstant: 24),
+
+            shortcutBadge.trailingAnchor.constraint(equalTo: actionPill.trailingAnchor, constant: -10),
+            shortcutBadge.centerYAnchor.constraint(equalTo: actionPill.centerYAnchor),
+
+            separator.trailingAnchor.constraint(equalTo: shortcutBadge.leadingAnchor, constant: -10),
+            separator.centerYAnchor.constraint(equalTo: actionPill.centerYAnchor),
+            separator.widthAnchor.constraint(equalToConstant: 1),
+            separator.heightAnchor.constraint(equalToConstant: 24),
+
+            openButton.leadingAnchor.constraint(equalTo: folderIcon.trailingAnchor, constant: 6),
+            openButton.trailingAnchor.constraint(equalTo: separator.leadingAnchor, constant: -6),
+            openButton.centerYAnchor.constraint(equalTo: actionPill.centerYAnchor),
+            openButton.heightAnchor.constraint(equalToConstant: 40),
         ])
     }
 
@@ -80,21 +97,39 @@ final class EmptyStateView: NSView {
         nil
     }
 
+    override func layout() {
+        super.layout()
+        actionPill.layer?.shadowPath = CGPath(
+            roundedRect: actionPill.bounds,
+            cornerWidth: 25,
+            cornerHeight: 25,
+            transform: nil
+        )
+    }
+
     func apply(theme: AppKitTheme) {
-        titleLabel.textColor = theme[.foreground]
-        subtitleLabel.textColor = theme[.mutedText]
-        shortcutLabel.textColor = theme[.accent]
-        shortcutBadge.layer?.backgroundColor = theme[.accent].withAlphaComponent(0.10).cgColor
+        let accent = theme[.accent]
+        actionPill.layer?.backgroundColor = theme[.background].withAlphaComponent(0.86).cgColor
+        actionPill.layer?.borderWidth = 1
+        actionPill.layer?.borderColor = accent.withAlphaComponent(0.62).cgColor
+        actionPill.layer?.shadowColor = accent.cgColor
+        actionPill.layer?.shadowOpacity = 0.34
+        actionPill.layer?.shadowRadius = 14
+        actionPill.layer?.shadowOffset = NSSize(width: 0, height: -2)
+
+        folderIcon.contentTintColor = accent
+        separator.layer?.backgroundColor = theme[.mutedText].withAlphaComponent(0.26).cgColor
+        shortcutLabel.textColor = accent
+        shortcutBadge.layer?.backgroundColor = accent.withAlphaComponent(0.06).cgColor
         shortcutBadge.layer?.borderWidth = 1
-        shortcutBadge.layer?.borderColor = theme[.accent].withAlphaComponent(0.32).cgColor
-        footerLabel.textColor = theme[.mutedText]
+        shortcutBadge.layer?.borderColor = accent.withAlphaComponent(0.22).cgColor
         openButton.layer?.borderWidth = 0
-        openButton.layer?.backgroundColor = theme[.accent].cgColor
+        openButton.layer?.backgroundColor = NSColor.clear.cgColor
         openButton.attributedTitle = NSAttributedString(
             string: openButton.title,
             attributes: [
-                .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
-                .foregroundColor: theme[.background],
+                .font: NSFont.systemFont(ofSize: 17, weight: .medium),
+                .foregroundColor: theme[.foreground],
             ]
         )
     }
@@ -104,6 +139,7 @@ final class EmptyStateView: NSView {
             shortcutLabel.stringValue = ""
             shortcutLabel.isHidden = true
             shortcutBadge.isHidden = true
+            separator.isHidden = true
             shortcutLabel.setAccessibilityValue(nil)
             return
         }
@@ -112,6 +148,7 @@ final class EmptyStateView: NSView {
         shortcutLabel.stringValue = displayValue
         shortcutLabel.isHidden = false
         shortcutBadge.isHidden = false
+        separator.isHidden = false
         shortcutLabel.setAccessibilityValue(displayValue)
     }
 

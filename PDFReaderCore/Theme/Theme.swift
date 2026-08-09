@@ -6,6 +6,7 @@ public enum ThemeID: String, CaseIterable, Codable, Hashable, Sendable {
     case solarizedDark = "solarized-dark"
     case dracula
     case everforest
+    case nord
     case catppuccinLatte = "catppuccin-latte"
 }
 

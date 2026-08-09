@@ -215,6 +215,8 @@ final class ReaderRootView: NSView {
         if let sessionStatus {
             currentStatus.page = sessionStatus.page
             currentStatus.zoom = sessionStatus.zoom
+            currentStatus.mode = sessionStatus.mode
+            currentStatus.isSearchMode = sessionStatus.context == "SEARCH"
             if activeDiagnostic?.pinned != true {
                 currentStatus.detail = sessionStatus.detail
                 currentStatus.expandedDetail = nil

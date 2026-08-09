@@ -7,6 +7,7 @@ enum ThemeAttributions {
         "Solarized Dark",
         "Dracula",
         "Everforest",
+        "Nord",
         "Catppuccin Latte",
     ]
 }

@@ -157,6 +157,7 @@ struct N11NavigationRedTeamTests {
                 try #require(linkSession.currentPageNumber == 2)
                 try #require(linkSession.goBack() == .verifiedLanding && linkSession.currentPageNumber == 1)
                 try #require(!linkSession.canGoBack && linkSession.canGoForward)
+                linkSession.fitPage()
                 controller.presentLinkHints()
                 try #require(!controller.rootView.linkHintOverlay.isHidden)
                 try #require(controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "f"))))
@@ -216,7 +217,7 @@ struct N11NavigationRedTeamTests {
             try #require(historyCoordinator.activate(tab: first.id) && first.goBack() == .verifiedLanding && first.currentPageNumber == 1)
             try #require(historyCoordinator.activatePane(duplicatePane) && duplicate.currentPageNumber == second.currentPageNumber)
             let duplicateAnchor = try #require(duplicate.duplicationSnapshot?.navigation)
-            try #require(duplicateAnchor.isSameLocation(as: nonCenterAnchor))
+            try #require(duplicate.viewMode == .fitPage && duplicateAnchor.pageIndex == nonCenterAnchor.pageIndex)
             while historyCoordinator.closeActiveTab() {}
             let reopened = try PDFOpenService().open(url: sourceURL)
             try #require(historyCoordinator.insert(reopened, into: .createIfEmpty))
@@ -456,6 +457,7 @@ struct N11NavigationRedTeamTests {
         // Link-hint modal suppression preserves navigation for default and remapped history keys.
         try withLinkHarness(url: url) { hintController, hintSession, _ in
             try #require(hintSession.goToPage(2) && hintSession.goBack() == .verifiedLanding && hintSession.currentPageNumber == 1)
+            hintSession.fitPage()
             hintController.presentLinkHints()
             try #require(!hintController.rootView.linkHintOverlay.isHidden)
             try #require(hintController.routeKeyEventForTesting(controlO))

@@ -4,10 +4,12 @@ import PDFReaderCore
 @MainActor
 final class RecentFilesOpenOverlayView: NSView {
     private enum Metrics {
-        static let width: CGFloat = 360
         static let maxVisibleRows = RecentFilesStore.maximumEntries + 1 // Browse + all 15 recents visible at once; scrolls only when the window is too small
         static let rowHeight: CGFloat = 32
     }
+
+    private static let keyHintText = "⌃j / ⌃k  Move selection    ⌃c  Clear recents    ↩  Open    Esc  Close"
+    private static let shortcutLabels = ["⌃j / ⌃k", "⌃c", "↩", "Esc"]
 
     var onBrowse: (() -> Void)?
     var onOpenRecent: ((String) -> Void)?
@@ -16,7 +18,7 @@ final class RecentFilesOpenOverlayView: NSView {
 
     private let queryField = NSTextField(labelWithString: "")
     private let errorLabel = NSTextField(labelWithString: "")
-    private let keyHintLabel = NSTextField(labelWithString: "Ctrl+j/k move · Ctrl+c clear · ↵ open · esc close")
+    private let keyHintLabel = NSTextField(labelWithString: RecentFilesOpenOverlayView.keyHintText)
     private let rows = (0...RecentFilesStore.maximumEntries).map { _ in RecentFilesOpenRowView() }
     private let rowStack = NSStackView()
     private let scrollView = NSScrollView()
@@ -50,11 +52,16 @@ final class RecentFilesOpenOverlayView: NSView {
         errorLabel.isHidden = true
         errorLabel.setAccessibilityIdentifier("recentFiles.error")
         keyHintLabel.font = .systemFont(ofSize: 11)
+        keyHintLabel.maximumNumberOfLines = 1
+        keyHintLabel.lineBreakMode = .byTruncatingTail
+        keyHintLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         keyHintLabel.setAccessibilityIdentifier("recentFiles.keyHint")
         rowStack.orientation = .vertical
         rowStack.alignment = .leading
         rowStack.spacing = 2
-        for row in rows {
+        for (index, row) in rows.enumerated() {
+            row.onPointerEnter = { [weak self] in self?.selectRow(at: index, commit: false) }
+            row.onPointerActivate = { [weak self] in self?.selectRow(at: index, commit: true) }
             rowStack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: rowStack.widthAnchor).isActive = true
         }
@@ -76,13 +83,17 @@ final class RecentFilesOpenOverlayView: NSView {
         stack.alignment = .leading
         stack.spacing = 10
         stack.prepareForAutoLayout()
+        let preferredWidth = max(360, ceil(keyHintLabel.intrinsicContentSize.width))
+        let overlayWidth = stack.widthAnchor.constraint(equalToConstant: preferredWidth)
+        overlayWidth.priority = .fittingSizeCompression
         addSubview(stack)
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: topAnchor, constant: 14),
             stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -14),
-            stack.widthAnchor.constraint(equalToConstant: Metrics.width),
+            overlayWidth,
+            stack.widthAnchor.constraint(lessThanOrEqualToConstant: preferredWidth),
             scrollView.widthAnchor.constraint(equalTo: stack.widthAnchor),
             rowStack.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
         ])
@@ -99,6 +110,7 @@ final class RecentFilesOpenOverlayView: NSView {
         shadow?.shadowColor = theme.overlayShadow
         errorLabel.textColor = theme[.error]
         keyHintLabel.textColor = theme[.mutedText]
+        renderKeyHint()
         renderRows()
     }
 
@@ -134,8 +146,10 @@ final class RecentFilesOpenOverlayView: NSView {
     var currentQuery: String { query }
     var selectedIndexForTesting: Int { selectedIndex }
     var visibleRowsForTesting: [String] { ["Browse…"] + filtered.map { $0.entry.absolutePath } }
+    var displayedDirectoriesForTesting: [String] { filtered.map { Self.displayDirectory(for: $0.entry.absolutePath) } }
     var inlineErrorForTesting: String? { errorLabel.isHidden ? nil : errorLabel.stringValue }
     var keyHintForTesting: String { keyHintLabel.stringValue }
+    var keyHintAttributedForTesting: NSAttributedString { keyHintLabel.attributedStringValue }
     var selectedRowIsVisibleForTesting: Bool {
         layoutSubtreeIfNeeded()
         let row = rows[selectedIndex]
@@ -146,10 +160,18 @@ final class RecentFilesOpenOverlayView: NSView {
         layoutSubtreeIfNeeded()
         return bounds.contains(convert(keyHintLabel.bounds, from: keyHintLabel))
     }
+    var widthFitsKeyHintForTesting: Bool {
+        layoutSubtreeIfNeeded()
+        let preferredWidth = max(360, ceil(keyHintLabel.intrinsicContentSize.width))
+        return bounds.width + 0.5 >= keyHintLabel.intrinsicContentSize.width + 32
+            && bounds.width <= preferredWidth + 33
+    }
     var listRequiresScrollingForTesting: Bool {
         layoutSubtreeIfNeeded()
         return rowStack.frame.height > scrollView.documentVisibleRect.height + 0.5
     }
+    func pointerEnterRowForTesting(at index: Int) { rows[index].pointerEnterForTesting() }
+    func pointerActivateRowForTesting(at index: Int) { rows[index].pointerActivateForTesting() }
 
     func handleKeyDown(_ event: NSEvent) -> Bool {
         if event.modifierFlags.contains(.command) { return false }
@@ -201,6 +223,14 @@ final class RecentFilesOpenOverlayView: NSView {
         scrollSelectedRowToVisible()
     }
 
+    private func selectRow(at index: Int, commit: Bool) {
+        guard (0...filtered.count).contains(index) else { return }
+        selectedIndex = index
+        renderRows()
+        scrollSelectedRowToVisible()
+        if commit { commitSelection() }
+    }
+
     private func commitSelection() {
         if selectedIndex == 0 {
             onBrowse?()
@@ -223,6 +253,30 @@ final class RecentFilesOpenOverlayView: NSView {
         URL(fileURLWithPath: path).pathExtension.caseInsensitiveCompare("pdf") == .orderedSame
     }
 
+    private func renderKeyHint() {
+        guard let theme else {
+            keyHintLabel.stringValue = Self.keyHintText
+            return
+        }
+        let attributed = NSMutableAttributedString(
+            string: Self.keyHintText,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 11),
+                .foregroundColor: theme[.mutedText],
+            ]
+        )
+        let fullText = Self.keyHintText as NSString
+        for label in Self.shortcutLabels {
+            attributed.addAttributes([
+                .font: NSFont.monospacedSystemFont(ofSize: 10.5, weight: .semibold),
+                .foregroundColor: theme[.accent],
+            ], range: fullText.range(of: label))
+        }
+        keyHintLabel.attributedStringValue = attributed
+    }
+    private static func displayDirectory(for path: String) -> String {
+        URL(fileURLWithPath: path).deletingLastPathComponent().path
+    }
     private func renderRows() {
         let placeholder = query.isEmpty
         queryField.stringValue = placeholder ? "Type to search…" : query
@@ -235,7 +289,7 @@ final class RecentFilesOpenOverlayView: NSView {
             } else if filtered.indices.contains(index - 1) {
                 let match = filtered[index - 1]
                 row.isHidden = false
-                row.configure(title: URL(fileURLWithPath: match.entry.absolutePath).lastPathComponent, path: match.entry.absolutePath, matchedIndices: match.matchedIndices, selected: selectedIndex == index, theme: theme)
+                row.configure(title: URL(fileURLWithPath: match.entry.absolutePath).lastPathComponent, path: Self.displayDirectory(for: match.entry.absolutePath), matchedIndices: match.matchedIndices, selected: selectedIndex == index, theme: theme)
             } else {
                 row.isHidden = true
             }
@@ -244,7 +298,7 @@ final class RecentFilesOpenOverlayView: NSView {
 }
 
 @MainActor
-private final class RecentFilesOpenRowView: NSView {
+private final class RecentFilesOpenRowView: PointerActionView {
     private let titleLabel = NSTextField(labelWithString: "")
     private let pathLabel = NSTextField(labelWithString: "")
 
@@ -256,6 +310,8 @@ private final class RecentFilesOpenRowView: NSView {
         pathLabel.font = .systemFont(ofSize: 11)
         titleLabel.lineBreakMode = .byTruncatingTail
         pathLabel.lineBreakMode = .byTruncatingMiddle
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        pathLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let stack = NSStackView(views: [titleLabel, pathLabel])
         stack.orientation = .vertical
         stack.alignment = .leading

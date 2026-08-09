@@ -13,7 +13,7 @@ public enum BuiltInDefaults {
     public static let config = EffectiveAppConfig(
         keymap: keymap,
         navigation: NavigationConfiguration(
-            smallScrollPoints: 48.0,
+            smallScrollPoints: 32.0,
             largeScrollViewportFraction: 0.8,
             zoomFactor: 1.10
         ),
@@ -26,7 +26,7 @@ public enum BuiltInDefaults {
         .tabSelect1: ["<D-1>"], .tabSelect2: ["<D-2>"], .tabSelect3: ["<D-3>"],
         .tabSelect4: ["<D-4>"], .tabSelect5: ["<D-5>"], .tabSelect6: ["<D-6>"],
         .tabSelect7: ["<D-7>"], .tabSelect8: ["<D-8>"], .tabSelect9: ["<D-9>"],
-        .scrollLeft: ["h"], .scrollDown: ["j"], .scrollUp: ["k"], .scrollRight: ["l"],
+        .scrollLeft: ["h", "<Left>"], .scrollDown: ["j", "<Down>"], .scrollUp: ["k", "<Up>"], .scrollRight: ["l", "<Right>"],
         .scrollLargeDown: ["d"], .scrollLargeUp: ["u"],
         .pageNext: ["n"], .pagePrevious: ["p"], .pageFirst: ["gg"], .pageLast: ["G"], .pagePrompt: ["g"],
         .historyBack: ["<C-o>"], .historyForward: ["<C-i>"],

@@ -8,7 +8,7 @@ import Testing
 @Suite("Read-only PDF session lifecycle")
 @MainActor
 struct ReaderSessionTests {
-    @Test("a newly mounted PDF opens once on page one fitted inside the visible canvas")
+    @Test("a newly mounted PDF opens on page one in continuous fit-width layout")
     func initialPresentationFitsFirstPageOnce() throws {
         try withSession(pageCount: 3) { session, _ in
             let window = NSWindow(
@@ -26,8 +26,8 @@ struct ReaderSessionTests {
 
             #expect(session.initialPresentationState == .applied)
             #expect(session.currentPageNumber == 1)
-            #expect(session.viewMode == .fitPage)
-            #expect(view.displayMode == .singlePage)
+            #expect(session.viewMode == .fitWidth)
+            #expect(view.displayMode == .singlePageContinuous)
             #expect(view.autoScales)
             #expect(abs(view.scaleFactor - view.scaleFactorForSizeToFit) < 0.01)
 
@@ -62,7 +62,6 @@ struct ReaderSessionTests {
             #expect(view.displayMode == .singlePageContinuous)
         }
     }
-
 
     @Test("seeded duplicate opens the source page fit-to-page regardless of window size")
     func seededDuplicatePresentation() throws {
@@ -144,11 +143,13 @@ struct ReaderSessionTests {
             let view = try #require(descendantPDFViews(in: session.contentView).only)
             #expect(view.displayMode == .singlePageContinuous)
             #expect(view.autoScales)
+            #expect(session.statusSnapshot.mode.isEmpty)
 
             session.fitPage()
             #expect(session.viewMode == .fitPage)
             #expect(view.displayMode == .singlePage)
             #expect(view.autoScales)
+            #expect(session.statusSnapshot.mode == "FIT PAGE")
         }
     }
 
@@ -285,8 +286,8 @@ struct ReaderSessionTests {
         }
     }
 
-    @Test("zoomed fit-page movement advances only after reaching a vertical page boundary")
-    func zoomedFitPageAdvancesAtVerticalBoundary() throws {
+    @Test("zoom exits fit-page into continuous manual layout while preserving the reading anchor")
+    func zoomExitsFitPageIntoContinuousLayout() throws {
         try withSession(pageCount: 3) { session, _ in
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 640, height: 420),
@@ -299,42 +300,19 @@ struct ReaderSessionTests {
             session.contentView.layoutSubtreeIfNeeded()
 
             let pdfView = try #require(descendantPDFViews(in: session.contentView).only)
+            #expect(session.goToPage(2))
             session.fitPage()
+            let anchor = try #require(session.duplicationSnapshot?.navigation)
+
+            session.zoom(by: 0.8)
             pdfView.layoutDocumentView()
-            session.zoom(by: BuiltInDefaults.config.navigation.zoomFactor)
 
-            let scrollView = try #require(
-                descendantScrollViews(in: pdfView).first {
-                    guard let documentView = $0.documentView else { return false }
-                    return documentView.bounds.height > $0.contentView.bounds.height
-                }
-            )
-            let clipView = scrollView.contentView
-
-            session.moveVertically(byViewportFraction: 10)
-            let bottomOrigin = clipView.bounds.origin
-            #expect(session.currentPageNumber == 1)
-
-            session.moveVertically(byPoints: 48)
+            #expect(session.viewMode == .manual)
+            #expect(pdfView.displayMode == .singlePageContinuous)
+            #expect(session.statusSnapshot.mode.isEmpty)
             #expect(session.currentPageNumber == 2)
-
-            let nextPageStart = clipView.bounds.origin
-            session.moveVertically(byPoints: 48)
-            #expect(session.currentPageNumber == 2)
-            #expect(clipView.bounds.origin != nextPageStart)
-
-            session.moveVertically(byViewportFraction: -10)
-            let topOrigin = clipView.bounds.origin
-            #expect(topOrigin != bottomOrigin)
-            #expect(session.currentPageNumber == 2)
-
-            session.moveVertically(byPoints: -48)
-            #expect(session.currentPageNumber == 1)
-
-            let previousPageEnd = clipView.bounds.origin
-            session.moveVertically(byPoints: -48)
-            #expect(session.currentPageNumber == 1)
-            #expect(clipView.bounds.origin != previousPageEnd)
+            let landing = try #require(session.duplicationSnapshot?.navigation)
+            #expect(landing.pageIndex == anchor.pageIndex)
         }
     }
 
@@ -745,9 +723,9 @@ struct ReaderSessionTests {
             #expect(controller.restoreNavigationSnapshot(target) == .verifiedLanding)
             let captured = try #require(controller.captureNavigationSnapshot())
             #expect(captured.isSameLocation(as: target))
-            #expect(controller.viewMode == .fitPage)
+            #expect(controller.viewMode == .fitWidth)
             let view = try #require(descendantPDFViews(in: controller.view).only)
-            #expect(view.autoScales && view.displayMode == .singlePage)
+            #expect(view.autoScales && view.displayMode == .singlePageContinuous)
         }
     }
 
@@ -1006,6 +984,7 @@ struct ReaderSessionTests {
             #expect(printCount == 1)
         }
     }
+
 
     private func withSession(
         pageCount: Int,

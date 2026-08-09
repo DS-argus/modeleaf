@@ -15,10 +15,14 @@ final class CommandPaletteOverlayView: NSView {
         static let rowHeight: CGFloat = 26
     }
 
+    private static let keyHintText = "⌃j / ⌃k  Move selection    ↩  Run    Esc  Close"
+    private static let shortcutLabels = ["⌃j / ⌃k", "↩", "Esc"]
+
     var onCommit: ((ActionID) -> Void)?
     var onCancel: (() -> Void)?
 
     private let queryField = NSTextField(labelWithString: "")
+    private let keyHintLabel = NSTextField(labelWithString: CommandPaletteOverlayView.keyHintText)
     private var rows: [PaletteRowView] = []
     private let rowStack = NSStackView()
     private let scrollView = NSScrollView()
@@ -50,6 +54,12 @@ final class CommandPaletteOverlayView: NSView {
         queryField.lineBreakMode = .byTruncatingTail
         queryField.setAccessibilityIdentifier("commandPalette.query")
 
+        keyHintLabel.font = .systemFont(ofSize: 11)
+        keyHintLabel.maximumNumberOfLines = 1
+        keyHintLabel.lineBreakMode = .byTruncatingTail
+        keyHintLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        keyHintLabel.setAccessibilityIdentifier("commandPalette.keyHint")
+
         rowStack.orientation = .vertical
         rowStack.alignment = .leading
         rowStack.spacing = 2
@@ -67,7 +77,7 @@ final class CommandPaletteOverlayView: NSView {
         listHeightConstraint.isActive = true
         scrollView.heightAnchor.constraint(lessThanOrEqualToConstant: CGFloat(Metrics.maxVisibleRows) * Metrics.rowHeight).isActive = true
 
-        let stack = NSStackView(views: [queryField, scrollView])
+        let stack = NSStackView(views: [queryField, scrollView, keyHintLabel])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 10
@@ -100,6 +110,7 @@ final class CommandPaletteOverlayView: NSView {
         layer?.borderColor = theme.focusRing.cgColor
         layer?.borderWidth = 1
         shadow?.shadowColor = theme.overlayShadow
+        renderKeyHint()
         renderRows()
     }
 
@@ -123,6 +134,11 @@ final class CommandPaletteOverlayView: NSView {
     /// Test seam: the query the user has typed so far.
     var currentQuery: String { query }
     /// Test seam: the id currently highlighted, if any.
+    var keyHintForTesting: String { keyHintLabel.stringValue }
+    var keyHintIsWithinBoundsForTesting: Bool {
+        layoutSubtreeIfNeeded()
+        return bounds.contains(convert(keyHintLabel.bounds, from: keyHintLabel))
+    }
     var selectedCommandID: ActionID? { filtered.indices.contains(selectedIndex) ? filtered[selectedIndex].id : nil }
     /// Test seam: the complete filtered result ids, in order.
     var visibleCommandIDs: [ActionID] { filtered.map(\.id) }
@@ -138,6 +154,9 @@ final class CommandPaletteOverlayView: NSView {
         layoutSubtreeIfNeeded()
         return rowStack.frame.height > scrollView.documentVisibleRect.height + 0.5
     }
+    func pointerEnterRowForTesting(at index: Int) { rows[index].pointerEnterForTesting() }
+    func pointerActivateRowForTesting(at index: Int) { rows[index].pointerActivateForTesting() }
+    var pointerEnabledRowsForTesting: [Bool] { rows.prefix(filtered.count).map(\.isPointerInteractionEnabled) }
 
     func handleKeyDown(_ event: NSEvent) -> Bool {
         // Let Command chords (⌘Q, ⌘W, …) fall through to the normal router.
@@ -211,6 +230,14 @@ final class CommandPaletteOverlayView: NSView {
         scrollSelectedRowToVisible()
     }
 
+    private func selectRow(at index: Int, commit: Bool) {
+        guard filtered.indices.contains(index) else { return }
+        selectedIndex = index
+        renderRows()
+        scrollSelectedRowToVisible()
+        if commit { commitSelection() }
+    }
+
     private func commitSelection() {
         guard filtered.indices.contains(selectedIndex) else { return }
         let command = filtered[selectedIndex]
@@ -224,6 +251,9 @@ final class CommandPaletteOverlayView: NSView {
             rows.append(row)
             rowStack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: rowStack.widthAnchor).isActive = true
+            let index = rows.count - 1
+            row.onPointerEnter = { [weak self] in self?.selectRow(at: index, commit: false) }
+            row.onPointerActivate = { [weak self] in self?.selectRow(at: index, commit: true) }
         }
     }
 
@@ -241,6 +271,27 @@ final class CommandPaletteOverlayView: NSView {
         rows[selectedIndex].scrollToVisible(rows[selectedIndex].bounds)
     }
 
+    private func renderKeyHint() {
+        guard let theme else {
+            keyHintLabel.stringValue = Self.keyHintText
+            return
+        }
+        let attributed = NSMutableAttributedString(
+            string: Self.keyHintText,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 11),
+                .foregroundColor: theme[.mutedText],
+            ]
+        )
+        let fullText = Self.keyHintText as NSString
+        for label in Self.shortcutLabels {
+            attributed.addAttributes([
+                .font: NSFont.monospacedSystemFont(ofSize: 10.5, weight: .semibold),
+                .foregroundColor: theme[.accent],
+            ], range: fullText.range(of: label))
+        }
+        keyHintLabel.attributedStringValue = attributed
+    }
     private func renderRows() {
         let placeholder = query.isEmpty
         queryField.stringValue = placeholder ? "Type a command…" : query
@@ -262,7 +313,7 @@ final class CommandPaletteOverlayView: NSView {
 }
 
 @MainActor
-private final class PaletteRowView: NSView {
+private final class PaletteRowView: PointerActionView {
     private let titleLabel = NSTextField(labelWithString: "")
     private let shortcutLabel = NSTextField(labelWithString: "")
     private let reasonLabel = NSTextField(labelWithString: "")
@@ -305,6 +356,7 @@ private final class PaletteRowView: NSView {
     required init?(coder: NSCoder) { nil }
 
     func configure(_ command: PaletteCommand, selected: Bool, theme: AppKitTheme?) {
+        isPointerInteractionEnabled = command.isEnabled
         titleLabel.stringValue = command.title
         shortcutLabel.stringValue = command.shortcut ?? ""
         reasonLabel.stringValue = command.disabledReason ?? ""

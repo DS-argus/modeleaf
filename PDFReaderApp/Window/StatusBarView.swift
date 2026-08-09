@@ -8,6 +8,8 @@ enum StatusTone: Equatable {
 struct StatusBarPresentation: Equatable {
     var page: String
     var zoom: String
+    var mode: String = ""
+    var isSearchMode: Bool = false
     var pendingPrefix: String
     var detail: String
     var expandedDetail: String?
@@ -30,6 +32,9 @@ final class StatusBarView: NSView {
     private let zoomLabel = StatusBarView.makeLabel(identifier: "status.zoom", monospaced: true)
     private let prefixLabel = StatusBarView.makeLabel(identifier: "status.prefix", monospaced: true)
     private let detailLabel = StatusBarView.makeLabel(identifier: "status.diagnostic", monospaced: false)
+    private let fitPagePill = StatusModePillView(identifier: "status.mode", accessibilityLabel: "Fit page mode")
+    private let searchModePill = StatusModePillView(identifier: "status.searchMode", accessibilityLabel: "Search mode")
+    private let versionLabel = StatusBarView.makeLabel(identifier: "status.version", monospaced: true)
     private let updateButton = NSButton(title: "", target: nil, action: nil)
     private let separator = NSBox()
     private var theme: AppKitTheme?
@@ -66,7 +71,7 @@ final class StatusBarView: NSView {
         helpButton.setAccessibilityLabel("Keyboard help")
         helpButton.setAccessibilityValue("? help")
 
-        let leading = NSStackView(views: [helpButton, pageLabel, zoomLabel, prefixLabel])
+        let leading = NSStackView(views: [helpButton, pageLabel, zoomLabel, fitPagePill, searchModePill, prefixLabel])
         leading.orientation = .horizontal
         leading.alignment = .centerY
         leading.spacing = 16
@@ -88,8 +93,17 @@ final class StatusBarView: NSView {
 
         detailLabel.alignment = .right
         detailLabel.lineBreakMode = .byTruncatingTail
+        detailLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         detailLabel.prepareForAutoLayout()
         addSubview(detailLabel)
+
+        versionLabel.stringValue = Self.displayVersion
+        versionLabel.setAccessibilityLabel("Modeleaf version")
+        versionLabel.lineBreakMode = .byTruncatingTail
+        versionLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        versionLabel.setAccessibilityValue(Self.displayVersion)
+        versionLabel.prepareForAutoLayout()
+        addSubview(versionLabel)
 
         NSLayoutConstraint.activate([
             separator.topAnchor.constraint(equalTo: topAnchor),
@@ -100,7 +114,9 @@ final class StatusBarView: NSView {
             updateButton.leadingAnchor.constraint(equalTo: leading.trailingAnchor, constant: 16),
             updateButton.centerYAnchor.constraint(equalTo: centerYAnchor),
             detailLabel.leadingAnchor.constraint(greaterThanOrEqualTo: updateButton.trailingAnchor, constant: 16),
-            detailLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            detailLabel.trailingAnchor.constraint(equalTo: versionLabel.leadingAnchor, constant: -16),
+            versionLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            versionLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
             detailLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
         render(.empty)
@@ -120,6 +136,9 @@ final class StatusBarView: NSView {
         prefixLabel.textColor = theme[.accent]
         detailLabel.textColor = presentation.tone == .error ? theme[.error] : theme[.mutedText]
         restyleUpdateButton()
+        fitPagePill.render(presentation.mode, accent: theme[.accent])
+        searchModePill.render(presentation.isSearchMode ? "SEARCH" : "", accent: theme[.accent])
+        versionLabel.textColor = theme[.mutedText]
     }
 
     /// Shows the update banner (accent, clickable) or clears it when `text` is nil.
@@ -162,29 +181,80 @@ final class StatusBarView: NSView {
         self.presentation = presentation
         pageLabel.stringValue = presentation.page
         zoomLabel.stringValue = presentation.zoom
+        let accent = theme?[.accent]
+        fitPagePill.render(presentation.mode, accent: accent)
+        searchModePill.render(presentation.isSearchMode ? "SEARCH" : "", accent: accent)
         prefixLabel.stringValue = presentation.pendingPrefix.isEmpty ? "" : "prefix  \(presentation.pendingPrefix)"
         detailLabel.stringValue = presentation.detail
         detailLabel.setAccessibilityValue(presentation.detail)
         detailLabel.setAccessibilityHelp(presentation.expandedDetail)
         detailLabel.toolTip = presentation.expandedDetail
+        let visibleModes = [presentation.mode, presentation.isSearchMode ? "SEARCH" : ""].filter { !$0.isEmpty }
+        let modeDescription = visibleModes.isEmpty ? "" : ", modes \(visibleModes.joined(separator: ", "))"
         setAccessibilityValue(
             [
-                "Keyboard help available. Page \(presentation.page), zoom \(presentation.zoom), \(presentation.detail)",
+                "Keyboard help available. Page \(presentation.page), zoom \(presentation.zoom)\(modeDescription), \(presentation.detail). Version \(Self.displayVersion)",
                 presentation.expandedDetail,
             ].compactMap { $0 }.joined(separator: ". ")
         )
+        versionLabel.setAccessibilityValue(Self.displayVersion)
         if let theme {
             detailLabel.textColor = presentation.tone == .error ? theme[.error] : theme[.mutedText]
         }
     }
 
+    private static var displayVersion: String {
+        let raw = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return "v\(raw.flatMap { $0.isEmpty ? nil : $0 } ?? "dev")"
+    }
     private static func makeLabel(identifier: String, monospaced: Bool) -> NSTextField {
         let label = NSTextField(labelWithString: "")
         label.font = monospaced
             ? .monospacedSystemFont(ofSize: 11, weight: .medium)
             : .systemFont(ofSize: 11, weight: .regular)
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
+
         label.setAccessibilityIdentifier(identifier)
         return label
+    }
+}
+
+@MainActor
+private final class StatusModePillView: NSView {
+    private let label: NSTextField
+
+    init(identifier: String, accessibilityLabel: String) {
+        label = NSTextField(labelWithString: "")
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 5
+        setAccessibilityElement(true)
+        setAccessibilityRole(.staticText)
+        setAccessibilityLabel(accessibilityLabel)
+        label.font = .monospacedSystemFont(ofSize: 10, weight: .semibold)
+        label.setAccessibilityIdentifier(identifier)
+        label.prepareForAutoLayout()
+        addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 7),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -7),
+            label.topAnchor.constraint(equalTo: topAnchor, constant: 2),
+            label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
+        ])
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    func render(_ text: String, accent: NSColor?) {
+        label.stringValue = text
+        isHidden = text.isEmpty
+        setAccessibilityValue(text)
+        label.isHidden = text.isEmpty
+        guard let accent else { return }
+        label.textColor = accent
+        layer?.backgroundColor = accent.withAlphaComponent(0.16).cgColor
+        layer?.borderColor = accent.withAlphaComponent(0.55).cgColor
+        layer?.borderWidth = 1
     }
 }

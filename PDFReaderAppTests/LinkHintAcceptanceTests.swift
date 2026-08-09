@@ -13,8 +13,8 @@ struct LinkHintAcceptanceTests {
         try withLinkHarness { controller, session, view, _ in
             var opened: [URL] = []
             view.followLinkHandler = { opened.append($0) }
-            let urlLabel = try #require(label(for: .url("https://example.invalid/link-hint"), in: session))
-            let goToLabel = try #require(label(for: .goTo(pageIndex: 1, point: CGPoint(x: 48, y: 700)), in: session))
+            let urlLabel = try #require(label(for: .url("https://example.invalid/link-hint"), in: session, controller: controller))
+            let goToLabel = try #require(label(for: .goTo(pageIndex: 1, point: CGPoint(x: 48, y: 700)), in: session, controller: controller))
 
             #expect(route("f", through: controller))
             #expect(!controller.rootView.linkHintOverlay.isHidden)
@@ -44,7 +44,7 @@ struct LinkHintAcceptanceTests {
         }
     }
 
-    @Test("fixture keeps separate links separate, joins wrapped links, and never merges GoTo across pages")
+    @Test("fixture keeps every distinct annotation independent across shared targets and source pages")
     func fixtureGeometryAndPageBoundaries() throws {
         try withLinkHarness { controller, session, _, _ in
             let raw = session.linkTargets()
@@ -52,16 +52,16 @@ struct LinkHintAcceptanceTests {
             let goTo = try #require(merged.first { if case .goTo = $0.target { true } else { false } })
 
             #expect(raw.count == 6)
-            #expect(merged.count == 5)
-            #expect(merged.filter { $0.rects.count == 2 }.count == 1)
-            #expect(merged.filter { $0.rects.count == 1 }.count == 4)
+            #expect(merged.count == 6)
+            #expect(merged.allSatisfy { $0.rects.count == 1 })
+            #expect(merged.filter { $0.target == .url("https://example.invalid/link-hint") }.count == 2)
             #expect(goTo.sourcePageIndex == 0)
             #expect(goTo.target == .goTo(pageIndex: 1, point: CGPoint(x: 48, y: 700)))
             #expect(merged.filter { $0.target == .url("https://example.invalid/distant") }.count == 3)
 
             controller.presentLinkHints()
             #expect(controller.rootView.linkHintOverlay.visibleLabels.count == 5)
-            #expect(controller.rootView.linkHintOverlay.hintRectCountsForTesting.filter { $0 == 2 }.count == 1)
+            #expect(controller.rootView.linkHintOverlay.hintRectCountsForTesting.allSatisfy { $0 == 1 })
         }
     }
 
@@ -89,7 +89,7 @@ struct LinkHintAcceptanceTests {
             #expect(coordinator.activePaneID == activePane)
             #expect(route("f", through: controller))
             #expect(!controller.rootView.linkHintOverlay.isHidden)
-            try type(try #require(label(for: .url("https://example.invalid/link-hint"), in: active)), through: controller)
+            try type(try #require(label(for: .url("https://example.invalid/link-hint"), in: active, controller: controller)), through: controller)
             #expect(activeView.followedLinkCount == 1)
             #expect(inactiveView.followedLinkCount == 0)
             #expect(opened == [URL(string: "https://example.invalid/link-hint")!])
@@ -126,8 +126,14 @@ struct LinkHintAcceptanceTests {
         }
     }
 
-    private func label(for target: ReaderLinkTarget, in session: ReaderSession) -> String? {
-        let links = LinkHintMerge.mergeLinks(session.linkTargets())
+    private func label(
+        for target: ReaderLinkTarget,
+        in session: ReaderSession,
+        controller: MainWindowController
+    ) -> String? {
+        let links = LinkHintMerge.mergeLinks(session.linkTargets()).filter {
+            !session.linkHintRects(for: $0, in: controller.rootView.linkHintOverlay).isEmpty
+        }
         guard let index = links.firstIndex(where: { $0.target == target }) else { return nil }
         return LinkHintLabels.generate(count: links.count)[index]
     }

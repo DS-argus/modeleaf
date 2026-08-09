@@ -172,11 +172,27 @@ struct ThemeAndShellTests {
         #expect(controller.rootView.emptyState.openButton.keyEquivalent.isEmpty)
         #expect(controller.rootView.emptyState.openButton.focusRingType == .none)
         #expect(controller.rootView.emptyState.openButton.layer?.borderWidth == 0)
+        #expect(controller.rootView.emptyState.openButton.showsPointingHandCursor)
+        #expect(controller.rootView.emptyState.openButton.title == "Open PDF")
+        let openFolderIcon = findDescendant(
+            in: controller.rootView.emptyState,
+            identifier: "empty.openFolderIcon"
+        ) as? NSImageView
+        #expect(openFolderIcon?.image != nil)
+        let openActionPill = findDescendant(
+            in: controller.rootView.emptyState,
+            identifier: "empty.openActionPill"
+        ) as? PointerActionView
+        #expect(openActionPill?.layer?.cornerRadius == 25)
+        #expect(openActionPill?.layer?.borderWidth == 1)
         let openShortcut = findDescendant(
             in: controller.rootView.emptyState,
             identifier: "empty.openShortcut"
         ) as? NSTextField
         #expect(openShortcut?.stringValue == "⌘O")
+        openActionPill?.pointerActivateForTesting()
+        #expect(actions == [.documentOpen])
+        actions.removeAll()
         #expect(
             openShortcut?.textColor?.hexRGB
                 == AppKitTheme(themeID: .tokyoNight)[.accent].hexRGB
@@ -243,6 +259,26 @@ struct ThemeAndShellTests {
         let helpButton = findDescendant(in: controller.rootView.statusBar, identifier: "status.help")
         #expect(helpButton?.accessibilityLabel() == "Keyboard help")
         #expect((controller.rootView.statusBar.accessibilityValue() as? String)?.contains("Keyboard help available") == true)
+        let versionLabel = findDescendant(in: controller.rootView.statusBar, identifier: "status.version") as? NSTextField
+        #expect(versionLabel?.stringValue.hasPrefix("v") == true)
+
+        controller.rootView.statusBar.render(StatusBarPresentation(
+            page: "1 / 2",
+            zoom: "80%",
+            mode: "FIT PAGE",
+            isSearchMode: true,
+            pendingPrefix: "",
+            detail: "Reading.pdf",
+            expandedDetail: nil,
+            tone: .normal
+        ))
+        let modeLabel = findDescendant(in: controller.rootView.statusBar, identifier: "status.mode") as? NSTextField
+        #expect(modeLabel?.stringValue == "FIT PAGE")
+        #expect(modeLabel?.isHidden == false)
+        #expect((controller.rootView.statusBar.accessibilityValue() as? String)?.contains("modes FIT PAGE, SEARCH") == true)
+        let searchModeLabel = findDescendant(in: controller.rootView.statusBar, identifier: "status.searchMode") as? NSTextField
+        #expect(searchModeLabel?.stringValue == "SEARCH")
+        #expect(searchModeLabel?.isHidden == false)
         controller.rootView.statusBar.performHelpTapForTesting()
         #expect(!controller.rootView.helpOverlay.isHidden)
 

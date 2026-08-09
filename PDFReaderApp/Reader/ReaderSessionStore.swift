@@ -6,6 +6,7 @@ struct ReaderStatusSnapshot: Equatable {
     var page: String
     var zoom: String
     var detail: String
+    var mode: String = ""
     static let empty = ReaderStatusSnapshot(context: "NORMAL", page: "— / —", zoom: "100%", detail: "Ready")
 }
 

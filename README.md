@@ -45,9 +45,10 @@ Homebrew refreshes the tap on its own; run `brew update` first to force it. Mode
 
 ## Using it
 
-Documents live in tabs, the view can be split into panes, and everything is driven from the keyboard. A document opens on page 1, fit inside the visible area.
+Documents live in tabs, the view can be split into panes, and everything is driven from the keyboard. A document opens on page 1 in a vertically continuous, fit-width layout.
 
 `⌘o` opens a unified picker — your recent PDFs, filtered by fuzzy filename search, plus a Browse… row for the native file dialog. You can also open via Finder → *Open With* or by dropping a file on the app; `⌘n` opens a new window and `⌘q` quits.
+
 
 `⌘p` opens the standard macOS Print panel for the PDF in the active pane. Printing is an explicit system output operation; it does not modify or save over the source PDF.
 
@@ -57,7 +58,7 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 
 | Intent | Key |
 |---|---|
-| scroll | `h` `j` `k` `l` |
+| scroll | `h` `j` `k` `l` or `←` `↓` `↑` `→` |
 | large scroll | `d` / `u` |
 | next / previous page | `n` / `p` |
 | first / last page | `gg` / `G` |
@@ -83,7 +84,7 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 
 `Enter` / `Esc` (commit / cancel a prompt) and `Enter` / `Shift-Enter` (next / previous search match) are fixed keys and always work. Press `?` any time you're just reading for a keyboard-help overlay with every shortcut, grouped by section — the status bar's `? help` hint opens it too.
 
-In fit-page mode, `j`/`d` move to the next page and `k`/`u` to the previous one. After you zoom, scroll keys move only along an axis where the page overflows the viewport — Modeleaf never pans into blank space. `[` and `]` rotate the view in 90° steps; rotation is view-only, per pane, and never written to the file.
+In fit-page mode, `j`/`↓`/`d` move to the next page and `k`/`↑`/`u` to the previous one. Pressing `=` or `-` exits fit-page into vertically continuous manual zoom while preserving the current reading anchor; `w` exits to continuous fit-width. The status bar shows `FIT PAGE` and `SEARCH` pills while those modes are active. `[` and `]` rotate the view in 90° steps; rotation is view-only, per pane, and never written to the file.
 
 ### Tabs & panes
 
@@ -99,7 +100,7 @@ Press `:` or `⌘⇧P` to open a fuzzy command search. Type to filter every read
 
 ### Themes
 
-Six built-in themes: dark **Tokyo Night**, **Gruvbox Dark**, **Solarized Dark**, **Dracula**, **Everforest**, and light **Catppuccin Latte**. Press `T` for a live-preview picker (`Enter` commits, `Esc` reverts); the choice is saved separately and reapplied on launch. Themes color the app chrome only — never the PDF page.
+Seven built-in themes: dark **Tokyo Night**, **Gruvbox Dark**, **Solarized Dark**, **Dracula**, **Everforest**, **Nord**, and light **Catppuccin Latte**. Press `T` for a live-preview picker (`Enter` commits, `Esc` reverts); the choice is saved separately and reapplied on launch. Themes color the app chrome only — never the PDF page.
 
 ## Configuration
 

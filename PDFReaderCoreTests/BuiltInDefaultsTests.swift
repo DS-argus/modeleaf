@@ -25,7 +25,7 @@ struct BuiltInDefaultsTests {
             .tabSelect1: ["<D-1>"], .tabSelect2: ["<D-2>"], .tabSelect3: ["<D-3>"],
             .tabSelect4: ["<D-4>"], .tabSelect5: ["<D-5>"], .tabSelect6: ["<D-6>"],
             .tabSelect7: ["<D-7>"], .tabSelect8: ["<D-8>"], .tabSelect9: ["<D-9>"],
-            .scrollLeft: ["h"], .scrollDown: ["j"], .scrollUp: ["k"], .scrollRight: ["l"],
+            .scrollLeft: ["h", "<Left>"], .scrollDown: ["j", "<Down>"], .scrollUp: ["k", "<Up>"], .scrollRight: ["l", "<Right>"],
             .scrollLargeDown: ["d"], .scrollLargeUp: ["u"],
             .pageNext: ["n"], .pagePrevious: ["p"], .pageFirst: ["gg"], .pageLast: ["G"], .pagePrompt: ["g"],
             .historyBack: ["<C-o>"], .historyForward: ["<C-i>"],
@@ -82,7 +82,7 @@ struct BuiltInDefaultsTests {
     @Test("Built-in numeric values and bounds are exact")
     func numericDefaultsAndBounds() {
         let config = BuiltInDefaults.config
-        #expect(config.navigation.smallScrollPoints == 48.0)
+        #expect(config.navigation.smallScrollPoints == 32.0)
         #expect(config.navigation.largeScrollViewportFraction == 0.8)
         #expect(config.navigation.zoomFactor == 1.10)
         #expect(config.input.prefixTimeoutMilliseconds == 800)
@@ -92,16 +92,19 @@ struct BuiltInDefaultsTests {
         #expect(ConfigBounds.prefixTimeoutMilliseconds == 100...2_000)
     }
 
-    @Test("Six built-in themes are complete and PDF-agnostic")
+    @Test("Seven built-in themes are complete and PDF-agnostic")
     func builtInThemesAreComplete() {
-        #expect(ThemeID.allCases.count == 6)
-        #expect(BuiltInThemes.all.count == 6)
+        #expect(ThemeID.allCases.count == 7)
+        #expect(BuiltInThemes.all.count == 7)
         #expect(BuiltInThemes.all.map(\.id) == ThemeID.allCases)
         for theme in BuiltInThemes.all {
             #expect(Set(theme.palette.values.keys) == Set(ThemeToken.allCases))
             #expect(theme.palette.values.values.allSatisfy { ThemeColor(rawValue: $0.rawValue) != nil })
         }
 
+        let nord = BuiltInThemes.theme(for: .nord)
+        #expect(nord.palette[.background].rawValue == "#2E3440")
+        #expect(nord.palette[.accent].rawValue == "#88C0D0")
         let latte = BuiltInThemes.theme(for: .catppuccinLatte)
         #expect(latte.palette[.background].rawValue == "#EFF1F5")
         #expect(latte.palette[.background] != BuiltInThemes.theme(for: .tokyoNight).palette[.background])

@@ -41,10 +41,10 @@
 "tab.select.9"     = ["<D-9>"]  # Cmd+9
 
 # --- Scroll ---
-"scroll.left"      = ["h"]  # h
-"scroll.down"      = ["j"]  # j
-"scroll.up"        = ["k"]  # k
-"scroll.right"     = ["l"]  # l
+"scroll.left"      = ["h", "<Left>"]  # h
+"scroll.down"      = ["j", "<Down>"]  # j
+"scroll.up"        = ["k", "<Up>"]  # k
+"scroll.right"     = ["l", "<Right>"]  # l
 "scroll.largeDown" = ["d"]  # d
 "scroll.largeUp"   = ["u"]  # u
 
@@ -94,7 +94,7 @@
 "pane.unsplit"     = ["<prefix>o"]  # Ctrl+b o
 
 [navigation]
-small_scroll_points = 48.0
+small_scroll_points = 32.0
 large_scroll_viewport_fraction = 0.8
 zoom_factor = 1.1
 

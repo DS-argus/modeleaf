@@ -294,7 +294,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
     var statusSnapshot: ReaderStatusSnapshot {
         let page = currentPageNumber.map(String.init) ?? "—"
         let zoom = Int((scaleFactor * 100).rounded())
-        return ReaderStatusSnapshot(context: preferredInputContext == .searchResults ? "SEARCH" : "NORMAL", page: "\(page) / \(pageCount)", zoom: "\(zoom)%", detail: searchDetail)
+        return ReaderStatusSnapshot(context: preferredInputContext == .searchResults ? "SEARCH" : "NORMAL", page: "\(page) / \(pageCount)", zoom: "\(zoom)%", detail: searchDetail, mode: viewMode == .fitPage ? "FIT PAGE" : "")
     }
     func configureDuplicateValidation(_ handler: @escaping (Bool) -> Void) {
         guard !duplicateValidationDelivered else { return }
@@ -702,7 +702,7 @@ extension ReaderSession: ReaderLinkProviding {
 
     private func executeInternalLink(_ target: ReaderLinkTarget) {
         guard let destination = viewController.navigationSnapshot(forInternalLink: target) else { return }
-        _ = performNavigation(.meaningfulJump(producer: .internalLink, destination: destination))
+        _ = performMeaningfulJump(producer: .internalLink, destination: destination)
     }
 
     func linkHintRects(for link: ReaderLink, in coordinateSpace: NSView) -> [NSRect] {

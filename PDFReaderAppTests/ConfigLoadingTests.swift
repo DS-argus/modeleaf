@@ -211,7 +211,7 @@ struct ConfigLoadingTests {
         #expect(codes.isSuperset(of: [.unknownKey, .valueOutOfRange, .unknownAction]))
         #expect(result.activeConfig.config == BuiltInDefaults.config)
         #expect(result.activeConfig.keymap.bindings(for: .scrollDown) == BuiltInDefaults.keymap[.scrollDown])
-        #expect(result.activeConfig.config.navigation.smallScrollPoints == 48)
+        #expect(result.activeConfig.config.navigation.smallScrollPoints == 32)
     }
 
     @Test("U-CFG-03 valid partial user config activates only after complete validation")

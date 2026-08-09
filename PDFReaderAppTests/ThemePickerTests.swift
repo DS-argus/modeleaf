@@ -105,6 +105,12 @@ struct ThemePickerTests {
         overlay.onPreview = { previews.append($0) }
         overlay.onCommit = { committed.append($0) }
 
+        overlay.frame = NSRect(x: 0, y: 0, width: 332, height: 260)
+        overlay.apply(theme: AppKitTheme(themeID: .tokyoNight))
+        overlay.layoutSubtreeIfNeeded()
+        #expect(overlay.keyHintForTesting == "j / k  Move selection    ↩  Apply    Esc  Close")
+        #expect(overlay.keyHintIsWithinBoundsForTesting)
+        #expect(overlay.titleIsSeparatedForTesting)
         overlay.present(selectedThemeID: .tokyoNight)
         #expect(!overlay.isHidden)
         #expect(previews.isEmpty)                         // open renders the current theme; no re-apply
@@ -122,6 +128,21 @@ struct ThemePickerTests {
         #expect(committed == [.gruvboxDark])
         overlay.dismiss()
         #expect(overlay.isHidden)
+    }
+    @Test("mouse hover previews and click commits a theme")
+    func overlayPointerPreviewCommit() {
+        let overlay = ThemePickerOverlayView()
+        var previews: [ThemeID] = []
+        var committed: [ThemeID] = []
+        overlay.onPreview = { previews.append($0) }
+        overlay.onCommit = { committed.append($0) }
+        overlay.present(selectedThemeID: .tokyoNight)
+
+        overlay.pointerEnterRowForTesting(at: 2)
+        #expect(previews == [.solarizedDark])
+        overlay.pointerActivateRowForTesting(at: 1)
+        #expect(previews == [.solarizedDark, .gruvboxDark])
+        #expect(committed == [.gruvboxDark])
     }
 
     @Test("clamps at both ends without emitting redundant previews")

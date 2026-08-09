@@ -34,7 +34,7 @@ final class PDFViewController: NSViewController {
     private var focusIndicator: NSColor
     private var pendingPresentationFailureHandler: (() -> Void)?
     private var pendingPresentationSuccessHandler: (() -> Void)?
-    private(set) var viewMode: ReaderViewMode = .fitPage
+    private(set) var viewMode: ReaderViewMode = .fitWidth
     private(set) var initialPresentationState: InitialPDFPresentationState = .pending
     private var searchPalette = SearchHighlightPalette.default
     private var searchSelections: [PDFSelection] = []
@@ -75,7 +75,7 @@ final class PDFViewController: NSViewController {
             readerView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             readerView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
-        readerView.displayMode = .singlePage
+        readerView.displayMode = .singlePageContinuous
         readerView.autoScales = true
         openMetrics.record(.begin(.pdfViewDocumentAttach, traceID: openTraceID))
         readerView.document = initialDocument
@@ -129,13 +129,16 @@ final class PDFViewController: NSViewController {
 
         readerView.layoutDocumentView()
         let viewportCenter = NSPoint(x: readerView.bounds.midX, y: readerView.bounds.midY)
-        let centerPage = readerView.page(for: viewportCenter, nearest: false) ?? page
+        let centerPage = readerView.page(for: viewportCenter, nearest: true) ?? page
         let centerPageIndex = initialDocument.index(for: centerPage)
         guard centerPageIndex >= 0 else { return nil }
-        return NavigationSnapshot(
-            pageIndex: centerPageIndex,
-            pageSpacePoint: readerView.convert(viewportCenter, to: centerPage)
+        let pageBounds = centerPage.bounds(for: .mediaBox)
+        let convertedPoint = readerView.convert(viewportCenter, to: centerPage)
+        let boundedPoint = CGPoint(
+            x: min(max(convertedPoint.x, pageBounds.minX), pageBounds.maxX),
+            y: min(max(convertedPoint.y, pageBounds.minY), pageBounds.maxY)
         )
+        return NavigationSnapshot(pageIndex: centerPageIndex, pageSpacePoint: boundedPoint)
     }
     func setNavigationSnapshotCaptureOverride(_ capture: (() -> NavigationSnapshot?)?) {
         navigationSnapshotCaptureOverride = capture
@@ -146,31 +149,41 @@ final class PDFViewController: NSViewController {
         guard case let .goTo(pageIndex, point) = target,
               let page = initialDocument.page(at: pageIndex)
         else { return nil }
-        if viewMode == .fitPage {
-            return pageCenterSnapshot(pageIndex: pageIndex, page: page)
-        }
+        if viewMode == .fitPage { return pageCenterSnapshot(pageIndex: pageIndex, page: page) }
+
+        let bounds = page.bounds(for: .mediaBox)
         guard let point else { return pageCenterSnapshot(pageIndex: pageIndex, page: page) }
-        guard page.bounds(for: .mediaBox).contains(point) else { return nil }
-        return NavigationSnapshot(pageIndex: pageIndex, pageSpacePoint: point)
+        let restorableBounds = bounds.width > 2 && bounds.height > 2
+            ? bounds.insetBy(dx: 1, dy: 1)
+            : bounds
+        let sentinelThreshold = CGFloat(Float.greatestFiniteMagnitude) / 2
+        let x = point.x.isFinite && abs(point.x) < sentinelThreshold
+            ? min(max(point.x, restorableBounds.minX), restorableBounds.maxX)
+            : restorableBounds.midX
+        let y = point.y.isFinite && abs(point.y) < sentinelThreshold
+            ? min(max(point.y, restorableBounds.minY), restorableBounds.maxY)
+            : restorableBounds.midY
+        return NavigationSnapshot(pageIndex: pageIndex, pageSpacePoint: CGPoint(x: x, y: y))
     }
 
     @discardableResult
     func restoreNavigationSnapshot(_ destination: NavigationSnapshot) -> NavigationRestoreOutcome {
         loadViewIfNeeded()
-        guard let targetPage = page(for: destination), let origin = captureNavigationSnapshot() else {
-            return .preflightRejected
-        }
-        moveAnchorToViewportCenter(destination, on: targetPage)
-        if captureNavigationSnapshot()?.isSameLocation(as: destination) == true {
-            return .verifiedLanding
-        }
+        guard let targetPage = page(for: destination),
+              targetPage.bounds(for: .mediaBox).contains(destination.pageSpacePoint),
+              let origin = captureNavigationSnapshot()
+        else { return .preflightRejected }
+
+        let destinationMove = moveAnchorToViewportCenter(destination, on: targetPage)
+        if verifiedLanding(destinationMove, requested: destination) { return .verifiedLanding }
+
         guard let originPage = page(for: origin) else {
-            return .uncompensatedInvariantFailure(actualLanding: captureNavigationSnapshot())
+            return .uncompensatedInvariantFailure(actualLanding: destinationMove.landing)
         }
-        moveAnchorToViewportCenter(origin, on: originPage)
-        return captureNavigationSnapshot()?.isSameLocation(as: origin) == true
+        let compensation = moveAnchorToViewportCenter(origin, on: originPage)
+        return verifiedLanding(compensation, requested: origin)
             ? .compensatedFailure
-            : .uncompensatedInvariantFailure(actualLanding: captureNavigationSnapshot())
+            : .uncompensatedInvariantFailure(actualLanding: compensation.landing)
     }
 
     var isDocumentAttached: Bool {
@@ -223,10 +236,23 @@ final class PDFViewController: NSViewController {
         guard factor.isFinite, factor > 0 else { return }
         loadViewIfNeeded()
         supersedePendingInitialPresentation()
+
+        let fitPageAnchor = viewMode == .fitPage ? captureNavigationSnapshot() : nil
+        let targetScale = min(
+            readerView.maxScaleFactor,
+            max(readerView.minScaleFactor, readerView.scaleFactor * factor)
+        )
+        if viewMode == .fitPage {
+            readerView.displayMode = .singlePageContinuous
+        }
         readerView.autoScales = false
         viewMode = .manual
-        readerView.scaleFactor = min(readerView.maxScaleFactor, max(readerView.minScaleFactor, readerView.scaleFactor * factor))
+        readerView.scaleFactor = targetScale
         readerView.layoutDocumentView()
+
+        if let fitPageAnchor, let page = page(for: fitPageAnchor) {
+            moveAnchorToViewportCenter(fitPageAnchor, on: page)
+        }
     }
 
     func resetZoom() {
@@ -277,8 +303,8 @@ final class PDFViewController: NSViewController {
         return operation.run()
     }
 
-    /// Seed a duplicate's verified position. Layout applies fit-page before
-    /// restoring it, so source zoom and presentation are never copied.
+    /// Seed a duplicate's verified position. Layout applies fit-page before restoring it,
+    /// so source zoom and presentation are never copied.
     func seedPresentation(
         _ navigation: NavigationSnapshot,
         onSuccess: @escaping () -> Void,
@@ -296,6 +322,7 @@ final class PDFViewController: NSViewController {
         initialPresentationState = .pending
     }
 
+
     func clearSelection() {
         loadViewIfNeeded()
         readerView.currentSelection = nil
@@ -309,9 +336,7 @@ final class PDFViewController: NSViewController {
     func applyCanvasBackground(_ color: NSColor) {
         canvasBackground = color
         readerView.applyCanvasBackground(color)
-        if isViewLoaded {
-            view.layer?.backgroundColor = color.cgColor
-        }
+        if isViewLoaded { view.layer?.backgroundColor = color.cgColor }
     }
 
     func applyFocusIndicator(_ color: NSColor) {
@@ -344,18 +369,12 @@ final class PDFViewController: NSViewController {
         for index in 0..<initialDocument.pageCount {
             guard let page = initialDocument.page(at: index) else { continue }
             page.rotation = (page.rotation + degrees) % 360
-            if page.rotation < 0 {
-                page.rotation += 360
-            }
+            if page.rotation < 0 { page.rotation += 360 }
         }
-
         switch viewMode {
-        case .fitWidth:
-            fitWidth()
-        case .fitPage:
-            fitPage()
-        case .manual, .actualSize:
-            readerView.layoutDocumentView()
+        case .fitWidth: fitWidth()
+        case .fitPage: fitPage()
+        case .manual, .actualSize: readerView.layoutDocumentView()
         }
     }
 
@@ -364,40 +383,45 @@ final class PDFViewController: NSViewController {
               hasVisibleViewport,
               let firstPage = initialDocument.page(at: 0)
         else { return }
-
         initialPresentationState = .applying
-        readerView.displayMode = .singlePage
-        readerView.autoScales = true
-        readerView.layoutDocumentView()
-        viewMode = .fitPage
+        let navigation = pendingPresentationNavigation
+        let success = pendingPresentationSuccessHandler
+        let failure = pendingPresentationFailureHandler
+        pendingPresentationNavigation = nil
+        pendingPresentationSuccessHandler = nil
+        pendingPresentationFailureHandler = nil
 
-        if let navigation = pendingPresentationNavigation,
-           let page = page(for: navigation) {
+        if let navigation, let page = page(for: navigation) {
+            readerView.displayMode = .singlePage
+            readerView.autoScales = true
+            readerView.layoutDocumentView()
+            viewMode = .fitPage
             moveAnchorToViewportCenter(navigation, on: page)
             guard duplicateLandingMatches(navigation, page: page) else {
-                pendingPresentationNavigation = nil
                 initialPresentationState = .supersededByUser
-                let failureHandler = pendingPresentationFailureHandler
-                pendingPresentationFailureHandler = nil
-                pendingPresentationSuccessHandler = nil
-                failureHandler?()
+                failure?()
                 return
             }
         } else {
+            readerView.displayMode = .singlePageContinuous
+            readerView.autoScales = true
+            readerView.layoutDocumentView()
+            viewMode = .fitWidth
             readerView.go(to: firstPage)
             readerView.layoutDocumentView()
         }
-        pendingPresentationNavigation = nil
-        pendingPresentationFailureHandler = nil
         initialPresentationState = .applied
-        let successHandler = pendingPresentationSuccessHandler
-        pendingPresentationSuccessHandler = nil
-        successHandler?()
+        success?()
     }
+
     private func supersedePendingInitialPresentation() {
-        if initialPresentationState == .pending {
-            initialPresentationState = .supersededByUser
-        }
+        guard initialPresentationState == .pending else { return }
+        let failure = pendingPresentationFailureHandler
+        pendingPresentationNavigation = nil
+        pendingPresentationSuccessHandler = nil
+        pendingPresentationFailureHandler = nil
+        initialPresentationState = .supersededByUser
+        failure?()
     }
 
     private var hasVisibleViewport: Bool {
@@ -428,26 +452,26 @@ final class PDFViewController: NSViewController {
         return visibleBounds.contains(pageRect) && visibleBounds.contains(anchor)
     }
 
-    private func moveAnchorToViewportCenter(_ snapshot: NavigationSnapshot, on page: PDFPage) {
-        guard hasVisibleViewport else {
-            readerView.go(to: page)
-            readerView.layoutDocumentView()
-            return
-        }
+    private struct AnchorMoveResult {
+        let landing: NavigationSnapshot?
+        let wasConstrained: Bool
+    }
+    @discardableResult
+    private func moveAnchorToViewportCenter(_ snapshot: NavigationSnapshot, on page: PDFPage) -> AnchorMoveResult {
         readerView.go(to: page)
         readerView.layoutDocumentView()
-        let viewportCenter = NSPoint(x: readerView.bounds.midX, y: readerView.bounds.midY)
-        for _ in 0..<3 {
-            let anchorInView = readerView.convert(snapshot.pageSpacePoint, from: page)
-            let delta = NSPoint(x: anchorInView.x - viewportCenter.x, y: anchorInView.y - viewportCenter.y)
-            if abs(delta.x) <= NavigationSnapshot.locationTolerance / 2,
-               abs(delta.y) <= NavigationSnapshot.locationTolerance / 2 {
-                break
-            }
-            readerView.scrollBy(xPoints: Double(delta.x), yPoints: Double(-delta.y))
-            readerView.layoutDocumentView()
+        guard hasVisibleViewport else {
+            return AnchorMoveResult(landing: captureNavigationSnapshot(), wasConstrained: false)
         }
+        let wasConstrained = readerView.centerPagePoint(snapshot.pageSpacePoint, on: page) ?? false
+        return AnchorMoveResult(landing: captureNavigationSnapshot(), wasConstrained: wasConstrained)
     }
+
+    private func verifiedLanding(_ movement: AnchorMoveResult, requested: NavigationSnapshot) -> Bool {
+        guard let landing = movement.landing, landing.pageIndex == requested.pageIndex else { return false }
+        return landing.isSameLocation(as: requested) || movement.wasConstrained
+    }
+
 
     private func renderSearchResults(scrollActiveSelection: Bool = true) {
         loadViewIfNeeded()
@@ -482,8 +506,13 @@ extension PDFViewController: ReaderLinkProviding, ReaderPDFViewInternalLinkHandl
     func activateLink(_ target: ReaderLinkTarget) { loadViewIfNeeded(); readerView.activate(target) }
     func setInternalLinkHandler(_ handler: ((ReaderLinkTarget) -> Void)?) { internalLinkHandler = handler }
     func linkHintRects(for link: ReaderLink, in coordinateSpace: NSView) -> [NSRect] {
-        loadViewIfNeeded(); guard let page = initialDocument.page(at: link.sourcePageIndex) else { return [] }
-        return link.rects.map { readerView.convert(readerView.convert($0, from: page), to: coordinateSpace) }
+        loadViewIfNeeded()
+        guard let page = initialDocument.page(at: link.sourcePageIndex) else { return [] }
+        return link.rects.compactMap { pageRect in
+            let overlayRect = readerView.convert(readerView.convert(pageRect, from: page), to: coordinateSpace)
+            let clipped = overlayRect.intersection(coordinateSpace.bounds)
+            return clipped.isNull || clipped.width <= 0 || clipped.height <= 0 ? nil : clipped
+        }
     }
     private static func isLink(_ annotation: PDFAnnotation) -> Bool { annotation.type == "Link" || annotation.action != nil || annotation.url != nil }
     private static func linkTarget(_ annotation: PDFAnnotation) -> ReaderLinkTarget? {

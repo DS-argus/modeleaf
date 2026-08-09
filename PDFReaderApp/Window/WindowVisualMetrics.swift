@@ -31,6 +31,14 @@ final class ClosureButton: NSButton {
     var respondsToFirstMouse = false
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { respondsToFirstMouse }
+    var showsPointingHandCursor = false {
+        didSet { window?.invalidateCursorRects(for: self) }
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        if showsPointingHandCursor && isEnabled { addCursorRect(bounds, cursor: .pointingHand) }
+    }
 
     var handler: (() -> Void)? {
         didSet {
@@ -55,6 +63,54 @@ final class ClosureButton: NSButton {
     }
 }
 
+
+@MainActor
+class PointerActionView: NSView {
+    var onPointerEnter: (() -> Void)?
+    var onPointerActivate: (() -> Void)?
+    var isPointerInteractionEnabled = true {
+        didSet { window?.invalidateCursorRects(for: self) }
+    }
+
+    private var pointerTrackingArea: NSTrackingArea?
+
+    override var mouseDownCanMoveWindow: Bool { false }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let pointerTrackingArea { removeTrackingArea(pointerTrackingArea) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.activeInKeyWindow, .mouseEnteredAndExited, .inVisibleRect],
+            owner: self
+        )
+        addTrackingArea(area)
+        pointerTrackingArea = area
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        if isPointerInteractionEnabled { addCursorRect(bounds, cursor: .pointingHand) }
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        super.hitTest(point) == nil ? nil : self
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        guard isPointerInteractionEnabled else { return }
+        onPointerEnter?()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard isPointerInteractionEnabled else { return }
+        onPointerActivate?()
+    }
+
+    func pointerEnterForTesting() { onPointerEnter?() }
+    func pointerActivateForTesting() { onPointerActivate?() }
+}
 extension NSView {
     func prepareForAutoLayout() {
         translatesAutoresizingMaskIntoConstraints = false

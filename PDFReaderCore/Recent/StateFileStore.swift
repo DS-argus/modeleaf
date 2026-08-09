@@ -177,7 +177,9 @@ public struct StateFileStore: Sendable {
             }
             mutate(&document)
             do {
-                let data = try JSONEncoder().encode(document)
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+                let data = try encoder.encode(document)
                 try atomicallyReplace(data, at: coordinatedURL)
             } catch {
                 result = .failed(message: String(describing: error))

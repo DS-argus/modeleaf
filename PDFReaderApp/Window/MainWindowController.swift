@@ -149,13 +149,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         else { return }
         let links = LinkHintMerge.mergeLinks(provider.linkTargets())
         guard !links.isEmpty else { return }
-        let labels = LinkHintLabels.generate(count: links.count)
-        var displayed: [(link: ReaderLink, rects: [NSRect], label: String)] = []
-        for index in links.indices {
-            let rects = session.linkHintRects(for: links[index], in: rootView.linkHintOverlay)
-            if !rects.isEmpty { displayed.append((links[index], rects, labels[index])) }
+        var displayed: [(link: ReaderLink, rects: [NSRect])] = []
+        for link in links {
+            let rects = session.linkHintRects(for: link, in: rootView.linkHintOverlay)
+            if !rects.isEmpty { displayed.append((link, rects)) }
         }
         guard !displayed.isEmpty else { return }
+        let labels = LinkHintLabels.generate(count: displayed.count)
         beginTransientOverlay()
         let sessionID = session.id
         rootView.linkHintOverlay.onCommit = { [weak self, weak provider] index in
@@ -165,7 +165,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             provider?.activateLink(target)
         }
         rootView.linkHintOverlay.onDismiss = { [weak self] in self?.dismissLinkHintsAndRestoreFocus() }
-        rootView.linkHintOverlay.present(hints: displayed.map { (rects: $0.rects, label: $0.label) })
+        rootView.linkHintOverlay.present(
+            hints: zip(displayed, labels).map { (rects: $0.0.rects, label: $0.1) }
+        )
         window?.makeFirstResponder(rootView.linkHintOverlay)
     }
 
