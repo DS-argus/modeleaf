@@ -37,6 +37,7 @@ public struct SparseInputConfiguration: Decodable, Equatable, Sendable {
     }
 }
 
+
 public struct SparseAppConfig: Decodable, Equatable, Sendable {
     public let keymap: [String: [String]]?
     public let navigation: SparseNavigationConfiguration?
@@ -51,4 +52,5 @@ public struct SparseAppConfig: Decodable, Equatable, Sendable {
         self.navigation = navigation
         self.input = input
     }
+
 }

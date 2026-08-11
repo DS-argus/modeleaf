@@ -35,6 +35,7 @@ final class ReaderRootView: NSView {
     let emptyState = EmptyStateView()
     let statusBar = StatusBarView()
     let themePickerOverlay = ThemePickerOverlayView()
+    let linkIndicatorPickerOverlay = LinkDestinationIndicatorPickerOverlayView()
     let promptOverlay = PromptOverlayView()
     private var activeDiagnostic: ReaderActiveDiagnostic?
     let commandPaletteOverlay = CommandPaletteOverlayView()
@@ -82,7 +83,7 @@ final class ReaderRootView: NSView {
             guard let self, self.capturesDividerPositions, let pair = self.currentInnerPairsByBand[.trailing] else { return }
             self.innerDividerPositions[pair] = position
         }
-        for view in [tabBar, contentHost, statusBar, promptOverlay, themePickerOverlay, commandPaletteOverlay, recentFilesOverlay, helpOverlay, linkHintOverlay] { view.prepareForAutoLayout(); addSubview(view) }
+        for view in [tabBar, contentHost, statusBar, promptOverlay, themePickerOverlay, linkIndicatorPickerOverlay, commandPaletteOverlay, recentFilesOverlay, helpOverlay, linkHintOverlay] { view.prepareForAutoLayout(); addSubview(view) }
         emptyState.prepareForAutoLayout(); contentHost.addSubview(emptyState)
         paneContainer.prepareForAutoLayout(); contentHost.addSubview(paneContainer)
         NSLayoutConstraint.activate([
@@ -95,6 +96,7 @@ final class ReaderRootView: NSView {
             tabBar.topAnchor.constraint(equalTo: topAnchor), tabBar.leadingAnchor.constraint(equalTo: leadingAnchor), tabBar.trailingAnchor.constraint(equalTo: trailingAnchor), tabBarHeightConstraint,
             contentHost.topAnchor.constraint(equalTo: tabBar.bottomAnchor), contentHost.leadingAnchor.constraint(equalTo: leadingAnchor), contentHost.trailingAnchor.constraint(equalTo: trailingAnchor), contentHost.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
             themePickerOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor), themePickerOverlay.centerYAnchor.constraint(equalTo: contentHost.centerYAnchor), themePickerOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 40), themePickerOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -40),
+            linkIndicatorPickerOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor), linkIndicatorPickerOverlay.centerYAnchor.constraint(equalTo: contentHost.centerYAnchor), linkIndicatorPickerOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 20), linkIndicatorPickerOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -20), linkIndicatorPickerOverlay.topAnchor.constraint(greaterThanOrEqualTo: contentHost.topAnchor, constant: 16), linkIndicatorPickerOverlay.bottomAnchor.constraint(lessThanOrEqualTo: contentHost.bottomAnchor, constant: -16),
             recentFilesOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor), recentFilesOverlay.topAnchor.constraint(equalTo: contentHost.topAnchor, constant: 72), recentFilesOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 40), recentFilesOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -40),
             recentFilesOverlay.bottomAnchor.constraint(lessThanOrEqualTo: contentHost.bottomAnchor, constant: -40),
             helpOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor), helpOverlay.centerYAnchor.constraint(equalTo: contentHost.centerYAnchor), helpOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 20), helpOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -20), helpOverlay.topAnchor.constraint(greaterThanOrEqualTo: contentHost.topAnchor, constant: 16), helpOverlay.bottomAnchor.constraint(lessThanOrEqualTo: contentHost.bottomAnchor, constant: -16),
@@ -106,7 +108,7 @@ final class ReaderRootView: NSView {
         ])
     }
     required init?(coder: NSCoder) { nil }
-    func apply(theme: AppKitTheme) { self.theme = theme; for pane in paneViews.values { pane.apply(theme: theme) }; layer?.backgroundColor = theme[.background].cgColor; contentHost.wantsLayer = true; contentHost.layer?.backgroundColor = theme[.background].cgColor; tabBar.apply(theme: theme); emptyState.apply(theme: theme); statusBar.apply(theme: theme); promptOverlay.apply(theme: theme); themePickerOverlay.apply(theme: theme); commandPaletteOverlay.apply(theme: theme); recentFilesOverlay.apply(theme: theme); helpOverlay.apply(theme: theme); linkHintOverlay.apply(theme: theme) }
+    func apply(theme: AppKitTheme) { self.theme = theme; for pane in paneViews.values { pane.apply(theme: theme) }; layer?.backgroundColor = theme[.background].cgColor; contentHost.wantsLayer = true; contentHost.layer?.backgroundColor = theme[.background].cgColor; tabBar.apply(theme: theme); emptyState.apply(theme: theme); statusBar.apply(theme: theme); promptOverlay.apply(theme: theme); themePickerOverlay.apply(theme: theme); linkIndicatorPickerOverlay.apply(theme: theme); commandPaletteOverlay.apply(theme: theme); recentFilesOverlay.apply(theme: theme); helpOverlay.apply(theme: theme); linkHintOverlay.apply(theme: theme) }
     func render(snapshot: ReaderSessionStoreSnapshot, activeContentView: NSView?, sessionStatus: ReaderStatusSnapshot?) {
         let hasTabs = !snapshot.tabs.isEmpty
         if renderedSessionSnapshot != snapshot { tabBar.render(snapshot); tabBarHeightConstraint.constant = hasTabs ? WindowVisualMetrics.tabBarHeight : 0; tabBar.isHidden = !hasTabs; emptyState.isHidden = hasTabs; renderedSessionSnapshot = snapshot }

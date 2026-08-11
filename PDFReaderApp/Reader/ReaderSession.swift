@@ -149,7 +149,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
         searchController.setChangeHandler { [weak self] in self?.publishPresentationChange() }
         installNotifications()
         viewController.setInternalLinkHandler { [weak self] target in
-            self?.executeInternalLink(target)
+            self?.activateInternalLinkWithDestinationFeedback(target)
         }
         metrics.record(.end(.sessionConstruct, traceID: traceID, outcome: .success))
     }
@@ -573,7 +573,20 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
     func applyTheme(_ theme: AppKitTheme) {
         viewController.applyCanvasBackground(theme.canvasBackground)
         viewController.applyFocusIndicator(theme.focusRing)
+        viewController.applyDestinationIndicatorAppearance(
+            accentColor: theme[.accent],
+            backgroundColor: theme.canvasBackground
+        )
         viewController.applySearchPalette(theme.searchHighlightPalette)
+    }
+
+    func applyLinkDestinationIndicatorSettings(_ settings: LinkDestinationIndicatorSettings) {
+        viewController.applyDestinationIndicatorSettings(settings)
+    }
+
+    func cancelDestinationIndicator() {
+        guard !isClosed else { return }
+        viewController.cancelDestinationIndicator()
     }
 
     func beginSearch(_ query: String) {
@@ -606,6 +619,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
 
     func prepareForClose(reason: ReaderSessionCloseReason) {
         guard !isClosed else { return }
+        viewController.cancelDestinationIndicator()
 
         searchController.requestCancellation()
         searchEpoch.clearOrCancel()
@@ -649,6 +663,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
         for name in [Notification.Name.PDFViewPageChanged, Notification.Name.PDFViewScaleChanged] {
             let token = center.addObserver(forName: name, object: focusView, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
+                    self?.viewController.cancelDestinationIndicator()
                     self?.publishPresentationChange()
                 }
             }
@@ -697,12 +712,31 @@ extension ReaderSession: ReaderLinkProviding {
 
     func activateLink(_ target: ReaderLinkTarget) {
         guard !isClosed else { return }
-        viewController.activateLink(target)
+        switch target {
+        case .url:
+            viewController.activateLink(target)
+        case .goTo:
+            activateInternalLinkWithDestinationFeedback(target)
+        }
     }
 
-    private func executeInternalLink(_ target: ReaderLinkTarget) {
-        guard let destination = viewController.navigationSnapshot(forInternalLink: target) else { return }
-        _ = performMeaningfulJump(producer: .internalLink, destination: destination)
+    private func activateInternalLinkWithDestinationFeedback(_ target: ReaderLinkTarget) {
+        viewController.cancelDestinationIndicator()
+        let indicatorDestination = viewController.destinationIndicatorSnapshot(for: target)
+        let outcome = executeInternalLink(target)
+        if outcome == .verifiedLanding, let indicatorDestination {
+            viewController.presentDestinationIndicator(at: indicatorDestination)
+        }
+    }
+
+    var destinationIndicatorVisibleForTesting: Bool { viewController.destinationIndicatorVisibleForTesting }
+    var destinationIndicatorCenterForTesting: CGPoint? { viewController.destinationIndicatorCenterForTesting }
+    var destinationIndicatorGenerationForTesting: Int { viewController.destinationIndicatorGenerationForTesting }
+
+    @discardableResult
+    private func executeInternalLink(_ target: ReaderLinkTarget) -> NavigationTransactionOutcome {
+        guard let destination = viewController.navigationSnapshot(forInternalLink: target) else { return .preflightRejected }
+        return performMeaningfulJump(producer: .internalLink, destination: destination)
     }
 
     func linkHintRects(for link: ReaderLink, in coordinateSpace: NSView) -> [NSRect] {

@@ -26,6 +26,7 @@ public struct InputConfiguration: Equatable, Sendable {
     }
 }
 
+
 public struct EffectiveAppConfig: Equatable, Sendable {
     public let keymap: [ActionID: [KeySequence]]
     public let navigation: NavigationConfiguration

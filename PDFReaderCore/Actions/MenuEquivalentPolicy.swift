@@ -68,6 +68,7 @@ public enum MenuItemRegistry {
         MenuItemDefinition(identifier: "view.actual-size", title: "Actual Size", actionID: .viewZoomReset, placement: .view),
         MenuItemDefinition(identifier: "view.fit-width", title: "Fit Width", actionID: .viewFitWidth, placement: .view),
         MenuItemDefinition(identifier: "view.fit-page", title: "Fit Page", actionID: .viewFitPage, placement: .view),
+        MenuItemDefinition(identifier: "view.link-indicator", title: "Link Indicator…", actionID: .indicatorPicker, placement: .view),
 
         MenuItemDefinition(identifier: "navigation.split-right", title: "Split Right", actionID: .paneSplitRight, placement: .navigation),
         MenuItemDefinition(identifier: "navigation.split-down", title: "Split Down", actionID: .paneSplitDown, placement: .navigation),

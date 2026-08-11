@@ -201,6 +201,7 @@ public enum ConfigValidator {
         )
 
 
+
         let effective = EffectiveAppConfig(
             keymap: bindings,
             navigation: navigation,

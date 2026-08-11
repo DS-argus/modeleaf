@@ -65,6 +65,7 @@ Documents live in tabs, the view can be split into panes, and everything is driv
 | go to page 12 | `g12`, then `Enter` |
 | back / forward | `Ctrl+o` / `Ctrl+i` |
 | link hints | `f` |
+| link destination indicator settings | `I` |
 | fit width / page | `w` / `F` |
 | zoom in / out | `=` / `-` |
 | rotate left / right | `[` / `]` |
@@ -93,6 +94,8 @@ Each tab holds one document; the `+` button or `⌘o` opens another. `Ctrl-b |` 
 ### Links
 
 Links are clickable: an in-document link jumps inside the viewer, and an external URL opens in your browser. Press `f` to show labels for annotation links, then type a label to follow it; `Esc` cancels. A link that wraps onto another line has one hint; only annotated links are eligible, so URLs printed as text cannot be clicked or hinted — select and copy them instead. Scrolling or resizing dismisses hints.
+
+After a verified in-document GoTo landing with an exact destination point, Modeleaf briefly marks the target with a configurable indicator. Press `I` to open the keyboard-first four-column picker for style, color, size, and duration; `Tab`/`Shift-Tab` or `h`/`l` move between columns, `j`/`k` adjust values, `Enter` applies, and `Esc` cancels. Mouse selection and dragging are supported too. URL links, failed or same-location jumps, and destinations without complete coordinates do not show an indicator.
 
 ### Command palette
 

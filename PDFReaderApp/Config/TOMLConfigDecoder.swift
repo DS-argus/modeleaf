@@ -205,14 +205,17 @@ private struct ConfigTOMLSchema {
             value,
             path: path,
             fields: ["prefix_timeout_ms": { $0 is Int64 }, "prefix": { $0 is String }],
+            expectedTypes: ["prefix_timeout_ms": "integer", "prefix": "string"],
             issues: &issues
         )
     }
+
 
     private static func validateFixedTable(
         _ value: Any,
         path: [TOMLPathComponent],
         fields: [String: (Any) -> Bool],
+        expectedTypes: [String: String] = [:],
         issues: inout [SchemaIssue]
     ) {
         guard let table = value as? [String: Any] else {
@@ -226,7 +229,7 @@ private struct ConfigTOMLSchema {
                 continue
             }
             if !predicate(table[key] as Any) {
-                issues.append(typeIssue(fieldPath, expected: "number"))
+                issues.append(typeIssue(fieldPath, expected: expectedTypes[key] ?? "number"))
                 collectNestedUnknowns(table[key] as Any, path: fieldPath, issues: &issues)
             }
         }
