@@ -83,6 +83,9 @@
 # --- Theme ---
 "theme.picker"     = ["T"]  # T
 
+# --- Link indicator ---
+"indicator.picker" = ["I"]  # I
+
 # --- Panes ---
 # split/unsplit use <prefix>; focus keys are direct. Change the prefix under [input].
 "pane.splitRight"  = ["<prefix>|"]  # Ctrl+b |

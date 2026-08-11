@@ -32,6 +32,7 @@ final class PDFViewController: NSViewController {
     private var canvasBackground: NSColor
     private var pendingPresentationNavigation: NavigationSnapshot?
     private var focusIndicator: NSColor
+    private var destinationIndicatorAccent: NSColor
     private var pendingPresentationFailureHandler: (() -> Void)?
     private var pendingPresentationSuccessHandler: (() -> Void)?
     private(set) var viewMode: ReaderViewMode = .fitWidth
@@ -42,6 +43,7 @@ final class PDFViewController: NSViewController {
     private var internalLinkHandler: ((ReaderLinkTarget) -> Void)?
     private var navigationSnapshotCaptureOverride: (() -> NavigationSnapshot?)?
 
+    private let destinationIndicatorView = LinkDestinationIndicatorView(frame: .zero)
     init(document: PDFDocument, traceID: OpenTraceID, metrics: any PDFOpenMetrics) {
         self.initialDocument = document
         self.openTraceID = traceID
@@ -50,9 +52,15 @@ final class PDFViewController: NSViewController {
         let defaultTheme = AppKitTheme(themeID: .tokyoNight)
         self.canvasBackground = defaultTheme.canvasBackground
         self.focusIndicator = defaultTheme.focusRing
+        self.destinationIndicatorAccent = defaultTheme[.accent]
         super.init(nibName: nil, bundle: nil)
         readerView.applyCanvasBackground(canvasBackground)
         readerView.applyFocusIndicator(focusIndicator)
+        destinationIndicatorView.configure(
+            .standard,
+            accentColor: defaultTheme[.accent],
+            backgroundColor: defaultTheme.canvasBackground
+        )
     }
 
     required init?(coder: NSCoder) {
@@ -68,12 +76,18 @@ final class PDFViewController: NSViewController {
         container.setAccessibilityLabel("PDF canvas")
 
         readerView.translatesAutoresizingMaskIntoConstraints = false
+        destinationIndicatorView.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(readerView)
+        container.addSubview(destinationIndicatorView)
         NSLayoutConstraint.activate([
             readerView.topAnchor.constraint(equalTo: container.topAnchor),
             readerView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             readerView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             readerView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            destinationIndicatorView.topAnchor.constraint(equalTo: container.topAnchor),
+            destinationIndicatorView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            destinationIndicatorView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            destinationIndicatorView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
         readerView.displayMode = .singlePageContinuous
         readerView.autoScales = true
@@ -88,6 +102,7 @@ final class PDFViewController: NSViewController {
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        if destinationIndicatorView.isVisible { destinationIndicatorView.cancel() }
         applyInitialPresentationIfReady()
     }
 
@@ -156,11 +171,10 @@ final class PDFViewController: NSViewController {
         let restorableBounds = bounds.width > 2 && bounds.height > 2
             ? bounds.insetBy(dx: 1, dy: 1)
             : bounds
-        let sentinelThreshold = CGFloat(Float.greatestFiniteMagnitude) / 2
-        let x = point.x.isFinite && abs(point.x) < sentinelThreshold
+        let x = Self.isSpecifiedDestinationCoordinate(point.x)
             ? min(max(point.x, restorableBounds.minX), restorableBounds.maxX)
             : restorableBounds.midX
-        let y = point.y.isFinite && abs(point.y) < sentinelThreshold
+        let y = Self.isSpecifiedDestinationCoordinate(point.y)
             ? min(max(point.y, restorableBounds.minY), restorableBounds.maxY)
             : restorableBounds.midY
         return NavigationSnapshot(pageIndex: pageIndex, pageSpacePoint: CGPoint(x: x, y: y))
@@ -169,6 +183,7 @@ final class PDFViewController: NSViewController {
     @discardableResult
     func restoreNavigationSnapshot(_ destination: NavigationSnapshot) -> NavigationRestoreOutcome {
         loadViewIfNeeded()
+        destinationIndicatorView.cancel()
         guard let targetPage = page(for: destination),
               targetPage.bounds(for: .mediaBox).contains(destination.pageSpacePoint),
               let origin = captureNavigationSnapshot()
@@ -228,6 +243,7 @@ final class PDFViewController: NSViewController {
 
     func scrollToVerticalBoundary(_ boundary: ReaderVerticalBoundary) {
         loadViewIfNeeded()
+        destinationIndicatorView.cancel()
         readerView.layoutDocumentView()
         readerView.scrollToVerticalBoundary(boundary)
     }
@@ -337,12 +353,53 @@ final class PDFViewController: NSViewController {
         canvasBackground = color
         readerView.applyCanvasBackground(color)
         if isViewLoaded { view.layer?.backgroundColor = color.cgColor }
+        destinationIndicatorView.applyAppearance(accentColor: destinationIndicatorAccent, backgroundColor: color)
     }
 
     func applyFocusIndicator(_ color: NSColor) {
         focusIndicator = color
         readerView.applyFocusIndicator(color)
     }
+
+    func applyDestinationIndicatorSettings(_ configuration: LinkDestinationIndicatorSettings) {
+        destinationIndicatorView.configure(configuration)
+    }
+
+    func applyDestinationIndicatorAppearance(accentColor: NSColor, backgroundColor: NSColor) {
+        destinationIndicatorAccent = accentColor
+        destinationIndicatorView.applyAppearance(accentColor: accentColor, backgroundColor: backgroundColor)
+    }
+
+
+    func destinationIndicatorSnapshot(for target: ReaderLinkTarget) -> NavigationSnapshot? {
+        guard case let .goTo(pageIndex, point?) = target,
+              initialDocument.page(at: pageIndex) != nil
+        else { return nil }
+        guard Self.isSpecifiedDestinationCoordinate(point.x),
+              Self.isSpecifiedDestinationCoordinate(point.y)
+        else { return nil }
+        return NavigationSnapshot(pageIndex: pageIndex, pageSpacePoint: point)
+    }
+
+    func presentDestinationIndicator(at destination: NavigationSnapshot) {
+        loadViewIfNeeded()
+        readerView.layoutDocumentView()
+        guard let page = initialDocument.page(at: destination.pageIndex) else { return }
+        let readerPoint = readerView.convert(destination.pageSpacePoint, from: page)
+        let indicatorPoint = readerView.convert(readerPoint, to: destinationIndicatorView)
+        guard indicatorPoint.x.isFinite, indicatorPoint.y.isFinite,
+              destinationIndicatorView.bounds.contains(indicatorPoint)
+        else { return }
+        destinationIndicatorView.present(at: indicatorPoint)
+    }
+
+    func cancelDestinationIndicator() {
+        destinationIndicatorView.cancel()
+    }
+
+    var destinationIndicatorVisibleForTesting: Bool { destinationIndicatorView.isVisible }
+    var destinationIndicatorCenterForTesting: CGPoint? { destinationIndicatorView.indicatorCenter }
+    var destinationIndicatorGenerationForTesting: Int { destinationIndicatorView.generation }
 
     func detachDelegates() {
         loadViewIfNeeded()
@@ -354,6 +411,7 @@ final class PDFViewController: NSViewController {
 
     func detachDocument() {
         loadViewIfNeeded()
+        destinationIndicatorView.cancel()
         readerView.prepareForClose()
     }
 
@@ -415,6 +473,7 @@ final class PDFViewController: NSViewController {
     }
 
     private func supersedePendingInitialPresentation() {
+        destinationIndicatorView.cancel()
         guard initialPresentationState == .pending else { return }
         let failure = pendingPresentationFailureHandler
         pendingPresentationNavigation = nil
@@ -473,6 +532,10 @@ final class PDFViewController: NSViewController {
     }
 
 
+    private static func isSpecifiedDestinationCoordinate(_ value: CGFloat) -> Bool {
+        let sentinelThreshold = CGFloat(Float.greatestFiniteMagnitude) / 2
+        return value.isFinite && abs(value) < sentinelThreshold
+    }
     private func renderSearchResults(scrollActiveSelection: Bool = true) {
         loadViewIfNeeded()
         for selection in searchSelections {

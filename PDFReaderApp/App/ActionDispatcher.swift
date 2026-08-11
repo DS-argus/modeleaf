@@ -7,6 +7,7 @@ protocol ReaderWorkflowPresenting: AnyObject {
     var activePromptText: String { get }
 
     func presentThemePicker()
+    func presentLinkIndicatorPicker()
     func presentCommandPalette()
     func presentRecentFilesOpen()
     func presentHelp()
@@ -24,6 +25,7 @@ extension ReaderWorkflowPresenting {
     func dismissPromptAndRestoreFocus(reason: KeyInputInvalidationReason) {
         dismissPromptAndRestoreFocus(to: .navigation, reason: reason)
     }
+    func presentLinkIndicatorPicker() {}
 }
 
 @MainActor
@@ -178,6 +180,8 @@ newInstanceHandler = newInstance
             )
         case .themePicker:
             presentation?.presentThemePicker()
+        case .indicatorPicker:
+            presentation?.presentLinkIndicatorPicker()
         case .paletteOpen:
             presentation?.presentCommandPalette()
         case .helpShow:

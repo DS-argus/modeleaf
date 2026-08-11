@@ -28,8 +28,8 @@ zoom_factor = 1.1
 [input]
 prefix_timeout_ms = 800
 prefix = "<C-b>"
-
 ```
+
 
 ## Key grammar
 
@@ -113,6 +113,7 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `config.writeDefault` | unbound | global | `suppressed` |
 | `config.resetDefault` | unbound | global | `suppressed` |
 | `theme.picker` | `T` | `navigation`, `searchResults` | `suppressed` |
+| `indicator.picker` | `I` | `navigation`, `searchResults` | `suppressed` |
 | `pane.splitRight` | `<C-b>|` | `navigation`, `searchResults` | `suppressed` |
 | `pane.splitDown` | `<C-b>-` | `navigation`, `searchResults` | `suppressed` |
 | `pane.focusLeft` | `<C-h>` | `navigation`, `searchResults` | `suppressed` |
@@ -340,6 +341,9 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 
 # --- Theme ---
 "theme.picker"     = ["T"]  # T
+
+# --- Link indicator ---
+"indicator.picker" = ["I"]  # I
 
 # --- Panes ---
 # split/unsplit use <prefix>; focus keys are direct. Change the prefix under [input].

@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import PDFKit
+import QuartzCore
 import PDFReaderCore
 import PDFReaderTestSupport
 import Testing
@@ -20,6 +21,83 @@ struct LinkHintIntegrationTests {
             #expect(page.annotations.filter { $0.action is PDFActionURL }.count == 5)
             #expect(page.annotations.contains { $0.action is PDFActionGoTo })
             #expect(try PDFFixtureFactory.sha256(of: url) == before)
+        }
+    }
+
+    @Test("destination indicator uses the configurable default pulse contract")
+    func destinationIndicatorAnimationContract() throws {
+        let indicator = LinkDestinationIndicatorView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
+        indicator.present(at: CGPoint(x: 100, y: 100))
+
+        let animation = try #require(indicator.activeAnimationForTesting)
+        let keyPaths = Set((animation.animations ?? []).compactMap { ($0 as? CABasicAnimation)?.keyPath })
+        #expect(indicator.settingsForTesting == .standard)
+        #expect(indicator.lineWidthForTesting == 2)
+        #expect(try #require(indicator.strokeColorForTesting) == NSColor.systemRed.cgColor)
+        #expect(animation.duration == 0.75)
+        #expect(animation.repeatCount == 2)
+        #expect(animation.timingFunction != nil)
+        #expect(keyPaths == ["path", "opacity"])
+        #expect(!indicator.backdropVisibleForTesting)
+        #expect(indicator.activeDotAnimationForTesting == nil)
+    }
+
+    @Test("every indicator style preset produces its declared motion contract")
+    func destinationIndicatorStylePresets() throws {
+        for style in LinkDestinationIndicatorStyle.allCases {
+            let indicator = LinkDestinationIndicatorView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
+            indicator.configure(LinkDestinationIndicatorSettings(
+                style: style,
+                color: .preset(.cyan),
+                size: 32,
+                durationMilliseconds: 1_800
+            ))
+            indicator.present(at: CGPoint(x: 100, y: 100))
+            let animation = try #require(indicator.activeAnimationForTesting)
+            let keyPaths = Set((animation.animations ?? []).compactMap { ($0 as? CABasicAnimation)?.keyPath })
+
+            switch style {
+            case .pulseRing, .diamondPulse:
+                #expect(animation.duration == 0.9)
+                #expect(animation.repeatCount == 2)
+                #expect(keyPaths == ["path", "opacity"])
+            case .target, .staticRing:
+                #expect(animation.duration == 1.8)
+                #expect(animation.repeatCount == 0)
+                #expect(keyPaths == ["opacity"])
+            case .beacon:
+                #expect(animation.duration == 1.8)
+                #expect(keyPaths == ["path", "opacity"])
+                #expect(indicator.activeDotAnimationForTesting?.duration == 1.8)
+            }
+        }
+    }
+
+    @Test("indicator color presets and custom hex colors resolve independently from style")
+    func destinationIndicatorColorPresets() throws {
+        let indicator = LinkDestinationIndicatorView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
+        let accent = NSColor.systemPurple
+        let background = NSColor.white
+        let expected: [(LinkDestinationIndicatorColor, NSColor)] = [
+            (.preset(.red), .systemRed),
+            (.preset(.amber), .systemOrange),
+            (.preset(.cyan), .systemCyan),
+            (.preset(.green), .systemGreen),
+            (.preset(.purple), .systemPurple),
+            (.preset(.accent), accent),
+            (.preset(.autoContrast), .black),
+            (.preset(.highContrast), .white),
+            (.customHex("#336699"), NSColor(calibratedRed: 0.2, green: 0.4, blue: 0.6, alpha: 1)),
+        ]
+
+        for (color, expectedColor) in expected {
+            indicator.configure(
+                LinkDestinationIndicatorSettings(style: .target, color: color, size: 28, durationMilliseconds: 1_500),
+                accentColor: accent,
+                backgroundColor: background
+            )
+            #expect(try #require(indicator.strokeColorForTesting) == expectedColor.cgColor)
+            #expect(indicator.backdropVisibleForTesting == (color == .preset(.highContrast)))
         }
     }
 
@@ -87,6 +165,7 @@ struct LinkHintIntegrationTests {
             #expect(controller.routeKeyEventForTesting(event))
             #expect(followed == URL(string: "https://example.invalid/link-hint"))
             #expect(view.followedLinkCount == 1)
+            #expect(!session.destinationIndicatorVisibleForTesting)
             #expect(controller.rootView.linkHintOverlay.isHidden)
             #expect(controller.window?.firstResponder === session.focusView)
         }
@@ -113,6 +192,15 @@ struct LinkHintIntegrationTests {
             // GoTo navigation intentionally mirrors PDFKit mouse activation: it is not a URL follow.
             #expect(view.followedLinkCount == 0)
             #expect(controller.rootView.linkHintOverlay.isHidden)
+            let indicatorCenter = try #require(session.destinationIndicatorCenterForTesting)
+            let destinationPage = try #require(view.document?.page(at: 1))
+            let expectedReaderPoint = view.convert(CGPoint(x: 48, y: 700), from: destinationPage)
+            let expectedCenter = view.convert(expectedReaderPoint, to: session.contentView)
+            #expect(abs(indicatorCenter.x - expectedCenter.x) < 1)
+            #expect(abs(indicatorCenter.y - expectedCenter.y) < 1)
+            #expect(session.destinationIndicatorVisibleForTesting)
+            #expect(session.canGoBack)
+            #expect(controller.window?.firstResponder === session.focusView)
         }
     }
     @Test("PDF destinations with unspecified coordinates normalize to a navigable page anchor")
@@ -128,6 +216,7 @@ struct LinkHintIntegrationTests {
             ))
 
             #expect(session.currentPageNumber == 2)
+            #expect(!session.destinationIndicatorVisibleForTesting)
             #expect(session.canGoBack)
             let landing = try #require(session.duplicationSnapshot?.navigation)
             #expect(landing.pageIndex == 1)
@@ -138,21 +227,67 @@ struct LinkHintIntegrationTests {
         }
     }
 
-    @Test("mouse GoTo and hint GoTo share one canonical history transaction")
+    @Test("indicator replacement, geometry cancellation, and same-location exclusion are deterministic")
+    func destinationIndicatorLifecycle() throws {
+        try withLinkHarness { controller, session, view, _ in
+            let origin = try #require(session.duplicationSnapshot?.navigation)
+            session.activateLink(.goTo(pageIndex: origin.pageIndex, point: origin.pageSpacePoint))
+            #expect(!session.destinationIndicatorVisibleForTesting)
+
+            let firstTarget = ReaderLinkTarget.goTo(pageIndex: 1, point: CGPoint(x: 48, y: 700))
+            session.activateLink(firstTarget)
+            let firstGeneration = session.destinationIndicatorGenerationForTesting
+            #expect(session.destinationIndicatorVisibleForTesting)
+
+            session.activateLink(.goTo(pageIndex: 99, point: .zero))
+            #expect(!session.destinationIndicatorVisibleForTesting)
+            #expect(session.destinationIndicatorGenerationForTesting > firstGeneration)
+            session.activateLink(.goTo(pageIndex: 0, point: CGPoint(x: 306, y: 120)))
+            #expect(session.destinationIndicatorVisibleForTesting)
+            #expect(session.destinationIndicatorGenerationForTesting > firstGeneration)
+
+            let window = try #require(controller.window)
+            window.setContentSize(NSSize(width: 1_050, height: 760))
+            controller.rootView.layoutSubtreeIfNeeded()
+            window.contentView?.layoutSubtreeIfNeeded()
+            #expect(!session.destinationIndicatorVisibleForTesting)
+
+            session.activateLink(firstTarget)
+            #expect(session.destinationIndicatorVisibleForTesting)
+            NotificationCenter.default.post(name: .PDFViewScaleChanged, object: view)
+            #expect(!session.destinationIndicatorVisibleForTesting)
+
+            session.activateLink(.goTo(pageIndex: 0, point: CGPoint(x: 306, y: 120)))
+            #expect(session.destinationIndicatorVisibleForTesting)
+            session.prepareForClose()
+            #expect(!session.destinationIndicatorVisibleForTesting)
+        }
+    }
+    @Test("mouse GoTo and hint GoTo share history and destination feedback")
+
     func mouseAndHintGoToConvergeOnce() throws {
         try withLinkHarness { controller, session, view, url in
             let before = try PDFFixtureFactory.sha256(of: url)
             let target = ReaderLinkTarget.goTo(pageIndex: 1, point: CGPoint(x: 48, y: 700))
             session.activateLink(target)
+            #expect(session.destinationIndicatorVisibleForTesting)
             #expect(session.currentPageNumber == 2)
             #expect(session.canGoBack)
             #expect(session.goBack() == .verifiedLanding)
+            #expect(!session.destinationIndicatorVisibleForTesting)
             #expect(session.currentPageNumber == 1)
             let page = try #require(view.document?.page(at: 1))
             #expect(!session.canGoBack)
             view.perform(PDFActionGoTo(destination: PDFDestination(page: page, at: CGPoint(x: 48, y: 700))))
+            #expect(session.destinationIndicatorVisibleForTesting)
+            let mouseReaderPoint = view.convert(CGPoint(x: 48, y: 700), from: page)
+            let mouseExpectedCenter = view.convert(mouseReaderPoint, to: session.contentView)
+            let mouseIndicatorCenter = try #require(session.destinationIndicatorCenterForTesting)
+            #expect(abs(mouseIndicatorCenter.x - mouseExpectedCenter.x) < 1)
+            #expect(abs(mouseIndicatorCenter.y - mouseExpectedCenter.y) < 1)
             #expect(session.currentPageNumber == 2)
             #expect(session.goBack() == .verifiedLanding)
+            #expect(!session.destinationIndicatorVisibleForTesting)
             #expect(session.currentPageNumber == 1)
             #expect(!session.canGoBack)
             #expect(view.blockedHistoryCount == 0)
@@ -304,7 +439,7 @@ struct LinkHintIntegrationTests {
 
     @Test("geometry events dismiss before forwarding, forward scroll input, and resize dismisses")
     func geometryTransitions() throws {
-        try withLinkHarness { controller, _, _, _ in
+        try withLinkHarness { controller, session, _, _ in
             let window = try #require(controller.window as? ReaderWindow)
             var visibilityAtForwarding: [Bool] = []
             window.geometryEventObserverForTesting = { _ in
@@ -324,6 +459,11 @@ struct LinkHintIntegrationTests {
             controller.presentLinkHints()
             controller.windowDidResize(Notification(name: NSWindow.didResizeNotification, object: window))
             #expect(controller.rootView.linkHintOverlay.isHidden)
+
+            session.activateLink(.goTo(pageIndex: 1, point: CGPoint(x: 48, y: 700)))
+            #expect(session.destinationIndicatorVisibleForTesting)
+            window.sendGeometryEventForTesting(.scrollWheel)
+            #expect(!session.destinationIndicatorVisibleForTesting)
         }
     }
 
@@ -341,9 +481,18 @@ struct LinkHintIntegrationTests {
 
             let inactivePane = try #require(coordinator.activePaneID)
             let activePane = try #require(coordinator.split(direction: .sideBySide))
+            let previouslyActiveSession = try #require(coordinator.activeSession as? ReaderSession)
+            previouslyActiveSession.fitWidth()
+            let activeOrigin = try #require(previouslyActiveSession.duplicationSnapshot?.navigation)
+            previouslyActiveSession.activateLink(.goTo(
+                pageIndex: activeOrigin.pageIndex,
+                point: CGPoint(x: activeOrigin.pageSpacePoint.x, y: activeOrigin.pageSpacePoint.y - 20)
+            ))
+            #expect(previouslyActiveSession.destinationIndicatorVisibleForTesting)
             controller.presentLinkHints()
             #expect(!controller.rootView.linkHintOverlay.isHidden)
             #expect(coordinator.activatePane(inactivePane))
+            #expect(!previouslyActiveSession.destinationIndicatorVisibleForTesting)
             #expect(controller.rootView.linkHintOverlay.isHidden)
             #expect(coordinator.activePaneID == inactivePane)
             #expect(coordinator.activePaneID != activePane)
@@ -406,7 +555,7 @@ struct LinkHintIntegrationTests {
             let target = ReaderLinkTarget.url("https://example.invalid/link-hint")
             let destinationPage = try #require(view.document?.page(at: 1))
             session.prepareForClose()
-
+            #expect(!session.destinationIndicatorVisibleForTesting)
             #expect(session.linkTargets().isEmpty)
             session.activateLink(target)
             #expect(followed == 0)
