@@ -1,9 +1,8 @@
 name: Release
 
-# Cut a release by pushing a version tag, e.g.:
-#   git tag v0.2.0 && git push origin v0.2.0
-# This builds the Tier-A (ad-hoc signed) app, attaches the zip, and generates
-# release notes from the pull requests merged since the previous tag.
+# A v-prefixed version tag is the single release entrypoint. This workflow
+# verifies the tag, tests and packages the app, stages a draft GitHub Release,
+# publishes the matching Homebrew cask, and only then makes the release public.
 on:
   push:
     tags: ['v*']
@@ -11,13 +10,15 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
-    name: build + publish
+    name: verify + build + publish
     runs-on: macos-latest
     env:
-      # CI has no signing identity; force a deterministic ad-hoc signature so the
-      # local and CI Tier-A builds match. Swap this out when moving to Tier B.
       XCODEBUILD_EXTRA_ARGS: >-
         CODE_SIGN_STYLE=Manual
         CODE_SIGN_IDENTITY=-
@@ -31,21 +32,89 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Verify tag matches the app version
+        run: |
+          set -euo pipefail
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' PDFReaderApp/Info.plist)
+          test "$GITHUB_REF_NAME" = "v$version" || {
+            echo "Tag $GITHUB_REF_NAME does not match app version $version" >&2
+            exit 1
+          }
+
+      - name: Run tests
+        run: swift test
+
       - name: Build and package
         id: pkg
         run: |
-          set -o pipefail
+          set -euo pipefail
           Tools/package_release.sh | tee -a "$GITHUB_OUTPUT"
+
+      - name: Stage draft GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${{ steps.pkg.outputs.zip }}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              "${{ steps.pkg.outputs.zip }}" \
+              --title "Modeleaf ${{ steps.pkg.outputs.version }}" \
+              --generate-notes \
+              --draft
+          fi
+
+      - name: Publish Homebrew cask
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ steps.pkg.outputs.version }}
+          SHA256: ${{ steps.pkg.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN" || {
+            echo "HOMEBREW_TAP_TOKEN is required to publish DS-argus/homebrew-tap" >&2
+            exit 1
+          }
+          tap_dir="$RUNNER_TEMP/homebrew-tap"
+          gh repo clone DS-argus/homebrew-tap "$tap_dir"
+          python3 - "$tap_dir/Casks/modeleaf.rb" "$VERSION" "$SHA256" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          path = pathlib.Path(sys.argv[1])
+          version = sys.argv[2]
+          sha256 = sys.argv[3]
+          source = path.read_text()
+          source, version_count = re.subn(r'^  version ".*"$', f'  version "{version}"', source, count=1, flags=re.MULTILINE)
+          source, sha_count = re.subn(r'^  sha256 ".*"$', f'  sha256 "{sha256}"', source, count=1, flags=re.MULTILINE)
+          if version_count != 1 or sha_count != 1:
+              raise SystemExit("Casks/modeleaf.rb does not contain one version and sha256 declaration")
+          path.write_text(source)
+          PY
+          ruby -c "$tap_dir/Casks/modeleaf.rb"
+          git -C "$tap_dir" diff --check
+          if git -C "$tap_dir" diff --quiet; then
+            echo "Homebrew cask already points to $VERSION"
+          else
+            git -C "$tap_dir" config user.name "github-actions[bot]"
+            git -C "$tap_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git -C "$tap_dir" add Casks/modeleaf.rb
+            git -C "$tap_dir" commit -m "modeleaf $VERSION"
+            git -C "$tap_dir" push origin HEAD:main
+          fi
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            "${{ steps.pkg.outputs.zip }}" \
+          set -euo pipefail
+          gh release edit "$GITHUB_REF_NAME" \
             --title "Modeleaf ${{ steps.pkg.outputs.version }}" \
-            --generate-notes
+            --draft=false
 
-      - name: Cask update reminder
+      - name: Release receipt
         run: |
-          echo "::notice title=Homebrew cask::Bump DS-argus/homebrew-tap Casks/modeleaf.rb -> version ${{ steps.pkg.outputs.version }}, sha256 ${{ steps.pkg.outputs.sha256 }}"
+          echo "Released Modeleaf ${{ steps.pkg.outputs.version }}"
+          echo "Homebrew SHA-256: ${{ steps.pkg.outputs.sha256 }}"

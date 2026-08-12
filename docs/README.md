@@ -41,7 +41,14 @@ open "$APP"
 brew upgrade --cask modeleaf
 ```
 
-탭은 자동 갱신되며, 강제하려면 먼저 `brew update`를 실행하세요. Modeleaf는 실행 시 GitHub Releases를 확인해 새 버전이 있으면 상태 표시줄에 알림을 보여줍니다 — Homebrew 설치본에는 업그레이드 명령을 안내하고, 그 외에는 클릭 시 Releases 페이지를 엽니다. 오프라인이면 조용히 넘어가며, 앱이 스스로 업데이트하지는 않습니다.
+Homebrew는 일반적으로 로컬 갱신 주기에 따라 업그레이드 전에 설치된 tap을 갱신합니다. Modeleaf가 새 릴리스를 알렸는데도 Homebrew가 이미 최신 버전이라고 한다면 tap 메타데이터를 강제로 갱신한 뒤 다시 업그레이드하세요.
+
+```sh
+brew update --force
+brew upgrade --cask modeleaf
+```
+
+Modeleaf는 실행 시 GitHub Releases를 확인하고 Homebrew 설치본에는 이 확실한 두 단계 명령을 안내합니다. 수동 설치본은 Releases 페이지를 엽니다. 오프라인이면 조용히 넘어가며, 앱이 스스로 업데이트하지는 않습니다.
 
 ## 사용법
 

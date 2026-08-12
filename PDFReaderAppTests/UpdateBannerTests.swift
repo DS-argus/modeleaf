@@ -12,7 +12,7 @@ struct UpdateBannerTests {
         bar.apply(theme: AppKitTheme(themeID: .tokyoNight))
         #expect(bar.updateText == nil)
 
-        let text = "\u{2191} Modeleaf 0.3.0 available \u{2014} brew upgrade --cask modeleaf"
+        let text = "\u{2191} Modeleaf 0.3.0 available \u{2014} brew update --force && brew upgrade --cask modeleaf"
         bar.presentUpdate(text)
         #expect(bar.updateText == text)
 
@@ -36,7 +36,7 @@ struct UpdateBannerTests {
     func unambiguousLayout() {
         let bar = StatusBarView(frame: NSRect(x: 0, y: 0, width: 480, height: 24))
         bar.apply(theme: AppKitTheme(themeID: .tokyoNight))
-        bar.presentUpdate("\u{2191} Modeleaf 0.3.0 available \u{2014} brew upgrade --cask modeleaf")
+        bar.presentUpdate("\u{2191} Modeleaf 0.3.0 available \u{2014} brew update --force && brew upgrade --cask modeleaf")
         bar.layoutSubtreeIfNeeded()
         #expect(!bar.hasAmbiguousLayout)
     }

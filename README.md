@@ -41,7 +41,14 @@ For development, `swift run Modeleaf` also works but is an unoptimized build and
 brew upgrade --cask modeleaf
 ```
 
-Homebrew refreshes the tap on its own; run `brew update` first to force it. Modeleaf also checks GitHub Releases at launch: when a newer version exists, the status bar shows an update notice — for a Homebrew install it names the upgrade command, otherwise clicking it opens the Releases page. The check is silent when offline, and the app never updates itself.
+Homebrew normally refreshes installed taps before upgrades, subject to its local update interval. If Modeleaf reports a new release but Homebrew says the installed version is already current, force-refresh the tap metadata and retry:
+
+```sh
+brew update --force
+brew upgrade --cask modeleaf
+```
+
+Modeleaf checks GitHub Releases at launch and shows this reliable two-command fallback for Homebrew installs. Manual installs open the Releases page instead. The check is silent when offline, and the app never updates itself.
 
 ## Using it
 
