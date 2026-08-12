@@ -85,7 +85,7 @@ struct BuiltInDefaultsTests {
         #expect(config.navigation.smallScrollPoints == 32.0)
         #expect(config.navigation.largeScrollViewportFraction == 0.8)
         #expect(config.navigation.zoomFactor == 1.10)
-        #expect(config.input.prefixTimeoutMilliseconds == 800)
+        #expect(config.input.prefixTimeoutMilliseconds == 400)
         #expect(ConfigBounds.smallScrollPoints == 1.0...512.0)
         #expect(ConfigBounds.largeScrollViewportFraction == 0.1...2.0)
         #expect(ConfigBounds.zoomFactor == 1.01...2.0)

@@ -124,6 +124,44 @@ struct ReaderSessionTests {
         }
     }
 
+    @Test("first-page jump uses the continuous viewport when PDFKit currentPage is stale")
+    func firstPageJumpAfterContinuousScrolling() throws {
+        try withSession(pageCount: 3) { session, _ in
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 720, height: 480),
+                styleMask: [.titled],
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = session.contentView
+            session.contentView.frame = window.contentLayoutRect
+            session.contentView.layoutSubtreeIfNeeded()
+
+            let view = try #require(descendantPDFViews(in: session.contentView).only)
+            view.layoutDocumentView()
+            let initial = try #require(session.duplicationSnapshot?.navigation)
+            #expect(session.currentPageNumber == 1)
+            #expect(session.goToFirstPage())
+            #expect(!session.canGoBack)
+
+            for _ in 0..<4 {
+                session.moveVertically(byPoints: 48)
+            }
+            view.layoutDocumentView()
+            let scrolled = try #require(session.duplicationSnapshot?.navigation)
+            #expect(session.currentPageNumber == 1)
+            #expect(!scrolled.isSameLocation(as: initial))
+
+            #expect(session.goToFirstPage())
+            let firstPageLanding = try #require(session.duplicationSnapshot?.navigation)
+            #expect(firstPageLanding.isSameLocation(as: initial))
+            #expect(session.canGoBack)
+            #expect(session.goBack() == .verifiedLanding)
+            let restored = try #require(session.duplicationSnapshot?.navigation)
+            #expect(restored.isSameLocation(as: scrolled))
+        }
+    }
+
     @Test("I-PDF-04 manual, actual-size, fit-width, and fit-page are distinct view states")
     func zoomAndFitStates() throws {
         try withSession(pageCount: 2) { session, _ in
