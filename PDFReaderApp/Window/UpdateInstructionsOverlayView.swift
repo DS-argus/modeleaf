@@ -6,7 +6,7 @@ final class UpdateInstructionsOverlayView: NSView {
     private enum Metrics { static let width: CGFloat = 388 }
     private static let homebrewCommand = "brew upgrade --cask modeleaf"
     private static let reliableHomebrewCommand = "brew update --force && brew upgrade --cask modeleaf"
-    private static let homebrewKeyHintText = "↩  Copy commands    o  Open Releases    Esc  Close"
+    private static let homebrewKeyHintText = "↩  Copy command    o  Open Releases    Esc  Close"
     private static let manualKeyHintText = "↩  Copy Releases URL    o  Open Releases    Esc  Close"
     private static let shortcutLabels = ["↩", "o", "Esc"]
 
@@ -25,7 +25,7 @@ final class UpdateInstructionsOverlayView: NSView {
     private let fallbackCaption = NSTextField(labelWithString: "")
     private let fallbackCommand = UpdateCommandBlockView()
     private let copiedLabel = NSTextField(labelWithString: "")
-    private let copyButton = NSButton(title: "Copy Commands", target: nil, action: nil)
+    private let copyButton = NSButton(title: "Copy Command", target: nil, action: nil)
     private let releasesButton = NSButton(title: "Open Releases", target: nil, action: nil)
     private let keyHintLabel = NSTextField(labelWithString: UpdateInstructionsOverlayView.homebrewKeyHintText)
     private var source = InstallSource.homebrew
@@ -142,7 +142,7 @@ final class UpdateInstructionsOverlayView: NSView {
             fallbackCommand.render(Self.reliableHomebrewCommand)
             fallbackCaption.isHidden = false
             fallbackCommand.isHidden = false
-            copyButton.title = "Copy Commands"
+            copyButton.title = "Copy Command"
         case .manual:
             primaryCaption.stringValue = "Download the latest build from GitHub Releases"
             primaryCommand.render("github.com/DS-argus/modeleaf/releases/latest")
@@ -193,7 +193,7 @@ final class UpdateInstructionsOverlayView: NSView {
 
     @objc private func copyCommands() {
         let value = source == .homebrew
-            ? Self.reliableHomebrewCommand
+            ? Self.homebrewCommand
             : UpdateChecker.releasesPage.absoluteString
         copyHandler(value)
         copiedLabel.stringValue = "Copied"

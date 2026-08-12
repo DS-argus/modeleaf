@@ -54,7 +54,7 @@ struct UpdateBannerTests {
         #expect(InstallSourceDetector.detect(bundleURL: URL(fileURLWithPath: "/opt/homebrew/Caskroom/other/Modeleaf.app")) == .manual)
     }
 
-    @Test("Homebrew update popup copies reliable commands and keeps the popup open")
+    @Test("Homebrew update popup copies the normal command and keeps the popup open")
     func homebrewInstructions() throws {
         let overlay = UpdateInstructionsOverlayView()
         overlay.apply(theme: AppKitTheme(themeID: .tokyoNight))
@@ -67,10 +67,10 @@ struct UpdateBannerTests {
             "brew update --force && brew upgrade --cask modeleaf",
         ])
         overlay.copyForTesting()
-        #expect(copied == ["brew update --force && brew upgrade --cask modeleaf"])
+        #expect(copied == ["brew upgrade --cask modeleaf"])
         #expect(overlay.copiedMessageForTesting == "Copied")
         #expect(!overlay.isHidden)
-        #expect(overlay.keyHintForTesting.string.contains("Copy commands"))
+        #expect(overlay.keyHintForTesting.string.contains("Copy command"))
     }
 
     @Test("manual update popup routes to Releases and escape closes through its owner")
@@ -131,7 +131,7 @@ struct UpdateBannerTests {
         overlay.present(update: AvailableUpdate(version: try #require(AppVersion("0.9.0")), source: .homebrew))
 
         #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "\r", keyCode: 36))))
-        #expect(copied == ["brew update --force && brew upgrade --cask modeleaf"])
+        #expect(copied == ["brew upgrade --cask modeleaf"])
         #expect(overlay.copiedMessageForTesting == "Copied")
         #expect(!overlay.isHidden)
         #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "o", keyCode: 31))))
