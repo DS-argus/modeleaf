@@ -1,6 +1,15 @@
 import AppKit
 import PDFReaderCore
 
+private func openGoogleScholarSearch(_ text: String) {
+    guard let url = googleScholarSearchURL(for: text) else { return }
+    NSWorkspace.shared.open(url)
+}
+func googleScholarSearchURL(for text: String) -> URL? {
+    var components = URLComponents(string: "https://scholar.google.com/scholar")
+    components?.queryItems = [URLQueryItem(name: "q", value: text)]
+    return components?.url
+}
 @MainActor
 final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let coordinator: PaneCoordinator
@@ -24,6 +33,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let recentClearHandler: () -> RecentFilesPersist
     private var installedKeyViewLoop: [NSView] = []
     private let configFileURLProvider: () -> URL
+    private let citationSearchHandler: (String) -> Void
     let rootView: ReaderRootView
 
     init(
@@ -42,12 +52,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         recentOpenHandler: @escaping (String) -> Void = { _ in },
         recentPruneHandler: @escaping (String) -> RecentFilesPersist = { _ in .persisted },
         recentClearHandler: @escaping () -> RecentFilesPersist = { .persisted },
+        citationSearchHandler: @escaping (String) -> Void = openGoogleScholarSearch,
         configFileURLProvider: @escaping () -> URL = { ConfigFileSource.defaultURL() }
     ) {
         self.browseHandler = browseHandler
         self.recentFilesProvider = recentFilesProvider
         self.recentOpenHandler = recentOpenHandler
         self.recentPruneHandler = recentPruneHandler
+        self.citationSearchHandler = citationSearchHandler
         self.configFileURLProvider = configFileURLProvider
         self.recentClearHandler = recentClearHandler
         self.coordinator = coordinator
@@ -89,11 +101,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window.delegate = self
         window.mouseDownHandler = { [weak self] event in
             guard let self else { return }
+            if !self.rootView.citationPreviewOverlay.isHidden {
+                if self.rootView.citationPreviewOverlay.containsCard(atWindowPoint: event.locationInWindow) { return }
+                self.dismissCitationPreviewAndRestoreFocus()
+            }
             self.dismissLinkHintsAndRestoreFocus()
             guard self.rootView.helpOverlay.isHidden else { return }
             self.rootView.activatePane(atWindowPoint: event.locationInWindow)
         }
-        window.geometryEventHandler = { [weak self] in self?.dismissLinkHintsAndRestoreFocus() }
+        window.geometryEventHandler = { [weak self] in self?.dismissLinkHintsAndCitationPreviewAndRestoreFocus() }
         rootView.apply(theme: theme)
         rootView.setInputContext(.navigation)
         rootView.statusBar.onHelpTap = { [weak self] in self?.presentHelp() }
@@ -159,10 +175,23 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         beginTransientOverlay()
         let sessionID = session.id
         rootView.linkHintOverlay.onCommit = { [weak self, weak provider] index in
-            guard let self, self.coordinator.snapshot.activeID == sessionID, displayed.indices.contains(index) else { return }
-            let target = displayed[index].link.target
-            self.dismissLinkHintsAndRestoreFocus()
-            provider?.activateLink(target)
+            guard let self, let provider,
+                  self.coordinator.snapshot.activeID == sessionID,
+                  displayed.indices.contains(index)
+            else { return }
+            let selected = displayed[index]
+            switch provider.resolveLinkHint(selected.link) {
+            case let .activate(target):
+                self.dismissLinkHintsAndRestoreFocus()
+                provider.activateLink(target)
+            case let .preview(group):
+                self.presentCitationPreview(
+                    group,
+                    anchorRect: selected.rects.first ?? .zero,
+                    sessionID: sessionID,
+                    provider: provider
+                )
+            }
         }
         rootView.linkHintOverlay.onDismiss = { [weak self] in self?.dismissLinkHintsAndRestoreFocus() }
         rootView.linkHintOverlay.present(
@@ -178,6 +207,46 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.linkHintOverlay.onDismiss = nil
         restoreTransientInputContext()
         focusActiveSurface(snapshot: coordinator.snapshot)
+    }
+    private func presentCitationPreview(
+        _ group: CitationPreviewGroup,
+        anchorRect: CGRect,
+        sessionID: TabID,
+        provider: any ReaderLinkProviding
+    ) {
+        dismissLinkHintsAndRestoreFocus()
+        guard coordinator.snapshot.activeID == sessionID else { return }
+        beginTransientOverlay()
+        rootView.citationPreviewOverlay.onCommit = { [weak self, weak provider] item in
+            guard let self, self.coordinator.snapshot.activeID == sessionID else { return }
+            self.dismissCitationPreviewAndRestoreFocus()
+            provider?.activateLink(item.destination)
+        }
+        rootView.citationPreviewOverlay.onSearch = { [weak self] item in
+            guard let self, self.coordinator.snapshot.activeID == sessionID else { return }
+            self.dismissCitationPreviewAndRestoreFocus()
+            self.citationSearchHandler(item.referenceText)
+        }
+        rootView.citationPreviewOverlay.onDismiss = { [weak self] in
+            self?.dismissCitationPreviewAndRestoreFocus()
+        }
+        rootView.citationPreviewOverlay.present(group: group, anchorRect: anchorRect)
+        window?.makeFirstResponder(rootView.citationPreviewOverlay)
+    }
+
+    func dismissCitationPreviewAndRestoreFocus() {
+        guard !rootView.citationPreviewOverlay.isHidden else { return }
+        rootView.citationPreviewOverlay.dismiss()
+        rootView.citationPreviewOverlay.onCommit = nil
+        rootView.citationPreviewOverlay.onDismiss = nil
+        rootView.citationPreviewOverlay.onSearch = nil
+        restoreTransientInputContext()
+        focusActiveSurface(snapshot: coordinator.snapshot)
+    }
+
+    private func dismissLinkHintsAndCitationPreviewAndRestoreFocus() {
+        dismissLinkHintsAndRestoreFocus()
+        dismissCitationPreviewAndRestoreFocus()
     }
 
     func presentThemePicker() {
@@ -222,6 +291,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if !rootView.helpOverlay.isHidden { dismissHelpOverlayAndRestoreFocus() }
         if !rootView.themePickerOverlay.isHidden { cancelThemePickerAndRestoreFocus() }
         if !rootView.recentFilesOverlay.isHidden { dismissRecentFilesOverlayAndRestoreFocus() }
+        dismissCitationPreviewAndRestoreFocus()
         dismissLinkHintsAndRestoreFocus()
         preservesTransientInputContext = false
         if restoringContext { restoreTransientInputContext() }
@@ -444,6 +514,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     @discardableResult
     private func routeKeyEvent(_ event: NSEvent) -> Bool {
+        if !rootView.citationPreviewOverlay.isHidden, rootView.citationPreviewOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
         if !rootView.linkHintOverlay.isHidden, rootView.linkHintOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
         if !rootView.commandPaletteOverlay.isHidden, rootView.commandPaletteOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
         if !rootView.recentFilesOverlay.isHidden, rootView.recentFilesOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
@@ -467,13 +538,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var isTransientModalRoutingActive: Bool {
         !rootView.commandPaletteOverlay.isHidden || !rootView.recentFilesOverlay.isHidden ||
             !rootView.helpOverlay.isHidden || !rootView.themePickerOverlay.isHidden ||
-            !rootView.linkHintOverlay.isHidden || !rootView.promptOverlay.isHidden
+            !rootView.linkHintOverlay.isHidden || !rootView.citationPreviewOverlay.isHidden || !rootView.promptOverlay.isHidden
     }
 
     private var suppressesDocumentKeyDispatch: Bool {
         !rootView.commandPaletteOverlay.isHidden || !rootView.recentFilesOverlay.isHidden ||
             !rootView.helpOverlay.isHidden || !rootView.themePickerOverlay.isHidden ||
-            !rootView.linkHintOverlay.isHidden
+            !rootView.linkHintOverlay.isHidden || !rootView.citationPreviewOverlay.isHidden
     }
 
     private func beginTransientOverlay() {
@@ -489,6 +560,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.setInputContext(context)
     }
     func windowDidBecomeKey(_ notification: Notification) {
+        if !rootView.citationPreviewOverlay.isHidden {
+            window?.makeFirstResponder(rootView.citationPreviewOverlay)
+            return
+        }
         if !rootView.commandPaletteOverlay.isHidden {
             window?.makeFirstResponder(rootView.commandPaletteOverlay)
             return
@@ -512,7 +587,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowDidResignKey(_ notification: Notification) {
-        dismissLinkHintsAndRestoreFocus()
+        dismissLinkHintsAndCitationPreviewAndRestoreFocus()
         inputRouter.invalidate(.focusLost)
         if rootView.themePickerOverlay.isHidden {
             rootView.promptOverlay.setFocusAppearance(false)
@@ -522,11 +597,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowDidResize(_ notification: Notification) {
-        dismissLinkHintsAndRestoreFocus()
+        dismissLinkHintsAndCitationPreviewAndRestoreFocus()
     }
 
     private func refresh(snapshot: PaneCoordinatorSnapshot) {
-        dismissLinkHintsAndRestoreFocus()
+        dismissLinkHintsAndCitationPreviewAndRestoreFocus()
         let dismissStagedPrompt = promptCloseProjection.map {
             $0.layout == snapshot.layout && $0.paneID == snapshot.activePaneID && $0.tabID == snapshot.activeID
         } ?? false

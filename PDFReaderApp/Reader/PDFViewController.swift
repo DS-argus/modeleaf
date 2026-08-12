@@ -24,6 +24,7 @@ enum NavigationRestoreOutcome: Equatable, Sendable {
     case uncompensatedInvariantFailure(actualLanding: NavigationSnapshot?)
 }
 @MainActor
+@MainActor
 final class PDFViewController: NSViewController {
     private let readerView: ReaderPDFView
     private let initialDocument: PDFDocument
@@ -41,6 +42,9 @@ final class PDFViewController: NSViewController {
     private var activeSearchIndex: Int?
     private var internalLinkHandler: ((ReaderLinkTarget) -> Void)?
     private var navigationSnapshotCaptureOverride: (() -> NavigationSnapshot?)?
+    private lazy var citationPreviewResolver = CitationPreviewResolver(document: initialDocument)
+    private let linkDestinationIndicator = LinkDestinationIndicatorView(frame: .zero)
+    private var linkDestinationIndicatorAccent: NSColor
 
     init(document: PDFDocument, traceID: OpenTraceID, metrics: any PDFOpenMetrics) {
         self.initialDocument = document
@@ -50,6 +54,7 @@ final class PDFViewController: NSViewController {
         let defaultTheme = AppKitTheme(themeID: .tokyoNight)
         self.canvasBackground = defaultTheme.canvasBackground
         self.focusIndicator = defaultTheme.focusRing
+        self.linkDestinationIndicatorAccent = defaultTheme[.accent]
         super.init(nibName: nil, bundle: nil)
         readerView.applyCanvasBackground(canvasBackground)
         readerView.applyFocusIndicator(focusIndicator)
@@ -69,11 +74,17 @@ final class PDFViewController: NSViewController {
 
         readerView.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(readerView)
+        linkDestinationIndicator.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(linkDestinationIndicator)
         NSLayoutConstraint.activate([
             readerView.topAnchor.constraint(equalTo: container.topAnchor),
             readerView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             readerView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             readerView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            linkDestinationIndicator.topAnchor.constraint(equalTo: container.topAnchor),
+            linkDestinationIndicator.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            linkDestinationIndicator.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            linkDestinationIndicator.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
         readerView.displayMode = .singlePageContinuous
         readerView.autoScales = true
@@ -88,25 +99,17 @@ final class PDFViewController: NSViewController {
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        cancelLinkDestinationIndicator()
         applyInitialPresentationIfReady()
     }
-
-    var focusView: NSView {
-        loadViewIfNeeded()
-        return readerView
     }
 
-    var pageCount: Int { initialDocument.pageCount }
-
-    var currentPageNumber: Int? {
-        loadViewIfNeeded()
-        guard let page = readerView.currentPage else { return nil }
-        return initialDocument.index(for: page) + 1
+    var isLinkDestinationIndicatorVisibleForTesting: Bool {
+        linkDestinationIndicator.isVisibleForTesting
     }
 
-    var scaleFactor: CGFloat {
-        loadViewIfNeeded()
-        return readerView.scaleFactor
+    var linkDestinationIndicatorCenterForTesting: NSPoint? {
+        linkDestinationIndicator.centerForTesting
     }
 
     var usesSinglePageLayout: Bool {
@@ -503,6 +506,9 @@ extension PDFViewController: ReaderLinkProviding, ReaderPDFViewInternalLinkHandl
             }
         }
     }
+    func resolveLinkHint(_ link: ReaderLink) -> LinkHintResolution {
+        citationPreviewResolver.resolve(link)
+    }
     func activateLink(_ target: ReaderLinkTarget) { loadViewIfNeeded(); readerView.activate(target) }
     func setInternalLinkHandler(_ handler: ((ReaderLinkTarget) -> Void)?) { internalLinkHandler = handler }
     func linkHintRects(for link: ReaderLink, in coordinateSpace: NSView) -> [NSRect] {
@@ -517,6 +523,7 @@ extension PDFViewController: ReaderLinkProviding, ReaderPDFViewInternalLinkHandl
     private static func isLink(_ annotation: PDFAnnotation) -> Bool { annotation.type == "Link" || annotation.action != nil || annotation.url != nil }
     private static func linkTarget(_ annotation: PDFAnnotation) -> ReaderLinkTarget? {
         if let goTo = annotation.action as? PDFActionGoTo { let destination = goTo.destination; guard let page = destination.page, let document = page.document else { return nil }; return .goTo(pageIndex: document.index(for: page), point: destination.point) }
+        if let destination = annotation.destination { guard let page = destination.page, let document = page.document else { return nil }; return .goTo(pageIndex: document.index(for: page), point: destination.point) }
         if let action = annotation.action as? PDFActionURL, let url = action.url { return .url(url.absoluteString) }
         if let url = annotation.url { return .url(url.absoluteString) }
         return nil

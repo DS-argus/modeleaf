@@ -320,6 +320,71 @@ public enum PDFFixtureFactory {
     }
 
     @discardableResult
+    public static func makeCitationPreviewPDF(
+        in directory: URL,
+        name: String = "citation-preview.pdf"
+    ) throws -> URL {
+        let sourceURL = directory.appendingPathComponent("citation-preview-source-\(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: sourceURL) }
+        guard let consumer = CGDataConsumer(url: sourceURL as CFURL) else {
+            throw PDFFixtureError.couldNotCreateConsumer
+        }
+        var mediaBox = CGRect(x: 0, y: 0, width: 612, height: 792)
+        guard let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else {
+            throw PDFFixtureError.couldNotCreateContext
+        }
+        let font = CTFontCreateWithName("Menlo" as CFString, 14, nil)
+        let attributes: [NSAttributedString.Key: Any] = [
+            NSAttributedString.Key(kCTFontAttributeName as String): font,
+            NSAttributedString.Key(kCTForegroundColorAttributeName as String): NSColor.black.cgColor,
+        ]
+        let sourceText = "Evidence [3, 4, 5] supports this result."
+        context.beginPDFPage(nil)
+        context.textMatrix = .identity
+        context.textPosition = CGPoint(x: 48, y: 700)
+        CTLineDraw(CTLineCreateWithAttributedString(NSAttributedString(string: sourceText, attributes: attributes)), context)
+        context.endPDFPage()
+
+        context.beginPDFPage(nil)
+        for (text, y) in [
+            ("[3] Ada Author. First verified reference.", CGFloat(700)),
+            ("[4] Ben Author. Second verified reference.", CGFloat(660)),
+            ("[5] Cy Author. Third verified reference.", CGFloat(620)),
+        ] {
+            context.textPosition = CGPoint(x: 48, y: y)
+            CTLineDraw(CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes)), context)
+        }
+        context.endPDFPage()
+        context.closePDF()
+
+        guard let document = PDFDocument(url: sourceURL),
+              let sourcePage = document.page(at: 0),
+              let destinationPage = document.page(at: 1)
+        else { throw PDFFixtureError.couldNotOpenGeneratedDocument }
+        let sourceLine = CTLineCreateWithAttributedString(NSAttributedString(string: sourceText, attributes: attributes))
+        let nsSource = sourceText as NSString
+        for (marker, destinationY) in [(3, CGFloat(700)), (4, CGFloat(660)), (5, CGFloat(620))] {
+            let markerRange = nsSource.range(of: String(marker))
+            let start = CTLineGetOffsetForStringIndex(sourceLine, markerRange.location, nil)
+            let end = CTLineGetOffsetForStringIndex(sourceLine, markerRange.location + markerRange.length, nil)
+            let annotation = PDFAnnotation(
+                bounds: CGRect(x: 48 + start - 1, y: 697, width: max(8, end - start + 2), height: 18),
+                forType: .link,
+                withProperties: nil
+            )
+            annotation.action = PDFActionGoTo(
+                destination: PDFDestination(page: destinationPage, at: CGPoint(x: 48, y: destinationY + 4))
+            )
+            sourcePage.addAnnotation(annotation)
+        }
+        let outputURL = directory.appendingPathComponent(name)
+        guard document.write(to: outputURL), PDFDocument(url: outputURL) != nil else {
+            throw PDFFixtureError.couldNotWriteDocument
+        }
+        return outputURL
+    }
+
+    @discardableResult
     public static func makePerformancePDF(
         _ kind: PerformancePDFFixtureKind,
         in directory: URL

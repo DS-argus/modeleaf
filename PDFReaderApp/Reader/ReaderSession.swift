@@ -695,6 +695,10 @@ extension ReaderSession: ReaderLinkProviding {
         return viewController.linkTargets()
     }
 
+    func resolveLinkHint(_ link: ReaderLink) -> LinkHintResolution {
+        guard !isClosed else { return .activate(link.target) }
+        return viewController.resolveLinkHint(link)
+    }
     func activateLink(_ target: ReaderLinkTarget) {
         guard !isClosed else { return }
         viewController.activateLink(target)
