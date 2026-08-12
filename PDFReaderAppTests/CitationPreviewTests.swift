@@ -276,6 +276,72 @@ struct CitationPreviewTests {
         #expect(try PDFFixtureFactory.sha256(of: url) == before)
     }
 
+    @Test("ICML two-column bibliography candidates preserve left and right entries without cross-column mixing")
+    func icmlTwoColumnDestinationContract() throws {
+        let fixtures: [(path: String, source: String, expected: String, rejectedNeighbor: String)] = [
+            (
+                "test-pdf/citation-annotation-corpus/ICML/2022-pac-bayesian-rate-efficient.pdf",
+                "James",
+                "James, G. M. Majority vote classifiers: theory and applica- tions. Stanford University, 1998.",
+                "Vidot, E."
+            ),
+            (
+                "test-pdf/citation-annotation-corpus/ICML/2022-pac-bayesian-rate-efficient.pdf",
+                "Pradhan et al.",
+                "Pradhan, S. S., Kusuma, J., and Ramchandran, K. Dis- tributed compression in a dense microsensor network. IEEE Signal Processing Magazine, 19(2):51–60, 2002.",
+                "Germain, P."
+            ),
+            (
+                "test-pdf/citation-annotation-corpus/ICML/2023-clusterfug.pdf",
+                "Hu",
+                "Hu, T. C. Multi-commodity network flows. Operations",
+                "Bailoni, A."
+            ),
+        ]
+        guard fixtures.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) else { return }
+
+        for fixture in fixtures {
+            let url = URL(fileURLWithPath: fixture.path)
+            let before = try PDFFixtureFactory.sha256(of: url)
+            let document = try #require(PDFDocument(url: url))
+            let destination = try #require(goToDestination(sourceText: fixture.source, in: document))
+            let page = try #require(destination.page)
+            let candidates = CitationReferenceEntryExtractor.candidates(
+                destinationPoint: destination.point,
+                on: page
+            )
+            let selected = try #require(CitationReferenceEntryExtractor.entry(
+                destinationPoint: destination.point,
+                on: page
+            ))
+            #expect(selected.rawText.hasPrefix(fixture.expected))
+            #expect(!selected.rawText.contains(fixture.rejectedNeighbor))
+            let exact = try #require(candidates.first { $0.rawText.hasPrefix(fixture.expected) })
+            #expect(!exact.rawText.contains(fixture.rejectedNeighbor))
+            #expect(Set(candidates.map(\.columnIndex)) == [0, 1])
+            #expect(try PDFFixtureFactory.sha256(of: url) == before)
+        }
+    }
+
+    @Test("column detector requires repeated bilateral line geometry")
+    func columnDetectorContract() {
+        let page = CGRect(x: 0, y: 0, width: 600, height: 800)
+        let singleColumn = [
+            CitationTextLine(text: "one", bounds: CGRect(x: 100, y: 700, width: 390, height: 10)),
+            CitationTextLine(text: "two", bounds: CGRect(x: 100, y: 680, width: 390, height: 10)),
+            CitationTextLine(text: "three", bounds: CGRect(x: 100, y: 660, width: 390, height: 10)),
+        ]
+        #expect(CitationReferenceEntryExtractor.layout(of: singleColumn, pageBounds: page) == .singleColumn)
+
+        let twoColumn = (0..<4).flatMap { row in
+            let y = CGFloat(700 - (row * 20))
+            return [
+                CitationTextLine(text: "left", bounds: CGRect(x: 50, y: y, width: 230, height: 10)),
+                CitationTextLine(text: "right", bounds: CGRect(x: 320, y: y, width: 230, height: 10)),
+            ]
+        }
+        #expect(CitationReferenceEntryExtractor.layout(of: twoColumn, pageBounds: page) == .twoColumns(splitX: 300))
+    }
     private func openCitationPreview(
         controller: MainWindowController,
         session: ReaderSession,
@@ -296,6 +362,18 @@ struct CitationPreviewTests {
         #expect(!controller.rootView.citationPreviewOverlay.isHidden)
     }
 
+    private func goToDestination(sourceText: String, in document: PDFDocument) -> PDFDestination? {
+        for pageIndex in 0..<document.pageCount {
+            guard let page = document.page(at: pageIndex) else { continue }
+            for annotation in page.annotations {
+                guard let action = annotation.action as? PDFActionGoTo else { continue }
+                let text = (page.selection(for: annotation.bounds)?.string ?? "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if text == sourceText { return action.destination }
+            }
+        }
+        return nil
+    }
     private func allLinks(in document: PDFDocument) -> [ReaderLink] {
         (0..<document.pageCount).flatMap { index -> [ReaderLink] in
             guard let page = document.page(at: index) else { return [] }

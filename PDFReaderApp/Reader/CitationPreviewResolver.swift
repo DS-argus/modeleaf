@@ -108,6 +108,131 @@ enum CitationReferenceExtractor {
     }
 }
 
+enum CitationReferencePageLayout: Equatable {
+    case singleColumn
+    case twoColumns(splitX: CGFloat)
+}
+
+struct CitationReferenceEntryCandidate: Equatable {
+    let columnIndex: Int
+    let lines: [CitationTextLine]
+    let rawText: String
+}
+
+enum CitationReferenceEntryExtractor {
+    private static let baselineTolerance: CGFloat = 2
+    private static let startIndentTolerance: CGFloat = 4
+    private static let destinationTolerance: CGFloat = 36
+
+    static func layout(of lines: [CitationTextLine], pageBounds: CGRect) -> CitationReferencePageLayout {
+        let midpoint = pageBounds.midX
+        let usable = lines.filter { $0.bounds.width >= 20 && $0.bounds.height <= 24 }
+        let left = usable.filter { $0.bounds.midX < midpoint && $0.bounds.maxX <= midpoint + 4 }
+        let right = usable.filter { $0.bounds.midX >= midpoint && $0.bounds.minX >= midpoint - 4 }
+        guard left.count >= 3, right.count >= 3 else { return .singleColumn }
+        let pairedBaselines = left.reduce(into: 0) { count, lhs in
+            if right.contains(where: { abs($0.bounds.midY - lhs.bounds.midY) <= baselineTolerance }) {
+                count += 1
+            }
+        }
+        guard pairedBaselines >= 3 else { return .singleColumn }
+        return .twoColumns(splitX: midpoint)
+    }
+
+    static func numericEntry(marker: Int, destinationPoint: CGPoint, on page: PDFPage) -> String? {
+        let lines = pageLines(on: page)
+        let columns = columnLines(lines, pageBounds: page.bounds(for: .cropBox))
+        let minimumY = destinationPoint.y - 220
+        let maximumY = destinationPoint.y + 48
+        let matches = columns.compactMap { column -> String? in
+            let nearby = column.filter { $0.bounds.maxY >= minimumY && $0.bounds.minY <= maximumY }
+            return CitationReferenceExtractor.extract(marker: marker, from: nearby)
+        }
+        return matches.count == 1 ? matches[0] : nil
+    }
+
+    static func entry(destinationPoint: CGPoint, on page: PDFPage) -> CitationReferenceEntryCandidate? {
+        let matches = candidates(destinationPoint: destinationPoint, on: page)
+            .map { candidate in
+                let origin = candidate.lines.map { $0.bounds.minX }.min() ?? .greatestFiniteMagnitude
+                return (candidate: candidate, distance: abs(origin - destinationPoint.x))
+            }
+            .sorted { $0.distance < $1.distance }
+        guard let first = matches.first else { return nil }
+        if matches.count > 1, abs(matches[1].distance - first.distance) < 4 { return nil }
+        return first.candidate
+    }
+
+    static func candidates(destinationPoint: CGPoint, on page: PDFPage) -> [CitationReferenceEntryCandidate] {
+        let lines = pageLines(on: page)
+        return columnLines(lines, pageBounds: page.bounds(for: .cropBox)).enumerated().compactMap { index, column in
+            let physicalLines = mergeFragmentsOnBaselines(column)
+            guard let origin = physicalLines.map({ $0.bounds.minX }).min() else { return nil }
+            let starts = physicalLines.indices.filter {
+                physicalLines[$0].bounds.minX <= origin + startIndentTolerance
+            }
+            guard let start = starts.min(by: {
+                abs(destinationPoint.y - physicalLines[$0].bounds.maxY)
+                    < abs(destinationPoint.y - physicalLines[$1].bounds.maxY)
+            }), abs(destinationPoint.y - physicalLines[start].bounds.maxY) <= destinationTolerance
+            else { return nil }
+            let next = starts.first(where: { $0 > start }) ?? physicalLines.endIndex
+            let entryLines = Array(physicalLines[start..<next])
+            let rawText = normalized(entryLines.map(\.text).joined(separator: " "))
+            guard !rawText.isEmpty else { return nil }
+            return CitationReferenceEntryCandidate(columnIndex: index, lines: entryLines, rawText: rawText)
+        }
+    }
+
+    private static func pageLines(on page: PDFPage) -> [CitationTextLine] {
+        guard let selection = page.selection(for: page.bounds(for: .cropBox)) else { return [] }
+        return selection.selectionsByLine().compactMap {
+            let text = normalized($0.string ?? "")
+            guard !text.isEmpty else { return nil }
+            return CitationTextLine(text: text, bounds: $0.bounds(for: page))
+        }
+    }
+
+    private static func columnLines(_ lines: [CitationTextLine], pageBounds: CGRect) -> [[CitationTextLine]] {
+        switch layout(of: lines, pageBounds: pageBounds) {
+        case .singleColumn:
+            return [lines]
+        case let .twoColumns(splitX):
+            return [
+                lines.filter { $0.bounds.midX < splitX && $0.bounds.maxX <= splitX + 4 },
+                lines.filter { $0.bounds.midX >= splitX && $0.bounds.minX >= splitX - 4 },
+            ]
+        }
+    }
+
+    private static func mergeFragmentsOnBaselines(_ lines: [CitationTextLine]) -> [CitationTextLine] {
+        let ordered = lines.sorted {
+            if abs($0.bounds.midY - $1.bounds.midY) > baselineTolerance {
+                return $0.bounds.midY > $1.bounds.midY
+            }
+            return $0.bounds.minX < $1.bounds.minX
+        }
+        var merged: [CitationTextLine] = []
+        for line in ordered {
+            if let last = merged.last, abs(last.bounds.midY - line.bounds.midY) <= baselineTolerance {
+                let separator = last.bounds.maxX + 1 < line.bounds.minX ? " " : ""
+                merged[merged.count - 1] = CitationTextLine(
+                    text: normalized(last.text + separator + line.text),
+                    bounds: last.bounds.union(line.bounds)
+                )
+            } else {
+                merged.append(line)
+            }
+        }
+        return merged
+    }
+
+    private static func normalized(_ text: String) -> String {
+        text.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 @MainActor
 final class CitationPreviewResolver {
     private let document: PDFDocument
@@ -205,21 +330,13 @@ final class CitationPreviewResolver {
     }
 
     private func referenceText(marker: Int, point: CGPoint, on page: PDFPage) -> String? {
-        let bounds = page.bounds(for: .cropBox)
         let sentinelThreshold = CGFloat(Float.greatestFiniteMagnitude) / 2
         guard point.y.isFinite, abs(point.y) < sentinelThreshold else { return nil }
-        let minimumY = max(bounds.minY, point.y - 220)
-        let vertical = CGRect(
-            x: bounds.minX + 8,
-            y: minimumY,
-            width: max(1, bounds.width - 16),
-            height: min(268, bounds.maxY - minimumY)
+        return CitationReferenceEntryExtractor.numericEntry(
+            marker: marker,
+            destinationPoint: point,
+            on: page
         )
-        guard let selection = page.selection(for: vertical) else { return nil }
-        let lines = selection.selectionsByLine().map {
-            CitationTextLine(text: $0.string ?? "", bounds: $0.bounds(for: page))
-        }
-        return CitationReferenceExtractor.extract(marker: marker, from: lines)
     }
 
     private static func linkTarget(_ annotation: PDFAnnotation) -> ReaderLinkTarget? {
