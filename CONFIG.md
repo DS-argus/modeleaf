@@ -26,7 +26,7 @@ large_scroll_viewport_fraction = 0.8
 zoom_factor = 1.1
 
 [input]
-prefix_timeout_ms = 800
+prefix_timeout_ms = 400
 prefix = "<C-b>"
 ```
 
@@ -127,7 +127,7 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 - Small scroll: `32 pt` (valid `1...512`).
 - Large scroll: `0.8 × viewport` (valid `0.1...2.0`).
 - Zoom factor: `1.10` (valid `1.01...2.0`).
-- Prefix timeout: `800 ms` (valid `100...2000`).
+- Prefix timeout: `400 ms` (valid `100...2000`).
 - Pane prefix: `<C-b>` (any single key chord; used by `<prefix>` bindings).
 - Themes: `tokyo-night`, `gruvbox-dark`, `solarized-dark`, `dracula`, `everforest`, `nord`, `catppuccin-latte`.
 - Themes are chosen in-app with the theme picker (`T`) and persisted separately. 테마는 앱 내 테마 선택기(`T`)에서 선택하며 별도로 저장됩니다.
@@ -365,7 +365,7 @@ large_scroll_viewport_fraction = 0.8
 zoom_factor = 1.1
 
 [input]
-prefix_timeout_ms = 800
+prefix_timeout_ms = 400
 # Pane prefix chord. Every <prefix> binding above expands to this.
 prefix = "<C-b>"
 ```

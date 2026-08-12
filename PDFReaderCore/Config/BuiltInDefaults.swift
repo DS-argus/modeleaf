@@ -17,7 +17,7 @@ public enum BuiltInDefaults {
             largeScrollViewportFraction: 0.8,
             zoomFactor: 1.10
         ),
-        input: InputConfiguration(prefixTimeoutMilliseconds: 800, prefix: defaultPrefix)
+        input: InputConfiguration(prefixTimeoutMilliseconds: 400, prefix: defaultPrefix)
     )
 
     public static let templatedKeymap: [ActionID: [String]] = [
