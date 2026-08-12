@@ -100,6 +100,7 @@ jobs:
           else
             git -C "$tap_dir" config user.name "github-actions[bot]"
             git -C "$tap_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git -C "$tap_dir" remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/DS-argus/homebrew-tap.git"
             git -C "$tap_dir" add Casks/modeleaf.rb
             git -C "$tap_dir" commit -m "modeleaf $VERSION"
             git -C "$tap_dir" push origin HEAD:main
