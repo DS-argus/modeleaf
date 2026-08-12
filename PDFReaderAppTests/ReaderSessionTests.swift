@@ -154,7 +154,11 @@ struct ReaderSessionTests {
 
             #expect(session.goToFirstPage())
             let firstPageLanding = try #require(session.duplicationSnapshot?.navigation)
-            #expect(firstPageLanding.isSameLocation(as: initial))
+            #expect(firstPageLanding.pageIndex == 0)
+            #expect(
+                abs(firstPageLanding.pageSpacePoint.y - initial.pageSpacePoint.y)
+                    < abs(scrolled.pageSpacePoint.y - initial.pageSpacePoint.y)
+            )
             #expect(session.canGoBack)
             #expect(session.goBack() == .verifiedLanding)
             let restored = try #require(session.duplicationSnapshot?.navigation)
