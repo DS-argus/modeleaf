@@ -456,10 +456,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         guard let availableUpdate else { return }
         dismissAllTransientOverlays(restoringContext: false)
         beginTransientOverlay()
-        rootView.updateInstructionsOverlay.onOpenReleases = { [weak self] in
-            NSWorkspace.shared.open(UpdateChecker.releasesPage)
-            self?.dismissUpdateInstructionsAndRestoreFocus()
-        }
         rootView.updateInstructionsOverlay.onCancel = { [weak self] in
             self?.dismissUpdateInstructionsAndRestoreFocus()
         }
@@ -471,7 +467,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private func dismissUpdateInstructionsAndRestoreFocus() {
         guard !rootView.updateInstructionsOverlay.isHidden else { return }
         rootView.updateInstructionsOverlay.dismiss()
-        rootView.updateInstructionsOverlay.onOpenReleases = nil
         rootView.updateInstructionsOverlay.onCancel = nil
         restoreTransientInputContext()
         rebuildKeyViewLoop(snapshot: coordinator.snapshot)

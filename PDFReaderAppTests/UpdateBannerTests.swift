@@ -3,7 +3,7 @@ import PDFReaderCore
 import Testing
 @testable import PDFReaderApp
 
-@Suite("Update banner UI + source detection")
+@Suite("Update banner UI")
 @MainActor
 struct UpdateBannerTests {
     @Test("presenting an update shows the banner text; clearing removes it")
@@ -46,13 +46,6 @@ struct UpdateBannerTests {
         #expect(bar.updateToolTipForTesting == text)
     }
 
-    @Test("install source follows the running bundle rather than stale Caskroom state")
-    func installSource() {
-        #expect(InstallSourceDetector.detect(bundleURL: URL(fileURLWithPath: "/Applications/Modeleaf.app")) == .manual)
-        #expect(InstallSourceDetector.detect(bundleURL: URL(fileURLWithPath: "/opt/homebrew/Caskroom/modeleaf/0.9.0/Modeleaf.app")) == .homebrew)
-        #expect(InstallSourceDetector.detect(bundleURL: URL(fileURLWithPath: "/usr/local/Caskroom/modeleaf/0.9.0/Modeleaf.app")) == .homebrew)
-        #expect(InstallSourceDetector.detect(bundleURL: URL(fileURLWithPath: "/opt/homebrew/Caskroom/other/Modeleaf.app")) == .manual)
-    }
 
     @Test("Homebrew update popup copies the normal command and keeps the popup open")
     func homebrewInstructions() throws {
@@ -60,7 +53,7 @@ struct UpdateBannerTests {
         overlay.apply(theme: AppKitTheme(themeID: .tokyoNight))
         var copied: [String] = []
         overlay.copyHandler = { copied.append($0) }
-        overlay.present(update: AvailableUpdate(version: try #require(AppVersion("0.9.0")), source: .homebrew))
+        overlay.present(update: AvailableUpdate(version: try #require(AppVersion("0.9.0"))))
 
         #expect(overlay.displayedCommandsForTesting == [
             "brew upgrade --cask modeleaf",
@@ -74,22 +67,6 @@ struct UpdateBannerTests {
         #expect(overlay.keyHintForTesting.string.contains("Copy command"))
     }
 
-    @Test("manual update popup routes to Releases and escape closes through its owner")
-    func manualInstructions() throws {
-        let overlay = UpdateInstructionsOverlayView()
-        var opened = 0
-        var cancelled = 0
-        overlay.onOpenReleases = { opened += 1 }
-        overlay.onCancel = { cancelled += 1 }
-        overlay.present(update: AvailableUpdate(version: try #require(AppVersion("0.9.0")), source: .manual))
-
-        #expect(overlay.displayedCommandsForTesting == ["github.com/DS-argus/modeleaf/releases/latest"])
-        #expect(overlay.keyHintForTesting.string.contains("Copy Releases URL"))
-        overlay.openReleasesForTesting()
-        #expect(opened == 1)
-        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "", keyCode: 53))))
-        #expect(cancelled == 1)
-    }
 
     @Test("banner, shortcut, and palette converge on an available update")
     func discoverability() throws {
@@ -110,7 +87,7 @@ struct UpdateBannerTests {
         #expect(!unavailable.enabled)
         #expect(unavailable.reason == "No update available")
 
-        controller.installAvailableUpdate(AvailableUpdate(version: try #require(AppVersion("0.9.0")), source: .homebrew))
+        controller.installAvailableUpdate(AvailableUpdate(version: try #require(AppVersion("0.9.0"))))
         #expect(controller.rootView.statusBar.updateText == "↑ Modeleaf 0.9.0 available  [U]")
         #expect(BuiltInDefaults.keymap[.updateShow]?.map(\.description) == ["U"])
         controller.presentAvailableUpdate()
@@ -122,21 +99,18 @@ struct UpdateBannerTests {
         #expect(!controller.rootView.updateInstructionsOverlay.isHidden)
     }
 
-    @Test("keyboard actions copy, open Releases, and preserve popup state")
+    @Test("keyboard actions copy the Homebrew command and preserve popup state")
     func keyboardActions() throws {
         let overlay = UpdateInstructionsOverlayView()
         var copied: [String] = []
-        var opened = 0
         overlay.copyHandler = { copied.append($0) }
-        overlay.onOpenReleases = { opened += 1 }
-        overlay.present(update: AvailableUpdate(version: try #require(AppVersion("0.9.0")), source: .homebrew))
+        overlay.present(update: AvailableUpdate(version: try #require(AppVersion("0.9.0"))))
 
         #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "\r", keyCode: 36))))
         #expect(copied == ["brew upgrade --cask modeleaf"])
         #expect(overlay.copiedMessageForTesting == "Copied")
         #expect(!overlay.isHidden)
-        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "o", keyCode: 31))))
-        #expect(opened == 1)
+        #expect(!overlay.handleKeyDown(try #require(makeKeyEvent(characters: "o", keyCode: 31))))
     }
 
     @Test("popup fits the minimum reader window and excludes other transient overlays")
@@ -150,7 +124,7 @@ struct UpdateBannerTests {
         )
         defer { controller.close() }
         controller.rootView.frame = NSRect(x: 0, y: 0, width: 480, height: 360)
-        controller.installAvailableUpdate(AvailableUpdate(version: try #require(AppVersion("0.9.0")), source: .homebrew))
+        controller.installAvailableUpdate(AvailableUpdate(version: try #require(AppVersion("0.9.0"))))
         controller.presentAvailableUpdate()
         controller.rootView.layoutSubtreeIfNeeded()
 
@@ -171,7 +145,7 @@ struct UpdateBannerTests {
         )
         defer { controller.close() }
         controller.presentPrompt(PromptPresentation(kind: .search, text: "query", validationMessage: nil))
-        controller.installAvailableUpdate(AvailableUpdate(version: try #require(AppVersion("0.9.0")), source: .homebrew))
+        controller.installAvailableUpdate(AvailableUpdate(version: try #require(AppVersion("0.9.0"))))
         controller.presentAvailableUpdate()
         #expect(controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "", keyCode: 53))))
         #expect(controller.rootView.updateInstructionsOverlay.isHidden)
@@ -191,7 +165,7 @@ struct UpdateBannerTests {
         defer { controller.close() }
         let root = controller.rootView
         root.frame = NSRect(x: 0, y: 0, width: 960, height: 640)
-        controller.installAvailableUpdate(AvailableUpdate(version: try #require(AppVersion("0.9.0")), source: .homebrew))
+        controller.installAvailableUpdate(AvailableUpdate(version: try #require(AppVersion("0.9.0"))))
         controller.presentAvailableUpdate()
         root.layoutSubtreeIfNeeded()
         root.displayIfNeeded()

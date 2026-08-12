@@ -6,11 +6,9 @@ final class UpdateInstructionsOverlayView: NSView {
     private enum Metrics { static let width: CGFloat = 388 }
     private static let homebrewCommand = "brew upgrade --cask modeleaf"
     private static let reliableHomebrewCommand = "brew update --force && brew upgrade --cask modeleaf"
-    private static let homebrewKeyHintText = "↩  Copy command    o  Open Releases    Esc  Close"
-    private static let manualKeyHintText = "↩  Copy Releases URL    o  Open Releases    Esc  Close"
-    private static let shortcutLabels = ["↩", "o", "Esc"]
+    private static let keyHintText = "↩  Copy command    Esc  Close"
+    private static let shortcutLabels = ["↩", "Esc"]
 
-    var onOpenReleases: (() -> Void)?
     var onCancel: (() -> Void)?
     var copyHandler: (String) -> Void = { value in
         NSPasteboard.general.clearContents()
@@ -26,9 +24,7 @@ final class UpdateInstructionsOverlayView: NSView {
     private let fallbackCommand = UpdateCommandBlockView()
     private let copiedLabel = NSTextField(labelWithString: "")
     private let copyButton = NSButton(title: "Copy Command", target: nil, action: nil)
-    private let releasesButton = NSButton(title: "Open Releases", target: nil, action: nil)
-    private let keyHintLabel = NSTextField(labelWithString: UpdateInstructionsOverlayView.homebrewKeyHintText)
-    private var source = InstallSource.homebrew
+    private let keyHintLabel = NSTextField(labelWithString: UpdateInstructionsOverlayView.keyHintText)
     private var theme: AppKitTheme?
     private var restingBorderColor = NSColor.clear
     private var focusIndicatorColor = NSColor.clear
@@ -60,19 +56,14 @@ final class UpdateInstructionsOverlayView: NSView {
 
         copyButton.target = self
         copyButton.action = #selector(copyCommands)
-        releasesButton.target = self
-        releasesButton.action = #selector(openReleases)
-        for button in [copyButton, releasesButton] {
-            button.bezelStyle = .rounded
-            button.setButtonType(.momentaryPushIn)
-        }
-
+        copyButton.bezelStyle = .rounded
+        copyButton.setButtonType(.momentaryPushIn)
         keyHintLabel.maximumNumberOfLines = 1
         keyHintLabel.lineBreakMode = .byTruncatingTail
         keyHintLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         keyHintLabel.setAccessibilityIdentifier("updateInstructions.keyHint")
 
-        let actions = NSStackView(views: [copyButton, releasesButton, copiedLabel])
+        let actions = NSStackView(views: [copyButton, copiedLabel])
         actions.orientation = .horizontal
         actions.alignment = .centerY
         actions.spacing = 8
@@ -125,31 +116,18 @@ final class UpdateInstructionsOverlayView: NSView {
         primaryCommand.apply(theme: theme)
         fallbackCommand.apply(theme: theme)
         copyButton.contentTintColor = theme[.accent]
-        releasesButton.contentTintColor = theme[.accent]
         renderKeyHint()
         updateFocusAppearance()
     }
 
     func present(update: AvailableUpdate) {
-        source = update.source
         versionLabel.stringValue = "Modeleaf \(update.version) is available"
         copiedLabel.stringValue = ""
-        switch update.source {
-        case .homebrew:
-            primaryCaption.stringValue = "Normal update"
-            primaryCommand.render(Self.homebrewCommand)
-            fallbackCaption.stringValue = "If the normal command says Modeleaf is already current"
-            fallbackCommand.render(Self.reliableHomebrewCommand)
-            fallbackCaption.isHidden = false
-            fallbackCommand.isHidden = false
-            copyButton.title = "Copy Command"
-        case .manual:
-            primaryCaption.stringValue = "Download the latest build from GitHub Releases"
-            primaryCommand.render("github.com/DS-argus/modeleaf/releases/latest")
-            fallbackCaption.isHidden = true
-            fallbackCommand.isHidden = true
-            copyButton.title = "Copy Releases URL"
-        }
+        primaryCaption.stringValue = "Normal update"
+        primaryCommand.render(Self.homebrewCommand)
+        fallbackCaption.stringValue = "If the normal command says Modeleaf is already current"
+        fallbackCommand.render(Self.reliableHomebrewCommand)
+        copyButton.title = "Copy Command"
         renderKeyHint()
         isHidden = false
         setFocusAppearance(true)
@@ -165,12 +143,7 @@ final class UpdateInstructionsOverlayView: NSView {
         switch event.keyCode {
         case 36, 76: copyCommands(); return true
         case 53: onCancel?(); return true
-        default:
-            guard event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
-                  event.charactersIgnoringModifiers?.lowercased() == "o"
-            else { return false }
-            openReleases()
-            return true
+        default: return false
         }
     }
 
@@ -190,32 +163,24 @@ final class UpdateInstructionsOverlayView: NSView {
     }
     var fallbackCaptionForTesting: String { fallbackCaption.stringValue }
     func copyForTesting() { copyCommands() }
-    func openReleasesForTesting() { openReleases() }
 
     @objc private func copyCommands() {
-        let value = source == .homebrew
-            ? Self.homebrewCommand
-            : UpdateChecker.releasesPage.absoluteString
-        copyHandler(value)
+        copyHandler(Self.homebrewCommand)
         copiedLabel.stringValue = "Copied"
     }
 
-    private var keyHintText: String {
-        source == .homebrew ? Self.homebrewKeyHintText : Self.manualKeyHintText
-    }
-    @objc private func openReleases() { onOpenReleases?() }
 
     private func renderKeyHint() {
         let mutedText = theme?[.mutedText] ?? .secondaryLabelColor
         let accent = theme?[.accent] ?? .controlAccentColor
         let attributed = NSMutableAttributedString(
-            string: keyHintText,
+            string: Self.keyHintText,
             attributes: [
                 .font: NSFont.systemFont(ofSize: 11),
                 .foregroundColor: mutedText,
             ]
         )
-        let fullText = keyHintText as NSString
+        let fullText = Self.keyHintText as NSString
         for shortcut in Self.shortcutLabels {
             attributed.addAttributes([
                 .font: NSFont.monospacedSystemFont(ofSize: 10.5, weight: .semibold),
