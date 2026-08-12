@@ -65,7 +65,7 @@ public enum UpdateNotice {
         else { return nil }
         switch source {
         case .homebrew:
-            return "\u{2191} Modeleaf \(available) available \u{2014} brew update --force && brew upgrade --cask modeleaf"
+            return "\u{2191} Modeleaf \(available) available \u{2014} brew upgrade --cask modeleaf"
         case .manual:
             return "\u{2191} Modeleaf \(available) available \u{2014} click to open Releases"
         }

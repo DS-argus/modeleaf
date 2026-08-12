@@ -28,7 +28,7 @@ struct UpdateCheckTests {
     @Test("banner instruction depends on the install source")
     func bannerBySource() throws {
         let brew = try #require(UpdateNotice.bannerText(current: "0.2.0", latest: "v0.3.0", source: .homebrew))
-        #expect(brew == "\u{2191} Modeleaf 0.3.0 available \u{2014} brew update --force && brew upgrade --cask modeleaf")
+        #expect(brew == "\u{2191} Modeleaf 0.3.0 available \u{2014} brew upgrade --cask modeleaf")
 
         let manual = try #require(UpdateNotice.bannerText(current: "0.2.0", latest: "v0.3.0", source: .manual))
         #expect(manual == "\u{2191} Modeleaf 0.3.0 available \u{2014} click to open Releases")
