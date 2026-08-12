@@ -66,6 +66,7 @@ struct UpdateBannerTests {
             "brew upgrade --cask modeleaf",
             "brew update --force && brew upgrade --cask modeleaf",
         ])
+        #expect(overlay.fallbackCaptionForTesting == "If the normal command says Modeleaf is already current")
         overlay.copyForTesting()
         #expect(copied == ["brew upgrade --cask modeleaf"])
         #expect(overlay.copiedMessageForTesting == "Copied")

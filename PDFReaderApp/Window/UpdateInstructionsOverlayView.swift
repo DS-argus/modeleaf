@@ -138,7 +138,7 @@ final class UpdateInstructionsOverlayView: NSView {
         case .homebrew:
             primaryCaption.stringValue = "Normal update"
             primaryCommand.render(Self.homebrewCommand)
-            fallbackCaption.stringValue = "If Homebrew says it is already current"
+            fallbackCaption.stringValue = "If the normal command says Modeleaf is already current"
             fallbackCommand.render(Self.reliableHomebrewCommand)
             fallbackCaption.isHidden = false
             fallbackCommand.isHidden = false
@@ -188,6 +188,7 @@ final class UpdateInstructionsOverlayView: NSView {
     var displayedCommandsForTesting: [String] {
         fallbackCommand.isHidden ? [primaryCommand.value] : [primaryCommand.value, fallbackCommand.value]
     }
+    var fallbackCaptionForTesting: String { fallbackCaption.stringValue }
     func copyForTesting() { copyCommands() }
     func openReleasesForTesting() { openReleases() }
 
