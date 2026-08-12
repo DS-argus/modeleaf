@@ -226,8 +226,8 @@ final class CitationPreviewOverlayView: NSView {
         card.layoutSubtreeIfNeeded()
     }
 
-    var visibleMarkersForTesting: [Int] { group?.items.map(\.marker) ?? [] }
-    var selectedMarkerForTesting: Int? { selectedItem?.marker }
+    var visibleLabelsForTesting: [String] { group?.items.map(\.label) ?? [] }
+    var selectedLabelForTesting: String? { selectedItem?.label }
     var referenceTextForTesting: String { referenceTextView.string }
     var referenceRequiresScrollingForTesting: Bool { referenceScrollView.hasVerticalScroller }
     var keyHintForTesting: NSAttributedString { keyHintLabel.attributedStringValue }
@@ -259,7 +259,7 @@ final class CitationPreviewOverlayView: NSView {
         tabViews.forEach { tabs.removeArrangedSubview($0); $0.removeFromSuperview() }
         guard let group else { tabViews = []; return }
         tabViews = group.items.enumerated().map { index, item in
-            let tab = CitationPreviewTabView(marker: item.marker)
+            let tab = CitationPreviewTabView(labelText: item.label)
             tab.onPointerEnter = { [weak self] in self?.select(index) }
             tab.onPointerActivate = { [weak self] in self?.select(index) }
             if let theme { tab.apply(theme: theme) }
@@ -285,7 +285,7 @@ final class CitationPreviewOverlayView: NSView {
         for (index, tab) in tabViews.enumerated() { tab.isSelected = index == selectedIndex }
         referenceTextView.string = item.referenceText
         referenceTextView.setAccessibilityValue(item.referenceText)
-        setAccessibilityValue("Reference \(item.marker) of \(group?.items.count ?? 0)")
+        setAccessibilityValue("Reference \(item.label) of \(group?.items.count ?? 0)")
         referenceScrollView.contentView.scroll(to: .zero)
         needsLayout = true
     }
@@ -343,15 +343,19 @@ private final class CitationPreviewTabView: PointerActionView {
     private let label: NSTextField
     private var theme: AppKitTheme?
 
-    init(marker: Int) {
-        self.label = NSTextField(labelWithString: "[\(marker)]")
+    init(labelText: String) {
+        self.label = NSTextField(labelWithString: labelText)
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerRadius = 5
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
-        setAccessibilityLabel("Reference \(marker)")
+        setAccessibilityLabel("Reference \(labelText)")
         label.font = .monospacedSystemFont(ofSize: 12, weight: .medium)
+        label.lineBreakMode = .byTruncatingTail
+        label.maximumNumberOfLines = 1
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        toolTip = labelText
         label.prepareForAutoLayout()
         addSubview(label)
         NSLayoutConstraint.activate([

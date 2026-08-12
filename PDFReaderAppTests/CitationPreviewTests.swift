@@ -18,6 +18,30 @@ struct CitationPreviewTests {
         #expect(CitationPreviewClassifier.bracketedMarkers(in: "[3-5]", containing: 3) == nil)
     }
 
+    @Test("author-year classifier joins split and hyphenated fragments and validates exact reference keys")
+    func authorYearClassifierContract() throws {
+        let simple = try #require(AuthorYearCitationClassifier.key(from: ["Germain et al.", "2015"]))
+        #expect(simple.label == "Germain et al. 2015")
+        #expect(simple.primarySurname == "Germain")
+        #expect(AuthorYearCitationClassifier.validates(
+            simple,
+            referenceText: "Germain, P., Lacasse, A. A verified title. PMLR, 2015."
+        ))
+        #expect(!AuthorYearCitationClassifier.validates(
+            simple,
+            referenceText: "Letarte, G. A different title. PMLR, 2015."
+        ))
+
+        let wrapped = try #require(AuthorYearCitationClassifier.key(from: ["Swo-", "boda & Andres", "2017"]))
+        #expect(wrapped.label == "Swoboda & Andres 2017")
+        let suffixed = try #require(AuthorYearCitationClassifier.key(from: ["Smith et al.", "2020a"]))
+        #expect(suffixed.yearSuffix == "a")
+        #expect(AuthorYearCitationClassifier.key(from: ["et al.", "2020"]) == nil)
+        #expect(AuthorYearCitationClassifier.key(from: ["Figure", "2020", "2021"]) == nil)
+        #expect(AuthorYearCitationClassifier.isYearFragment("2020a"))
+        #expect(!AuthorYearCitationClassifier.isYearFragment("Smith 2020"))
+    }
+
     @Test("Google Scholar URL preserves the complete reference as one encoded query")
     func googleScholarSearchURLContract() throws {
         let reference = "[7] Edward J. Hu et al. LoRA: Low-rank adaptation & fine-tuning."
@@ -65,9 +89,9 @@ struct CitationPreviewTests {
                 Issue.record("Expected a citation preview group, got \(resolution)")
                 return
             }
-            #expect(group.items.map(\.marker) == [3, 4, 5])
-            #expect(group.items[group.selectedIndex].marker == 4)
-            #expect(group.items.allSatisfy { $0.referenceText.hasPrefix("[\($0.marker)]") })
+            #expect(group.items.map(\.label) == ["[3]", "[4]", "[5]"])
+            #expect(group.items[group.selectedIndex].label == "[4]")
+            #expect(group.items.allSatisfy { $0.referenceText.hasPrefix($0.label) })
             #expect(try PDFFixtureFactory.sha256(of: url) == before)
         }
     }
@@ -78,8 +102,8 @@ struct CitationPreviewTests {
         let theme = AppKitTheme(themeID: .tokyoNight)
         overlay.apply(theme: theme)
         let group = CitationPreviewGroup(items: [
-            CitationPreviewItem(marker: 3, destinationPageIndex: 1, destinationPoint: CGPoint(x: 40, y: 700), referenceText: "[3] First"),
-            CitationPreviewItem(marker: 4, destinationPageIndex: 1, destinationPoint: CGPoint(x: 40, y: 660), referenceText: "[4] Second"),
+            CitationPreviewItem(label: "[3]", destinationPageIndex: 1, destinationPoint: CGPoint(x: 40, y: 700), referenceText: "[3] First"),
+            CitationPreviewItem(label: "[4]", destinationPageIndex: 1, destinationPoint: CGPoint(x: 40, y: 660), referenceText: "[4] Second"),
         ], selectedIndex: 0)
         var committed: CitationPreviewItem?
         var searched: CitationPreviewItem?
@@ -93,20 +117,20 @@ struct CitationPreviewTests {
         #expect(tabWidths.count == 2)
         #expect(abs(tabWidths[0] - tabWidths[1]) <= 1)
         #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "l"))))
-        #expect(overlay.selectedMarkerForTesting == 4)
+        #expect(overlay.selectedLabelForTesting == "[4]")
         #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "h"))))
-        #expect(overlay.selectedMarkerForTesting == 3)
+        #expect(overlay.selectedLabelForTesting == "[3]")
         #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "", keyCode: 124))))
-        #expect(overlay.selectedMarkerForTesting == 4)
+        #expect(overlay.selectedLabelForTesting == "[4]")
         overlay.pointerEnterTabForTesting(at: 0)
-        #expect(overlay.selectedMarkerForTesting == 3)
+        #expect(overlay.selectedLabelForTesting == "[3]")
         overlay.pointerActivateTabForTesting(at: 1)
         #expect(overlay.referenceTextForTesting == "[4] Second")
         #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "\r", modifiers: [.shift], keyCode: 36))))
-        #expect(searched?.marker == 4)
+        #expect(searched?.label == "[4]")
         #expect(committed == nil)
         #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "\r", keyCode: 36))))
-        #expect(committed?.marker == 4)
+        #expect(committed?.label == "[4]")
         #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "", keyCode: 53))))
         #expect(dismissed == 1)
         #expect(overlay.bounds.contains(overlay.cardFrameForTesting))
@@ -120,6 +144,24 @@ struct CitationPreviewTests {
         }
         #expect(hint.string.contains("↩  Move"))
         #expect(hint.string.contains("⇧↩  Scholar"))
+
+        let authorYearGroup = CitationPreviewGroup(items: [
+            CitationPreviewItem(
+                label: "Germain et al. 2015",
+                destinationPageIndex: 1,
+                destinationPoint: .zero,
+                referenceText: "Germain, P. A reference. 2015."
+            ),
+            CitationPreviewItem(
+                label: "Letarte et al. 2019",
+                destinationPageIndex: 1,
+                destinationPoint: .zero,
+                referenceText: "Letarte, G. A reference. 2019."
+            ),
+        ], selectedIndex: 0)
+        overlay.present(group: authorYearGroup, anchorRect: CGRect(x: 300, y: 300, width: 10, height: 10))
+        #expect(overlay.visibleLabelsForTesting == ["Germain et al. 2015", "Letarte et al. 2019"])
+        #expect(abs((overlay.tabWidthsForTesting.max() ?? 0) - (overlay.tabWidthsForTesting.min() ?? 0)) <= 1)
     }
 
     @Test("reference text wraps to content height and scrolls only when the window requires it")
@@ -127,7 +169,7 @@ struct CitationPreviewTests {
         let overlay = CitationPreviewOverlayView(frame: CGRect(x: 0, y: 0, width: 700, height: 700))
         overlay.apply(theme: AppKitTheme(themeID: .tokyoNight))
         let short = CitationPreviewGroup(items: [
-            CitationPreviewItem(marker: 7, destinationPageIndex: 1, destinationPoint: .zero, referenceText: "[7] One-line reference"),
+            CitationPreviewItem(label: "[7]", destinationPageIndex: 1, destinationPoint: .zero, referenceText: "[7] One-line reference"),
         ], selectedIndex: 0)
         overlay.present(group: short, anchorRect: CGRect(x: 300, y: 300, width: 10, height: 10))
         let shortHeight = overlay.cardFrameForTesting.height
@@ -136,7 +178,7 @@ struct CitationPreviewTests {
 
         let longText = "[7] " + String(repeating: "Complete wrapped reference text remains available. ", count: 18)
         let long = CitationPreviewGroup(items: [
-            CitationPreviewItem(marker: 7, destinationPageIndex: 1, destinationPoint: .zero, referenceText: longText),
+            CitationPreviewItem(label: "[7]", destinationPageIndex: 1, destinationPoint: .zero, referenceText: longText),
         ], selectedIndex: 0)
         overlay.present(group: long, anchorRect: CGRect(x: 300, y: 300, width: 10, height: 10))
         #expect(overlay.referenceTextForTesting == longText)
@@ -212,6 +254,43 @@ struct CitationPreviewTests {
         }
     }
 
+    @Test("author-year preview resolution remains nonmutating until Move commits one history jump")
+    func authorYearHistoryContract() throws {
+        let path = "test-pdf/citation-annotation-corpus/ICML/2022-pac-bayesian-rate-efficient.pdf"
+        guard FileManager.default.fileExists(atPath: path) else { return }
+        let url = URL(fileURLWithPath: path)
+        let before = try PDFFixtureFactory.sha256(of: url)
+        let document = try #require(PDFDocument(url: url))
+        let resolver = CitationPreviewResolver(document: document)
+        let group = try #require(allLinks(in: document).compactMap { link -> CitationPreviewGroup? in
+            guard case let .preview(group) = resolver.resolve(link),
+                  group.items[group.selectedIndex].label == "Germain et al. 2015"
+            else { return nil }
+            return group
+        }.first)
+        let item = group.items[group.selectedIndex]
+
+        let session = try PDFOpenService().open(url: url)
+        let coordinator = PaneCoordinator()
+        let controller = MainWindowController(
+            coordinator: coordinator,
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { _ in }
+        )
+        defer { controller.close(); session.prepareForClose() }
+        #expect(coordinator.insert(session, into: .createIfEmpty))
+        controller.rootView.layoutSubtreeIfNeeded()
+        controller.window?.contentView?.layoutSubtreeIfNeeded()
+
+        #expect(session.currentPageNumber == 1)
+        #expect(!session.canGoBack && !session.canGoForward)
+        session.activateLink(item.destination)
+        #expect(session.currentPageNumber == item.destinationPageIndex + 1)
+        #expect(session.canGoBack && !session.canGoForward)
+        #expect(session.goBack() == .verifiedLanding)
+        #expect(session.currentPageNumber == 1)
+        #expect(try PDFFixtureFactory.sha256(of: url) == before)
+    }
     @Test("real corpus positives resolve and author-year sample falls back without mutation")
     func realCorpusContract() throws {
         let samples: [(path: String, expected: [Int])] = [
@@ -228,7 +307,7 @@ struct CitationPreviewTests {
             let resolver = CitationPreviewResolver(document: document)
             let found = allLinks(in: document).contains { link in
                 guard case let .preview(group) = resolver.resolve(link) else { return false }
-                return group.items.map(\.marker) == sample.expected
+                return group.items.map(\.label) == sample.expected.map { "[\($0)]" }
             }
             #expect(found, "Missing verified group \(sample.expected) in \(sample.path)")
             #expect(try PDFFixtureFactory.sha256(of: url) == before)
@@ -264,13 +343,13 @@ struct CitationPreviewTests {
             [30, 38, 39],
         ]
         for expected in expectedGroups {
-            let matching = resolutions.filter { $0.items.map(\.marker) == expected }
-            let selectedMarkers = Set(matching.map { $0.items[$0.selectedIndex].marker })
-            #expect(selectedMarkers == Set(expected), "Not every marker selected the complete group \(expected)")
+            let matching = resolutions.filter { $0.items.map(\.label) == expected.map { "[\($0)]" } }
+            let selectedLabels = Set(matching.map { $0.items[$0.selectedIndex].label })
+            #expect(selectedLabels == Set(expected.map { "[\($0)]" }), "Not every marker selected the complete group \(expected)")
         }
 
-        let openingGroup = try #require(resolutions.first { $0.items.map(\.marker) == [1, 2, 3, 4, 5] })
-        let first = try #require(openingGroup.items.first { $0.marker == 1 })
+        let openingGroup = try #require(resolutions.first { $0.items.map(\.label) == ["[1]", "[2]", "[3]", "[4]", "[5]"] })
+        let first = try #require(openingGroup.items.first { $0.label == "[1]" })
         #expect(first.referenceText == "[1] OpenAI Team. Language models are few-shot learners. In NeurIPS, 2020.")
         #expect(citationScholarQuery(for: first.referenceText) == "OpenAI Team. Language models are few-shot learners. In NeurIPS, 2020.")
         #expect(try PDFFixtureFactory.sha256(of: url) == before)
@@ -342,6 +421,119 @@ struct CitationPreviewTests {
         }
         #expect(CitationReferenceEntryExtractor.layout(of: twoColumn, pageBounds: page) == .twoColumns(splitX: 300))
     }
+
+    @Test("ICML author-year fragments resolve from author or year without mutating corpus PDFs")
+    func icmlAuthorYearPreviewContract() throws {
+        var fixtures: [(path: String, sources: [String], label: String, referencePrefix: String)] = [
+            (
+                "test-pdf/citation-annotation-corpus/ICML/2022-pac-bayesian-rate-efficient.pdf",
+                ["James", "1998"],
+                "James 1998",
+                "James, G. M. Majority vote classifiers"
+            ),
+            (
+                "test-pdf/citation-annotation-corpus/ICML/2022-pac-bayesian-rate-efficient.pdf",
+                ["Pradhan et al.", "2002"],
+                "Pradhan et al. 2002",
+                "Pradhan, S. S., Kusuma, J., and Ramchandran, K."
+            ),
+            (
+                "test-pdf/citation-annotation-corpus/ICML/2022-pac-bayesian-rate-efficient.pdf",
+                ["Sagi &", "Rokach", "2018"],
+                "Sagi & Rokach 2018",
+                "Sagi, O. and Rokach, L."
+            ),
+            (
+                "test-pdf/citation-annotation-corpus/ICML/2023-clusterfug.pdf",
+                ["Hu", "1963"],
+                "Hu 1963",
+                "Hu, T. C. Multi-commodity network flows."
+            ),
+            (
+                "test-pdf/citation-annotation-corpus/ICML/2023-clusterfug.pdf",
+                ["Swo-", "boda & Andres", "2017"],
+                "Swoboda & Andres 2017",
+                "Swoboda, P. and Andres, B."
+            ),
+        ]
+        fixtures.append(contentsOf: [
+            (
+                path: "test-pdf/citation-annotation-corpus/ICML/2024-charmer.pdf",
+                sources: ["Belinkov & Bisk"],
+                label: "Belinkov & Bisk 2018",
+                referencePrefix: "Belinkov, Y. and Bisk, Y."
+            ),
+            (
+                path: "test-pdf/citation-annotation-corpus/ICML/2024-charmer.pdf",
+                sources: ["Morris et al.", "2020a"],
+                label: "Morris et al. 2020a",
+                referencePrefix: "Morris, J., Lifland, E., Lanchantin, J., Ji, Y., and Qi, Y."
+            ),
+            (
+                path: "test-pdf/citation-annotation-corpus/ICML/2025-code-vae.pdf",
+                sources: ["Kingma & Welling"],
+                label: "Kingma & Welling 2014",
+                referencePrefix: "Kingma, D. P. and Welling, M."
+            ),
+        ])
+        guard fixtures.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) else { return }
+
+        let expectedGroups = [
+            "James 1998": ["James 1998", "Lacasse et al. 2006"],
+            "Pradhan et al. 2002": ["Pradhan et al. 2002", "Xiao et al. 2006"],
+            "Sagi & Rokach 2018": ["Sagi & Rokach 2018"],
+            "Hu 1963": ["Hu 1963"],
+            "Morris et al. 2020a": ["Morris et al. 2020a"],
+            "Belinkov & Bisk 2018": ["Belinkov & Bisk 2018", "Alzantot et al. 2018"],
+            "Kingma & Welling 2014": ["Kingma & Welling 2014", "Rezende et al. 2014"],
+            "Swoboda & Andres 2017": [
+                "Swoboda & Andres 2017",
+                "Lange et al. 2018",
+                "Abbas & Swoboda 2022",
+            ],
+        ]
+        for fixture in fixtures {
+            let url = URL(fileURLWithPath: fixture.path)
+            let before = try PDFFixtureFactory.sha256(of: url)
+            let document = try #require(PDFDocument(url: url))
+            let resolver = CitationPreviewResolver(document: document)
+            for source in fixture.sources {
+                let matches = links(sourceText: source, in: document).compactMap { link -> CitationPreviewGroup? in
+                    guard case let .preview(group) = resolver.resolve(link),
+                          group.items[group.selectedIndex].label == fixture.label
+                    else { return nil }
+                    return group
+                }
+                let group = try #require(matches.first)
+                #expect(group.items.map(\.label) == expectedGroups[fixture.label])
+                let selected = group.items[group.selectedIndex]
+                #expect(selected.referenceText.hasPrefix(fixture.referencePrefix))
+            }
+            #expect(try PDFFixtureFactory.sha256(of: url) == before)
+        }
+
+        let ambiguousURL = URL(fileURLWithPath: "test-pdf/citation-annotation-corpus/ICML/2025-code-vae.pdf")
+        let ambiguousBefore = try PDFFixtureFactory.sha256(of: ambiguousURL)
+        let ambiguousDocument = try #require(PDFDocument(url: ambiguousURL))
+        let ambiguousResolver = CitationPreviewResolver(document: ambiguousDocument)
+        let shorthandAuthorLink = try #require(links(sourceText: "Goodman", in: ambiguousDocument).first { link in
+            guard case let .goTo(_, point?) = link.target else { return false }
+            return abs(point.y - 216.845) < 0.5
+        })
+        guard case .activate = ambiguousResolver.resolve(shorthandAuthorLink) else {
+            Issue.record("Expected partially resolvable shorthand group to fall back")
+            return
+        }
+        let ambiguousLink = try #require(links(sourceText: "2019", in: ambiguousDocument).first { link in
+            guard case let .goTo(_, point?) = link.target else { return false }
+            return abs(point.y - 161.054) < 0.5
+        })
+        guard case .activate = ambiguousResolver.resolve(ambiguousLink) else {
+            Issue.record("Expected omitted-author shorthand year to fall back")
+            return
+        }
+        #expect(try PDFFixtureFactory.sha256(of: ambiguousURL) == ambiguousBefore)
+    }
     private func openCitationPreview(
         controller: MainWindowController,
         session: ReaderSession,
@@ -352,7 +544,7 @@ struct CitationPreviewTests {
         }
         let index = try #require(links.firstIndex { link in
             guard case let .preview(group) = session.resolveLinkHint(link) else { return false }
-            return group.items[group.selectedIndex].marker == marker
+            return group.items[group.selectedIndex].label == "[\(marker)]"
         })
         controller.presentLinkHints()
         let label = controller.rootView.linkHintOverlay.visibleLabels[index]
@@ -373,6 +565,25 @@ struct CitationPreviewTests {
             }
         }
         return nil
+    }
+    private func links(sourceText: String, in document: PDFDocument) -> [ReaderLink] {
+        var result: [ReaderLink] = []
+        for pageIndex in 0..<document.pageCount {
+            guard let page = document.page(at: pageIndex) else { continue }
+            let sourcePageIndex = document.index(for: page)
+            for annotation in page.annotations {
+                let text = (page.selection(for: annotation.bounds)?.string ?? "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                guard text == sourceText, let target = target(for: annotation, in: document) else { continue }
+                result.append(ReaderLink(
+                    sourcePageIndex: sourcePageIndex,
+                    rects: [annotation.bounds],
+                    target: target,
+                    primaryLabelRect: annotation.bounds
+                ))
+            }
+        }
+        return result
     }
     private func allLinks(in document: PDFDocument) -> [ReaderLink] {
         (0..<document.pageCount).flatMap { index -> [ReaderLink] in
