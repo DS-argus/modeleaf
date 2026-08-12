@@ -17,7 +17,7 @@ public enum BuiltInDefaults {
             largeScrollViewportFraction: 0.8,
             zoomFactor: 1.10
         ),
-        input: InputConfiguration(prefixTimeoutMilliseconds: 800, prefix: defaultPrefix)
+        input: InputConfiguration(prefixTimeoutMilliseconds: 400, prefix: defaultPrefix)
     )
 
     public static let templatedKeymap: [ActionID: [String]] = [
@@ -34,7 +34,7 @@ public enum BuiltInDefaults {
         .searchPrompt: ["/"], .searchNext: ["<Enter>"], .searchPrevious: ["<S-Enter>"], .searchCancel: ["<Esc>"],
         .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [], .viewFitWidth: ["w"], .viewFitPage: ["F"], .viewRotateLeft: ["["], .viewRotateRight: ["]"], .linkHint: ["f"],
         .configReload: ["<prefix>r"], .configWriteDefault: [], .configResetDefault: [],
-        .themePicker: ["T"], .indicatorPicker: ["I"],
+        .themePicker: ["T"], .indicatorPicker: ["I"], .updateShow: ["U"],
         .paneSplitRight: ["<prefix>|"], .paneSplitDown: ["<prefix>-"], .paneUnsplit: ["<prefix>o"],
         .paneFocusLeft: ["<C-h>"], .paneFocusDown: ["<C-j>"], .paneFocusUp: ["<C-k>"], .paneFocusRight: ["<C-l>"],
     ]
@@ -133,6 +133,7 @@ public enum BuiltInDefaults {
         case "theme": return "Theme"
         case "pane": return "Panes"
         case "indicator": return "Link indicator"
+        case "update": return "Update"
         default: return "Other"
         }
     }

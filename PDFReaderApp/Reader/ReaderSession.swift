@@ -469,10 +469,6 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
               let origin = captureNavigation()
         else { return .preflightRejected }
 
-        guard currentPageNumber != oneBasedPage else {
-            searchEpoch.failedOrSameNonSearchAttempt()
-            return .noOp
-        }
         guard viewController.goToPage(oneBasedPage) else {
             searchEpoch.failedOrSameNonSearchAttempt()
             return .preflightRejected
@@ -481,6 +477,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
             return compensateUnverifiedAttempt(from: origin)
         }
         guard navigationHistory.commitMeaningfulJump(origin: origin, landing: landing) else {
+            searchEpoch.failedOrSameNonSearchAttempt()
             return .noOp
         }
         searchEpoch.successfulNonSearchJump()

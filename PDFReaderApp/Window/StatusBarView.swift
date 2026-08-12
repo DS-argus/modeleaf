@@ -35,7 +35,7 @@ final class StatusBarView: NSView {
     private let fitPagePill = StatusModePillView(identifier: "status.mode", accessibilityLabel: "Fit page mode")
     private let searchModePill = StatusModePillView(identifier: "status.searchMode", accessibilityLabel: "Search mode")
     private let versionLabel = StatusBarView.makeLabel(identifier: "status.version", monospaced: true)
-    private let updateButton = NSButton(title: "", target: nil, action: nil)
+    private let updateButton = StatusUpdateButton(title: "", target: nil, action: nil)
     private let separator = NSBox()
     private var theme: AppKitTheme?
     private(set) var presentation = StatusBarPresentation.empty
@@ -71,6 +71,9 @@ final class StatusBarView: NSView {
         helpButton.setAccessibilityLabel("Keyboard help")
         helpButton.setAccessibilityValue("? help")
 
+        for view in [pageLabel, zoomLabel, prefixLabel, fitPagePill, searchModePill] {
+            view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        }
         let leading = NSStackView(views: [helpButton, pageLabel, zoomLabel, fitPagePill, searchModePill, prefixLabel])
         leading.orientation = .horizontal
         leading.alignment = .centerY
@@ -85,10 +88,17 @@ final class StatusBarView: NSView {
         updateButton.action = #selector(updateClicked)
         updateButton.isHidden = true
         updateButton.setButtonType(.momentaryChange)
-        updateButton.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+        updateButton.setContentCompressionResistancePriority(.required, for: .horizontal)
         updateButton.setContentHuggingPriority(.required, for: .horizontal)
         updateButton.setAccessibilityIdentifier("status.update")
         updateButton.prepareForAutoLayout()
+        updateButton.setAccessibilityLabel("View update instructions")
+        updateButton.toolTip = "View update instructions"
+        updateButton.onHoverChange = { [weak updateButton] hovering in
+            updateButton?.layer?.backgroundColor = hovering
+                ? (updateButton?.contentTintColor ?? .controlAccentColor).withAlphaComponent(0.12).cgColor
+                : NSColor.clear.cgColor
+        }
         addSubview(updateButton)
 
         detailLabel.alignment = .right
@@ -136,6 +146,7 @@ final class StatusBarView: NSView {
         prefixLabel.textColor = theme[.accent]
         detailLabel.textColor = presentation.tone == .error ? theme[.error] : theme[.mutedText]
         restyleUpdateButton()
+        updateButton.contentTintColor = theme[.accent]
         fitPagePill.render(presentation.mode, accent: theme[.accent])
         searchModePill.render(presentation.isSearchMode ? "SEARCH" : "", accent: theme[.accent])
         versionLabel.textColor = theme[.mutedText]
@@ -176,6 +187,11 @@ final class StatusBarView: NSView {
 
     func performHelpTapForTesting() { helpButton.performClick(nil) }
     func performUpdateClickForTesting() { updateButton.performClick(nil) }
+    var updateToolTipForTesting: String? { updateButton.toolTip }
+    var updateIsTruncatedForTesting: Bool {
+        !updateButton.isHidden && updateButton.frame.width + 0.5 < updateButton.fittingSize.width
+    }
+    var updateFrameForTesting: NSRect { updateButton.frame }
 
     func render(_ presentation: StatusBarPresentation) {
         self.presentation = presentation
@@ -219,6 +235,35 @@ final class StatusBarView: NSView {
         return label
     }
 }
+@MainActor
+private final class StatusUpdateButton: NSButton {
+    var onHoverChange: ((Bool) -> Void)?
+    private var tracking: NSTrackingArea?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.cornerRadius = 4
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking { removeTrackingArea(tracking) }
+        let next = NSTrackingArea(
+            rect: bounds,
+            options: [.activeInKeyWindow, .mouseEnteredAndExited],
+            owner: self
+        )
+        addTrackingArea(next)
+        tracking = next
+    }
+
+    override func mouseEntered(with event: NSEvent) { onHoverChange?(true) }
+    override func mouseExited(with event: NSEvent) { onHoverChange?(false) }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
+}
 
 @MainActor
 private final class StatusModePillView: NSView {
@@ -229,6 +274,9 @@ private final class StatusModePillView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerRadius = 5
+        setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        label.lineBreakMode = .byTruncatingTail
         setAccessibilityElement(true)
         setAccessibilityRole(.staticText)
         setAccessibilityLabel(accessibilityLabel)

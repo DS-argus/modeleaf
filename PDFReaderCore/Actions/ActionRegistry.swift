@@ -106,6 +106,7 @@ public struct ActionRegistry: Sendable {
         ActionDescriptor(id: .configResetDefault, title: "Reset Config", scope: .global, repeatPolicy: .suppressed),
         ActionDescriptor(id: .themePicker, title: "Theme picker", scope: .contexts(readerContexts), repeatPolicy: .suppressed),
         ActionDescriptor(id: .indicatorPicker, title: "Link indicator settings", scope: .contexts(readerContexts), repeatPolicy: .suppressed),
+        ActionDescriptor(id: .updateShow, title: "View Available Update", scope: .contexts(readerContexts), repeatPolicy: .suppressed),
 
         ActionDescriptor(id: .paneSplitRight, title: "Split Right", scope: .contexts([.navigation, .searchResults]), repeatPolicy: .suppressed),
         ActionDescriptor(id: .paneSplitDown, title: "Split Down", scope: .contexts([.navigation, .searchResults]), repeatPolicy: .suppressed),

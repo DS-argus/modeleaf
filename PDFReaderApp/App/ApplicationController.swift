@@ -144,11 +144,9 @@ final class ApplicationController {
 
     private func checkForUpdates() {
         Task { [weak self] in
-            let banner = await UpdateChecker().fetchBanner()
-            guard let self, let banner else { return }
-            self.mainWindowController.presentUpdateBanner(banner) {
-                NSWorkspace.shared.open(UpdateChecker.releasesPage)
-            }
+            let update = await UpdateChecker().fetchUpdate()
+            guard let self, let update else { return }
+            self.mainWindowController.installAvailableUpdate(update)
         }
     }
     func dispatch(_ action: ActionID) { actionDispatcher.dispatch(action) }

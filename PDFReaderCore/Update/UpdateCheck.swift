@@ -47,27 +47,22 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible, Sendab
     }
 }
 
-/// How the running copy was installed, which decides the update instruction.
-public enum InstallSource: Equatable, Sendable {
-    case homebrew
-    case manual
+
+/// Pure update-notice policy: no networking, AppKit, or presentation text.
+public struct AvailableUpdate: Equatable, Sendable {
+    public let version: AppVersion
+
+    public init(version: AppVersion) {
+        self.version = version
+    }
 }
 
-/// Pure update-notice policy: no networking, no AppKit.
 public enum UpdateNotice {
-    /// The status-bar banner for `latest`, or nil when `latest` is not strictly
-    /// newer than `current` (or either string is unparseable). `latest` may be a
-    /// tag (`v0.3.0`); `current` is the running `CFBundleShortVersionString`.
-    public static func bannerText(current: String, latest: String, source: InstallSource) -> String? {
+    public static func availableUpdate(current: String, latest: String) -> AvailableUpdate? {
         guard let installed = AppVersion(current),
               let available = AppVersion(latest),
               available > installed
         else { return nil }
-        switch source {
-        case .homebrew:
-            return "\u{2191} Modeleaf \(available) available \u{2014} brew upgrade --cask modeleaf"
-        case .manual:
-            return "\u{2191} Modeleaf \(available) available \u{2014} click to open Releases"
-        }
+        return AvailableUpdate(version: available)
     }
 }

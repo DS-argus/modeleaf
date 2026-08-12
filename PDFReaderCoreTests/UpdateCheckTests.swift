@@ -17,20 +17,14 @@ struct UpdateCheckTests {
         #expect(!(AppVersion("0.2.0")! < AppVersion("0.2")!))
     }
 
-    @Test("banner appears only for a strictly newer release")
-    func bannerGating() {
-        #expect(UpdateNotice.bannerText(current: "0.2.0", latest: "0.2.0", source: .homebrew) == nil)
-        #expect(UpdateNotice.bannerText(current: "0.3.0", latest: "0.2.0", source: .manual) == nil)
-        #expect(UpdateNotice.bannerText(current: "bad", latest: "0.3.0", source: .homebrew) == nil)
-        #expect(UpdateNotice.bannerText(current: "0.2.0", latest: "not-a-version", source: .homebrew) == nil)
-    }
+    @Test("available update appears only for a strictly newer release")
+    func updateGating() throws {
+        #expect(UpdateNotice.availableUpdate(current: "0.2.0", latest: "0.2.0") == nil)
+        #expect(UpdateNotice.availableUpdate(current: "0.3.0", latest: "0.2.0") == nil)
+        #expect(UpdateNotice.availableUpdate(current: "bad", latest: "0.3.0") == nil)
+        #expect(UpdateNotice.availableUpdate(current: "0.2.0", latest: "not-a-version") == nil)
 
-    @Test("banner instruction depends on the install source")
-    func bannerBySource() throws {
-        let brew = try #require(UpdateNotice.bannerText(current: "0.2.0", latest: "v0.3.0", source: .homebrew))
-        #expect(brew == "\u{2191} Modeleaf 0.3.0 available \u{2014} brew upgrade --cask modeleaf")
-
-        let manual = try #require(UpdateNotice.bannerText(current: "0.2.0", latest: "v0.3.0", source: .manual))
-        #expect(manual == "\u{2191} Modeleaf 0.3.0 available \u{2014} click to open Releases")
+        let update = try #require(UpdateNotice.availableUpdate(current: "0.2.0", latest: "v0.3.0"))
+        #expect(update.version == AppVersion("0.3.0"))
     }
 }

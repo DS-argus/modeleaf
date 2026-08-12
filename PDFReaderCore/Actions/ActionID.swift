@@ -58,6 +58,7 @@ public enum ActionID: String, CaseIterable, Codable, Hashable, Sendable {
     case configResetDefault = "config.resetDefault"
     case themePicker = "theme.picker"
     case indicatorPicker = "indicator.picker"
+    case updateShow = "update.show"
     case paneSplitRight = "pane.splitRight"
     case paneSplitDown = "pane.splitDown"
     case paneFocusLeft = "pane.focusLeft"

@@ -86,6 +86,9 @@
 # --- Link indicator ---
 "indicator.picker" = ["I"]  # I
 
+# --- Update ---
+"update.show"      = ["U"]  # U
+
 # --- Panes ---
 # split/unsplit use <prefix>; focus keys are direct. Change the prefix under [input].
 "pane.splitRight"  = ["<prefix>|"]  # Ctrl+b |
@@ -102,6 +105,6 @@ large_scroll_viewport_fraction = 0.8
 zoom_factor = 1.1
 
 [input]
-prefix_timeout_ms = 800
+prefix_timeout_ms = 400
 # Pane prefix chord. Every <prefix> binding above expands to this.
 prefix = "<C-b>"
