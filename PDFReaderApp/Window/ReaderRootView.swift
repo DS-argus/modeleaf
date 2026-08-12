@@ -36,6 +36,7 @@ final class ReaderRootView: NSView {
     let statusBar = StatusBarView()
     let themePickerOverlay = ThemePickerOverlayView()
     let linkIndicatorPickerOverlay = LinkDestinationIndicatorPickerOverlayView()
+    let updateInstructionsOverlay = UpdateInstructionsOverlayView()
     let promptOverlay = PromptOverlayView()
     private var activeDiagnostic: ReaderActiveDiagnostic?
     let commandPaletteOverlay = CommandPaletteOverlayView()
@@ -83,7 +84,7 @@ final class ReaderRootView: NSView {
             guard let self, self.capturesDividerPositions, let pair = self.currentInnerPairsByBand[.trailing] else { return }
             self.innerDividerPositions[pair] = position
         }
-        for view in [tabBar, contentHost, statusBar, promptOverlay, themePickerOverlay, linkIndicatorPickerOverlay, commandPaletteOverlay, recentFilesOverlay, helpOverlay, linkHintOverlay] { view.prepareForAutoLayout(); addSubview(view) }
+        for view in [tabBar, contentHost, statusBar, promptOverlay, themePickerOverlay, linkIndicatorPickerOverlay, updateInstructionsOverlay, commandPaletteOverlay, recentFilesOverlay, helpOverlay, linkHintOverlay] { view.prepareForAutoLayout(); addSubview(view) }
         emptyState.prepareForAutoLayout(); contentHost.addSubview(emptyState)
         paneContainer.prepareForAutoLayout(); contentHost.addSubview(paneContainer)
         NSLayoutConstraint.activate([
@@ -100,6 +101,7 @@ final class ReaderRootView: NSView {
             recentFilesOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor), recentFilesOverlay.topAnchor.constraint(equalTo: contentHost.topAnchor, constant: 72), recentFilesOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 40), recentFilesOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -40),
             recentFilesOverlay.bottomAnchor.constraint(lessThanOrEqualTo: contentHost.bottomAnchor, constant: -40),
             helpOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor), helpOverlay.centerYAnchor.constraint(equalTo: contentHost.centerYAnchor), helpOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 20), helpOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -20), helpOverlay.topAnchor.constraint(greaterThanOrEqualTo: contentHost.topAnchor, constant: 16), helpOverlay.bottomAnchor.constraint(lessThanOrEqualTo: contentHost.bottomAnchor, constant: -16),
+            updateInstructionsOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor), updateInstructionsOverlay.centerYAnchor.constraint(equalTo: contentHost.centerYAnchor), updateInstructionsOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 20), updateInstructionsOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -20), updateInstructionsOverlay.topAnchor.constraint(greaterThanOrEqualTo: contentHost.topAnchor, constant: 16), updateInstructionsOverlay.bottomAnchor.constraint(lessThanOrEqualTo: contentHost.bottomAnchor, constant: -16),
             commandPaletteOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor), commandPaletteOverlay.topAnchor.constraint(equalTo: contentHost.topAnchor, constant: 72), commandPaletteOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 40), commandPaletteOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -40),
             emptyState.topAnchor.constraint(equalTo: contentHost.topAnchor), emptyState.leadingAnchor.constraint(equalTo: contentHost.leadingAnchor), emptyState.trailingAnchor.constraint(equalTo: contentHost.trailingAnchor), emptyState.bottomAnchor.constraint(equalTo: contentHost.bottomAnchor),
             statusBar.leadingAnchor.constraint(equalTo: leadingAnchor), statusBar.trailingAnchor.constraint(equalTo: trailingAnchor), statusBar.bottomAnchor.constraint(equalTo: bottomAnchor), statusBar.heightAnchor.constraint(equalToConstant: WindowVisualMetrics.statusBarHeight),
@@ -108,7 +110,7 @@ final class ReaderRootView: NSView {
         ])
     }
     required init?(coder: NSCoder) { nil }
-    func apply(theme: AppKitTheme) { self.theme = theme; for pane in paneViews.values { pane.apply(theme: theme) }; layer?.backgroundColor = theme[.background].cgColor; contentHost.wantsLayer = true; contentHost.layer?.backgroundColor = theme[.background].cgColor; tabBar.apply(theme: theme); emptyState.apply(theme: theme); statusBar.apply(theme: theme); promptOverlay.apply(theme: theme); themePickerOverlay.apply(theme: theme); linkIndicatorPickerOverlay.apply(theme: theme); commandPaletteOverlay.apply(theme: theme); recentFilesOverlay.apply(theme: theme); helpOverlay.apply(theme: theme); linkHintOverlay.apply(theme: theme) }
+    func apply(theme: AppKitTheme) { self.theme = theme; for pane in paneViews.values { pane.apply(theme: theme) }; layer?.backgroundColor = theme[.background].cgColor; contentHost.wantsLayer = true; contentHost.layer?.backgroundColor = theme[.background].cgColor; tabBar.apply(theme: theme); emptyState.apply(theme: theme); statusBar.apply(theme: theme); promptOverlay.apply(theme: theme); themePickerOverlay.apply(theme: theme); linkIndicatorPickerOverlay.apply(theme: theme); updateInstructionsOverlay.apply(theme: theme); commandPaletteOverlay.apply(theme: theme); recentFilesOverlay.apply(theme: theme); helpOverlay.apply(theme: theme); linkHintOverlay.apply(theme: theme) }
     func render(snapshot: ReaderSessionStoreSnapshot, activeContentView: NSView?, sessionStatus: ReaderStatusSnapshot?) {
         let hasTabs = !snapshot.tabs.isEmpty
         if renderedSessionSnapshot != snapshot { tabBar.render(snapshot); tabBarHeightConstraint.constant = hasTabs ? WindowVisualMetrics.tabBarHeight : 0; tabBar.isHidden = !hasTabs; emptyState.isHidden = hasTabs; renderedSessionSnapshot = snapshot }

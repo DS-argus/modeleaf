@@ -12,6 +12,8 @@ protocol ReaderWorkflowPresenting: AnyObject {
     func presentRecentFilesOpen()
     func presentHelp()
     func presentLinkHints()
+    var hasAvailableUpdate: Bool { get }
+    func presentAvailableUpdate()
     func presentPrompt(_ presentation: PromptPresentation)
     func showPromptValidation(_ message: String)
     func prepareForGlobalAction()
@@ -25,6 +27,8 @@ extension ReaderWorkflowPresenting {
     func dismissPromptAndRestoreFocus(reason: KeyInputInvalidationReason) {
         dismissPromptAndRestoreFocus(to: .navigation, reason: reason)
     }
+    var hasAvailableUpdate: Bool { false }
+    func presentAvailableUpdate() {}
     func presentLinkIndicatorPicker() {}
 }
 
@@ -178,6 +182,8 @@ newInstanceHandler = newInstance
                 to: activeSession?.preferredInputContext ?? .navigation,
                 reason: .promptCancelled
             )
+        case .updateShow:
+            presentation?.presentAvailableUpdate()
         case .themePicker:
             presentation?.presentThemePicker()
         case .indicatorPicker:
@@ -230,8 +236,11 @@ newInstanceHandler = newInstance
     }
 
     private var activeSession: (any ReaderSessionPresenting)? { coordinator.activeSession }
+
     func isActionEnabled(_ action: ActionID) -> Bool {
-        action != .documentPrint || activeSession != nil
+        if action == .documentPrint { return activeSession != nil }
+        if action == .updateShow { return presentation?.hasAvailableUpdate == true }
+        return true
     }
     private func presentPagePrompt(initialText: String) {
         guard activeSession != nil else {

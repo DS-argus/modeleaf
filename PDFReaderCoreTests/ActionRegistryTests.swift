@@ -18,11 +18,11 @@ struct ActionRegistryTests {
             "search.prompt", "search.next", "search.previous", "search.cancel",
             "view.zoomIn", "view.zoomOut", "view.zoomReset", "view.fitWidth", "view.fitPage", "view.rotateLeft", "view.rotateRight", "link.hint",
             "pane.splitRight", "pane.splitDown", "pane.focusLeft", "pane.focusDown", "pane.focusUp", "pane.focusRight", "pane.unsplit",
-            "theme.picker", "indicator.picker",
+            "theme.picker", "indicator.picker", "update.show",
             "config.reload", "config.writeDefault", "config.resetDefault",
         ]
         let registry = ActionRegistry.v1
-        #expect(registry.descriptors.count == 57)
+        #expect(registry.descriptors.count == 58)
         #expect(Set(registry.actionIDs).count == registry.actionIDs.count)
         #expect(Set(registry.actionIDs.map(\.rawValue)) == expected)
         #expect(Set(InputContext.allCases) == [.navigation, .pagePrompt, .searchPrompt, .searchResults])
@@ -181,6 +181,10 @@ struct ActionRegistryTests {
         #expect(linkHint.activeContexts == [.navigation])
         #expect(!linkHint.isFixedBinding)
         #expect(pagePrompt.prefixFallbackPolicy == .transitionAndReplay(to: .pagePrompt, acceptedToken: .decimalDigit))
+
+        let updateShow = try #require(registry.descriptor(for: .updateShow))
+        #expect(updateShow.activeContexts == [.navigation, .searchResults])
+        #expect(updateShow.repeatPolicy == .suppressed)
     }
 
     private func sequence(_ source: String) throws -> KeySequence {

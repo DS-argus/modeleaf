@@ -37,6 +37,7 @@ public struct PaletteContextState: Equatable, Sendable {
     public let canGoBack: Bool
     public let canGoForward: Bool
     public let isNavigationHistoryHealthy: Bool
+    public let hasAvailableUpdate: Bool
 
     public init(
         hasActiveDocument: Bool,
@@ -47,7 +48,8 @@ public struct PaletteContextState: Equatable, Sendable {
         savedInputContext: InputContext = .navigation,
         canGoBack: Bool = false,
         canGoForward: Bool = false,
-        isNavigationHistoryHealthy: Bool = false
+        isNavigationHistoryHealthy: Bool = false,
+        hasAvailableUpdate: Bool = false
     ) {
         self.hasActiveDocument = hasActiveDocument
         self.paneCount = paneCount
@@ -58,6 +60,7 @@ public struct PaletteContextState: Equatable, Sendable {
         self.canGoBack = canGoBack
         self.canGoForward = canGoForward
         self.isNavigationHistoryHealthy = isNavigationHistoryHealthy
+        self.hasAvailableUpdate = hasAvailableUpdate
     }
 }
 
@@ -79,6 +82,8 @@ public enum PaletteAvailability {
             return state.configFileExists ? (true, nil) : (false, "No config file to reset")
         case .documentOpen, .appNew, .appQuit, .helpShow:
             return (true, nil)
+        case .updateShow:
+            return state.hasAvailableUpdate ? (true, nil) : (false, "No update available")
         case .historyBack, .historyForward:
             guard state.savedInputContext == .navigation else {
                 return (false, "Available in Navigation only")

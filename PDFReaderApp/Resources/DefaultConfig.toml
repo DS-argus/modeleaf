@@ -86,6 +86,9 @@
 # --- Link indicator ---
 "indicator.picker" = ["I"]  # I
 
+# --- Update ---
+"update.show"      = ["U"]  # U
+
 # --- Panes ---
 # split/unsplit use <prefix>; focus keys are direct. Change the prefix under [input].
 "pane.splitRight"  = ["<prefix>|"]  # Ctrl+b |
