@@ -18,6 +18,10 @@ config.toml
 # Local-only product and verification notes are not published.
 .internal/
 
+# Local agent operating instructions are workstation-only.
+CLAUDE.md
+AGENTS.md
+
 # Local build/verification evidence (logs, snapshots, xcresults) is not published.
 artifacts/
 
