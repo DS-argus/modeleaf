@@ -18,21 +18,13 @@ struct UpdateCheckTests {
     }
 
     @Test("available update appears only for a strictly newer release")
-    func updateGating() {
-        #expect(UpdateNotice.availableUpdate(current: "0.2.0", latest: "0.2.0", source: .homebrew) == nil)
-        #expect(UpdateNotice.availableUpdate(current: "0.3.0", latest: "0.2.0", source: .manual) == nil)
-        #expect(UpdateNotice.availableUpdate(current: "bad", latest: "0.3.0", source: .homebrew) == nil)
-        #expect(UpdateNotice.availableUpdate(current: "0.2.0", latest: "not-a-version", source: .homebrew) == nil)
-    }
+    func updateGating() throws {
+        #expect(UpdateNotice.availableUpdate(current: "0.2.0", latest: "0.2.0") == nil)
+        #expect(UpdateNotice.availableUpdate(current: "0.3.0", latest: "0.2.0") == nil)
+        #expect(UpdateNotice.availableUpdate(current: "bad", latest: "0.3.0") == nil)
+        #expect(UpdateNotice.availableUpdate(current: "0.2.0", latest: "not-a-version") == nil)
 
-    @Test("available update preserves version and install source")
-    func structuredUpdate() throws {
-        let brew = try #require(UpdateNotice.availableUpdate(current: "0.2.0", latest: "v0.3.0", source: .homebrew))
-        #expect(brew.version == AppVersion("0.3.0"))
-        #expect(brew.source == .homebrew)
-
-        let manual = try #require(UpdateNotice.availableUpdate(current: "0.2.0", latest: "v0.3.0", source: .manual))
-        #expect(manual.version == AppVersion("0.3.0"))
-        #expect(manual.source == .manual)
+        let update = try #require(UpdateNotice.availableUpdate(current: "0.2.0", latest: "v0.3.0"))
+        #expect(update.version == AppVersion("0.3.0"))
     }
 }

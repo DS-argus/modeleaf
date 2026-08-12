@@ -48,7 +48,7 @@ brew update --force
 brew upgrade --cask modeleaf
 ```
 
-Modeleaf checks GitHub Releases at launch and shows this reliable two-command fallback for Homebrew installs. Manual installs open the Releases page instead. The check is silent when offline, and the app never updates itself.
+Homebrew is the sole supported installation and update path. Modeleaf checks GitHub Releases at launch and always shows the Homebrew commands above; the release asset remains the binary source consumed by the cask. The check is silent when offline, and the app never updates itself.
 
 ## Using it
 

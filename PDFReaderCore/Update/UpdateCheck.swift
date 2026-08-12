@@ -47,29 +47,22 @@ public struct AppVersion: Comparable, Equatable, CustomStringConvertible, Sendab
     }
 }
 
-/// How the running copy was installed, which decides the update instruction.
-public enum InstallSource: Equatable, Sendable {
-    case homebrew
-    case manual
-}
 
 /// Pure update-notice policy: no networking, AppKit, or presentation text.
 public struct AvailableUpdate: Equatable, Sendable {
     public let version: AppVersion
-    public let source: InstallSource
 
-    public init(version: AppVersion, source: InstallSource) {
+    public init(version: AppVersion) {
         self.version = version
-        self.source = source
     }
 }
 
 public enum UpdateNotice {
-    public static func availableUpdate(current: String, latest: String, source: InstallSource) -> AvailableUpdate? {
+    public static func availableUpdate(current: String, latest: String) -> AvailableUpdate? {
         guard let installed = AppVersion(current),
               let available = AppVersion(latest),
               available > installed
         else { return nil }
-        return AvailableUpdate(version: available, source: source)
+        return AvailableUpdate(version: available)
     }
 }

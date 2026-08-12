@@ -48,7 +48,7 @@ brew update --force
 brew upgrade --cask modeleaf
 ```
 
-Modeleaf는 실행 시 GitHub Releases를 확인하고 Homebrew 설치본에는 이 확실한 두 단계 명령을 안내합니다. 수동 설치본은 Releases 페이지를 엽니다. 오프라인이면 조용히 넘어가며, 앱이 스스로 업데이트하지는 않습니다.
+Homebrew가 유일하게 지원되는 설치 및 업데이트 경로입니다. Modeleaf는 실행 시 GitHub Releases를 확인하고 항상 위 Homebrew 명령을 안내하며, Release asset은 cask가 내려받는 바이너리 원본으로 유지됩니다. 오프라인이면 조용히 넘어가며 앱이 스스로 업데이트하지는 않습니다.
 
 ## 사용법
 
