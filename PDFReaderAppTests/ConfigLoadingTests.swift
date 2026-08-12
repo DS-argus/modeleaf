@@ -136,6 +136,7 @@ struct ConfigLoadingTests {
         })
     }
 
+
     @Test("U-CFG-08 executable extension surfaces are data-only schema errors")
     func executableSurfacesAreAbsent() throws {
         let source = """

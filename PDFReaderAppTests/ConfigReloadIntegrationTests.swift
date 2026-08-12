@@ -115,6 +115,7 @@ struct ConfigReloadIntegrationTests {
             let overlays: [(String, () -> Void, () -> Bool)] = [
                 ("palette", { controller.mainWindowController.presentCommandPalette() }, { controller.mainWindowController.rootView.commandPaletteOverlay.isHidden }),
                 ("theme", { controller.mainWindowController.presentThemePicker() }, { controller.mainWindowController.rootView.themePickerOverlay.isHidden }),
+                ("indicator", { controller.mainWindowController.presentLinkIndicatorPicker() }, { controller.mainWindowController.rootView.linkIndicatorPickerOverlay.isHidden }),
                 ("recent", { controller.mainWindowController.presentRecentFilesOverlay() }, { controller.mainWindowController.rootView.recentFilesOverlay.isHidden }),
                 ("help", { controller.mainWindowController.presentHelp() }, { controller.mainWindowController.rootView.helpOverlay.isHidden }),
                 ("link hints", {
@@ -258,7 +259,6 @@ struct ConfigReloadIntegrationTests {
         zoom_factor = 1.5
         """.utf8).write(to: url)
     }
-
     private func menuItem(identifier: String, in menu: NSMenu?) -> NSMenuItem? {
         guard let menu else { return nil }
         for item in menu.items {

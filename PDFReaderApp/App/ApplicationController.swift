@@ -18,6 +18,9 @@ final class ApplicationController {
     private let themeStore: ThemeSelectionStore
     private(set) var currentThemeID: ThemeID
     private let themeStartupDiagnostic: String?
+    private let indicatorSettingsStore: LinkDestinationIndicatorSettingsStore
+    private(set) var currentIndicatorSettings: LinkDestinationIndicatorSettings
+    private let indicatorStartupDiagnostic: String?
     private let recentFilesStore: RecentFilesStore
     private(set) var menuBuilder: ValidatedMenuBuilder?
     private let configService: ConfigService
@@ -50,26 +53,54 @@ final class ApplicationController {
             themePreviewHandler: { [weak self] id in self?.applyTheme(id, persist: false) },
             themeCommitHandler: { [weak self] id in self?.applyTheme(id, persist: true) },
             themeCancelHandler: { [weak self] id in self?.applyTheme(id, persist: false) },
+            currentIndicatorSettings: { [weak self] in self?.currentIndicatorSettings ?? .standard },
+            indicatorPreviewHandler: { [weak self] settings in self?.applyIndicatorSettings(settings, persist: false) },
+            indicatorCommitHandler: { [weak self] settings in self?.applyIndicatorSettings(settings, persist: true) },
+            indicatorCancelHandler: { [weak self] settings in self?.applyIndicatorSettings(settings, persist: false) },
             browseHandler: { [weak self] in self?.presentOpenPanel() },
             recentFilesProvider: { [weak self] in self?.recentFilesStore.load() ?? [] },
             recentOpenHandler: { [weak self] path in _ = self?.openDocument(at: URL(fileURLWithPath: path)) },
             recentPruneHandler: { [weak self] path in self?.recentFilesStore.prune(absolutePath: path) ?? .failed(message: "recent-files store unavailable") },
             recentClearHandler: { [weak self] in self?.recentFilesStore.clear() ?? .failed(message: "recent-files store unavailable") },
-            configFileURLProvider: { [weak self] in self?.configService.source.url ?? ConfigFileSource.defaultURL() }
+            configFileURLProvider: { [weak self] in self?.configService.source.url ?? ConfigFileSource.defaultURL() },
         )
         actionDispatcher.presentation = controller
         return controller
     }()
-    init(application: NSApplication = .shared, configService: ConfigService = ConfigService(), sessionStore: ReaderSessionStore = ReaderSessionStore(), pdfOpenService: PDFOpenService = PDFOpenService(), openMetrics: any PDFOpenMetrics = OSLogPDFOpenMetrics(), openPanelPresenter: any PDFOpenPanelPresenting = NativePDFOpenPanelPresenter(), themeStore: ThemeSelectionStore = ThemeSelectionStore(), recentFilesStore: RecentFilesStore = RecentFilesStore(), terminationHandler: (() -> Void)? = nil, newInstanceLauncher: (() -> Void)? = nil) {
+    init(
+        application: NSApplication = .shared,
+        configService: ConfigService = ConfigService(),
+        sessionStore: ReaderSessionStore = ReaderSessionStore(),
+        pdfOpenService: PDFOpenService = PDFOpenService(),
+        openMetrics: any PDFOpenMetrics = OSLogPDFOpenMetrics(),
+        openPanelPresenter: any PDFOpenPanelPresenting = NativePDFOpenPanelPresenter(),
+        themeStore: ThemeSelectionStore = ThemeSelectionStore(),
+        indicatorSettingsStore: LinkDestinationIndicatorSettingsStore = LinkDestinationIndicatorSettingsStore(),
+        recentFilesStore: RecentFilesStore = RecentFilesStore(),
+        terminationHandler: (() -> Void)? = nil,
+        newInstanceLauncher: (() -> Void)? = nil
+    ) {
         let configResult = configService.load()
         self.application = application; self.configService = configService; self.configResult = configResult; self.activeConfig = configResult.activeConfig; self.sessionStore = sessionStore
         self.coordinator = PaneCoordinator(initialStore: sessionStore)
         self.configFileStore = ConfigFileStore(fileURL: configService.source.url)
         self.pdfOpenService = pdfOpenService; self.openMetrics = openMetrics; self.openPanelPresenter = openPanelPresenter; self.themeStore = themeStore; self.recentFilesStore = recentFilesStore
+        self.indicatorSettingsStore = indicatorSettingsStore
         switch themeStore.load() {
         case let .selected(id): self.currentThemeID = id; self.themeStartupDiagnostic = nil
         case .absent, .invalid: self.currentThemeID = ThemeSelectionStore.productDefault; self.themeStartupDiagnostic = nil
         case let .ioError(message): self.currentThemeID = ThemeSelectionStore.productDefault; self.themeStartupDiagnostic = "Could not read the saved theme (\(message)); using the default."
+        }
+        switch indicatorSettingsStore.load() {
+        case let .selected(settings):
+            self.currentIndicatorSettings = settings
+            self.indicatorStartupDiagnostic = nil
+        case .absent, .invalid:
+            self.currentIndicatorSettings = LinkDestinationIndicatorSettingsStore.productDefault
+            self.indicatorStartupDiagnostic = nil
+        case let .ioError(message):
+            self.currentIndicatorSettings = LinkDestinationIndicatorSettingsStore.productDefault
+            self.indicatorStartupDiagnostic = "Could not read the saved link indicator settings (\(message)); using the default."
         }
         self.terminationHandler = terminationHandler ?? { application.terminate(nil) }
         self.newInstanceLauncher = newInstanceLauncher ?? { ApplicationController.launchNewInstance() }
@@ -80,16 +111,33 @@ final class ApplicationController {
         coordinator.configureDuplicationCompletion { [weak self] session, committed in self?.completeDuplicate(session, committed: committed) }
         self.actionDispatcher.configureConfigWriteDefaultHandler { [weak self] in self?.writeDefaultConfig() }
         self.actionDispatcher.configureConfigResetDefaultHandler { [weak self] in self?.resetConfig() }
+        coordinator.applyLinkDestinationIndicatorSettings(currentIndicatorSettings)
     }
 
-    func start() { let menuBuilder = ValidatedMenuBuilder(descriptors: activeConfig.menuDescriptors, dispatch: { [weak self] action in self?.dispatch(action) }, isEnabled: { [weak self] action in self?.actionDispatcher.isActionEnabled(action) ?? false }); self.menuBuilder = menuBuilder; application.mainMenu = menuBuilder.makeMainMenu(); mainWindowController.showWindow(nil); if !configResult.diagnostics.isEmpty {
-            // Aggregate independent startup failures so a config warning never
-            // hides an operational theme-state I/O error (or vice versa).
-            let presentation = ConfigDiagnosticPresentation(diagnostics: configResult.diagnostics, usedFallback: configResult.usedFallback)
-            let detail = [presentation.details, themeStartupDiagnostic].compactMap { $0 }.joined(separator: "\n")
-            mainWindowController.showDiagnostic(presentation.summary, expandedDetail: detail.isEmpty ? nil : detail, isError: presentation.hasErrors)
-        } else if let themeStartupDiagnostic {
-            mainWindowController.showDiagnostic(themeStartupDiagnostic, isError: false)
+    func start() {
+        let menuBuilder = ValidatedMenuBuilder(
+            descriptors: activeConfig.menuDescriptors,
+            dispatch: { [weak self] action in self?.dispatch(action) },
+            isEnabled: { [weak self] action in self?.actionDispatcher.isActionEnabled(action) ?? false }
+        )
+        self.menuBuilder = menuBuilder
+        application.mainMenu = menuBuilder.makeMainMenu()
+        mainWindowController.showWindow(nil)
+
+        let stateDiagnostics = [themeStartupDiagnostic, indicatorStartupDiagnostic].compactMap { $0 }
+        if !configResult.diagnostics.isEmpty {
+            let presentation = ConfigDiagnosticPresentation(
+                diagnostics: configResult.diagnostics,
+                usedFallback: configResult.usedFallback
+            )
+            let detail = ([presentation.details].compactMap { $0 } + stateDiagnostics).joined(separator: "\n")
+            mainWindowController.showDiagnostic(
+                presentation.summary,
+                expandedDetail: detail.isEmpty ? nil : detail,
+                isError: presentation.hasErrors
+            )
+        } else if !stateDiagnostics.isEmpty {
+            mainWindowController.showDiagnostic(stateDiagnostics.joined(separator: "\n"), isError: false)
         }
         checkForUpdates()
     }
@@ -188,7 +236,9 @@ final class ApplicationController {
     @discardableResult func openDocument(at url: URL, target: PaneOpenTarget = .createIfEmpty) -> Bool {
         let traceID = OpenTraceID(); openMetrics.record(.point(.openRequested, traceID: traceID)); openMetrics.record(.begin(.openTotal, traceID: traceID))
         do {
-            let session = try pdfOpenService.open(url: url, traceID: traceID, metrics: openMetrics); session.applyTheme(AppKitTheme(themeID: currentThemeID))
+            let session = try pdfOpenService.open(url: url, traceID: traceID, metrics: openMetrics)
+            session.applyTheme(AppKitTheme(themeID: currentThemeID))
+            session.applyLinkDestinationIndicatorSettings(currentIndicatorSettings)
             guard coordinator.insert(session, into: target) else { session.prepareForClose(reason: .insertionRejected); mainWindowController.showDiagnostic("Could not create a PDF tab for \(url.lastPathComponent)"); recordOpenFailure(traceID: traceID, outcome: .insertionRejected); return false }
             mainWindowController.clearDiagnostic()
             if case let .failed(message) = recentFilesStore.recordOpened(absolutePath: url.path) {
@@ -211,6 +261,16 @@ final class ApplicationController {
             mainWindowController.showDiagnostic("Theme applied for this session but could not be saved: \(message)")
         }
     }
+
+    func applyIndicatorSettings(_ settings: LinkDestinationIndicatorSettings, persist: Bool) {
+        currentIndicatorSettings = settings
+        coordinator.applyLinkDestinationIndicatorSettings(settings)
+        if persist, case let .failed(message) = indicatorSettingsStore.persist(settings) {
+            mainWindowController.showDiagnostic(
+                "Link indicator settings applied for this session but could not be saved: \(message)"
+            )
+        }
+    }
     func openExternalDocuments(_ urls: [URL]) { for url in urls { _ = openDocument(at: url) } }
     private func presentOpenPanel(target: PaneOpenTarget = .createIfEmpty) { openPanelPresenter.present(attachedTo: mainWindowController.window) { [weak self] url in guard let self, let url else { return }; _ = self.openDocument(at: url, target: target) } }
     private func recordOpenFailure(traceID: OpenTraceID, outcome: PDFOpenMetricOutcome) { openMetrics.record(.point(.openFailed, traceID: traceID, outcome: outcome)); openMetrics.record(.end(.openTotal, traceID: traceID, outcome: outcome)) }
@@ -220,6 +280,7 @@ final class ApplicationController {
         do {
             let session = try pdfOpenService.open(url: snapshot.sourceURL, traceID: traceID, metrics: openMetrics)
             session.applyTheme(AppKitTheme(themeID: currentThemeID))
+            session.applyLinkDestinationIndicatorSettings(currentIndicatorSettings)
             session.seedPendingPresentation(snapshot)
             pendingDuplicateTraces[session.id] = traceID
             return session

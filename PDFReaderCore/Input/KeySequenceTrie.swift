@@ -200,7 +200,7 @@ private enum ExactPrefixSafetyPolicy {
              .historyBack, .historyForward,
              .viewRotateLeft, .viewRotateRight, .linkHint,
              .paneSplitRight, .paneSplitDown, .paneFocusLeft, .paneFocusDown,
-             .paneFocusUp, .paneFocusRight, .paneUnsplit, .themePicker:
+             .paneFocusUp, .paneFocusRight, .paneUnsplit, .themePicker, .indicatorPicker:
             false
         }
     }

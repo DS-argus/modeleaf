@@ -85,6 +85,10 @@ final class PaneCoordinator {
         stores.values.forEach { $0.applyTheme(theme) }
         bootstrapStore?.applyTheme(theme)
     }
+    func applyLinkDestinationIndicatorSettings(_ configuration: LinkDestinationIndicatorSettings) {
+        stores.values.forEach { $0.applyLinkDestinationIndicatorSettings(configuration) }
+        bootstrapStore?.applyLinkDestinationIndicatorSettings(configuration)
+    }
 
     @discardableResult
     func insert(_ session: any ReaderSessionPresenting, into target: PaneOpenTarget) -> Bool {

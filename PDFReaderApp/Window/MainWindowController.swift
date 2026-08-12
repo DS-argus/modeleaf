@@ -24,6 +24,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let themeCancelHandler: (ThemeID) -> Void
     private(set) var resolvedConfig: ValidatedAppConfig
     private var themePickerPreOpenThemeID: ThemeID?
+    private let currentIndicatorSettings: () -> LinkDestinationIndicatorSettings
+    private let indicatorPreviewHandler: (LinkDestinationIndicatorSettings) -> Void
+    private let indicatorCommitHandler: (LinkDestinationIndicatorSettings) -> Void
+    private let indicatorCancelHandler: (LinkDestinationIndicatorSettings) -> Void
+    private var indicatorPickerPreOpenSettings: LinkDestinationIndicatorSettings?
     private var savedTransientInputContexts: [InputContext] = []
     private var preservesTransientInputContext = false
     private let browseHandler: () -> Void
@@ -47,6 +52,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         themePreviewHandler: @escaping (ThemeID) -> Void = { _ in },
         themeCommitHandler: @escaping (ThemeID) -> Void = { _ in },
         themeCancelHandler: @escaping (ThemeID) -> Void = { _ in },
+        currentIndicatorSettings: @escaping () -> LinkDestinationIndicatorSettings = { .standard },
+        indicatorPreviewHandler: @escaping (LinkDestinationIndicatorSettings) -> Void = { _ in },
+        indicatorCommitHandler: @escaping (LinkDestinationIndicatorSettings) -> Void = { _ in },
+        indicatorCancelHandler: @escaping (LinkDestinationIndicatorSettings) -> Void = { _ in },
         browseHandler: @escaping () -> Void = {},
         recentFilesProvider: @escaping () -> [RecentFileEntry] = { [] },
         recentOpenHandler: @escaping (String) -> Void = { _ in },
@@ -69,6 +78,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         self.themeCommitHandler = themeCommitHandler
         self.themeCancelHandler = themeCancelHandler
         self.openPaneHandler = openPaneHandler
+        self.currentIndicatorSettings = currentIndicatorSettings
+        self.indicatorPreviewHandler = indicatorPreviewHandler
+        self.indicatorCommitHandler = indicatorCommitHandler
+        self.indicatorCancelHandler = indicatorCancelHandler
         self.rootView = ReaderRootView(frame: NSRect(origin: .zero, size: WindowVisualMetrics.initialSize))
         let config = validatedConfig ?? Self.builtInValidatedConfig()
         self.resolvedConfig = config
@@ -109,7 +122,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             guard self.rootView.helpOverlay.isHidden else { return }
             self.rootView.activatePane(atWindowPoint: event.locationInWindow)
         }
-        window.geometryEventHandler = { [weak self] in self?.dismissLinkHintsAndCitationPreviewAndRestoreFocus() }
+        window.geometryEventHandler = { [weak self] in
+            guard let self else { return }
+            self.dismissLinkHintsAndCitationPreviewAndRestoreFocus()
+            (self.coordinator.activeSession as? ReaderSession)?.cancelDestinationIndicator()
+        }
         rootView.apply(theme: theme)
         rootView.setInputContext(.navigation)
         rootView.statusBar.onHelpTap = { [weak self] in self?.presentHelp() }
@@ -208,6 +225,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         restoreTransientInputContext()
         focusActiveSurface(snapshot: coordinator.snapshot)
     }
+
     private func presentCitationPreview(
         _ group: CitationPreviewGroup,
         anchorRect: CGRect,
@@ -285,12 +303,53 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         focusActiveSurface(snapshot: coordinator.snapshot)
     }
 
+    func presentLinkIndicatorPicker() {
+        dismissAllTransientOverlays(restoringContext: false)
+        beginTransientOverlay()
+        guard rootView.linkIndicatorPickerOverlay.isHidden else { return }
+        let baseline = currentIndicatorSettings()
+        indicatorPickerPreOpenSettings = baseline
+        rootView.linkIndicatorPickerOverlay.onPreview = { [weak self] settings in
+            self?.indicatorPreviewHandler(settings)
+        }
+        rootView.linkIndicatorPickerOverlay.onCommit = { [weak self] settings in
+            guard let self else { return }
+            self.indicatorCommitHandler(settings)
+            self.dismissLinkIndicatorPickerAndRestoreFocus()
+        }
+        rootView.linkIndicatorPickerOverlay.onCancel = { [weak self] in
+            self?.cancelLinkIndicatorPickerAndRestoreFocus()
+        }
+        rootView.linkIndicatorPickerOverlay.present(settings: baseline)
+        rebuildKeyViewLoop(snapshot: coordinator.snapshot)
+        window?.makeFirstResponder(rootView.linkIndicatorPickerOverlay.initialFocusView)
+    }
+
+    private func cancelLinkIndicatorPickerAndRestoreFocus() {
+        guard !rootView.linkIndicatorPickerOverlay.isHidden else { return }
+        let baseline = indicatorPickerPreOpenSettings
+        dismissLinkIndicatorPickerAndRestoreFocus()
+        if let baseline { indicatorCancelHandler(baseline) }
+    }
+
+    private func dismissLinkIndicatorPickerAndRestoreFocus() {
+        rootView.linkIndicatorPickerOverlay.dismiss()
+        rootView.linkIndicatorPickerOverlay.onPreview = nil
+        rootView.linkIndicatorPickerOverlay.onCommit = nil
+        rootView.linkIndicatorPickerOverlay.onCancel = nil
+        indicatorPickerPreOpenSettings = nil
+        restoreTransientInputContext()
+        rebuildKeyViewLoop(snapshot: coordinator.snapshot)
+        focusActiveSurface(snapshot: coordinator.snapshot)
+    }
+
     func dismissAllTransientOverlays(restoringContext: Bool = true) {
         preservesTransientInputContext = !restoringContext
         if !rootView.commandPaletteOverlay.isHidden { dismissCommandPaletteAndRestoreFocus() }
         if !rootView.helpOverlay.isHidden { dismissHelpOverlayAndRestoreFocus() }
         if !rootView.themePickerOverlay.isHidden { cancelThemePickerAndRestoreFocus() }
         if !rootView.recentFilesOverlay.isHidden { dismissRecentFilesOverlayAndRestoreFocus() }
+        if !rootView.linkIndicatorPickerOverlay.isHidden { cancelLinkIndicatorPickerAndRestoreFocus() }
         dismissCitationPreviewAndRestoreFocus()
         dismissLinkHintsAndRestoreFocus()
         preservesTransientInputContext = false
@@ -520,6 +579,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if !rootView.recentFilesOverlay.isHidden, rootView.recentFilesOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
         if !rootView.helpOverlay.isHidden, rootView.helpOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
         if !rootView.themePickerOverlay.isHidden, rootView.themePickerOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
+        if !rootView.linkIndicatorPickerOverlay.isHidden, rootView.linkIndicatorPickerOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
         if isTransientModalRoutingActive, inputRouter.handleHistoryWhileModal(event) { return true }
         return inputRouter.handle(event)
     }
@@ -538,13 +598,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var isTransientModalRoutingActive: Bool {
         !rootView.commandPaletteOverlay.isHidden || !rootView.recentFilesOverlay.isHidden ||
             !rootView.helpOverlay.isHidden || !rootView.themePickerOverlay.isHidden ||
+            !rootView.linkIndicatorPickerOverlay.isHidden ||
             !rootView.linkHintOverlay.isHidden || !rootView.citationPreviewOverlay.isHidden || !rootView.promptOverlay.isHidden
     }
 
     private var suppressesDocumentKeyDispatch: Bool {
         !rootView.commandPaletteOverlay.isHidden || !rootView.recentFilesOverlay.isHidden ||
             !rootView.helpOverlay.isHidden || !rootView.themePickerOverlay.isHidden ||
-            !rootView.linkHintOverlay.isHidden || !rootView.citationPreviewOverlay.isHidden
+            !rootView.linkIndicatorPickerOverlay.isHidden || !rootView.linkHintOverlay.isHidden || !rootView.citationPreviewOverlay.isHidden
     }
 
     private func beginTransientOverlay() {
@@ -576,6 +637,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             window?.makeFirstResponder(rootView.helpOverlay)
             return
         }
+        if !rootView.linkIndicatorPickerOverlay.isHidden {
+            window?.makeFirstResponder(rootView.linkIndicatorPickerOverlay.initialFocusView)
+            return
+        }
         if !rootView.themePickerOverlay.isHidden {
             window?.makeFirstResponder(rootView.themePickerOverlay)
         } else if rootView.promptOverlay.isHidden {
@@ -589,18 +654,26 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func windowDidResignKey(_ notification: Notification) {
         dismissLinkHintsAndCitationPreviewAndRestoreFocus()
         inputRouter.invalidate(.focusLost)
-        if rootView.themePickerOverlay.isHidden {
-            rootView.promptOverlay.setFocusAppearance(false)
-        } else {
+        if !rootView.linkIndicatorPickerOverlay.isHidden {
+            rootView.linkIndicatorPickerOverlay.setFocusAppearance(false)
+        } else if !rootView.themePickerOverlay.isHidden {
             rootView.themePickerOverlay.setFocusAppearance(false)
+        } else {
+            rootView.promptOverlay.setFocusAppearance(false)
         }
     }
 
     func windowDidResize(_ notification: Notification) {
         dismissLinkHintsAndCitationPreviewAndRestoreFocus()
+        (coordinator.activeSession as? ReaderSession)?.cancelDestinationIndicator()
     }
 
     private func refresh(snapshot: PaneCoordinatorSnapshot) {
+        if snapshot.activeID != lastActiveSessionID,
+           let lastActiveSessionID,
+           let previousSession = coordinator.session(for: lastActiveSessionID) as? ReaderSession {
+            previousSession.cancelDestinationIndicator()
+        }
         dismissLinkHintsAndCitationPreviewAndRestoreFocus()
         let dismissStagedPrompt = promptCloseProjection.map {
             $0.layout == snapshot.layout && $0.paneID == snapshot.activePaneID && $0.tabID == snapshot.activeID

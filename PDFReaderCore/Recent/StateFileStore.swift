@@ -28,23 +28,53 @@ public struct RecentFileEntryDTO: Codable, Equatable, Sendable {
     }
 }
 
+public struct LinkDestinationIndicatorStateDTO: Codable, Equatable, Sendable {
+    public var style: String
+    public var color: String
+    public var size: Double
+    public var durationMilliseconds: Int
+
+    public init(style: String, color: String, size: Double, durationMilliseconds: Int) {
+        self.style = style
+        self.color = color
+        self.size = size
+        self.durationMilliseconds = durationMilliseconds
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case style
+        case color
+        case size
+        case durationMilliseconds = "duration_ms"
+    }
+}
+
 /// The complete state document. Unknown JSON members are retained verbatim when
 /// either known field is updated, so independently-developed state consumers do
 /// not erase each other's data.
 public struct StateFileDocument: Codable, Equatable, Sendable {
     public var selectedTheme: String?
     public var recentFiles: [RecentFileEntryDTO]?
+    public var linkDestinationIndicator: LinkDestinationIndicatorStateDTO?
+    public private(set) var hasLinkDestinationIndicatorField: Bool
     private var unknownFields: [String: JSONValue]
 
-    public init(selectedTheme: String? = nil, recentFiles: [RecentFileEntryDTO]? = nil) {
+    public init(
+        selectedTheme: String? = nil,
+        recentFiles: [RecentFileEntryDTO]? = nil,
+        linkDestinationIndicator: LinkDestinationIndicatorStateDTO? = nil
+    ) {
         self.selectedTheme = selectedTheme
         self.recentFiles = recentFiles
+        self.linkDestinationIndicator = linkDestinationIndicator
+        self.hasLinkDestinationIndicatorField = linkDestinationIndicator != nil
         unknownFields = [:]
     }
 
     private enum KnownKey: String, CodingKey, CaseIterable {
         case selectedTheme = "selected_theme"
         case recentFiles = "recent_files"
+        case linkDestinationIndicator = "link_destination_indicator"
     }
 
     private struct AnyKey: CodingKey {
@@ -60,6 +90,8 @@ public struct StateFileDocument: Codable, Equatable, Sendable {
         // turn a valid field into an all-or-nothing decode failure.
         selectedTheme = (try? known.decodeIfPresent(String.self, forKey: .selectedTheme)) ?? nil
         recentFiles = (try? known.decodeIfPresent([RecentFileEntryDTO].self, forKey: .recentFiles)) ?? nil
+        hasLinkDestinationIndicatorField = known.contains(.linkDestinationIndicator)
+        linkDestinationIndicator = (try? known.decodeIfPresent(LinkDestinationIndicatorStateDTO.self, forKey: .linkDestinationIndicator)) ?? nil
 
         let all = try decoder.container(keyedBy: AnyKey.self)
         var retained: [String: JSONValue] = [:]
@@ -78,6 +110,7 @@ public struct StateFileDocument: Codable, Equatable, Sendable {
         }
         if let selectedTheme { try all.encode(selectedTheme, forKey: AnyKey(stringValue: "selected_theme")!) }
         if let recentFiles { try all.encode(recentFiles, forKey: AnyKey(stringValue: "recent_files")!) }
+        if let linkDestinationIndicator { try all.encode(linkDestinationIndicator, forKey: AnyKey(stringValue: "link_destination_indicator")!) }
     }
 }
 
