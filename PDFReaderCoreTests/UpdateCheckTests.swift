@@ -17,20 +17,22 @@ struct UpdateCheckTests {
         #expect(!(AppVersion("0.2.0")! < AppVersion("0.2")!))
     }
 
-    @Test("banner appears only for a strictly newer release")
-    func bannerGating() {
-        #expect(UpdateNotice.bannerText(current: "0.2.0", latest: "0.2.0", source: .homebrew) == nil)
-        #expect(UpdateNotice.bannerText(current: "0.3.0", latest: "0.2.0", source: .manual) == nil)
-        #expect(UpdateNotice.bannerText(current: "bad", latest: "0.3.0", source: .homebrew) == nil)
-        #expect(UpdateNotice.bannerText(current: "0.2.0", latest: "not-a-version", source: .homebrew) == nil)
+    @Test("available update appears only for a strictly newer release")
+    func updateGating() {
+        #expect(UpdateNotice.availableUpdate(current: "0.2.0", latest: "0.2.0", source: .homebrew) == nil)
+        #expect(UpdateNotice.availableUpdate(current: "0.3.0", latest: "0.2.0", source: .manual) == nil)
+        #expect(UpdateNotice.availableUpdate(current: "bad", latest: "0.3.0", source: .homebrew) == nil)
+        #expect(UpdateNotice.availableUpdate(current: "0.2.0", latest: "not-a-version", source: .homebrew) == nil)
     }
 
-    @Test("banner instruction depends on the install source")
-    func bannerBySource() throws {
-        let brew = try #require(UpdateNotice.bannerText(current: "0.2.0", latest: "v0.3.0", source: .homebrew))
-        #expect(brew == "\u{2191} Modeleaf 0.3.0 available \u{2014} brew upgrade --cask modeleaf")
+    @Test("available update preserves version and install source")
+    func structuredUpdate() throws {
+        let brew = try #require(UpdateNotice.availableUpdate(current: "0.2.0", latest: "v0.3.0", source: .homebrew))
+        #expect(brew.version == AppVersion("0.3.0"))
+        #expect(brew.source == .homebrew)
 
-        let manual = try #require(UpdateNotice.bannerText(current: "0.2.0", latest: "v0.3.0", source: .manual))
-        #expect(manual == "\u{2191} Modeleaf 0.3.0 available \u{2014} click to open Releases")
+        let manual = try #require(UpdateNotice.availableUpdate(current: "0.2.0", latest: "v0.3.0", source: .manual))
+        #expect(manual.version == AppVersion("0.3.0"))
+        #expect(manual.source == .manual)
     }
 }

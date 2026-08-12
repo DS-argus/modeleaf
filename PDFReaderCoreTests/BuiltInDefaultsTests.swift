@@ -33,7 +33,7 @@ struct BuiltInDefaultsTests {
             .searchPrompt: ["/"], .searchNext: ["<Enter>"], .searchPrevious: ["<S-Enter>"], .searchCancel: ["<Esc>"],
             .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [],
             .viewFitWidth: ["w"], .viewFitPage: ["F"], .viewRotateLeft: ["["], .viewRotateRight: ["]"], .linkHint: ["f"],
-            .themePicker: ["T"], .indicatorPicker: ["I"],
+            .themePicker: ["T"], .indicatorPicker: ["I"], .updateShow: ["U"],
             .configReload: ["<C-b>r"], .configWriteDefault: [], .configResetDefault: [],
             .paneSplitRight: ["<C-b>|"], .paneSplitDown: ["<C-b>-"], .paneUnsplit: ["<C-b>o"],
             .paneFocusLeft: ["<C-h>"], .paneFocusDown: ["<C-j>"], .paneFocusUp: ["<C-k>"], .paneFocusRight: ["<C-l>"],

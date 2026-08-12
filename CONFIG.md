@@ -114,6 +114,7 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `config.resetDefault` | unbound | global | `suppressed` |
 | `theme.picker` | `T` | `navigation`, `searchResults` | `suppressed` |
 | `indicator.picker` | `I` | `navigation`, `searchResults` | `suppressed` |
+| `update.show` | `U` | `navigation`, `searchResults` | `suppressed` |
 | `pane.splitRight` | `<C-b>|` | `navigation`, `searchResults` | `suppressed` |
 | `pane.splitDown` | `<C-b>-` | `navigation`, `searchResults` | `suppressed` |
 | `pane.focusLeft` | `<C-h>` | `navigation`, `searchResults` | `suppressed` |
@@ -344,6 +345,9 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 
 # --- Link indicator ---
 "indicator.picker" = ["I"]  # I
+
+# --- Update ---
+"update.show"      = ["U"]  # U
 
 # --- Panes ---
 # split/unsplit use <prefix>; focus keys are direct. Change the prefix under [input].

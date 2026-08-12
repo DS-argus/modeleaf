@@ -30,6 +30,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var installedKeyViewLoop: [NSView] = []
     private let configFileURLProvider: () -> URL
     let rootView: ReaderRootView
+    private(set) var availableUpdate: AvailableUpdate?
+    var hasAvailableUpdate: Bool { availableUpdate != nil }
 
     init(
         coordinator: PaneCoordinator,
@@ -280,6 +282,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if !rootView.themePickerOverlay.isHidden { cancelThemePickerAndRestoreFocus() }
         if !rootView.recentFilesOverlay.isHidden { dismissRecentFilesOverlayAndRestoreFocus() }
         if !rootView.linkIndicatorPickerOverlay.isHidden { cancelLinkIndicatorPickerAndRestoreFocus() }
+        if !rootView.updateInstructionsOverlay.isHidden { dismissUpdateInstructionsAndRestoreFocus() }
         dismissLinkHintsAndRestoreFocus()
         preservesTransientInputContext = false
         if restoringContext { restoreTransientInputContext() }
@@ -377,7 +380,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             savedInputContext: savedTransientInputContexts.last ?? inputRouter.context,
             canGoBack: history?.canGoBack ?? false,
             canGoForward: history?.canGoForward ?? false,
-            isNavigationHistoryHealthy: history?.isNavigationHistoryHealthy ?? false
+            isNavigationHistoryHealthy: history?.isNavigationHistoryHealthy ?? false,
+            hasAvailableUpdate: availableUpdate != nil
         )
     }
 
@@ -444,6 +448,50 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.presentUpdateBanner(text, onClick: onClick)
     }
 
+    func installAvailableUpdate(_ update: AvailableUpdate) {
+        availableUpdate = update
+        renderUpdateBanner()
+    }
+    func presentAvailableUpdate() {
+        guard let availableUpdate else { return }
+        dismissAllTransientOverlays(restoringContext: false)
+        beginTransientOverlay()
+        rootView.updateInstructionsOverlay.onOpenReleases = { [weak self] in
+            NSWorkspace.shared.open(UpdateChecker.releasesPage)
+            self?.dismissUpdateInstructionsAndRestoreFocus()
+        }
+        rootView.updateInstructionsOverlay.onCancel = { [weak self] in
+            self?.dismissUpdateInstructionsAndRestoreFocus()
+        }
+        rootView.updateInstructionsOverlay.present(update: availableUpdate)
+        rebuildKeyViewLoop(snapshot: coordinator.snapshot)
+        window?.makeFirstResponder(rootView.updateInstructionsOverlay)
+    }
+
+    private func dismissUpdateInstructionsAndRestoreFocus() {
+        guard !rootView.updateInstructionsOverlay.isHidden else { return }
+        rootView.updateInstructionsOverlay.dismiss()
+        rootView.updateInstructionsOverlay.onOpenReleases = nil
+        rootView.updateInstructionsOverlay.onCancel = nil
+        restoreTransientInputContext()
+        rebuildKeyViewLoop(snapshot: coordinator.snapshot)
+        if !rootView.promptOverlay.isHidden {
+            window?.makeFirstResponder(rootView.promptOverlay.textField)
+            rootView.promptOverlay.setFocusAppearance(true)
+        } else {
+            focusActiveSurface(snapshot: coordinator.snapshot)
+        }
+    }
+
+    private func renderUpdateBanner() {
+        guard let availableUpdate else { return }
+        let shortcut = resolvedConfig.keymap.bindings(for: .updateShow).first
+            .flatMap(KeyBindingHint.text(for:)) ?? "U"
+        rootView.presentUpdateBanner("\u{2191} Modeleaf \(availableUpdate.version) available  [\(shortcut)]") { [weak self] in
+            self?.presentAvailableUpdate()
+        }
+    }
+
     func presentPrompt(_ presentation: PromptPresentation) {
         let context: InputContext = presentation.kind == .page ? .pagePrompt : .searchPrompt
         inputRouter.synchronizeContext(context)
@@ -492,13 +540,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     var activePromptKind: ReaderPromptKind? { rootView.promptOverlay.activeKind }
     var activePromptText: String { rootView.promptOverlay.activeText }
-
     var inputContextForTesting: InputContext { inputRouter.context }
 
     @discardableResult
-    func routeKeyEventForTesting(_ event: NSEvent) -> Bool {
-        routeKeyEvent(event)
-    }
+    func routeKeyEventForTesting(_ event: NSEvent) -> Bool { routeKeyEvent(event) }
 
     @discardableResult
     private func routeKeyEvent(_ event: NSEvent) -> Bool {
@@ -508,6 +553,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if !rootView.helpOverlay.isHidden, rootView.helpOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
         if !rootView.themePickerOverlay.isHidden, rootView.themePickerOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
         if !rootView.linkIndicatorPickerOverlay.isHidden, rootView.linkIndicatorPickerOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
+        if !rootView.updateInstructionsOverlay.isHidden, rootView.updateInstructionsOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
         if isTransientModalRoutingActive, inputRouter.handleHistoryWhileModal(event) { return true }
         return inputRouter.handle(event)
     }
@@ -516,24 +562,21 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if suppressesDocumentKeyDispatch {
             guard ActionRegistry.v1.descriptor(for: dispatch.actionID)?.scope == .global else { return }
         }
-        if let fallback {
-            fallback(dispatch)
-        } else {
-            actionHandler(dispatch.actionID)
-        }
+        if let fallback { fallback(dispatch) } else { actionHandler(dispatch.actionID) }
     }
 
     private var isTransientModalRoutingActive: Bool {
         !rootView.commandPaletteOverlay.isHidden || !rootView.recentFilesOverlay.isHidden ||
             !rootView.helpOverlay.isHidden || !rootView.themePickerOverlay.isHidden ||
-            !rootView.linkIndicatorPickerOverlay.isHidden ||
+            !rootView.linkIndicatorPickerOverlay.isHidden || !rootView.updateInstructionsOverlay.isHidden ||
             !rootView.linkHintOverlay.isHidden || !rootView.promptOverlay.isHidden
     }
 
     private var suppressesDocumentKeyDispatch: Bool {
         !rootView.commandPaletteOverlay.isHidden || !rootView.recentFilesOverlay.isHidden ||
             !rootView.helpOverlay.isHidden || !rootView.themePickerOverlay.isHidden ||
-            !rootView.linkIndicatorPickerOverlay.isHidden || !rootView.linkHintOverlay.isHidden
+            !rootView.linkIndicatorPickerOverlay.isHidden || !rootView.updateInstructionsOverlay.isHidden ||
+            !rootView.linkHintOverlay.isHidden
     }
 
     private func beginTransientOverlay() {
@@ -549,6 +592,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.setInputContext(context)
     }
     func windowDidBecomeKey(_ notification: Notification) {
+        if !rootView.updateInstructionsOverlay.isHidden {
+            rootView.updateInstructionsOverlay.setFocusAppearance(true)
+            window?.makeFirstResponder(rootView.updateInstructionsOverlay)
+            return
+        }
         if !rootView.commandPaletteOverlay.isHidden {
             window?.makeFirstResponder(rootView.commandPaletteOverlay)
             return
@@ -580,6 +628,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         inputRouter.invalidate(.focusLost)
         if !rootView.linkIndicatorPickerOverlay.isHidden {
             rootView.linkIndicatorPickerOverlay.setFocusAppearance(false)
+        } else if !rootView.updateInstructionsOverlay.isHidden {
+            rootView.updateInstructionsOverlay.setFocusAppearance(false)
         } else if !rootView.themePickerOverlay.isHidden {
             rootView.themePickerOverlay.setFocusAppearance(false)
         } else {
