@@ -27,6 +27,7 @@ struct CitationPreviewTests {
         #expect(components.host == "scholar.google.com")
         #expect(components.queryItems == [URLQueryItem(name: "q", value: reference)])
         #expect(components.path == "/scholar")
+        #expect(citationScholarQuery(for: reference) == "Edward J. Hu et al. LoRA: Low-rank adaptation & fine-tuning.")
     }
 
     @Test("extractor stops at the next marker, large gap, and bounded size")
@@ -195,7 +196,7 @@ struct CitationPreviewTests {
                 keyCode: 36
             ))))
             #expect(controller.rootView.citationPreviewOverlay.isHidden)
-            #expect(searchedReferences == [searchedReference])
+            #expect(searchedReferences == [citationScholarQuery(for: searchedReference)])
             #expect(session.currentPageNumber == 1)
             #expect(!session.canGoBack && !session.canGoForward)
             try openCitationPreview(controller: controller, session: session, marker: 4)
@@ -242,6 +243,37 @@ struct CitationPreviewTests {
             return true
         })
         #expect(try PDFFixtureFactory.sha256(of: fallbackURL) == before)
+    }
+
+    @Test("NeurIPS 2025 multiline numeric groups are selection-invariant and references are complete")
+    func neurIPS2025PhaseOneContract() throws {
+        let path = "test-pdf/citation-annotation-corpus/NeurIPS/2025-primacy-of-magnitude.pdf"
+        guard FileManager.default.fileExists(atPath: path) else { return }
+        let url = URL(fileURLWithPath: path)
+        let before = try PDFFixtureFactory.sha256(of: url)
+        let document = try #require(PDFDocument(url: url))
+        let resolver = CitationPreviewResolver(document: document)
+        let resolutions = allLinks(in: document).compactMap { link -> CitationPreviewGroup? in
+            guard case let .preview(group) = resolver.resolve(link) else { return nil }
+            return group
+        }
+        let expectedGroups = [
+            [1, 2, 3, 4, 5],
+            [23, 10, 24, 25, 26, 27, 28, 29],
+            [43, 44, 39],
+            [30, 38, 39],
+        ]
+        for expected in expectedGroups {
+            let matching = resolutions.filter { $0.items.map(\.marker) == expected }
+            let selectedMarkers = Set(matching.map { $0.items[$0.selectedIndex].marker })
+            #expect(selectedMarkers == Set(expected), "Not every marker selected the complete group \(expected)")
+        }
+
+        let openingGroup = try #require(resolutions.first { $0.items.map(\.marker) == [1, 2, 3, 4, 5] })
+        let first = try #require(openingGroup.items.first { $0.marker == 1 })
+        #expect(first.referenceText == "[1] OpenAI Team. Language models are few-shot learners. In NeurIPS, 2020.")
+        #expect(citationScholarQuery(for: first.referenceText) == "OpenAI Team. Language models are few-shot learners. In NeurIPS, 2020.")
+        #expect(try PDFFixtureFactory.sha256(of: url) == before)
     }
 
     private func openCitationPreview(

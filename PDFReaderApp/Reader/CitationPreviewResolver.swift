@@ -50,19 +50,22 @@ enum CitationPreviewClassifier {
         return Int(exactSourceText[markerRange])
     }
 
-    static func bracketedMarkers(in sourceContext: String, containing selectedMarker: Int) -> [Int]? {
+    static func bracketedGroups(in sourceContext: String) -> [[Int]] {
         let range = NSRange(sourceContext.startIndex..<sourceContext.endIndex, in: sourceContext)
-        for match in bracketedGroup.matches(in: sourceContext, range: range) {
-            guard let groupRange = Range(match.range, in: sourceContext) else { continue }
+        return bracketedGroup.matches(in: sourceContext, range: range).compactMap { match in
+            guard let groupRange = Range(match.range, in: sourceContext) else { return nil }
             let group = String(sourceContext[groupRange])
             let groupNSRange = NSRange(group.startIndex..<group.endIndex, in: group)
-            let markers = number.matches(in: group, range: groupNSRange).compactMap { match -> Int? in
-                guard let swiftRange = Range(match.range, in: group) else { return nil }
+            let markers = number.matches(in: group, range: groupNSRange).compactMap { numberMatch -> Int? in
+                guard let swiftRange = Range(numberMatch.range, in: group) else { return nil }
                 return Int(group[swiftRange])
             }
-            if markers.contains(selectedMarker) { return markers }
+            return markers.isEmpty ? nil : markers
         }
-        return nil
+    }
+
+    static func bracketedMarkers(in sourceContext: String, containing selectedMarker: Int) -> [Int]? {
+        bracketedGroups(in: sourceContext).first { $0.contains(selectedMarker) }
     }
 }
 
@@ -108,7 +111,6 @@ enum CitationReferenceExtractor {
 @MainActor
 final class CitationPreviewResolver {
     private let document: PDFDocument
-    private let baselineTolerance: CGFloat = 4
 
     init(document: PDFDocument) {
         self.document = document
@@ -119,36 +121,55 @@ final class CitationPreviewResolver {
               let sourcePage = document.page(at: link.sourcePageIndex),
               let selected = matchingAnnotation(for: link, on: sourcePage),
               let selectedMarker = marker(for: selected, on: sourcePage),
-              let context = sourceContext(around: selected.bounds, on: sourcePage),
-              let contextMarkers = CitationPreviewClassifier.bracketedMarkers(
-                in: context,
-                containing: selectedMarker.marker
+              let sourceGroup = reconstructedSourceGroup(
+                containing: selectedMarker,
+                around: selected.bounds,
+                on: sourcePage
               )
         else { return .activate(link.target) }
 
-        let candidates = sourcePage.annotations.compactMap { annotation -> CitationMarker? in
-            guard abs(annotation.bounds.midY - selected.bounds.midY) <= baselineTolerance,
-                  annotation.bounds.intersects(selected.bounds.insetBy(dx: -110, dy: -4)),
-                  let marker = marker(for: annotation, on: sourcePage),
-                  contextMarkers.contains(marker.marker)
-            else { return nil }
-            return marker
-        }
-
-        var remaining = candidates
-        var ordered: [CitationMarker] = []
-        for marker in contextMarkers {
-            guard let candidateIndex = remaining.firstIndex(where: { $0.marker == marker }) else { continue }
-            ordered.append(remaining.remove(at: candidateIndex))
-        }
-        guard ordered.contains(selectedMarker) else { return .activate(link.target) }
-
-        let resolved = ordered.compactMap(previewItem(for:))
+        let resolved = sourceGroup.compactMap(previewItem(for:))
         guard let resolvedSelectedIndex = resolved.firstIndex(where: { $0.marker == selectedMarker.marker }) else {
             return .activate(link.target)
         }
         return .preview(CitationPreviewGroup(items: resolved, selectedIndex: resolvedSelectedIndex))
     }
+
+    private func reconstructedSourceGroup(
+        containing selectedMarker: CitationMarker,
+        around selectedBounds: CGRect,
+        on page: PDFPage
+    ) -> [CitationMarker]? {
+        let pageBounds = page.bounds(for: .cropBox)
+        let verticalPadding: CGFloat = 16
+        let contextBounds = CGRect(
+            x: pageBounds.minX,
+            y: selectedBounds.minY - verticalPadding,
+            width: pageBounds.width,
+            height: selectedBounds.height + (verticalPadding * 2)
+        ).intersection(pageBounds)
+        guard let context = page.selection(for: contextBounds)?.string else { return nil }
+        let groups = CitationPreviewClassifier.bracketedGroups(in: context).sorted { $0.count > $1.count }
+        guard !groups.isEmpty else { return nil }
+
+        let candidates = page.annotations.compactMap { annotation -> CitationMarker? in
+            guard annotation.bounds.intersects(contextBounds) else { return nil }
+            return marker(for: annotation, on: page)
+        }.sorted(by: Self.sourceReadingOrder)
+
+        for markers in groups where markers.contains(selectedMarker.marker) {
+            guard candidates.count >= markers.count else { continue }
+            for start in 0...(candidates.count - markers.count) {
+                let candidate = Array(candidates[start..<(start + markers.count)])
+                guard candidate.map(\.marker) == markers,
+                      candidate.contains(selectedMarker)
+                else { continue }
+                return candidate
+            }
+        }
+        return nil
+    }
+
 
     private func matchingAnnotation(for link: ReaderLink, on page: PDFPage) -> PDFAnnotation? {
         page.annotations.first { annotation in
@@ -169,12 +190,6 @@ final class CitationPreviewResolver {
         )
     }
 
-    private func sourceContext(around bounds: CGRect, on page: PDFPage) -> String? {
-        let pageBounds = page.bounds(for: .cropBox)
-        let contextBounds = bounds.insetBy(dx: -110, dy: -4).intersection(pageBounds)
-        guard let context = page.selection(for: contextBounds)?.string, !context.isEmpty else { return nil }
-        return context
-    }
     private func previewItem(for marker: CitationMarker) -> CitationPreviewItem? {
         guard case let .goTo(pageIndex, point?) = marker.destination,
               let page = document.page(at: pageIndex),
@@ -192,28 +207,13 @@ final class CitationPreviewResolver {
     private func referenceText(marker: Int, point: CGPoint, on page: PDFPage) -> String? {
         let bounds = page.bounds(for: .cropBox)
         let sentinelThreshold = CGFloat(Float.greatestFiniteMagnitude) / 2
-        let hasValidX = point.x.isFinite && abs(point.x) < sentinelThreshold
-        let hasValidY = point.y.isFinite && abs(point.y) < sentinelThreshold
-        guard hasValidY else { return nil }
-
-        let columnBounds: CGRect
-        if hasValidX {
-            let midpoint = bounds.midX
-            let isLeft = point.x <= midpoint
-            columnBounds = CGRect(
-                x: isLeft ? bounds.minX : midpoint,
-                y: bounds.minY,
-                width: bounds.width / 2,
-                height: bounds.height
-            ).insetBy(dx: 8, dy: 0)
-        } else {
-            columnBounds = bounds.insetBy(dx: 8, dy: 0)
-        }
+        guard point.y.isFinite, abs(point.y) < sentinelThreshold else { return nil }
+        let minimumY = max(bounds.minY, point.y - 220)
         let vertical = CGRect(
-            x: columnBounds.minX,
-            y: max(bounds.minY, point.y - 150),
-            width: columnBounds.width,
-            height: min(190, bounds.maxY - max(bounds.minY, point.y - 150))
+            x: bounds.minX + 8,
+            y: minimumY,
+            width: max(1, bounds.width - 16),
+            height: min(268, bounds.maxY - minimumY)
         )
         guard let selection = page.selection(for: vertical) else { return nil }
         let lines = selection.selectionsByLine().map {
@@ -243,6 +243,12 @@ final class CitationPreviewResolver {
         return .goTo(pageIndex: pageIndex, point: destination.point)
     }
 
+    private static func sourceReadingOrder(_ lhs: CitationMarker, _ rhs: CitationMarker) -> Bool {
+        if abs(lhs.sourceBounds.midY - rhs.sourceBounds.midY) > 4 {
+            return lhs.sourceBounds.midY > rhs.sourceBounds.midY
+        }
+        return lhs.sourceBounds.minX < rhs.sourceBounds.minX
+    }
     private static func rect(_ lhs: CGRect, matches rhs: CGRect) -> Bool {
         abs(lhs.minX - rhs.minX) <= 0.5
             && abs(lhs.minY - rhs.minY) <= 0.5

@@ -10,6 +10,15 @@ func googleScholarSearchURL(for text: String) -> URL? {
     components?.queryItems = [URLQueryItem(name: "q", value: text)]
     return components?.url
 }
+func citationScholarQuery(for referenceText: String) -> String {
+    referenceText
+        .replacingOccurrences(
+            of: #"^\s*\[\s*\d{1,4}\s*\]\s*"#,
+            with: "",
+            options: .regularExpression
+        )
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+}
 @MainActor
 final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let coordinator: PaneCoordinator
@@ -245,7 +254,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.citationPreviewOverlay.onSearch = { [weak self] item in
             guard let self, self.coordinator.snapshot.activeID == sessionID else { return }
             self.dismissCitationPreviewAndRestoreFocus()
-            self.citationSearchHandler(item.referenceText)
+            self.citationSearchHandler(citationScholarQuery(for: item.referenceText))
         }
         rootView.citationPreviewOverlay.onDismiss = { [weak self] in
             self?.dismissCitationPreviewAndRestoreFocus()
