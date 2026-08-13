@@ -43,6 +43,7 @@ final class PDFViewController: NSViewController {
     private var internalLinkHandler: ((ReaderLinkTarget) -> Void)?
     private var navigationSnapshotCaptureOverride: (() -> NavigationSnapshot?)?
     private lazy var citationPreviewResolver = CitationPreviewResolver(document: initialDocument)
+    private var citationPreviewEnabled = false
 
     private let destinationIndicatorView = LinkDestinationIndicatorView(frame: .zero)
     init(document: PDFDocument, traceID: OpenTraceID, metrics: any PDFOpenMetrics) {
@@ -567,8 +568,12 @@ extension PDFViewController: ReaderLinkProviding, ReaderPDFViewInternalLinkHandl
             }
         }
     }
+    func applyCitationPreviewEnabled(_ enabled: Bool) {
+        citationPreviewEnabled = enabled
+    }
     func resolveLinkHint(_ link: ReaderLink) -> LinkHintResolution {
-        citationPreviewResolver.resolve(link)
+        guard citationPreviewEnabled else { return .activate(link.target) }
+        return citationPreviewResolver.resolve(link)
     }
     func activateLink(_ target: ReaderLinkTarget) { loadViewIfNeeded(); readerView.activate(target) }
     func setInternalLinkHandler(_ handler: ((ReaderLinkTarget) -> Void)?) { internalLinkHandler = handler }

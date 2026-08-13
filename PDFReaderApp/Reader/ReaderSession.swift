@@ -707,6 +707,9 @@ extension ReaderSession: ReaderLinkProviding {
         return viewController.linkTargets()
     }
 
+    func applyCitationPreviewEnabled(_ enabled: Bool) {
+        viewController.applyCitationPreviewEnabled(enabled)
+    }
     func resolveLinkHint(_ link: ReaderLink) -> LinkHintResolution {
         guard !isClosed else { return .activate(link.target) }
         return viewController.resolveLinkHint(link)

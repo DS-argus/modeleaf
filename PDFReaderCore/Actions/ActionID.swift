@@ -52,6 +52,7 @@ public enum ActionID: String, CaseIterable, Codable, Hashable, Sendable {
     case viewRotateLeft = "view.rotateLeft"
     case viewRotateRight = "view.rotateRight"
     case linkHint = "link.hint"
+    case citationPreviewToggle = "citation.preview.toggle"
 
     case configReload = "config.reload"
     case configWriteDefault = "config.writeDefault"

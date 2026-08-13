@@ -254,6 +254,86 @@ struct CitationPreviewTests {
         }
     }
 
+    @Test("citation preview defaults OFF, persists Shift-C toggles, and bypasses resolution when disabled")
+    func experimentalToggleContract() throws {
+        try withTemporaryDirectory { directory in
+            let pdfURL = try PDFFixtureFactory.makeCitationPreviewPDF(in: directory)
+            let stateURL = directory.appendingPathComponent("state.json")
+            let settingsStore = CitationPreviewSettingsStore(fileURL: stateURL)
+            let controller = ApplicationController(
+                configService: ConfigService(
+                    source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))
+                ),
+                themeStore: ThemeSelectionStore(fileURL: stateURL),
+                indicatorSettingsStore: LinkDestinationIndicatorSettingsStore(fileURL: stateURL),
+                recentFilesStore: RecentFilesStore(fileURL: stateURL),
+                citationPreviewSettingsStore: settingsStore,
+                terminationHandler: {}
+            )
+            defer {
+                while controller.coordinator.closeActiveTab() {}
+                controller.mainWindowController.close()
+            }
+            #expect(!controller.isCitationPreviewEnabled)
+            #expect(settingsStore.load() == .absent)
+            #expect(controller.openDocument(at: pdfURL))
+            let session = try #require(controller.coordinator.activeSession as? ReaderSession)
+            let sourceDocument = try #require(PDFDocument(url: pdfURL))
+            let link = try #require(allLinks(in: sourceDocument).first { link in
+                link.rects.contains { rect in
+                    (sourceDocument.page(at: 0)?.selection(for: rect)?.string ?? "").contains("4")
+                }
+            })
+            guard case .activate = session.resolveLinkHint(link) else {
+                Issue.record("Preview must bypass resolution while experimental mode is OFF")
+                return
+            }
+
+            #expect(controller.mainWindowController.routeKeyEventForTesting(try #require(makeKeyEvent(
+                characters: "C",
+                modifiers: [.shift],
+                keyCode: 8
+            ))))
+            #expect(controller.isCitationPreviewEnabled)
+            #expect(settingsStore.load() == .selected(true))
+            guard case let .preview(group) = session.resolveLinkHint(link) else {
+                Issue.record("Preview must resolve after enabling experimental mode")
+                return
+            }
+            #expect(controller.mainWindowController.rootView.statusBar.presentation.detail.contains("Experimental · ON"))
+            controller.mainWindowController.rootView.citationPreviewOverlay.present(
+                group: group,
+                anchorRect: CGRect(x: 100, y: 100, width: 10, height: 10)
+            )
+            controller.dispatch(.citationPreviewToggle)
+            #expect(!controller.isCitationPreviewEnabled)
+            #expect(controller.mainWindowController.rootView.citationPreviewOverlay.isHidden)
+            guard case .activate = session.resolveLinkHint(link) else {
+                Issue.record("Disabling must restore ordinary link activation immediately")
+                return
+            }
+            controller.dispatch(.citationPreviewToggle)
+            #expect(controller.isCitationPreviewEnabled)
+            #expect(settingsStore.load() == .selected(true))
+
+            let restarted = ApplicationController(
+                configService: ConfigService(
+                    source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))
+                ),
+                themeStore: ThemeSelectionStore(fileURL: stateURL),
+                indicatorSettingsStore: LinkDestinationIndicatorSettingsStore(fileURL: stateURL),
+                recentFilesStore: RecentFilesStore(fileURL: stateURL),
+                citationPreviewSettingsStore: settingsStore,
+                terminationHandler: {}
+            )
+            defer { restarted.mainWindowController.close() }
+            #expect(restarted.isCitationPreviewEnabled)
+            restarted.dispatch(.citationPreviewToggle)
+            #expect(!restarted.isCitationPreviewEnabled)
+            #expect(settingsStore.load() == .selected(false))
+            #expect(restarted.mainWindowController.rootView.statusBar.presentation.detail.contains("Experimental · OFF"))
+        }
+    }
     @Test("author-year preview resolution remains nonmutating until Move commits one history jump")
     func authorYearHistoryContract() throws {
         let path = "test-pdf/citation-annotation-corpus/ICML/2022-pac-bayesian-rate-efficient.pdf"
@@ -539,6 +619,7 @@ struct CitationPreviewTests {
         session: ReaderSession,
         marker: Int
     ) throws {
+        session.applyCitationPreviewEnabled(true)
         let links = LinkHintMerge.mergeLinks(session.linkTargets()).filter {
             !session.linkHintRects(for: $0, in: controller.rootView.linkHintOverlay).isEmpty
         }

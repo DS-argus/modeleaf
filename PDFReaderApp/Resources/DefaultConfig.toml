@@ -75,6 +75,9 @@
 # --- Links ---
 "link.hint"        = ["f"]  # f
 
+# --- Experimental ---
+"citation.preview.toggle" = ["C"]  # C
+
 # --- Config ---
 "config.reload"    = ["<prefix>r"]  # Ctrl+b r
 "config.writeDefault" = []

@@ -43,6 +43,7 @@ private var newInstanceHandler: () -> Void
     private var configWriteDefaultHandler: () -> Void
     private var configResetDefaultHandler: () -> Void
 
+    private var citationPreviewToggleHandler: () -> Void
     weak var presentation: (any ReaderWorkflowPresenting)?
 
     init(
@@ -53,7 +54,8 @@ private var newInstanceHandler: () -> Void
         newInstanceHandler: @escaping () -> Void = {},
         configReloadHandler: @escaping () -> Void = {},
         configWriteDefaultHandler: @escaping () -> Void = {},
-        configResetDefaultHandler: @escaping () -> Void = {}
+        configResetDefaultHandler: @escaping () -> Void = {},
+        citationPreviewToggleHandler: @escaping () -> Void = {}
     ) {
         self.coordinator = coordinator
         self.navigation = navigation
@@ -63,6 +65,7 @@ self.newInstanceHandler = newInstanceHandler
         self.configReloadHandler = configReloadHandler
         self.configWriteDefaultHandler = configWriteDefaultHandler
         self.configResetDefaultHandler = configResetDefaultHandler
+        self.citationPreviewToggleHandler = citationPreviewToggleHandler
     }
 
     func configureLifecycleHandlers(
@@ -85,6 +88,9 @@ newInstanceHandler = newInstance
 
     func configureConfigResetDefaultHandler(_ handler: @escaping () -> Void) {
         configResetDefaultHandler = handler
+    }
+    func configureCitationPreviewToggleHandler(_ handler: @escaping () -> Void) {
+        citationPreviewToggleHandler = handler
     }
     func updateNavigation(_ navigation: NavigationConfiguration) {
         self.navigation = navigation
@@ -208,6 +214,8 @@ newInstanceHandler = newInstance
             activeSession?.rotateRight()
         case .linkHint:
             presentation?.presentLinkHints()
+        case .citationPreviewToggle:
+            citationPreviewToggleHandler()
         case .paneSplitRight:
             _ = coordinator.split(direction: .sideBySide)
         case .paneSplitDown:

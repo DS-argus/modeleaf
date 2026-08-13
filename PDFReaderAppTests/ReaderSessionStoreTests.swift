@@ -102,6 +102,22 @@ struct ReaderSessionStoreTests {
         #expect(weakBox.value == nil)
     }
 
+    @Test("citation preview setting propagates to every live session")
+    func citationPreviewPropagation() {
+        let store = ReaderSessionStore()
+        let first = StubReaderSession(id: fixedID(1), title: "First.pdf")
+        let second = StubReaderSession(id: fixedID(2), title: "Second.pdf")
+        #expect(store.insert(first))
+        #expect(store.insert(second))
+
+        store.applyCitationPreviewEnabled(true)
+        #expect(first.citationPreviewEnabled)
+        #expect(second.citationPreviewEnabled)
+
+        store.applyCitationPreviewEnabled(false)
+        #expect(!first.citationPreviewEnabled)
+        #expect(!second.citationPreviewEnabled)
+    }
     @Test("rollback restores the closing tab at its original visual position")
     func rollbackRestoresOriginalPosition() {
         let store = ReaderSessionStore()
@@ -127,6 +143,7 @@ struct ReaderSessionStoreTests {
 @MainActor
 final class StubReaderSession: HistoryNeutralTestSessionPresenting, ReaderDuplicateValidating {
     func applyTheme(_ theme: AppKitTheme) {}
+    func applyCitationPreviewEnabled(_ enabled: Bool) { citationPreviewEnabled = enabled }
     let id: TabID
     let title: String
     let contentView: NSView
@@ -134,6 +151,7 @@ final class StubReaderSession: HistoryNeutralTestSessionPresenting, ReaderDuplic
     var zoom: Double
     var searchQuery = ""
     private(set) var prepareForCloseCount = 0
+    private(set) var citationPreviewEnabled = false
     private var presentationChangeHandler: (() -> Void)?
     var automaticallyValidateDuplicate = true
     private var duplicateValidationHandler: ((Bool) -> Void)?

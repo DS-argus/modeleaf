@@ -10,7 +10,7 @@ struct HelpOverlaySection {
 final class HelpOverlayView: NSView {
     private enum Metrics {
         static let preferredWidth: CGFloat = 840
-        static let maximumListHeight: CGFloat = 520
+        static let maximumListHeight: CGFloat = 560
         static let minimumListHeight: CGFloat = 120
     }
 

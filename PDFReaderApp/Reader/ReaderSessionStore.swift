@@ -28,6 +28,7 @@ protocol ReaderSessionPresenting: ReaderNavigationHistoryPresenting {
     func setPresentationChangeHandler(_ handler: (() -> Void)?)
     func applyTheme(_ theme: AppKitTheme)
     func applyLinkDestinationIndicatorSettings(_ configuration: LinkDestinationIndicatorSettings)
+    func applyCitationPreviewEnabled(_ enabled: Bool)
     func scrollBy(xPoints: Double, yPoints: Double)
     func scrollVerticallyByViewportFraction(_ fraction: Double)
     func moveHorizontally(byPoints points: Double)
@@ -62,6 +63,7 @@ extension ReaderSessionPresenting {
     func setPresentationChangeHandler(_ handler: (() -> Void)?) {}
     func resetZoom() {}
     func applyLinkDestinationIndicatorSettings(_ configuration: LinkDestinationIndicatorSettings) {}
+    func applyCitationPreviewEnabled(_ enabled: Bool) {}
     func fitWidth() {}
     func fitPage() {}
     func rotateLeft() {}
@@ -105,6 +107,7 @@ struct ReaderTabSnapshot: Equatable { let id: TabID; let title: String }; struct
     var onChange: ((ReaderSessionStoreSnapshot) -> Void)? { get { changeHandler } set { precondition(changeHandler == nil || newValue == nil, "ReaderSessionStore change handler is coordinator-owned"); changeHandler = newValue } }; func registerChangeHandler(_ handler: @escaping (ReaderSessionStoreSnapshot) -> Void) { precondition(changeHandler == nil, "ReaderSessionStore change handler is coordinator-owned"); changeHandler = handler }
     var snapshot: ReaderSessionStoreSnapshot { ReaderSessionStoreSnapshot(tabs: tabStore.orderedIDs.compactMap { sessionsByID[$0].map { ReaderTabSnapshot(id: $0.id, title: $0.title) } }, activeID: tabStore.activeID) }; var activeSession: (any ReaderSessionPresenting)? { tabStore.activeID.flatMap { sessionsByID[$0] } }; var sessionCount: Int { tabStore.orderedIDs.count }
     @discardableResult func insert(_ session: any ReaderSessionPresenting) -> Bool { guard sessionsByID[session.id] == nil, tabStore.insert(session.id) else { return false }; sessionsByID[session.id] = session; session.setPresentationChangeHandler { [weak self, id = session.id] in self?.sessionDidChange(id) }; publishChange(); return true }; func session(for id: TabID) -> (any ReaderSessionPresenting)? { sessionsByID[id] }
+    func applyCitationPreviewEnabled(_ enabled: Bool) { sessionsByID.values.forEach { $0.applyCitationPreviewEnabled(enabled) } }
     func applyTheme(_ theme: AppKitTheme) { sessionsByID.values.forEach { $0.applyTheme(theme) } }
     func applyLinkDestinationIndicatorSettings(_ configuration: LinkDestinationIndicatorSettings) { sessionsByID.values.forEach { $0.applyLinkDestinationIndicatorSettings(configuration) } }
     @discardableResult func activate(_ id: TabID) -> Bool { guard tabStore.activate(id) else { return false }; publishChange(); return true }; @discardableResult func activateTab(atOneBasedOrdinal ordinal: Int) -> Bool { guard ordinal > 0, tabStore.activate(at: ordinal - 1) else { return false }; publishChange(); return true }; @discardableResult func activateNext() -> TabID? { let previous = tabStore.activeID; let active = tabStore.activateNext(); if active != previous { publishChange() }; return active }; @discardableResult func activatePrevious() -> TabID? { let previous = tabStore.activeID; let active = tabStore.activatePrevious(); if active != previous { publishChange() }; return active }; @discardableResult func closeActive() -> Bool { guard let activeID = tabStore.activeID else { return false }; return close(activeID) }

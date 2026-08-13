@@ -89,6 +89,10 @@ final class PaneCoordinator {
         stores.values.forEach { $0.applyLinkDestinationIndicatorSettings(configuration) }
         bootstrapStore?.applyLinkDestinationIndicatorSettings(configuration)
     }
+    func applyCitationPreviewEnabled(_ enabled: Bool) {
+        stores.values.forEach { $0.applyCitationPreviewEnabled(enabled) }
+        bootstrapStore?.applyCitationPreviewEnabled(enabled)
+    }
 
     @discardableResult
     func insert(_ session: any ReaderSessionPresenting, into target: PaneOpenTarget) -> Bool {
