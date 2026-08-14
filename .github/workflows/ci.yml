@@ -10,9 +10,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: swift test
+  tests:
+    name: swift test (${{ matrix.shard }})
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: core
+            mode: core
+          - shard: app
+            mode: app
     steps:
       - uses: actions/checkout@v5
 
@@ -22,9 +30,29 @@ jobs:
           xcode-version: latest-stable
 
       - name: Toolchain
+        id: toolchain
         run: |
           swift --version
           xcodebuild -version
+          echo "fingerprint=$(xcodebuild -version | shasum -a 256 | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
 
-      - name: Run tests
-        run: swift test
+      - name: Restore Swift build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm
+          key: modeleaf-${{ runner.os }}-${{ steps.toolchain.outputs.fingerprint }}-${{ hashFiles('Package.resolved') }}-${{ github.sha }}-${{ matrix.shard }}
+          restore-keys: |
+            modeleaf-${{ runner.os }}-${{ steps.toolchain.outputs.fingerprint }}-${{ hashFiles('Package.resolved') }}-
+
+      - name: Run ${{ matrix.shard }} tests
+        run: Tools/verify.sh ${{ matrix.mode }} --disable-automatic-resolution
+
+  project-validation:
+    name: project validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 Tools/validate_xcode_project.py
+      - run: git diff --check

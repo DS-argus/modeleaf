@@ -35,6 +35,17 @@ open "$APP"
 
 For development, `swift run Modeleaf` also works but is an unoptimized build and slower to start.
 
+Development verification is layered so small changes do not require the complete suite on every edit:
+
+```sh
+Tools/verify.sh focused TOCWidgetTests  # one affected suite while iterating
+Tools/verify.sh core                    # PDFReaderCoreTests only
+Tools/verify.sh app                     # PDFReaderAppTests only
+Tools/verify.sh full                    # tests + project validation + diff hygiene
+```
+
+Run `full` before opening a pull request; CI runs the Core and App shards independently.
+
 ## Update
 
 ```sh

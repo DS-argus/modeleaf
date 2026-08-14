@@ -82,8 +82,12 @@ struct TOCWidgetTests {
     }
 
     @Test("numeric accumulation is visible in the footer until commit")
-    func numericBufferAppearsInFooterUntilCommit() async throws {
-        let widget = TOCWidgetView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
+    func numericBufferAppearsInFooterUntilCommit() throws {
+        let scheduler = ManualTOCDigitCommitScheduler()
+        let widget = TOCWidgetView(
+            frame: NSRect(x: 0, y: 0, width: 300, height: 200),
+            digitCommitScheduler: scheduler.schedule
+        )
         let snapshot = makeSnapshot(count: 12)
         var activations: [ReaderOutlineRowID] = []
         widget.toggle(snapshot: snapshot, onActivate: { id in activations.append(id); return .noOp })
@@ -93,33 +97,40 @@ struct TOCWidgetTests {
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "1"))))
         #expect(hint.stringValue == "1  Jump    Esc / t  Close")
         #expect(activations.isEmpty)
-        try await Task.sleep(for: .milliseconds(450))
+        scheduler.runAll()
 
         #expect(activations == [try #require(snapshot.rows.first).id])
         #expect(hint.stringValue == "J / K  Scroll    #  Jump    Esc / t  Close")
     }
 
     @Test("multi-digit selector commits exactly one full selector and invalid input is silent")
-    func numericSelectorCommitsAtomically() async throws {
-        let widget = TOCWidgetView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
+    func numericSelectorCommitsAtomically() throws {
+        let scheduler = ManualTOCDigitCommitScheduler()
+        let widget = TOCWidgetView(
+            frame: NSRect(x: 0, y: 0, width: 300, height: 200),
+            digitCommitScheduler: scheduler.schedule
+        )
         let snapshot = makeSnapshot(count: 12)
         var activations: [ReaderOutlineRowID] = []
         widget.toggle(snapshot: snapshot, onActivate: { id in activations.append(id); return .verifiedLanding })
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "1"))))
-        try await Task.sleep(for: .milliseconds(250))
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "2"))))
-        try await Task.sleep(for: .milliseconds(450))
+        scheduler.runAll()
         #expect(activations == [snapshot.rows[11].id])
 
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "9"))))
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "9"))))
-        try await Task.sleep(for: .milliseconds(450))
+        scheduler.runAll()
         #expect(activations.count == 1)
     }
 
     @Test("escape, deactivation, and dismissal cancel pending numeric work")
-    func cancellationsAreSilent() async throws {
-        let widget = TOCWidgetView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
+    func cancellationsAreSilent() throws {
+        let scheduler = ManualTOCDigitCommitScheduler()
+        let widget = TOCWidgetView(
+            frame: NSRect(x: 0, y: 0, width: 300, height: 200),
+            digitCommitScheduler: scheduler.schedule
+        )
         let snapshot = makeSnapshot(count: 1)
         var calls = 0
         widget.toggle(snapshot: snapshot, onActivate: { _ in calls += 1; return .noOp })
@@ -128,35 +139,43 @@ struct TOCWidgetTests {
         #expect(widget.isHidden)
         widget.setPaneActive(false)
         widget.dismiss()
-        try await Task.sleep(for: .milliseconds(450))
+        scheduler.runAll()
         #expect(calls == 0)
     }
 
     @Test("reentrant activation renders prior tracking then commits the exact row")
-    func reentrantActivationCommitsExactRow() async throws {
-        let widget = TOCWidgetView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
+    func reentrantActivationCommitsExactRow() throws {
+        let scheduler = ManualTOCDigitCommitScheduler()
+        let widget = TOCWidgetView(
+            frame: NSRect(x: 0, y: 0, width: 300, height: 200),
+            digitCommitScheduler: scheduler.schedule
+        )
         let snapshot = makeSnapshot(count: 2)
         widget.toggle(snapshot: snapshot, onActivate: { _ in
             widget.render(snapshot)
             return .verifiedLanding
         })
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "2"))))
-        try await Task.sleep(for: .milliseconds(450))
+        scheduler.runAll()
         let selected = descendant(of: widget, as: NSTableView.self)?.view(atColumn: 0, row: 1, makeIfNecessary: true)
         #expect(selected?.accessibilityValue() as? String == "Selected")
     }
 
     @Test("failed activation preserves the prior exact row")
-    func failedActivationRollsBackToPriorExactRow() async throws {
-        let widget = TOCWidgetView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
+    func failedActivationRollsBackToPriorExactRow() throws {
+        let scheduler = ManualTOCDigitCommitScheduler()
+        let widget = TOCWidgetView(
+            frame: NSRect(x: 0, y: 0, width: 300, height: 200),
+            digitCommitScheduler: scheduler.schedule
+        )
         let snapshot = makeSnapshot(count: 2)
         var outcome: NavigationTransactionOutcome = .verifiedLanding
         widget.toggle(snapshot: snapshot, onActivate: { _ in outcome })
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "1"))))
-        try await Task.sleep(for: .milliseconds(450))
+        scheduler.runAll()
         outcome = .preflightRejected
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "2"))))
-        try await Task.sleep(for: .milliseconds(450))
+        scheduler.runAll()
         let table = try #require(descendant(of: widget, as: NSTableView.self))
         #expect((table.view(atColumn: 0, row: 0, makeIfNecessary: true)?.accessibilityValue() as? String) == "Selected")
     }
@@ -327,5 +346,20 @@ struct TOCWidgetTests {
         if let result = view as? View { return result }
         for child in view.subviews { if let result = descendant(of: child, as: type) { return result } }
         return nil
+    }
+}
+
+@MainActor
+private final class ManualTOCDigitCommitScheduler {
+    private var items: [DispatchWorkItem] = []
+
+    func schedule(_ item: DispatchWorkItem) {
+        items.append(item)
+    }
+
+    func runAll() {
+        let pending = items
+        items.removeAll()
+        for item in pending { item.perform() }
     }
 }

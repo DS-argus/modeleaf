@@ -59,11 +59,17 @@ final class TOCWidgetView: NSView, NSTableViewDataSource, NSTableViewDelegate {
     private var digitBuffer = ""
     private var digitGeneration: UInt64 = 0
     private var digitCommit: DispatchWorkItem?
+    private var digitCommitScheduler: @MainActor (DispatchWorkItem) -> Void
     private var isProgrammaticScroll = false
     private var manuallyScrolled = false
     var onActivate: ((ReaderOutlineRowID) -> NavigationTransactionOutcome)?
 
-    override init(frame frameRect: NSRect) {
+    override convenience init(frame frameRect: NSRect) {
+        self.init(frame: frameRect, digitCommitScheduler: Self.scheduleLiveDigitCommit)
+    }
+
+    init(frame frameRect: NSRect, digitCommitScheduler: @escaping @MainActor (DispatchWorkItem) -> Void) {
+        self.digitCommitScheduler = digitCommitScheduler
         super.init(frame: frameRect)
         wantsLayer = true
         setAccessibilityIdentifier("tocWidget")
@@ -116,6 +122,10 @@ final class TOCWidgetView: NSView, NSTableViewDataSource, NSTableViewDelegate {
             emptyLabel.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor),
         ])
         isHidden = true
+    }
+
+    private static func scheduleLiveDigitCommit(_ item: DispatchWorkItem) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400), execute: item)
     }
 
     required init?(coder: NSCoder) { nil }
@@ -276,7 +286,7 @@ final class TOCWidgetView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         digitCommit?.cancel()
         let commit = DispatchWorkItem { [weak self] in self?.commitDigits(generation: generation) }
         digitCommit = commit
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400), execute: commit)
+        digitCommitScheduler(commit)
     }
 
     private func commitDigits(generation: UInt64) {

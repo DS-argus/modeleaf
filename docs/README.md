@@ -35,6 +35,17 @@ open "$APP"
 
 개발용으로 `swift run Modeleaf`도 가능하지만 최적화되지 않은 빌드라 시작이 느립니다.
 
+개발 중 검증은 작은 수정마다 전체 테스트를 반복하지 않도록 단계별로 나뉩니다:
+
+```sh
+Tools/verify.sh focused TOCWidgetTests  # 수정 중인 suite만 검증
+Tools/verify.sh core                    # PDFReaderCoreTests만 실행
+Tools/verify.sh app                     # PDFReaderAppTests만 실행
+Tools/verify.sh full                    # 전체 테스트 + 프로젝트 검증 + diff 검사
+```
+
+PR 생성 전에는 `full`을 실행합니다. CI에서는 Core와 App shard가 독립적으로 병렬 실행됩니다.
+
 ## 업데이트
 
 ```sh
