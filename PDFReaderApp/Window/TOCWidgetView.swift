@@ -449,5 +449,11 @@ private final class TOCWidgetRowView: NSView {
     }
 
     required init?(coder: NSCoder) { nil }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { isAccessibilityEnabled() }
+    override func accessibilityPerformPress() -> Bool {
+        guard isAccessibilityEnabled() else { return false }
+        onClick?()
+        return true
+    }
     override func mouseDown(with event: NSEvent) { guard isAccessibilityEnabled() else { return }; onClick?() }
 }

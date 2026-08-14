@@ -420,6 +420,25 @@ struct ReaderSessionTests {
         }
     }
 
+    @Test("single-page boundary crossing publishes one final viewport epoch")
+    func singlePageBoundaryCrossingUsesOneEpoch() throws {
+        try withSession(pageCount: 3) { session, _ in
+            session.fitPage()
+            session.resetZoom()
+            session.moveVertically(byPoints: 100_000)
+            #expect(session.currentPageNumber == 1)
+            let revision = session.outlineSnapshot.successfulUserMovementRevision
+            var presentationChanges = 0
+            session.setPresentationChangeHandler { presentationChanges += 1 }
+
+            session.moveVertically(byPoints: 100_000)
+
+            #expect(session.currentPageNumber == 2)
+            #expect(session.outlineSnapshot.successfulUserMovementRevision == revision + 1)
+            #expect(presentationChanges == 1)
+        }
+    }
+
     @Test("fit-page vertical movement advances pages while horizontal movement stays bounded")
     func fitPageMovementUsesPageSemantics() throws {
         try withSession(pageCount: 3) { session, _ in

@@ -85,6 +85,28 @@ struct PaneShellTests {
         assertReachable(widget, in: controller.rootView)
     }
 
+    @Test("closing the final single-pane tab retires its TOC widget")
+    func finalSinglePaneCloseRetiresTOCWidget() throws {
+        let coordinator = PaneCoordinator()
+        #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Only.pdf"), into: .createIfEmpty))
+        let paneID = try #require(coordinator.activePaneID)
+        let controller = MainWindowController(
+            coordinator: coordinator,
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { _ in }
+        )
+        defer { controller.close() }
+        controller.toggleTOCDrawer()
+        let widget = try #require(controller.rootView.tocWidgetForTesting(paneID))
+        #expect(widget.superview != nil)
+
+        #expect(coordinator.closeActiveTab())
+
+        #expect(coordinator.snapshot.layout == .empty)
+        #expect(controller.rootView.tocWidgetForTesting(paneID) == nil)
+        #expect(widget.superview == nil)
+    }
+
     @Test("TOCs remain pane-owned through two three and four pane growth")
     func tocOwnershipSurvivesTwoToFourPaneGrowth() throws {
         let coordinator = PaneCoordinator()

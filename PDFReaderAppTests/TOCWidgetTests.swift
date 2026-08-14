@@ -220,6 +220,26 @@ struct TOCWidgetTests {
         }
     }
 
+    @Test("enabled rows expose AXPress while disabled rows reject it")
+    func rowsImplementAccessibilityPress() throws {
+        var activations = 0
+        let enabledWidget = TOCWidgetView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
+        enabledWidget.toggle(snapshot: makeSnapshot(count: 1), onActivate: { _ in activations += 1; return .noOp })
+        let enabledTable = try #require(descendant(of: enabledWidget, as: NSTableView.self))
+        let enabledRow = try #require(enabledTable.view(atColumn: 0, row: 0, makeIfNecessary: true))
+        #expect(enabledRow.accessibilityPerformPress())
+        #expect(activations == 1)
+        #expect(enabledRow.acceptsFirstMouse(for: nil))
+
+        let disabledWidget = TOCWidgetView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
+        disabledWidget.toggle(snapshot: makeInvalidSnapshot(), onActivate: { _ in activations += 1; return .noOp })
+        let disabledTable = try #require(descendant(of: disabledWidget, as: NSTableView.self))
+        let disabledRow = try #require(disabledTable.view(atColumn: 0, row: 0, makeIfNecessary: true))
+        #expect(!disabledRow.accessibilityPerformPress())
+        #expect(!disabledRow.acceptsFirstMouse(for: nil))
+        #expect(activations == 1)
+    }
+
     @Test("all themes render a non-focus widget")
     func allThemesApplyWithoutChangingFocusBehavior() {
         for themeID in ThemeID.allCases {
@@ -228,6 +248,18 @@ struct TOCWidgetTests {
             #expect(!widget.acceptsFirstResponder)
         }
         #expect(ThemeID.allCases.count == 7)
+    }
+
+    private func makeInvalidSnapshot() -> ReaderOutlineSnapshot {
+        let document = PDFDocument()
+        document.insert(PDFPage(), at: 0)
+        let root = PDFOutline()
+        let item = PDFOutline()
+        item.label = "Unavailable"
+        root.insertChild(item, at: 0)
+        document.outlineRoot = root
+        return ReaderOutline(document: document) { _ in nil }
+            .snapshot(viewportAnchor: nil, successfulUserMovementRevision: 0)
     }
 
     private func makeNestedSnapshot() -> ReaderOutlineSnapshot {

@@ -430,6 +430,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func applyConfig(_ config: ValidatedAppConfig) {
+        rootView.cancelPendingTOCInput()
         resolvedConfig = config
         inputRouter.reconfigure(config: config)
         dismissLinkHintsAndRestoreFocus()

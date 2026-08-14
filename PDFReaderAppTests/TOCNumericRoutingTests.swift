@@ -54,6 +54,11 @@ struct TOCNumericRoutingTests {
         _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "", keyCode: 53)))
 
         #expect(controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "3"))))
+        controller.applyConfig(config)
+        try await Task.sleep(for: .milliseconds(450))
+        #expect(session.currentPageNumber == 2)
+
+        #expect(controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "3"))))
         controller.windowDidResignKey(Notification(name: NSWindow.didResignKeyNotification))
         try await Task.sleep(for: .milliseconds(450))
         #expect(session.currentPageNumber == 2)

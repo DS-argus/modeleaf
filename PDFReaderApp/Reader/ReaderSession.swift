@@ -479,19 +479,21 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
     }
 
     private func navigateAcrossVerticalBoundary(forward: Bool) {
-        if forward {
-            guard goToNextPage() else { return }
-            viewController.scrollToVerticalBoundary(.start)
-        } else {
-            guard goToPreviousPage() else { return }
-            viewController.scrollToVerticalBoundary(.end)
-        }
+        guard let currentPageNumber else { return }
+        let targetPage = currentPageNumber + (forward ? 1 : -1)
+        guard targetPage >= 1, targetPage <= pageCount,
+              performRawUnrecordedPageMove(targetPage) else { return }
+        viewController.scrollToVerticalBoundary(forward ? .start : .end)
     }
 
     private func performUnrecordedPageMove(_ oneBasedPage: Int) -> Bool {
         var moved = false
-        performUserViewportMutation { moved = viewController.goToPage(oneBasedPage) }
-        guard moved else { return false }
+        performUserViewportMutation { moved = performRawUnrecordedPageMove(oneBasedPage) }
+        return moved
+    }
+
+    private func performRawUnrecordedPageMove(_ oneBasedPage: Int) -> Bool {
+        guard viewController.goToPage(oneBasedPage) else { return false }
         searchEpoch.excludedMovementOrTabSwitch()
         return true
     }

@@ -246,9 +246,11 @@ final class ReaderRootView: NSView {
     private func paneView(for id: PaneID, trafficLightInset: CGFloat) -> PaneView { if let pane = paneViews[id] { pane.setTrafficLightInset(trafficLightInset); return pane }; let pane = PaneView(id: id, trafficLightInset: trafficLightInset); if let theme { pane.apply(theme: theme) }; paneViews[id] = pane; pane.onSelect = { [weak self] tabID in self?.onPaneSelect?(id, tabID) }; pane.onClose = { [weak self] tabID in self?.onPaneClose?(id, tabID) }; pane.onActivate = { [weak self] in self?.onPaneActivate?(id) }; pane.onNewTab = { [weak self] in self?.onPaneNewTab?(id) }; return pane }
 
     private func prunePaneViews(absentFrom panes: [PaneID: ReaderSessionStoreSnapshot]) {
-        for id in paneViews.keys.filter({ panes[$0] == nil }) {
+        for id in tocWidgets.keys.filter({ panes[$0] == nil }) {
             tocWidgetConstraints.removeValue(forKey: id)?.forEach { $0.isActive = false }
             tocWidgets.removeValue(forKey: id)?.removeFromSuperview()
+        }
+        for id in paneViews.keys.filter({ panes[$0] == nil }) {
             paneViews.removeValue(forKey: id)?.retire()
         }
         for pair in innerDividerPositions.keys where !pair.allSatisfy({ panes[$0] != nil }) {
