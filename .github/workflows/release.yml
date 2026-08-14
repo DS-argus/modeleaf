@@ -42,9 +42,10 @@ jobs:
           path: |
             .build
             ~/Library/Caches/org.swift.swiftpm
-          key: modeleaf-${{ runner.os }}-${{ steps.toolchain.outputs.fingerprint }}-${{ hashFiles('Package.resolved') }}-${{ github.sha }}-release
+          key: modeleaf-${{ runner.os }}-${{ steps.toolchain.outputs.fingerprint }}-${{ hashFiles('Package.resolved') }}-release-${{ github.sha }}
           restore-keys: |
-            modeleaf-${{ runner.os }}-${{ steps.toolchain.outputs.fingerprint }}-${{ hashFiles('Package.resolved') }}-
+            modeleaf-${{ runner.os }}-${{ steps.toolchain.outputs.fingerprint }}-${{ hashFiles('Package.resolved') }}-app-
+            modeleaf-${{ runner.os }}-${{ steps.toolchain.outputs.fingerprint }}-${{ hashFiles('Package.resolved') }}-core-
 
       - name: Verify tag matches the app version
         run: |

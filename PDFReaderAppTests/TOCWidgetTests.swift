@@ -97,7 +97,9 @@ struct TOCWidgetTests {
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "1"))))
         #expect(hint.stringValue == "1  Jump    Esc / t  Close")
         #expect(activations.isEmpty)
-        scheduler.runAll()
+        scheduler.advance(byMilliseconds: TOCWidgetView.digitCommitDelayMilliseconds - 1)
+        #expect(activations.isEmpty)
+        scheduler.advance(byMilliseconds: 1)
 
         #expect(activations == [try #require(snapshot.rows.first).id])
         #expect(hint.stringValue == "J / K  Scroll    #  Jump    Esc / t  Close")
@@ -114,13 +116,16 @@ struct TOCWidgetTests {
         var activations: [ReaderOutlineRowID] = []
         widget.toggle(snapshot: snapshot, onActivate: { id in activations.append(id); return .verifiedLanding })
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "1"))))
+        scheduler.advance(byMilliseconds: 250)
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "2"))))
-        scheduler.runAll()
+        scheduler.advance(byMilliseconds: TOCWidgetView.digitCommitDelayMilliseconds - 1)
+        #expect(activations.isEmpty)
+        scheduler.advance(byMilliseconds: 1)
         #expect(activations == [snapshot.rows[11].id])
 
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "9"))))
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "9"))))
-        scheduler.runAll()
+        scheduler.advance(byMilliseconds: TOCWidgetView.digitCommitDelayMilliseconds)
         #expect(activations.count == 1)
     }
 
@@ -139,7 +144,7 @@ struct TOCWidgetTests {
         #expect(widget.isHidden)
         widget.setPaneActive(false)
         widget.dismiss()
-        scheduler.runAll()
+        scheduler.advance(byMilliseconds: TOCWidgetView.digitCommitDelayMilliseconds)
         #expect(calls == 0)
     }
 
@@ -156,7 +161,7 @@ struct TOCWidgetTests {
             return .verifiedLanding
         })
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "2"))))
-        scheduler.runAll()
+        scheduler.advance(byMilliseconds: TOCWidgetView.digitCommitDelayMilliseconds)
         let selected = descendant(of: widget, as: NSTableView.self)?.view(atColumn: 0, row: 1, makeIfNecessary: true)
         #expect(selected?.accessibilityValue() as? String == "Selected")
     }
@@ -172,10 +177,10 @@ struct TOCWidgetTests {
         var outcome: NavigationTransactionOutcome = .verifiedLanding
         widget.toggle(snapshot: snapshot, onActivate: { _ in outcome })
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "1"))))
-        scheduler.runAll()
+        scheduler.advance(byMilliseconds: TOCWidgetView.digitCommitDelayMilliseconds)
         outcome = .preflightRejected
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "2"))))
-        scheduler.runAll()
+        scheduler.advance(byMilliseconds: TOCWidgetView.digitCommitDelayMilliseconds)
         let table = try #require(descendant(of: widget, as: NSTableView.self))
         #expect((table.view(atColumn: 0, row: 0, makeIfNecessary: true)?.accessibilityValue() as? String) == "Selected")
     }
@@ -351,15 +356,28 @@ struct TOCWidgetTests {
 
 @MainActor
 private final class ManualTOCDigitCommitScheduler {
-    private var items: [DispatchWorkItem] = []
-
-    func schedule(_ item: DispatchWorkItem) {
-        items.append(item)
+    private struct ScheduledItem {
+        let deadlineMilliseconds: Int
+        let item: DispatchWorkItem
     }
 
-    func runAll() {
-        let pending = items
-        items.removeAll()
-        for item in pending { item.perform() }
+    private var nowMilliseconds = 0
+    private var scheduled: [ScheduledItem] = []
+
+    func schedule(afterMilliseconds delay: Int, _ item: DispatchWorkItem) {
+        scheduled.append(ScheduledItem(deadlineMilliseconds: nowMilliseconds + delay, item: item))
+    }
+
+    func advance(byMilliseconds interval: Int) {
+        precondition(interval >= 0)
+        let target = nowMilliseconds + interval
+        while let nextIndex = scheduled.indices
+            .filter({ scheduled[$0].deadlineMilliseconds <= target })
+            .min(by: { scheduled[$0].deadlineMilliseconds < scheduled[$1].deadlineMilliseconds }) {
+            let next = scheduled.remove(at: nextIndex)
+            nowMilliseconds = next.deadlineMilliseconds
+            next.item.perform()
+        }
+        nowMilliseconds = target
     }
 }

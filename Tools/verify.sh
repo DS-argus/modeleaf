@@ -11,7 +11,18 @@ Usage:
   Tools/verify.sh core [swift-test-options...]
   Tools/verify.sh app [swift-test-options...]
   Tools/verify.sh full [swift-test-options...]
+  Tools/verify.sh hygiene [base-sha head-sha]
 EOF
+}
+
+check_diff_hygiene() {
+  git diff --check
+  git diff --cached --check
+  if [ "$#" -eq 2 ]; then
+    git diff --check "$1" "$2"
+  elif base=$(git merge-base HEAD origin/main 2>/dev/null); then
+    git diff --check "$base" HEAD
+  fi
 }
 
 mode=${1:-}
@@ -37,7 +48,15 @@ case "$mode" in
     shift
     swift test "$@"
     python3 Tools/validate_xcode_project.py
-    git diff --check
+    check_diff_hygiene
+    ;;
+  hygiene)
+    shift
+    if [ "$#" -ne 0 ] && [ "$#" -ne 2 ]; then
+      usage >&2
+      exit 2
+    fi
+    check_diff_hygiene "$@"
     ;;
   *)
     usage >&2
