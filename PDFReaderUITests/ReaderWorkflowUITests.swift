@@ -1,6 +1,8 @@
 import AppKit
 import CoreGraphics
 import CoreText
+import PDFKit
+import CryptoKit
 import XCTest
 
 final class ReaderWorkflowUITests: XCTestCase {
@@ -275,6 +277,33 @@ final class ReaderWorkflowUITests: XCTestCase {
     }
 
     @MainActor
+    func testE2ETOCWidget() throws {
+        try withEnvironment { environment, app in
+            let pdf = try makeTOCPDF(in: environment.fixtures, name: "TOC.pdf")
+            app.typeKey("o", modifierFlags: .command)
+            try choosePDF(pdf, in: app)
+            let sourceHash = try sha256(pdf)
+            app.typeText("t")
+            let widget = app.descendants(matching: .any)["tocWidget"]
+            XCTAssertTrue(widget.waitForExistence(timeout: 3))
+            XCTAssertFalse(app.descendants(matching: .any)["tocDrawer.header"].exists)
+            XCTAssertTrue(app.descendants(matching: .any)["tocWidget.row.0"].waitForExistence(timeout: 2))
+            app.typeText("J")
+            app.typeText("K")
+            app.typeText("12")
+            let selectedRow = app.descendants(matching: .any)["tocWidget.row.11"]
+            XCTAssertTrue(selectedRow.waitForExistence(timeout: 2))
+            XCTAssertEqual(selectedRow.value as? String, "Selected")
+            let attachment = XCTAttachment(screenshot: app.screenshot())
+            attachment.name = "toc-widget-list-only"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            XCTAssertEqual(try sha256(pdf), sourceHash)
+            XCTAssertTrue(app.descendants(matching: .any)["pdfCanvas"].exists)
+        }
+    }
+
+    @MainActor
     func testE2E13NativePromptLiteralDeadKeyAndUnicodeText() throws {
         try withEnvironment { environment, app in
             let pdf = try makePDF(in: environment.fixtures, name: "Unicode.pdf", pages: 2)
@@ -432,6 +461,28 @@ final class ReaderWorkflowUITests: XCTestCase {
         }
         context.closePDF()
         return url
+    }
+
+    private func makeTOCPDF(in directory: URL, name: String) throws -> URL {
+        let url = try makePDF(in: directory, name: name, pages: 12)
+        guard let document = PDFDocument(url: url) else { throw UITestFixtureError.cannotCreatePDF }
+        let root = PDFOutline()
+        for index in 0..<12 {
+            guard let page = document.page(at: index) else { throw UITestFixtureError.cannotCreatePDF }
+            let row = PDFOutline()
+            row.label = "Section \(index + 1)"
+            row.destination = PDFDestination(page: page, at: CGPoint(x: 72, y: 700))
+            root.insertChild(row, at: index)
+        }
+        document.outlineRoot = root
+        guard document.write(to: url), PDFDocument(url: url)?.outlineRoot?.numberOfChildren == 12 else {
+            throw UITestFixtureError.cannotCreatePDF
+        }
+        return url
+    }
+
+    private func sha256(_ url: URL) throws -> String {
+        SHA256.hash(data: try Data(contentsOf: url)).map { String(format: "%02x", $0) }.joined()
     }
 }
 

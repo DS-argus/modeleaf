@@ -25,6 +25,8 @@ protocol ReaderSessionPresenting: ReaderNavigationHistoryPresenting {
     var searchSnapshot: ReaderSearchSnapshot { get }
     var preferredInputContext: InputContext { get }
 
+    var outlineSnapshot: ReaderOutlineSnapshot { get }
+    @discardableResult func activateOutlineRow(id: ReaderOutlineRowID) -> NavigationTransactionOutcome
     func setPresentationChangeHandler(_ handler: (() -> Void)?)
     func applyTheme(_ theme: AppKitTheme)
     func applyLinkDestinationIndicatorSettings(_ configuration: LinkDestinationIndicatorSettings)
@@ -58,6 +60,8 @@ extension ReaderSessionPresenting {
     func scrollBy(xPoints: Double, yPoints: Double) {}
     func zoom(by factor: Double) {}
     var searchSnapshot: ReaderSearchSnapshot { .empty }
+    var outlineSnapshot: ReaderOutlineSnapshot { .empty }
+    func activateOutlineRow(id: ReaderOutlineRowID) -> NavigationTransactionOutcome { .preflightRejected }
     var preferredInputContext: InputContext { searchSnapshot.isActive ? .searchResults : .navigation }
     func setPresentationChangeHandler(_ handler: (() -> Void)?) {}
     func resetZoom() {}
@@ -104,6 +108,8 @@ struct ReaderTabSnapshot: Equatable { let id: TabID; let title: String }; struct
 @MainActor final class ReaderSessionStore { private var tabStore = TabStore(); private var sessionsByID: [TabID: any ReaderSessionPresenting] = [:]; private var changeHandler: ((ReaderSessionStoreSnapshot) -> Void)?
     var onChange: ((ReaderSessionStoreSnapshot) -> Void)? { get { changeHandler } set { precondition(changeHandler == nil || newValue == nil, "ReaderSessionStore change handler is coordinator-owned"); changeHandler = newValue } }; func registerChangeHandler(_ handler: @escaping (ReaderSessionStoreSnapshot) -> Void) { precondition(changeHandler == nil, "ReaderSessionStore change handler is coordinator-owned"); changeHandler = handler }
     var snapshot: ReaderSessionStoreSnapshot { ReaderSessionStoreSnapshot(tabs: tabStore.orderedIDs.compactMap { sessionsByID[$0].map { ReaderTabSnapshot(id: $0.id, title: $0.title) } }, activeID: tabStore.activeID) }; var activeSession: (any ReaderSessionPresenting)? { tabStore.activeID.flatMap { sessionsByID[$0] } }; var sessionCount: Int { tabStore.orderedIDs.count }
+    var activeOutlineSnapshot: ReaderOutlineSnapshot? { activeSession?.outlineSnapshot }
+    @discardableResult func activateOutlineRow(id: ReaderOutlineRowID) -> NavigationTransactionOutcome { activeSession?.activateOutlineRow(id: id) ?? .unavailable }
     @discardableResult func insert(_ session: any ReaderSessionPresenting) -> Bool { guard sessionsByID[session.id] == nil, tabStore.insert(session.id) else { return false }; sessionsByID[session.id] = session; session.setPresentationChangeHandler { [weak self, id = session.id] in self?.sessionDidChange(id) }; publishChange(); return true }; func session(for id: TabID) -> (any ReaderSessionPresenting)? { sessionsByID[id] }
     func applyTheme(_ theme: AppKitTheme) { sessionsByID.values.forEach { $0.applyTheme(theme) } }
     func applyLinkDestinationIndicatorSettings(_ configuration: LinkDestinationIndicatorSettings) { sessionsByID.values.forEach { $0.applyLinkDestinationIndicatorSettings(configuration) } }

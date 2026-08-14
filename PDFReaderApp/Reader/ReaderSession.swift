@@ -86,6 +86,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
 
     private let document: PDFDocument
     private let viewController: PDFViewController
+    private let usesControllerNavigation: Bool
     private let searchControllerFactory: ReaderSearchControllerFactory
     private lazy var searchController: any ReaderSearchControlling = searchControllerFactory(
         { [weak self] generation in self?.activateSearchNavigation(searchGeneration: generation) ?? .preflightRejected },
@@ -109,6 +110,12 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
     private var searchEpoch: SearchEpoch = .idle
     private var searchOrigins: [Int: NavigationSnapshot] = [:]
     private(set) var isNavigationHistoryHealthy = true
+    private var successfulUserMovementRevision: UInt64 = 0
+    private var suppressCommandPresentationPublication = false
+
+    private lazy var outline = ReaderOutline(document: document) { [weak viewController] destination in
+        viewController?.navigationSnapshot(forOutlineDestination: destination)
+    }
 
     private(set) var completedTeardownSteps: [ReaderTeardownStep] = []
     private(set) var isClosed = false
@@ -136,6 +143,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
         if let navigationCapture { viewController.setNavigationSnapshotCaptureOverride(navigationCapture) }
         self.navigationCapture = navigationCapture ?? { viewController.captureNavigationSnapshot() }
         self.navigationRestore = navigationRestore ?? { viewController.restoreNavigationSnapshot($0) }
+        self.usesControllerNavigation = navigationCapture == nil && navigationRestore == nil
         self.printHandler = printHandler ?? { viewController.printDocument() }
         self.searchControllerFactory = searchControllerFactory ?? { activate, reportOutcome in
             ReaderSearchCoordinator(
@@ -146,6 +154,13 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
             )
         }
         super.init()
+        viewController.setViewportMutationHandler { [weak self] terminal in
+            guard let self else { return }
+            if case let .changed(epoch) = terminal, epoch.origin.isUserMovement {
+                self.successfulUserMovementRevision &+= 1
+            }
+            self.presentationChangeHandler?()
+        }
         searchController.setChangeHandler { [weak self] in self?.publishPresentationChange() }
         installNotifications()
         viewController.setInternalLinkHandler { [weak self] target in
@@ -160,14 +175,38 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
     var canGoBack: Bool { isNavigationHistoryHealthy && navigationHistory.canGoBack }
     var canGoForward: Bool { isNavigationHistoryHealthy && navigationHistory.canGoForward }
 
+
+    var outlineSnapshot: ReaderOutlineSnapshot {
+        guard !isClosed else { return .empty }
+        return outline.snapshot(
+            viewportAnchor: captureNavigation(),
+            successfulUserMovementRevision: successfulUserMovementRevision
+        )
+    }
+
+    @discardableResult
+    func activateOutlineRow(id: ReaderOutlineRowID) -> NavigationTransactionOutcome {
+        guard let destination = outline.destination(for: id) else { return .preflightRejected }
+        var outcome: NavigationTransactionOutcome = .preflightRejected
+        viewController.performViewportMutation(origin: .tocActivation) {
+            outcome = performNavigation(.meaningfulJump(producer: .toc, destination: destination))
+        }
+        return outcome
+    }
     @discardableResult
     func goBack() -> NavigationTransactionOutcome {
-        performNavigation(.back)
+        var outcome: NavigationTransactionOutcome = .unavailable
+        if usesControllerNavigation { performUserViewportMutation { outcome = performNavigation(.back) } }
+        else { outcome = performNavigation(.back) }
+        return outcome
     }
 
     @discardableResult
     func goForward() -> NavigationTransactionOutcome {
-        performNavigation(.forward)
+        var outcome: NavigationTransactionOutcome = .unavailable
+        if usesControllerNavigation { performUserViewportMutation { outcome = performNavigation(.forward) } }
+        else { outcome = performNavigation(.forward) }
+        return outcome
     }
 
     @discardableResult
@@ -329,7 +368,8 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
 
     @discardableResult
     func goToPage(_ oneBasedPage: Int) -> Bool {
-        let outcome = publishNavigationOutcome(performPageJump(producer: .pagePrompt, to: oneBasedPage))
+        var outcome: NavigationTransactionOutcome = .preflightRejected
+        performUserViewportMutation { outcome = publishNavigationOutcome(performPageJump(producer: .pagePrompt, to: oneBasedPage)) }
         return outcome == .verifiedLanding || outcome == .noOp
     }
 
@@ -347,29 +387,31 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
 
     @discardableResult
     func goToFirstPage() -> Bool {
-        let outcome = publishNavigationOutcome(performPageJump(producer: .firstPage, to: 1))
+        var outcome: NavigationTransactionOutcome = .preflightRejected
+        performUserViewportMutation { outcome = publishNavigationOutcome(performPageJump(producer: .firstPage, to: 1)) }
         return outcome == .verifiedLanding || outcome == .noOp
     }
 
     @discardableResult
     func goToLastPage() -> Bool {
-        let outcome = publishNavigationOutcome(performPageJump(producer: .lastPage, to: pageCount))
+        var outcome: NavigationTransactionOutcome = .preflightRejected
+        performUserViewportMutation { outcome = publishNavigationOutcome(performPageJump(producer: .lastPage, to: pageCount)) }
         return outcome == .verifiedLanding || outcome == .noOp
     }
 
     func scrollBy(xPoints: Double, yPoints: Double) {
         guard !isClosed else { return }
-        viewController.scrollBy(xPoints: xPoints, yPoints: yPoints)
+        performUserViewportMutation { viewController.scrollBy(xPoints: xPoints, yPoints: yPoints) }
     }
 
     func scrollVerticallyByViewportFraction(_ fraction: Double) {
         guard !isClosed else { return }
-        viewController.scrollVerticallyByViewportFraction(fraction)
+        performUserViewportMutation { viewController.scrollVerticallyByViewportFraction(fraction) }
     }
 
     func moveHorizontally(byPoints points: Double) {
         guard !isClosed else { return }
-        viewController.scrollBy(xPoints: points, yPoints: 0)
+        performUserViewportMutation { viewController.scrollBy(xPoints: points, yPoints: 0) }
     }
 
     func moveVertically(byPoints points: Double) {
@@ -378,10 +420,11 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
             _ = points > 0 ? goToNextPage() : goToPreviousPage()
             return
         }
-
-        let outcome = viewController.scrollVertically(byPoints: points)
-        if viewController.usesSinglePageLayout, outcome == .atBoundary {
-            navigateAcrossVerticalBoundary(forward: points > 0)
+        performUserViewportMutation {
+            let outcome = viewController.scrollVertically(byPoints: points)
+            if viewController.usesSinglePageLayout, outcome == .atBoundary {
+                navigateAcrossVerticalBoundary(forward: points > 0)
+            }
         }
     }
 
@@ -391,47 +434,42 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
             _ = fraction > 0 ? goToNextPage() : goToPreviousPage()
             return
         }
-
-        let outcome = viewController.scrollVerticallyByViewportFraction(fraction)
-        if viewController.usesSinglePageLayout, outcome == .atBoundary {
-            navigateAcrossVerticalBoundary(forward: fraction > 0)
+        performUserViewportMutation {
+            let outcome = viewController.scrollVerticallyByViewportFraction(fraction)
+            if viewController.usesSinglePageLayout, outcome == .atBoundary {
+                navigateAcrossVerticalBoundary(forward: fraction > 0)
+            }
         }
     }
 
     func zoom(by factor: Double) {
         guard !isClosed else { return }
-        viewController.zoom(by: factor)
-        publishPresentationChange()
+        performUserViewportMutation { viewController.zoom(by: factor) }
     }
 
     func resetZoom() {
         guard !isClosed else { return }
-        viewController.resetZoom()
-        publishPresentationChange()
+        performUserViewportMutation { viewController.resetZoom() }
     }
 
     func fitWidth() {
         guard !isClosed else { return }
-        viewController.fitWidth()
-        publishPresentationChange()
+        performUserViewportMutation { viewController.fitWidth() }
     }
 
     func fitPage() {
         guard !isClosed else { return }
-        viewController.fitPage()
-        publishPresentationChange()
+        performUserViewportMutation { viewController.fitPage() }
     }
 
     func rotateLeft() {
         guard !isClosed else { return }
-        viewController.rotateLeft()
-        publishPresentationChange()
+        performUserViewportMutation { viewController.rotateLeft() }
     }
 
     func rotateRight() {
         guard !isClosed else { return }
-        viewController.rotateRight()
-        publishPresentationChange()
+        performUserViewportMutation { viewController.rotateRight() }
     }
 
     @discardableResult
@@ -441,19 +479,22 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
     }
 
     private func navigateAcrossVerticalBoundary(forward: Bool) {
-        if forward {
-            guard goToNextPage() else { return }
-            viewController.scrollToVerticalBoundary(.start)
-        } else {
-            guard goToPreviousPage() else { return }
-            viewController.scrollToVerticalBoundary(.end)
-        }
+        guard let currentPageNumber else { return }
+        let targetPage = currentPageNumber + (forward ? 1 : -1)
+        guard targetPage >= 1, targetPage <= pageCount,
+              performRawUnrecordedPageMove(targetPage) else { return }
+        viewController.scrollToVerticalBoundary(forward ? .start : .end)
     }
 
     private func performUnrecordedPageMove(_ oneBasedPage: Int) -> Bool {
+        var moved = false
+        performUserViewportMutation { moved = performRawUnrecordedPageMove(oneBasedPage) }
+        return moved
+    }
+
+    private func performRawUnrecordedPageMove(_ oneBasedPage: Int) -> Bool {
         guard viewController.goToPage(oneBasedPage) else { return false }
         searchEpoch.excludedMovementOrTabSwitch()
-        publishPresentationChange()
         return true
     }
 
@@ -668,7 +709,13 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
         }
     }
 
+    private func performUserViewportMutation(_ operation: () -> Void) {
+        suppressCommandPresentationPublication = true
+        defer { suppressCommandPresentationPublication = false }
+        viewController.performUserViewportMutation(operation)
+    }
     private func publishPresentationChange() {
+        guard !suppressCommandPresentationPublication else { return }
         presentationChangeHandler?()
     }
 
@@ -733,7 +780,9 @@ extension ReaderSession: ReaderLinkProviding {
     @discardableResult
     private func executeInternalLink(_ target: ReaderLinkTarget) -> NavigationTransactionOutcome {
         guard let destination = viewController.navigationSnapshot(forInternalLink: target) else { return .preflightRejected }
-        return performMeaningfulJump(producer: .internalLink, destination: destination)
+        var outcome: NavigationTransactionOutcome = .preflightRejected
+        performUserViewportMutation { outcome = performMeaningfulJump(producer: .internalLink, destination: destination) }
+        return outcome
     }
 
     func linkHintRects(for link: ReaderLink, in coordinateSpace: NSView) -> [NSRect] {

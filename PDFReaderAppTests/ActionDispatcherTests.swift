@@ -42,6 +42,38 @@ struct ActionDispatcherTests {
         ])
     }
 
+    @Test("TOC actions dispatch through the presentation surface without moving the document")
+    func tocActionsDispatchToPresentationOnly() {
+        let store = ReaderSessionStore()
+        let session = RecordingReaderSession(title: "Reference.pdf")
+        #expect(store.insert(session))
+        let dispatcher = ActionDispatcher(coordinator: PaneCoordinator(initialStore: store), navigation: BuiltInDefaults.config.navigation)
+        let presenter = PromptPresenterSpy()
+        dispatcher.presentation = presenter
+
+        dispatcher.dispatch(.tocToggle)
+        dispatcher.dispatch(.tocScrollDown)
+        dispatcher.dispatch(.tocScrollUp)
+
+        #expect((presenter.tocToggleCount, presenter.tocScrollDownCount, presenter.tocScrollUpCount) == (1, 1, 1))
+        #expect(session.events.isEmpty)
+    }
+
+    @Test("TOC one-row actions remain presentation-only and repeatable")
+    func tocOneRowActionsStayOutOfDocumentNavigation() {
+        let store = ReaderSessionStore()
+        let session = RecordingReaderSession(title: "Reference.pdf")
+        #expect(store.insert(session))
+        let dispatcher = ActionDispatcher(coordinator: PaneCoordinator(initialStore: store), navigation: BuiltInDefaults.config.navigation)
+        let presenter = PromptPresenterSpy()
+        dispatcher.presentation = presenter
+        dispatcher.dispatch(.tocScrollDown)
+        dispatcher.dispatch(.tocScrollDown)
+        dispatcher.dispatch(.tocScrollUp)
+        #expect((presenter.tocScrollDownCount, presenter.tocScrollUpCount) == (2, 1))
+        #expect(session.events.isEmpty)
+    }
+
     @Test("history actions target only the active session and empty dispatch is quiet")
     func historyActionsUseActiveSessionOnly() {
         let store = ReaderSessionStore()
@@ -647,6 +679,9 @@ private final class ActionDispatcherFocusableView: NSView {
 @MainActor
 private final class PromptPresenterSpy: ReaderWorkflowPresenting {
     var linkHintsCount = 0
+    var tocToggleCount = 0
+    var tocScrollDownCount = 0
+    var tocScrollUpCount = 0
     func presentLinkHints() { linkHintsCount += 1 }
     func presentHelp() { helpCount += 1 }
     var presentation: PromptPresentation?
@@ -662,6 +697,9 @@ private final class PromptPresenterSpy: ReaderWorkflowPresenting {
     var activePromptText: String { promptText }
 
     func presentThemePicker() {}
+    func toggleTOCDrawer() { tocToggleCount += 1 }
+    func scrollTOCDrawerDown() { tocScrollDownCount += 1 }
+    func scrollTOCDrawerUp() { tocScrollUpCount += 1 }
     func presentCommandPalette() {}
     func presentRecentFilesOpen() { recentFilesOpenCount += 1 }
     func presentPrompt(_ presentation: PromptPresentation) {

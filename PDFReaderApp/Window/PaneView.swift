@@ -5,7 +5,7 @@ import PDFReaderCore
 final class PaneView: NSView {
     let id: PaneID
     let tabBar = TabBarView()
-    private let contentHost = NSView()
+    let contentHost = NSView()
     private weak var presentedContentView: NSView?
     private var tabBarHeightConstraint: NSLayoutConstraint!
 
@@ -91,6 +91,7 @@ final class PaneView: NSView {
         for view in subviews { view.removeFromSuperview() }
         removeFromSuperview()
     }
+
     private func activateThen(_ operation: () -> Void) {
         onActivate?()
         operation()

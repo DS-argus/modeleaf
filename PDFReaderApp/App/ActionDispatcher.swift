@@ -13,6 +13,9 @@ protocol ReaderWorkflowPresenting: AnyObject {
     func presentHelp()
     func presentLinkHints()
     var hasAvailableUpdate: Bool { get }
+    func toggleTOCDrawer()
+    func scrollTOCDrawerDown()
+    func scrollTOCDrawerUp()
     func presentAvailableUpdate()
     func presentPrompt(_ presentation: PromptPresentation)
     func showPromptValidation(_ message: String)
@@ -30,6 +33,9 @@ extension ReaderWorkflowPresenting {
     var hasAvailableUpdate: Bool { false }
     func presentAvailableUpdate() {}
     func presentLinkIndicatorPicker() {}
+    func toggleTOCDrawer() {}
+    func scrollTOCDrawerDown() {}
+    func scrollTOCDrawerUp() {}
 }
 
 @MainActor
@@ -159,6 +165,13 @@ newInstanceHandler = newInstance
             activeSession?.moveVertically(byViewportFraction: navigation.largeScrollViewportFraction)
         case .scrollLargeUp:
             activeSession?.moveVertically(byViewportFraction: -navigation.largeScrollViewportFraction)
+
+        case .tocToggle:
+            presentation?.toggleTOCDrawer()
+        case .tocScrollDown:
+            presentation?.scrollTOCDrawerDown()
+        case .tocScrollUp:
+            presentation?.scrollTOCDrawerUp()
 
         case .pageNext:
             _ = activeSession?.goToNextPage()

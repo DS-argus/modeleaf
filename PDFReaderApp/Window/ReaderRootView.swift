@@ -53,11 +53,16 @@ final class ReaderRootView: NSView {
     private var theme: AppKitTheme?
     private var tabBarHeightConstraint: NSLayoutConstraint!
     private weak var presentedContentView: NSView?
-    private var currentStatus = StatusBarPresentation.empty
+    private var tocWidgets: [PaneID: TOCWidgetView] = [:]
+    private var tocWidgetConstraints: [PaneID: [NSLayoutConstraint]] = [:]
+    private var tocScrollDownHint = "J"
+    private var tocScrollUpHint = "K"
+    private var tocToggleHint = "t"
     private var readerInputContext: InputContext?
     var onPaneSelect: ((PaneID, TabID) -> Void)?
     var onPaneClose: ((PaneID, TabID) -> Void)?
     var onPaneNewTab: ((PaneID) -> Void)?
+    private var currentStatus = StatusBarPresentation.empty
     private var renderedSessionSnapshot: ReaderSessionStoreSnapshot?
     /// Absolute divider positions owned by pane topology, keyed by the
     /// unordered pane pair owned by a split band's inner divider; captured
@@ -110,15 +115,16 @@ final class ReaderRootView: NSView {
         ])
     }
     required init?(coder: NSCoder) { nil }
-    func apply(theme: AppKitTheme) { self.theme = theme; for pane in paneViews.values { pane.apply(theme: theme) }; layer?.backgroundColor = theme[.background].cgColor; contentHost.wantsLayer = true; contentHost.layer?.backgroundColor = theme[.background].cgColor; tabBar.apply(theme: theme); emptyState.apply(theme: theme); statusBar.apply(theme: theme); promptOverlay.apply(theme: theme); themePickerOverlay.apply(theme: theme); linkIndicatorPickerOverlay.apply(theme: theme); updateInstructionsOverlay.apply(theme: theme); commandPaletteOverlay.apply(theme: theme); recentFilesOverlay.apply(theme: theme); helpOverlay.apply(theme: theme); linkHintOverlay.apply(theme: theme) }
+    func apply(theme: AppKitTheme) { self.theme = theme; for pane in paneViews.values { pane.apply(theme: theme) }; for widget in tocWidgets.values { widget.apply(theme: theme) }; layer?.backgroundColor = theme[.background].cgColor; contentHost.wantsLayer = true; contentHost.layer?.backgroundColor = theme[.background].cgColor; tabBar.apply(theme: theme); emptyState.apply(theme: theme); statusBar.apply(theme: theme); promptOverlay.apply(theme: theme); themePickerOverlay.apply(theme: theme); linkIndicatorPickerOverlay.apply(theme: theme); updateInstructionsOverlay.apply(theme: theme); commandPaletteOverlay.apply(theme: theme); recentFilesOverlay.apply(theme: theme); helpOverlay.apply(theme: theme); linkHintOverlay.apply(theme: theme) }
     func render(snapshot: ReaderSessionStoreSnapshot, activeContentView: NSView?, sessionStatus: ReaderStatusSnapshot?) {
         let hasTabs = !snapshot.tabs.isEmpty
         if renderedSessionSnapshot != snapshot { tabBar.render(snapshot); tabBarHeightConstraint.constant = hasTabs ? WindowVisualMetrics.tabBarHeight : 0; tabBar.isHidden = !hasTabs; emptyState.isHidden = hasTabs; renderedSessionSnapshot = snapshot }
+        if !hasTabs { tocWidgets.values.forEach { $0.dismiss() } }
         setPresentedContentView(activeContentView); renderStatus(sessionStatus)
     }
+
+
     func render(snapshot: PaneCoordinatorSnapshot, isCommitted: Bool = true) {
-        // Captures stay off for the whole render body: install/redistribution
-        // layout storms must never overwrite topology-owned positions.
         capturesDividerPositions = false
         defer { capturesDividerPositions = isCommitted }
         if isCommitted { prunePaneViews(absentFrom: snapshot.panes) }
@@ -134,6 +140,7 @@ final class ReaderRootView: NSView {
             }
             tabBar.isHidden = snapshot.isEmpty
             render(snapshot: snapshot.activeStoreSnapshot, activeContentView: snapshot.activeContentView, sessionStatus: snapshot.activeStatus)
+            if isCommitted { mountWidgets(snapshot: snapshot) }
             return
         }
         tabBar.isHidden = true
@@ -175,6 +182,7 @@ final class ReaderRootView: NSView {
             preconditionFailure("multi-pane render requires a split layout: \(snapshot.layout)")
         }
         renderStatus(snapshot.activeStatus)
+        if isCommitted { mountWidgets(snapshot: snapshot) }
     }
 
     private func promotedInnerPosition(from oldLayout: PaneLayout?, to newLayout: PaneLayout) -> CGFloat? {
@@ -238,7 +246,13 @@ final class ReaderRootView: NSView {
     private func paneView(for id: PaneID, trafficLightInset: CGFloat) -> PaneView { if let pane = paneViews[id] { pane.setTrafficLightInset(trafficLightInset); return pane }; let pane = PaneView(id: id, trafficLightInset: trafficLightInset); if let theme { pane.apply(theme: theme) }; paneViews[id] = pane; pane.onSelect = { [weak self] tabID in self?.onPaneSelect?(id, tabID) }; pane.onClose = { [weak self] tabID in self?.onPaneClose?(id, tabID) }; pane.onActivate = { [weak self] in self?.onPaneActivate?(id) }; pane.onNewTab = { [weak self] in self?.onPaneNewTab?(id) }; return pane }
 
     private func prunePaneViews(absentFrom panes: [PaneID: ReaderSessionStoreSnapshot]) {
-        for id in paneViews.keys.filter({ panes[$0] == nil }) { paneViews.removeValue(forKey: id)?.retire() }
+        for id in tocWidgets.keys.filter({ panes[$0] == nil }) {
+            tocWidgetConstraints.removeValue(forKey: id)?.forEach { $0.isActive = false }
+            tocWidgets.removeValue(forKey: id)?.removeFromSuperview()
+        }
+        for id in paneViews.keys.filter({ panes[$0] == nil }) {
+            paneViews.removeValue(forKey: id)?.retire()
+        }
         for pair in innerDividerPositions.keys where !pair.allSatisfy({ panes[$0] != nil }) {
             innerDividerPositions.removeValue(forKey: pair)
         }
@@ -250,7 +264,107 @@ final class ReaderRootView: NSView {
         contentHost.bounds.contains(contentHost.convert(helpOverlay.bounds, from: helpOverlay))
     }
     func paneViewForTesting(_ id: PaneID) -> PaneView? { paneViews[id] }
+    func tocWidgetForTesting(_ id: PaneID) -> TOCWidgetView? { tocWidgets[id] }
     func activatePane(atWindowPoint point: NSPoint) { let localPoint = convert(point, from: nil); var view = hitTest(localPoint); while let candidate = view { if let pane = candidate as? PaneView { pane.activateForPointerEvent(); return }; view = candidate.superview } }
+    func setTOCKeyHints(scrollDown: String, scrollUp: String, toggle: String) {
+        tocScrollDownHint = scrollDown
+        tocScrollUpHint = scrollUp
+        tocToggleHint = toggle
+        for widget in tocWidgets.values { widget.setKeyHints(scrollDown: scrollDown, scrollUp: scrollUp, toggle: toggle) }
+    }
+
+    func toggleTOCWidget(in paneID: PaneID, snapshot: ReaderOutlineSnapshot, onActivate: @escaping (ReaderOutlineRowID) -> NavigationTransactionOutcome) {
+        let widget = widget(for: paneID)
+        mount(widget, for: paneID)
+        widget.toggle(snapshot: snapshot, onActivate: onActivate)
+        updateTOCWidgetGeometry()
+    }
+
+    func renderTOCWidget(in paneID: PaneID, snapshot: ReaderOutlineSnapshot, onActivate: @escaping (ReaderOutlineRowID) -> NavigationTransactionOutcome) {
+        guard let widget = tocWidgets[paneID], !widget.isHidden else { return }
+        mount(widget, for: paneID)
+        widget.onActivate = onActivate
+        widget.render(snapshot)
+        updateTOCWidgetGeometry()
+    }
+
+    func scrollTOCWidget(in paneID: PaneID, byRows direction: Int) {
+        tocWidgets[paneID]?.scrollByRows(direction)
+    }
+
+    func handleTOCKey(in paneID: PaneID, event: NSEvent) -> Bool {
+        guard let widget = tocWidgets[paneID], !widget.isHidden else { return false }
+        return widget.handleKey(event)
+    }
+
+    func cancelPendingTOCInput() {
+        for widget in tocWidgets.values where !widget.isHidden { widget.cancelPendingInput() }
+    }
+
+    func closeTOCWidget(in paneID: PaneID) { tocWidgets[paneID]?.dismiss() }
+
+    private func mountWidgets(snapshot: PaneCoordinatorSnapshot) {
+        for (id, widget) in tocWidgets where snapshot.panes[id] != nil && !widget.isHidden {
+            mount(widget, for: id)
+            widget.setPaneActive(snapshot.activePaneID == id)
+        }
+    }
+
+    private func widget(for id: PaneID) -> TOCWidgetView {
+        if let widget = tocWidgets[id] { return widget }
+        let widget = TOCWidgetView()
+        widget.setKeyHints(scrollDown: tocScrollDownHint, scrollUp: tocScrollUpHint, toggle: tocToggleHint)
+        if let theme { widget.apply(theme: theme) }
+        tocWidgets[id] = widget
+        return widget
+    }
+
+    private func mount(_ widget: TOCWidgetView, for id: PaneID) {
+        let host: NSView
+        if paneContainer.isHidden { host = contentHost }
+        else if let pane = paneViews[id] { host = pane.contentHost }
+        else { return }
+        if widget.superview === host {
+            host.addSubview(widget, positioned: .above, relativeTo: nil)
+            return
+        }
+        tocWidgetConstraints[id]?.forEach { $0.isActive = false }
+        widget.removeFromSuperview()
+        widget.prepareForAutoLayout()
+        host.addSubview(widget, positioned: .above, relativeTo: nil)
+        let constraints = [
+            widget.topAnchor.constraint(equalTo: host.topAnchor, constant: 12),
+            widget.trailingAnchor.constraint(equalTo: host.trailingAnchor, constant: -12),
+            widget.leadingAnchor.constraint(greaterThanOrEqualTo: host.leadingAnchor, constant: 12),
+            widget.widthAnchor.constraint(equalToConstant: 300),
+            widget.heightAnchor.constraint(equalToConstant: widget.intrinsicContentSize.height),
+        ]
+        NSLayoutConstraint.activate(constraints)
+        tocWidgetConstraints[id] = constraints
+        updateTOCWidgetGeometry()
+    }
+
+    override func layout() {
+        super.layout()
+        updateTOCWidgetGeometry()
+    }
+
+    private func updateTOCWidgetGeometry() {
+        for (id, constraints) in tocWidgetConstraints {
+            guard let widget = tocWidgets[id], let host = widget.superview, constraints.count == 5 else { continue }
+            let availableHeight = max(0, min(host.bounds.height * 0.5, host.bounds.height - 24))
+            let preferredHeight = widget.intrinsicContentSize.height
+            let containedHeight: CGFloat
+            if availableHeight >= widget.footerHeight + widget.rowHeight {
+                let visibleRows = max(1, floor((availableHeight - widget.footerHeight) / widget.rowHeight))
+                containedHeight = min(preferredHeight, visibleRows * widget.rowHeight + widget.footerHeight)
+            } else {
+                containedHeight = min(preferredHeight, availableHeight)
+            }
+            constraints[3].constant = min(300, max(0, host.bounds.width - 24))
+            constraints[4].constant = containedHeight
+        }
+    }
 
     func showDiagnostic(_ message: String, expandedDetail: String? = nil, isError: Bool = true, pinned: Bool = false) {
         guard !(activeDiagnostic?.pinned == true && !pinned) else { return }
@@ -272,5 +386,12 @@ final class ReaderRootView: NSView {
     }
     func setInputContext(_ context: InputContext) { readerInputContext = context }
     func setPendingPrefix(_ prefix: String) { currentStatus.pendingPrefix = prefix; statusBar.render(currentStatus) }
-    private func setPresentedContentView(_ view: NSView?) { if presentedContentView !== view { presentedContentView?.removeFromSuperview() }; presentedContentView = view; attachContentView(view, to: contentHost) }
+    private func setPresentedContentView(_ view: NSView?) {
+        if presentedContentView !== view { presentedContentView?.removeFromSuperview() }
+        presentedContentView = view
+        attachContentView(view, to: contentHost)
+        for widget in tocWidgets.values where widget.superview === contentHost {
+            contentHost.addSubview(widget, positioned: .above, relativeTo: view)
+        }
+}
 }

@@ -92,6 +92,9 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `scroll.right` | `l`, `<Right>` | `navigation`, `searchResults` | `allowed` |
 | `scroll.largeDown` | `d` | `navigation`, `searchResults` | `allowed` |
 | `scroll.largeUp` | `u` | `navigation`, `searchResults` | `allowed` |
+| `toc.toggle` | `t` | `navigation`, `searchResults` | `suppressed` |
+| `toc.scrollDown` | `J` | `navigation`, `searchResults` | `allowed` |
+| `toc.scrollUp` | `K` | `navigation`, `searchResults` | `allowed` |
 | `page.next` | `n` | `navigation`, `searchResults` | `allowed` |
 | `page.previous` | `p` | `navigation`, `searchResults` | `allowed` |
 | `page.first` | `gg` | `navigation`, `searchResults` | `suppressed` |
@@ -307,6 +310,11 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 "scroll.right"     = ["l", "<Right>"]  # l
 "scroll.largeDown" = ["d"]  # d
 "scroll.largeUp"   = ["u"]  # u
+
+# --- Table of contents ---
+"toc.toggle"       = ["t"]  # t
+"toc.scrollDown"   = ["J"]  # J
+"toc.scrollUp"     = ["K"]  # K
 
 # --- Pages ---
 "page.next"        = ["n"]  # n

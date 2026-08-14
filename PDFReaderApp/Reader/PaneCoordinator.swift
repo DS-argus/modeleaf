@@ -79,6 +79,17 @@ final class PaneCoordinator {
     var snapshot: PaneCoordinatorSnapshot { makeSnapshot() }
     private var activeStore: ReaderSessionStore? { activePaneID.flatMap { stores[$0] } ?? bootstrapStore }
     var activeSession: (any ReaderSessionPresenting)? { activeStore?.activeSession }
+    var activeOutlineSnapshot: ReaderOutlineSnapshot? { activeStore?.activeOutlineSnapshot }
+
+    @discardableResult
+    func activateOutlineRow(id: ReaderOutlineRowID) -> NavigationTransactionOutcome {
+        activeStore?.activeSession?.activateOutlineRow(id: id) ?? .unavailable
+    }
+
+    @discardableResult
+    func activateOutlineRow(id: ReaderOutlineRowID, in paneID: PaneID) -> NavigationTransactionOutcome {
+        stores[paneID]?.activeSession?.activateOutlineRow(id: id) ?? .unavailable
+    }
     func store(for id: PaneID) -> ReaderSessionStore? { stores[id] }
     func session(for id: TabID) -> (any ReaderSessionPresenting)? { activeStore?.session(for: id) }
     func applyTheme(_ theme: AppKitTheme) {

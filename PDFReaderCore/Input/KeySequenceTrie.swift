@@ -199,7 +199,7 @@ private enum ExactPrefixSafetyPolicy {
              .viewZoomIn, .viewZoomOut, .viewZoomReset, .viewFitWidth, .viewFitPage,
              .historyBack, .historyForward,
              .viewRotateLeft, .viewRotateRight, .linkHint,
-             .paneSplitRight, .paneSplitDown, .paneFocusLeft, .paneFocusDown,
+             .tocToggle, .tocScrollDown, .tocScrollUp, .paneSplitRight, .paneSplitDown, .paneFocusLeft, .paneFocusDown,
              .paneFocusUp, .paneFocusRight, .paneUnsplit, .themePicker, .indicatorPicker, .updateShow:
             false
         }

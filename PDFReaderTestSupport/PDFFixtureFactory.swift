@@ -28,6 +28,20 @@ public struct InteractivePDFFixture: Sendable {
     }
 }
 
+
+public struct TOCOutlineFixture: Sendable {
+    public let url: URL
+    public let rowCount: Int
+    public let duplicateDestinationCount: Int
+    public let edgeDestinationY: CGFloat
+
+    public init(url: URL, rowCount: Int, duplicateDestinationCount: Int, edgeDestinationY: CGFloat) {
+        self.url = url
+        self.rowCount = rowCount
+        self.duplicateDestinationCount = duplicateDestinationCount
+        self.edgeDestinationY = edgeDestinationY
+    }
+}
 public enum PerformancePDFFixtureKind: String, CaseIterable, Codable, Sendable {
     case S
     case L
@@ -119,6 +133,68 @@ public enum PDFFixtureFactory {
         }
         context.closePDF()
         return url
+    }
+
+    @discardableResult
+    public static func makeTOCOutlinePDF(
+        in directory: URL,
+        name: String = "toc-nested-reopened.pdf"
+    ) throws -> TOCOutlineFixture {
+        let source = try makeTextPDF(
+            in: directory,
+            name: "toc-nested-source-\(UUID().uuidString).pdf",
+            pageCount: 2,
+            pageSize: CGSize(width: 612, height: 676.3)
+        )
+        defer { try? FileManager.default.removeItem(at: source) }
+        guard let document = PDFDocument(url: source),
+              let firstPage = document.page(at: 0),
+              let secondPage = document.page(at: 1)
+        else { throw PDFFixtureError.couldNotOpenGeneratedDocument }
+
+        let root = PDFOutline()
+        let first = PDFOutline()
+        first.label = "1 Root"
+        first.destination = PDFDestination(page: firstPage, at: CGPoint(x: 42, y: 640))
+        let interior = PDFOutline()
+        interior.label = "2 Interior"
+        interior.destination = PDFDestination(page: firstPage, at: CGPoint(x: 42, y: 600))
+        let duplicateA = PDFOutline()
+        duplicateA.label = "3 Duplicate A"
+        duplicateA.destination = PDFDestination(page: secondPage, at: CGPoint(x: 42, y: 400))
+        let duplicateB = PDFOutline()
+        duplicateB.label = "4 Duplicate B"
+        duplicateB.destination = PDFDestination(page: secondPage, at: CGPoint(x: 42, y: 400))
+        let nestedParent = PDFOutline()
+        nestedParent.label = "5 Nested parent"
+        nestedParent.destination = PDFDestination(page: secondPage, at: CGPoint(x: 42, y: 510))
+        root.insertChild(first, at: 0)
+        root.insertChild(interior, at: 1)
+        root.insertChild(duplicateA, at: 2)
+        root.insertChild(duplicateB, at: 3)
+        root.insertChild(nestedParent, at: 4)
+
+        for number in 6...12 {
+            let item = PDFOutline()
+            item.label = number == 8 ? "8 Selectorless" : "\(number) Nested row"
+            if number != 8 {
+                let page = number == 12 ? firstPage : secondPage
+                let y: CGFloat = number == 12 ? 679 : 560 - CGFloat(number * 10)
+                item.destination = PDFDestination(page: page, at: CGPoint(x: 42, y: y))
+            }
+            nestedParent.insertChild(item, at: nestedParent.numberOfChildren)
+        }
+        document.outlineRoot = root
+
+        let output = directory.appendingPathComponent(name)
+        guard document.write(to: output),
+              let reopened = PDFDocument(url: output),
+              let reopenedRoot = reopened.outlineRoot,
+              reopenedRoot.numberOfChildren >= 5,
+              (reopenedRoot.child(at: 4)?.numberOfChildren ?? 0) >= 7,
+              reopenedRoot.child(at: 2)?.destination?.point == reopenedRoot.child(at: 3)?.destination?.point
+        else { throw PDFFixtureError.couldNotOpenGeneratedDocument }
+        return TOCOutlineFixture(url: output, rowCount: 12, duplicateDestinationCount: 2, edgeDestinationY: 679)
     }
 
     public static func makeMalformedPDF(
