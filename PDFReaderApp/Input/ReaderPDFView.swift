@@ -12,6 +12,12 @@ enum ReaderVerticalBoundary {
     case start
     case end
 }
+enum ReaderNativeViewportGesture: Equatable, Sendable {
+    case began
+    case ended
+    case cancelled
+}
+
 @MainActor
 protocol ReaderPDFViewInternalLinkHandling: AnyObject {
     func readerPDFView(_ view: ReaderPDFView, activateInternalLink target: ReaderLinkTarget)
@@ -26,6 +32,7 @@ final class ReaderPDFView: PDFView {
     /// Invoked with a URL link's target when the user clicks it; the shell opens
     /// it in the browser. In-document (GoTo) links navigate without this handler.
     var followLinkHandler: ((URL) -> Void)?
+    var viewportGestureHandler: ((ReaderNativeViewportGesture) -> Void)?
 
     private lazy var readOnlyDelegate = ReaderPDFViewDelegate(owner: self)
 
@@ -35,6 +42,8 @@ final class ReaderPDFView: PDFView {
     private(set) var blockedMouseSequenceCount = 0
     private(set) var followedLinkCount = 0
     private var isBlockingMouseSequence = false
+    private var nativeViewportGestureActive = false
+    private var pendingViewportGestureEnd: DispatchWorkItem?
     private var focusIndicatorColor = NSColor.clear
 
     override var acceptsFirstResponder: Bool { true }
@@ -105,6 +114,40 @@ final class ReaderPDFView: PDFView {
         defer { isBlockingMouseSequence = false }
         guard !isBlockingMouseSequence else { return }
         super.mouseUp(with: event)
+    }
+    override func scrollWheel(with event: NSEvent) {
+        let phase = event.phase
+        let momentum = event.momentumPhase
+        let phaseLess = phase == [] && momentum == []
+        let begins = phaseLess || phase == .began || momentum == .began
+        if begins {
+            pendingViewportGestureEnd?.cancel()
+            pendingViewportGestureEnd = nil
+            if !nativeViewportGestureActive {
+                nativeViewportGestureActive = true
+                viewportGestureHandler?(.began)
+            }
+        }
+        super.scrollWheel(with: event)
+
+        let cancels = phase == .cancelled || momentum == .cancelled
+        if cancels {
+            finishNativeViewportGesture(.cancelled)
+        } else if phaseLess || momentum == .ended {
+            finishNativeViewportGesture(.ended)
+        } else if phase == .ended {
+            let pending = DispatchWorkItem { [weak self] in self?.finishNativeViewportGesture(.ended) }
+            pendingViewportGestureEnd = pending
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(40), execute: pending)
+        }
+    }
+
+    private func finishNativeViewportGesture(_ terminal: ReaderNativeViewportGesture) {
+        pendingViewportGestureEnd?.cancel()
+        pendingViewportGestureEnd = nil
+        guard nativeViewportGestureActive else { return }
+        nativeViewportGestureActive = false
+        viewportGestureHandler?(terminal)
     }
 
     override func keyDown(with event: NSEvent) {

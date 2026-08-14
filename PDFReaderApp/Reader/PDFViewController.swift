@@ -23,6 +23,22 @@ enum NavigationRestoreOutcome: Equatable, Sendable {
     case compensatedFailure
     case uncompensatedInvariantFailure(actualLanding: NavigationSnapshot?)
 }
+
+enum ReaderViewportMutationOrigin: Equatable, Hashable, Sendable {
+    case userAction, tocActivation, nativeGesture, system
+    var isUserMovement: Bool {
+        switch self { case .userAction, .nativeGesture: true; case .tocActivation, .system: false }
+    }
+}
+struct ReaderViewportMutationEpoch: Equatable, Sendable {
+    let id: UInt64
+    let origin: ReaderViewportMutationOrigin
+    let baseline: NavigationSnapshot?
+}
+enum ReaderViewportMutationTerminal: Equatable, Sendable {
+    case changed(ReaderViewportMutationEpoch)
+    case noChange(ReaderViewportMutationEpoch)
+}
 @MainActor
 final class PDFViewController: NSViewController {
     private let readerView: ReaderPDFView
@@ -42,6 +58,9 @@ final class PDFViewController: NSViewController {
     private var activeSearchIndex: Int?
     private var internalLinkHandler: ((ReaderLinkTarget) -> Void)?
     private var navigationSnapshotCaptureOverride: (() -> NavigationSnapshot?)?
+    private var viewportMutationHandler: ((ReaderViewportMutationTerminal) -> Void)?
+    private var activeViewportEpoch: ReaderViewportMutationEpoch?
+    private var nextViewportEpochID: UInt64 = 0
 
     private let destinationIndicatorView = LinkDestinationIndicatorView(frame: .zero)
     init(document: PDFDocument, traceID: OpenTraceID, metrics: any PDFOpenMetrics) {
@@ -54,6 +73,7 @@ final class PDFViewController: NSViewController {
         self.focusIndicator = defaultTheme.focusRing
         self.destinationIndicatorAccent = defaultTheme[.accent]
         super.init(nibName: nil, bundle: nil)
+        readerView.viewportGestureHandler = { [weak self] event in self?.handleNativeViewportGesture(event) }
         readerView.applyCanvasBackground(canvasBackground)
         readerView.applyFocusIndicator(focusIndicator)
         destinationIndicatorView.configure(
@@ -159,6 +179,16 @@ final class PDFViewController: NSViewController {
         navigationSnapshotCaptureOverride = capture
     }
 
+    func navigationSnapshot(forOutlineDestination destination: PDFDestination) -> NavigationSnapshot? {
+        guard let page = destination.page, page.document === initialDocument else { return nil }
+        let pageIndex = initialDocument.index(for: page)
+        guard pageIndex >= 0, pageIndex < initialDocument.pageCount else { return nil }
+        let bounds = page.bounds(for: .mediaBox)
+        guard bounds.width.isFinite, bounds.height.isFinite, bounds.minX.isFinite, bounds.maxX.isFinite, bounds.minY.isFinite, bounds.maxY.isFinite,
+              let x = normalizedOutlineCoordinate(destination.point.x, lower: bounds.minX, upper: bounds.maxX),
+              let y = normalizedOutlineCoordinate(destination.point.y, lower: bounds.minY, upper: bounds.maxY) else { return nil }
+        return NavigationSnapshot(pageIndex: pageIndex, pageSpacePoint: CGPoint(x: x, y: y))
+    }
 
     func navigationSnapshot(forInternalLink target: ReaderLinkTarget) -> NavigationSnapshot? {
         guard case let .goTo(pageIndex, point) = target,
@@ -184,8 +214,12 @@ final class PDFViewController: NSViewController {
     func restoreNavigationSnapshot(_ destination: NavigationSnapshot) -> NavigationRestoreOutcome {
         loadViewIfNeeded()
         destinationIndicatorView.cancel()
-        guard let targetPage = page(for: destination),
-              targetPage.bounds(for: .mediaBox).contains(destination.pageSpacePoint),
+        guard let targetPage = page(for: destination) else { return .preflightRejected }
+        let targetBounds = targetPage.bounds(for: .mediaBox)
+        let targetPoint = destination.pageSpacePoint
+        guard targetPoint.x.isFinite, targetPoint.y.isFinite,
+              targetPoint.x >= targetBounds.minX, targetPoint.x <= targetBounds.maxX,
+              targetPoint.y >= targetBounds.minY, targetPoint.y <= targetBounds.maxY,
               let origin = captureNavigationSnapshot()
         else { return .preflightRejected }
 
@@ -405,6 +439,8 @@ final class PDFViewController: NSViewController {
         loadViewIfNeeded()
         readerView.internalLinkHandler = nil
         internalLinkHandler = nil
+        readerView.viewportGestureHandler = nil
+        activeViewportEpoch = nil
         readerView.delegate = nil
         readerView.keyEventHandler = nil
     }
@@ -419,6 +455,52 @@ final class PDFViewController: NSViewController {
         loadViewIfNeeded()
         readerView.removeFromSuperview()
         view.removeFromSuperview()
+    }
+
+    func setViewportMutationHandler(_ handler: ((ReaderViewportMutationTerminal) -> Void)?) { viewportMutationHandler = handler }
+
+    @discardableResult
+    func beginViewportMutation(_ origin: ReaderViewportMutationOrigin) -> ReaderViewportMutationEpoch {
+        finishActiveViewportEpoch()
+        let epoch = ReaderViewportMutationEpoch(id: nextViewportEpochID, origin: origin, baseline: captureNavigationSnapshot())
+        nextViewportEpochID &+= 1
+        activeViewportEpoch = epoch
+        return epoch
+    }
+
+    func finishViewportMutation(_ epoch: ReaderViewportMutationEpoch) {
+        guard activeViewportEpoch == epoch else { return }
+        finishActiveViewportEpoch()
+    }
+
+    func performViewportMutation(origin: ReaderViewportMutationOrigin, _ operation: () -> Void) {
+        let epoch = beginViewportMutation(origin)
+        defer { finishViewportMutation(epoch) }
+        operation()
+    }
+
+    func performUserViewportMutation(_ operation: () -> Void) {
+        performViewportMutation(origin: .userAction, operation)
+    }
+
+    private func handleNativeViewportGesture(_ event: ReaderNativeViewportGesture) {
+        switch event {
+        case .began:
+            _ = beginViewportMutation(.nativeGesture)
+        case .ended, .cancelled:
+            finishActiveViewportEpoch()
+        }
+    }
+
+    private func finishActiveViewportEpoch() {
+        guard let epoch = activeViewportEpoch else { return }
+        activeViewportEpoch = nil
+        readerView.layoutDocumentView()
+        let landing = captureNavigationSnapshot()
+        let terminal: ReaderViewportMutationTerminal
+        if let baseline = epoch.baseline, let landing, !landing.isSameLocation(as: baseline) { terminal = .changed(epoch) }
+        else { terminal = .noChange(epoch) }
+        viewportMutationHandler?(terminal)
     }
 
     private func rotate(byDegrees degrees: Int) {
@@ -536,6 +618,14 @@ final class PDFViewController: NSViewController {
         let sentinelThreshold = CGFloat(Float.greatestFiniteMagnitude) / 2
         return value.isFinite && abs(value) < sentinelThreshold
     }
+    private func normalizedOutlineCoordinate(_ value: CGFloat, lower: CGFloat, upper: CGFloat) -> CGFloat? {
+        guard value.isFinite else { return nil }
+        guard Self.isSpecifiedDestinationCoordinate(value) else { return (lower + upper) / 2 }
+        let tolerance: CGFloat = 8
+        guard value >= lower - tolerance, value <= upper + tolerance else { return nil }
+        return min(max(value, lower), upper)
+    }
+
     private func renderSearchResults(scrollActiveSelection: Bool = true) {
         loadViewIfNeeded()
         for selection in searchSelections {
@@ -593,9 +683,17 @@ extension PDFViewController: ReaderSearchResultPresenting {
     ) -> ReaderSearchResultDisplayOutcome {
         if let activeIndex, !selections.indices.contains(activeIndex) { return .failedWithoutMovement }
         let origin = activeIndex == nil ? nil : captureNavigationSnapshot()
-        searchSelections = selections
-        self.activeSearchIndex = activeIndex
-        renderSearchResults()
+        if let activeIndex {
+            performUserViewportMutation {
+                searchSelections = selections
+                self.activeSearchIndex = activeIndex
+                renderSearchResults()
+            }
+        } else {
+            searchSelections = selections
+            self.activeSearchIndex = nil
+            renderSearchResults(scrollActiveSelection: false)
+        }
         guard let origin else {
             return activeIndex == nil ? .displayedSame : .displayedAfterUnverifiedMovement
         }
@@ -607,14 +705,14 @@ extension PDFViewController: ReaderSearchResultPresenting {
     func activateSearchResult(at index: Int) -> ReaderSearchResultDisplayOutcome {
         guard searchSelections.indices.contains(index) else { return .failedWithoutMovement }
         let origin = captureNavigationSnapshot()
-        if let activeSearchIndex, searchSelections.indices.contains(activeSearchIndex) {
-            searchSelections[activeSearchIndex].color = searchPalette.allResults
+        performUserViewportMutation {
+            if let activeSearchIndex, searchSelections.indices.contains(activeSearchIndex) { searchSelections[activeSearchIndex].color = searchPalette.allResults }
+            let active = searchSelections[index]
+            active.color = searchPalette.activeResult
+            activeSearchIndex = index
+            readerView.setCurrentSelection(active, animate: false)
+            readerView.scrollSelectionToVisible(nil)
         }
-        let active = searchSelections[index]
-        active.color = searchPalette.activeResult
-        activeSearchIndex = index
-        readerView.setCurrentSelection(active, animate: false)
-        readerView.scrollSelectionToVisible(nil)
         guard let origin, let landing = captureNavigationSnapshot() else { return .displayedAfterUnverifiedMovement }
         return landing.isSameLocation(as: origin) ? .displayedSame : .displayedDistinct(landing: landing)
     }

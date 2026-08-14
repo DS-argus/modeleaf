@@ -12,6 +12,7 @@ struct ActionRegistryTests {
             "tab.select.4", "tab.select.5", "tab.select.6",
             "tab.select.7", "tab.select.8", "tab.select.9",
             "scroll.left", "scroll.down", "scroll.up", "scroll.right", "scroll.largeDown", "scroll.largeUp",
+            "toc.toggle", "toc.scrollDown", "toc.scrollUp",
             "page.next", "page.previous", "page.first", "page.last", "page.prompt",
             "history.back", "history.forward",
             "prompt.commit", "prompt.cancel",
@@ -22,7 +23,7 @@ struct ActionRegistryTests {
             "config.reload", "config.writeDefault", "config.resetDefault",
         ]
         let registry = ActionRegistry.v1
-        #expect(registry.descriptors.count == 58)
+        #expect(registry.descriptors.count == 61)
         #expect(Set(registry.actionIDs).count == registry.actionIDs.count)
         #expect(Set(registry.actionIDs.map(\.rawValue)) == expected)
         #expect(Set(InputContext.allCases) == [.navigation, .pagePrompt, .searchPrompt, .searchResults])
@@ -140,6 +141,7 @@ struct ActionRegistryTests {
         let allowed: Set<ActionID> = [
             .scrollLeft, .scrollDown, .scrollUp, .scrollRight, .scrollLargeDown, .scrollLargeUp,
             .pageNext, .pagePrevious, .searchNext, .searchPrevious, .viewZoomIn, .viewZoomOut,
+            .tocScrollDown, .tocScrollUp,
         ]
         for descriptor in ActionRegistry.v1.descriptors {
             #expect(ActionBindingPolicy.shouldDispatch(eventIsRepeat: false, action: descriptor))

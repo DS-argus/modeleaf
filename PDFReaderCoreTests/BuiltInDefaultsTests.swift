@@ -27,6 +27,7 @@ struct BuiltInDefaultsTests {
             .tabSelect7: ["<D-7>"], .tabSelect8: ["<D-8>"], .tabSelect9: ["<D-9>"],
             .scrollLeft: ["h", "<Left>"], .scrollDown: ["j", "<Down>"], .scrollUp: ["k", "<Up>"], .scrollRight: ["l", "<Right>"],
             .scrollLargeDown: ["d"], .scrollLargeUp: ["u"],
+            .tocToggle: ["t"], .tocScrollDown: ["J"], .tocScrollUp: ["K"],
             .pageNext: ["n"], .pagePrevious: ["p"], .pageFirst: ["gg"], .pageLast: ["G"], .pagePrompt: ["g"],
             .historyBack: ["<C-o>"], .historyForward: ["<C-i>"],
             .promptCommit: ["<Enter>"], .promptCancel: ["<Esc>"],

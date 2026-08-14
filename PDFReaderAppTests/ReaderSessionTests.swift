@@ -771,6 +771,41 @@ struct ReaderSessionTests {
         }
     }
 
+    @Test("outline destination normalization repairs only near edges and rejects invalid locations")
+    func outlineDestinationNormalization() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1, pageSize: CGSize(width: 612, height: 676.3))
+            let document = try #require(PDFDocument(url: url))
+            let page = try #require(document.page(at: 0))
+            let controller = PDFViewController(document: document, traceID: OpenTraceID(), metrics: NoopPDFOpenMetrics())
+            let near = try #require(controller.navigationSnapshot(forOutlineDestination: PDFDestination(page: page, at: CGPoint(x: 42, y: 679))))
+            #expect(near.pageSpacePoint.y == page.bounds(for: .mediaBox).maxY)
+            #expect(controller.navigationSnapshot(forOutlineDestination: PDFDestination(page: page, at: CGPoint(x: 42, y: 690))) == nil)
+            #expect(controller.navigationSnapshot(forOutlineDestination: PDFDestination(page: PDFPage(), at: .zero)) == nil)
+        }
+    }
+
+    @Test("viewport epochs terminate once with changed or no-change provenance")
+    func viewportMutationEpochsTerminateAtMostOnce() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 2)
+            let document = try #require(PDFDocument(url: url))
+            let controller = PDFViewController(document: document, traceID: OpenTraceID(), metrics: NoopPDFOpenMetrics())
+            var terminals: [ReaderViewportMutationTerminal] = []
+            controller.setViewportMutationHandler { terminals.append($0) }
+            let epoch = controller.beginViewportMutation(.userAction)
+            controller.finishViewportMutation(epoch)
+            controller.finishViewportMutation(epoch)
+            #expect(terminals.count == 1)
+            if case let .noChange(result) = terminals[0] { #expect(result.id == epoch.id) } else { Issue.record("expected no-change terminal") }
+            let stale = controller.beginViewportMutation(.tocActivation)
+            let replacement = controller.beginViewportMutation(.system)
+            controller.finishViewportMutation(stale)
+            controller.finishViewportMutation(replacement)
+            #expect(terminals.count == 3)
+        }
+    }
+
     @Test("search producer history matrix coalesces, branches, replaces, and ignores stale callbacks")
     func searchProducerHistoryMatrix() throws {
         try withSearchHistoryHarness { session, navigation, driver, coordinator, presenter in
