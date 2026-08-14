@@ -32,6 +32,21 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Toolchain fingerprint
+        id: toolchain
+        run: echo "fingerprint=$(xcodebuild -version | shasum -a 256 | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Swift build cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm
+          key: modeleaf-${{ runner.os }}-${{ steps.toolchain.outputs.fingerprint }}-${{ hashFiles('Package.resolved') }}-release-${{ github.sha }}
+          restore-keys: |
+            modeleaf-${{ runner.os }}-${{ steps.toolchain.outputs.fingerprint }}-${{ hashFiles('Package.resolved') }}-app-
+            modeleaf-${{ runner.os }}-${{ steps.toolchain.outputs.fingerprint }}-${{ hashFiles('Package.resolved') }}-core-
+
       - name: Verify tag matches the app version
         run: |
           set -euo pipefail
@@ -42,7 +57,7 @@ jobs:
           }
 
       - name: Run tests
-        run: swift test
+        run: Tools/verify.sh full --disable-automatic-resolution
 
       - name: Build and package
         id: pkg

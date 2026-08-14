@@ -45,6 +45,8 @@ final class TOCWidgetView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         static let footerHeight: CGFloat = 24
     }
 
+    static let digitCommitDelayMilliseconds = 400
+
     private let scrollView = NSScrollView()
     private let tableView = TOCWidgetTableView()
     private let emptyLabel = NSTextField(labelWithString: "No table of contents")
@@ -59,11 +61,17 @@ final class TOCWidgetView: NSView, NSTableViewDataSource, NSTableViewDelegate {
     private var digitBuffer = ""
     private var digitGeneration: UInt64 = 0
     private var digitCommit: DispatchWorkItem?
+    private var digitCommitScheduler: @MainActor (Int, DispatchWorkItem) -> Void
     private var isProgrammaticScroll = false
     private var manuallyScrolled = false
     var onActivate: ((ReaderOutlineRowID) -> NavigationTransactionOutcome)?
 
-    override init(frame frameRect: NSRect) {
+    override convenience init(frame frameRect: NSRect) {
+        self.init(frame: frameRect, digitCommitScheduler: Self.scheduleLiveDigitCommit)
+    }
+
+    init(frame frameRect: NSRect, digitCommitScheduler: @escaping @MainActor (Int, DispatchWorkItem) -> Void) {
+        self.digitCommitScheduler = digitCommitScheduler
         super.init(frame: frameRect)
         wantsLayer = true
         setAccessibilityIdentifier("tocWidget")
@@ -116,6 +124,10 @@ final class TOCWidgetView: NSView, NSTableViewDataSource, NSTableViewDelegate {
             emptyLabel.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor),
         ])
         isHidden = true
+    }
+
+    private static func scheduleLiveDigitCommit(afterMilliseconds delay: Int, _ item: DispatchWorkItem) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(delay), execute: item)
     }
 
     required init?(coder: NSCoder) { nil }
@@ -276,7 +288,7 @@ final class TOCWidgetView: NSView, NSTableViewDataSource, NSTableViewDelegate {
         digitCommit?.cancel()
         let commit = DispatchWorkItem { [weak self] in self?.commitDigits(generation: generation) }
         digitCommit = commit
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(400), execute: commit)
+        digitCommitScheduler(Self.digitCommitDelayMilliseconds, commit)
     }
 
     private func commitDigits(generation: UInt64) {
