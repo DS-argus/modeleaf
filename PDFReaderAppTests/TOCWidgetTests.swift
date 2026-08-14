@@ -83,6 +83,7 @@ struct TOCWidgetTests {
 
     @Test("numeric accumulation is visible in the footer until commit")
     func numericBufferAppearsInFooterUntilCommit() throws {
+        #expect(TOCWidgetView.digitCommitDelayMilliseconds == 400)
         let scheduler = ManualTOCDigitCommitScheduler()
         let widget = TOCWidgetView(
             frame: NSRect(x: 0, y: 0, width: 300, height: 200),
@@ -97,7 +98,7 @@ struct TOCWidgetTests {
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "1"))))
         #expect(hint.stringValue == "1  Jump    Esc / t  Close")
         #expect(activations.isEmpty)
-        scheduler.advance(byMilliseconds: TOCWidgetView.digitCommitDelayMilliseconds - 1)
+        scheduler.advance(byMilliseconds: 399)
         #expect(activations.isEmpty)
         scheduler.advance(byMilliseconds: 1)
 
@@ -118,7 +119,7 @@ struct TOCWidgetTests {
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "1"))))
         scheduler.advance(byMilliseconds: 250)
         #expect(widget.handleKey(try #require(makeKeyEvent(characters: "2"))))
-        scheduler.advance(byMilliseconds: TOCWidgetView.digitCommitDelayMilliseconds - 1)
+        scheduler.advance(byMilliseconds: 399)
         #expect(activations.isEmpty)
         scheduler.advance(byMilliseconds: 1)
         #expect(activations == [snapshot.rows[11].id])
