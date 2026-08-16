@@ -40,6 +40,7 @@ final class StatusBarView: NSView {
     private let updateButton = StatusUpdateButton(title: "", target: nil, action: nil)
     private let separator = NSBox()
     private var theme: AppKitTheme?
+    private static let noticeAccent = NSColor.systemOrange
     private(set) var presentation = StatusBarPresentation.empty
 
     /// Invoked when the user clicks the keyboard help hint.
@@ -151,7 +152,7 @@ final class StatusBarView: NSView {
         updateButton.contentTintColor = theme[.accent]
         fitPagePill.render(presentation.mode, accent: theme[.accent])
         searchModePill.render(presentation.isSearchMode ? "SEARCH" : "", accent: theme[.accent])
-        noticePill.render(presentation.transientNotice, accent: theme[.accent])
+        noticePill.render(presentation.transientNotice, accent: Self.noticeAccent)
         versionLabel.textColor = theme[.mutedText]
     }
 
@@ -203,7 +204,7 @@ final class StatusBarView: NSView {
         let accent = theme?[.accent]
         fitPagePill.render(presentation.mode, accent: accent)
         searchModePill.render(presentation.isSearchMode ? "SEARCH" : "", accent: accent)
-        noticePill.render(presentation.transientNotice, accent: accent)
+        noticePill.render(presentation.transientNotice, accent: Self.noticeAccent)
         prefixLabel.stringValue = presentation.pendingPrefix.isEmpty ? "" : "prefix  \(presentation.pendingPrefix)"
         detailLabel.stringValue = presentation.detail
         detailLabel.setAccessibilityValue(presentation.detail)

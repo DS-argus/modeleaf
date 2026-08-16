@@ -378,7 +378,6 @@ final class ReaderRootView: NSView {
             return
         }
 
-        showDiagnostic(message, isError: false)
         transientNoticeTask?.cancel()
         currentStatus.transientNotice = "PATH COPIED"
         statusBar.render(currentStatus)

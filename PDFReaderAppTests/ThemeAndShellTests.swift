@@ -282,6 +282,9 @@ struct ThemeAndShellTests {
         #expect(searchModeLabel?.isHidden == false)
         let noticeLabel = findDescendant(in: controller.rootView.statusBar, identifier: "status.notice") as? NSTextField
         #expect(noticeLabel?.stringValue == "PATH COPIED")
+        #expect(noticeLabel?.textColor?.hexRGB == NSColor.systemOrange.hexRGB)
+        let noticeBorderColor = noticeLabel?.superview?.layer?.borderColor.flatMap(NSColor.init(cgColor:))
+        #expect(noticeBorderColor?.hexRGB == NSColor.systemOrange.hexRGB)
         #expect(noticeLabel?.isHidden == false)
         #expect((controller.rootView.statusBar.accessibilityValue() as? String)?.contains("status PATH COPIED") == true)
         controller.rootView.statusBar.performHelpTapForTesting()
@@ -316,7 +319,7 @@ struct ThemeAndShellTests {
         let notice = findDescendant(in: root.statusBar, identifier: "status.notice") as? NSTextField
         #expect(notice?.stringValue == "PATH COPIED")
         #expect(notice?.isHidden == false)
-        #expect(root.statusBar.presentation.detail == "Copied PDF path")
+        #expect(root.statusBar.presentation.detail == ReaderStatusSnapshot.empty.detail)
         root.dismissTransientNotice()
         #expect(notice?.isHidden == true)
         #expect(root.statusBar.presentation.transientNotice.isEmpty)
