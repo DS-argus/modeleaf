@@ -28,6 +28,9 @@ public enum ActionID: String, CaseIterable, Codable, Hashable, Sendable {
     case scrollLargeDown = "scroll.largeDown"
     case scrollLargeUp = "scroll.largeUp"
 
+    case tocToggle = "toc.toggle"
+    case tocScrollDown = "toc.scrollDown"
+    case tocScrollUp = "toc.scrollUp"
     case pageNext = "page.next"
     case pagePrevious = "page.previous"
     case pageFirst = "page.first"

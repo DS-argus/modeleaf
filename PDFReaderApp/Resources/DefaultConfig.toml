@@ -48,6 +48,11 @@
 "scroll.largeDown" = ["d"]  # d
 "scroll.largeUp"   = ["u"]  # u
 
+# --- Table of contents ---
+"toc.toggle"       = ["t"]  # t
+"toc.scrollDown"   = ["J"]  # J
+"toc.scrollUp"     = ["K"]  # K
+
 # --- Pages ---
 "page.next"        = ["n"]  # n
 "page.previous"    = ["p"]  # p

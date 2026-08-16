@@ -26,6 +26,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var inputRouter: ReaderInputRouter!
     private var lastActiveSessionID: TabID?
     private let openPaneHandler: ((PaneID) -> Void)?
+    private var tocTabIDsByPane: [PaneID: TabID?] = [:]
     private var promptCloseProjection: (layout: PaneLayout, paneID: PaneID?, tabID: TabID?)?
     private let currentThemeID: () -> ThemeID
     private let themePreviewHandler: (ThemeID) -> Void
@@ -114,6 +115,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window.setAccessibilityIdentifier("mainWindow")
 
         super.init(window: window)
+        applyTOCKeyHints(config.keymap)
         inputRouter = ReaderInputRouter(
             config: config,
             pendingHandler: { [weak rootView] prefix in rootView?.setPendingPrefix(prefix) },
@@ -508,10 +510,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func applyConfig(_ config: ValidatedAppConfig) {
+        rootView.cancelPendingTOCInput()
         resolvedConfig = config
         inputRouter.reconfigure(config: config)
         dismissLinkHintsAndRestoreFocus()
         rootView.emptyState.setOpenBinding(config.keymap.bindings(for: .documentOpen).first)
+        applyTOCKeyHints(config.keymap)
     }
 
     var hasPinnedDiagnostic: Bool { rootView.hasPinnedDiagnostic }
@@ -568,6 +572,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func presentPrompt(_ presentation: PromptPresentation) {
+        rootView.cancelPendingTOCInput()
         let context: InputContext = presentation.kind == .page ? .pagePrompt : .searchPrompt
         inputRouter.synchronizeContext(context)
         rootView.setInputContext(context)
@@ -617,6 +622,28 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     var activePromptText: String { rootView.promptOverlay.activeText }
     var inputContextForTesting: InputContext { inputRouter.context }
 
+    func toggleTOCDrawer() {
+        guard let paneID = coordinator.snapshot.activePaneID,
+              let outline = coordinator.activeOutlineSnapshot
+        else { return }
+        rootView.toggleTOCWidget(in: paneID, snapshot: outline) { [weak self] rowID in
+            guard let self else { return .unavailable }
+            let outcome = self.coordinator.activateOutlineRow(id: rowID, in: paneID)
+            if outcome == .verifiedLanding || outcome == .noOp { self.focusActiveSurface(snapshot: self.coordinator.snapshot) }
+            return outcome
+        }
+        focusActiveSurface(snapshot: coordinator.snapshot)
+    }
+
+    func scrollTOCDrawerDown() { scrollTOCDrawer(byRows: 1) }
+    func scrollTOCDrawerUp() { scrollTOCDrawer(byRows: -1) }
+
+    private func scrollTOCDrawer(byRows direction: Int) {
+        guard let paneID = coordinator.snapshot.activePaneID else { return }
+        rootView.scrollTOCWidget(in: paneID, byRows: direction)
+    }
+
+
     @discardableResult
     func routeKeyEventForTesting(_ event: NSEvent) -> Bool { routeKeyEvent(event) }
 
@@ -630,7 +657,14 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if !rootView.themePickerOverlay.isHidden, rootView.themePickerOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
         if !rootView.linkIndicatorPickerOverlay.isHidden, rootView.linkIndicatorPickerOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
         if !rootView.updateInstructionsOverlay.isHidden, rootView.updateInstructionsOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
-        if isTransientModalRoutingActive, inputRouter.handleHistoryWhileModal(event) { return true }
+        if isTransientModalRoutingActive {
+            if inputRouter.handleHistoryWhileModal(event) { return true }
+            return inputRouter.handle(event)
+        }
+        if let paneID = coordinator.snapshot.activePaneID,
+           rootView.handleTOCKey(in: paneID, event: event) {
+            return true
+        }
         return inputRouter.handle(event)
     }
 
@@ -656,6 +690,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func beginTransientOverlay() {
+        rootView.cancelPendingTOCInput()
         savedTransientInputContexts.append(inputRouter.context)
     }
 
@@ -704,6 +739,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowDidResignKey(_ notification: Notification) {
+        rootView.cancelPendingTOCInput()
         dismissLinkHintsAndCitationPreviewAndRestoreFocus()
         inputRouter.invalidate(.focusLost)
         if !rootView.linkIndicatorPickerOverlay.isHidden {
@@ -723,6 +759,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func refresh(snapshot: PaneCoordinatorSnapshot) {
+        for (paneID, store) in snapshot.panes {
+            if tocTabIDsByPane[paneID] != nil, tocTabIDsByPane[paneID] != store.activeID {
+                rootView.closeTOCWidget(in: paneID)
+            }
+            tocTabIDsByPane[paneID] = store.activeID
+        }
+        tocTabIDsByPane = tocTabIDsByPane.filter { snapshot.panes[$0.key] != nil }
         if snapshot.activeID != lastActiveSessionID,
            let lastActiveSessionID,
            let previousSession = coordinator.session(for: lastActiveSessionID) as? ReaderSession {
@@ -758,6 +801,15 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             lastActiveSessionID = snapshot.activeID
         }
         rootView.render(snapshot: snapshot)
+        for paneID in snapshot.panes.keys {
+            guard let outline = coordinator.store(for: paneID)?.activeOutlineSnapshot else { continue }
+            rootView.renderTOCWidget(in: paneID, snapshot: outline) { [weak self] rowID in
+                guard let self else { return .unavailable }
+                let outcome = self.coordinator.activateOutlineRow(id: rowID, in: paneID)
+                if outcome == .verifiedLanding || outcome == .noOp { self.focusActiveSurface(snapshot: self.coordinator.snapshot) }
+                return outcome
+            }
+        }
         rebuildKeyViewLoop(snapshot: snapshot)
         window?.title = snapshot.windowTitle
         focusActiveSurface(snapshot: snapshot)
@@ -892,6 +944,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         actionHandler(.documentClose)
         guard let originalActiveID, originalActiveID != targetID, coordinator.session(for: originalActiveID) != nil else { return }
         dispatchTabSelection(to: originalActiveID)
+    }
+
+    private func applyTOCKeyHints(_ keymap: ValidatedKeymap) {
+        let down = keymap.bindings(for: .tocScrollDown).first.flatMap(KeyBindingHint.text(for:)) ?? ""
+        let up = keymap.bindings(for: .tocScrollUp).first.flatMap(KeyBindingHint.text(for:)) ?? ""
+        let toggle = keymap.bindings(for: .tocToggle).first.flatMap(KeyBindingHint.text(for:)) ?? ""
+        rootView.setTOCKeyHints(scrollDown: down, scrollUp: up, toggle: toggle)
     }
 
     private static func builtInValidatedConfig() -> ValidatedAppConfig {

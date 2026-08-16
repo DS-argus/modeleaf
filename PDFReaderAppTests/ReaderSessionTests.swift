@@ -420,6 +420,25 @@ struct ReaderSessionTests {
         }
     }
 
+    @Test("single-page boundary crossing publishes one final viewport epoch")
+    func singlePageBoundaryCrossingUsesOneEpoch() throws {
+        try withSession(pageCount: 3) { session, _ in
+            session.fitPage()
+            session.resetZoom()
+            session.moveVertically(byPoints: 100_000)
+            #expect(session.currentPageNumber == 1)
+            let revision = session.outlineSnapshot.successfulUserMovementRevision
+            var presentationChanges = 0
+            session.setPresentationChangeHandler { presentationChanges += 1 }
+
+            session.moveVertically(byPoints: 100_000)
+
+            #expect(session.currentPageNumber == 2)
+            #expect(session.outlineSnapshot.successfulUserMovementRevision == revision + 1)
+            #expect(presentationChanges == 1)
+        }
+    }
+
     @Test("fit-page vertical movement advances pages while horizontal movement stays bounded")
     func fitPageMovementUsesPageSemantics() throws {
         try withSession(pageCount: 3) { session, _ in
@@ -768,6 +787,41 @@ struct ReaderSessionTests {
             #expect(controller.viewMode == .fitWidth)
             let view = try #require(descendantPDFViews(in: controller.view).only)
             #expect(view.autoScales && view.displayMode == .singlePageContinuous)
+        }
+    }
+
+    @Test("outline destination normalization repairs only near edges and rejects invalid locations")
+    func outlineDestinationNormalization() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1, pageSize: CGSize(width: 612, height: 676.3))
+            let document = try #require(PDFDocument(url: url))
+            let page = try #require(document.page(at: 0))
+            let controller = PDFViewController(document: document, traceID: OpenTraceID(), metrics: NoopPDFOpenMetrics())
+            let near = try #require(controller.navigationSnapshot(forOutlineDestination: PDFDestination(page: page, at: CGPoint(x: 42, y: 679))))
+            #expect(near.pageSpacePoint.y == page.bounds(for: .mediaBox).maxY)
+            #expect(controller.navigationSnapshot(forOutlineDestination: PDFDestination(page: page, at: CGPoint(x: 42, y: 690))) == nil)
+            #expect(controller.navigationSnapshot(forOutlineDestination: PDFDestination(page: PDFPage(), at: .zero)) == nil)
+        }
+    }
+
+    @Test("viewport epochs terminate once with changed or no-change provenance")
+    func viewportMutationEpochsTerminateAtMostOnce() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 2)
+            let document = try #require(PDFDocument(url: url))
+            let controller = PDFViewController(document: document, traceID: OpenTraceID(), metrics: NoopPDFOpenMetrics())
+            var terminals: [ReaderViewportMutationTerminal] = []
+            controller.setViewportMutationHandler { terminals.append($0) }
+            let epoch = controller.beginViewportMutation(.userAction)
+            controller.finishViewportMutation(epoch)
+            controller.finishViewportMutation(epoch)
+            #expect(terminals.count == 1)
+            if case let .noChange(result) = terminals[0] { #expect(result.id == epoch.id) } else { Issue.record("expected no-change terminal") }
+            let stale = controller.beginViewportMutation(.tocActivation)
+            let replacement = controller.beginViewportMutation(.system)
+            controller.finishViewportMutation(stale)
+            controller.finishViewportMutation(replacement)
+            #expect(terminals.count == 3)
         }
     }
 

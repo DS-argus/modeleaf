@@ -53,6 +53,112 @@ struct PaneShellTests {
         #expect(controller.window?.firstResponder === duplicate.focusView)
     }
 
+    @Test("pane-local TOC stays above replacement tab content")
+    func paneLocalTOCStaysAboveReplacementContent() throws {
+        let fixture = splitFixture()
+        let controller = MainWindowController(
+            coordinator: fixture.coordinator,
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { _ in }
+        )
+        defer { controller.close() }
+
+        #expect(fixture.coordinator.activatePane(fixture.leading))
+        controller.toggleTOCDrawer()
+        controller.rootView.layoutSubtreeIfNeeded()
+        let pane = try #require(controller.rootView.paneViewForTesting(fixture.leading))
+        let widget = try #require(controller.rootView.tocWidgetForTesting(fixture.leading))
+        #expect(!widget.isHidden)
+        assertReachable(widget, in: controller.rootView)
+
+        let replacement = StubReaderSession(id: TabID(), title: "Replacement.pdf")
+        #expect(fixture.coordinator.insert(replacement, into: .existing(fixture.leading)))
+        #expect(widget.isHidden)
+        controller.toggleTOCDrawer()
+        controller.rootView.layoutSubtreeIfNeeded()
+
+        #expect(controller.rootView.tocWidgetForTesting(fixture.leading) === widget)
+        #expect(widget.superview === pane.contentHost)
+        let contentIndex = try #require(pane.contentHost.subviews.firstIndex { $0 === replacement.contentView })
+        let widgetIndex = try #require(pane.contentHost.subviews.firstIndex { $0 === widget })
+        #expect(widgetIndex > contentIndex)
+        assertReachable(widget, in: controller.rootView)
+    }
+
+    @Test("closing the final single-pane tab retires its TOC widget")
+    func finalSinglePaneCloseRetiresTOCWidget() throws {
+        let coordinator = PaneCoordinator()
+        #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Only.pdf"), into: .createIfEmpty))
+        let paneID = try #require(coordinator.activePaneID)
+        let controller = MainWindowController(
+            coordinator: coordinator,
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { _ in }
+        )
+        defer { controller.close() }
+        controller.toggleTOCDrawer()
+        let widget = try #require(controller.rootView.tocWidgetForTesting(paneID))
+        #expect(widget.superview != nil)
+
+        #expect(coordinator.closeActiveTab())
+
+        #expect(coordinator.snapshot.layout == .empty)
+        #expect(controller.rootView.tocWidgetForTesting(paneID) == nil)
+        #expect(widget.superview == nil)
+    }
+
+    @Test("TOCs remain pane-owned through two three and four pane growth")
+    func tocOwnershipSurvivesTwoToFourPaneGrowth() throws {
+        let coordinator = PaneCoordinator()
+        var duplicates = (1...3).map { StubReaderSession(id: TabID(), title: "Duplicate \($0).pdf") }
+        coordinator.configureDuplication { _ in duplicates.removeFirst() }
+        #expect(coordinator.insert(StubReaderSession(id: TabID(), title: "Origin.pdf"), into: .createIfEmpty))
+        let originPane = try #require(coordinator.activePaneID)
+        let controller = MainWindowController(
+            coordinator: coordinator,
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { _ in }
+        )
+        defer { controller.close() }
+        var widgetIdentity: [PaneID: ObjectIdentifier] = [:]
+
+        func openAndAssertEveryPane() throws {
+            for paneID in coordinator.snapshot.layout.paneIDs {
+                #expect(coordinator.activatePane(paneID))
+                if controller.rootView.tocWidgetForTesting(paneID)?.isHidden != false {
+                    controller.toggleTOCDrawer()
+                }
+                controller.rootView.layoutSubtreeIfNeeded()
+                let pane = try #require(controller.rootView.paneViewForTesting(paneID))
+                let widget = try #require(controller.rootView.tocWidgetForTesting(paneID))
+                if let prior = widgetIdentity[paneID] { #expect(prior == ObjectIdentifier(widget)) }
+                else { widgetIdentity[paneID] = ObjectIdentifier(widget) }
+                #expect(widget.superview === pane.contentHost)
+                let content = try #require(coordinator.snapshot.paneContentViews[paneID])
+                let contentIndex = try #require(pane.contentHost.subviews.firstIndex { $0 === content })
+                let widgetIndex = try #require(pane.contentHost.subviews.firstIndex { $0 === widget })
+                #expect(widgetIndex > contentIndex)
+            }
+        }
+
+        let trailing = try #require(coordinator.split(direction: .sideBySide))
+        try openAndAssertEveryPane()
+        #expect(coordinator.activatePane(trailing))
+        #expect(coordinator.split(direction: .stacked) != nil)
+        try openAndAssertEveryPane()
+        #expect(coordinator.activatePane(originPane))
+        #expect(coordinator.split(direction: .stacked) != nil)
+        try openAndAssertEveryPane()
+        #expect(coordinator.snapshot.layout.paneIDs.count == 4)
+
+        let active = try #require(coordinator.activePaneID)
+        let otherWidgets = coordinator.snapshot.layout.paneIDs.filter { $0 != active }.compactMap { controller.rootView.tocWidgetForTesting($0) }
+        let escape = try #require(makeKeyEvent(characters: "", keyCode: 53))
+        #expect(controller.routeKeyEventForTesting(escape))
+        #expect(controller.rootView.tocWidgetForTesting(active)?.isHidden == true)
+        #expect(otherWidgets.allSatisfy { !$0.isHidden })
+    }
+
     @Test("directional focus follows split geometry, moves the responder, and no-ops at boundaries")
     func directionalFocusMovesResponder() throws {
         let fixture = splitFixture()

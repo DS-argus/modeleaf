@@ -59,6 +59,10 @@ public struct ActionRegistry: Sendable {
         ActionDescriptor(id: .scrollLargeDown, title: "Scroll Down by Viewport", scope: .contexts(readerContexts), repeatPolicy: .allowed),
         ActionDescriptor(id: .scrollLargeUp, title: "Scroll Up by Viewport", scope: .contexts(readerContexts), repeatPolicy: .allowed),
 
+        ActionDescriptor(id: .tocToggle, title: "Toggle Table of Contents", scope: .contexts(readerContexts)),
+        ActionDescriptor(id: .tocScrollDown, title: "Scroll Table of Contents Down", scope: .contexts(readerContexts), repeatPolicy: .allowed),
+        ActionDescriptor(id: .tocScrollUp, title: "Scroll Table of Contents Up", scope: .contexts(readerContexts), repeatPolicy: .allowed),
+
         ActionDescriptor(id: .pageNext, title: "Next Page", scope: .contexts(readerContexts), repeatPolicy: .allowed),
         ActionDescriptor(id: .pagePrevious, title: "Previous Page", scope: .contexts(readerContexts), repeatPolicy: .allowed),
         ActionDescriptor(id: .pageFirst, title: "First Page", scope: .contexts(readerContexts)),
