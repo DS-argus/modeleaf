@@ -3,48 +3,35 @@
   <h1>Modeleaf</h1>
 </div>
 
-키보드 중심의 Vim 스타일 조작에 진짜 탭과 tmux 방식 패널을 더한 macOS 네이티브 **읽기 전용** PDF 뷰어입니다. 페이지가 항상 화면의 중심이며, 앱은 원본 파일을 절대 건드리지 않습니다.
+키보드만으로 빠르게 읽고 이동할 수 있는 macOS용 PDF 뷰어입니다. 원본 파일은 건드리지 않으며, 화면은 문서에 최대한 집중할 수 있게 간결하게 구성했습니다.
 
 [English](../README.md)
 
-## 철학
+## 이런 앱입니다
 
-- **언제나 읽기 전용.** 주석·편집·저장이 없습니다. 원본 PDF는 변경되지 않으며, 검색 강조조차 일시적인 UI일 뿐 파일에 기록되지 않습니다. 프린트는 명시적인 시스템 출력 작업이며 원본에 쓰지 않습니다.
-- **뷰어 우선.** 절제된 AppKit UI가 페이지를 둘러싸며, PDF 픽셀은 다시 칠해지지 않고 읽기 영역이 항상 지배적입니다.
-- **키보드 우선.** 짧은 Vim 스타일 키 시퀀스로 모든 것을 조작합니다. [Sioyek](https://github.com/ahrm/sioyek)에서 아이디어를 빌렸지만, 읽기 흐름·네이티브 탭·분할 패널만 남긴 최소주의를 지향합니다.
-- **완전한 설정, 엄격한 선언형.** 모든 명령과 수치를 하나의 TOML 파일에서 재설정할 수 있습니다. 설정은 데이터일 뿐 — 스크립트·매크로·플러그인은 없습니다.
+- **원본은 그대로 둡니다.** 주석, 편집, 저장 기능 없이 PDF를 읽는 데만 집중합니다.
+- **키보드로 빠르게 움직입니다.** [Sioyek](https://github.com/ahrm/sioyek), [SumatraPDF](https://github.com/sumatrapdfreader/sumatrapdf), [Vimium](https://github.com/philc/vimium)의 좋은 점을 참고하되 꼭 필요한 기능만 담았습니다.
+- **내 방식대로 바꿀 수 있습니다.** 대부분의 단축키와 읽기 동작은 TOML 파일에서 설정할 수 있습니다.
+
+## 주요 기능
+
+- 키보드로 페이지 이동, 검색, 링크 열기, PDF 내장 목차 탐색
+- macOS 네이티브 탭과 최근 문서 열기
+- 명령 팔레트와 7가지 테마
+- 화면 맞춤, 확대·축소, 회전, 이동 기록, 시스템 프린트
+- TOML로 단축키와 읽기 동작 설정
 
 ## 설치
 
 ```sh
 brew tap DS-argus/tap
-brew trust DS-argus/tap        # Homebrew 6+는 서드파티 탭을 한 번 신뢰하도록 요구합니다
+brew trust DS-argus/tap
 brew install --cask modeleaf
 ```
 
-macOS 14(Sonoma) 이상이 필요합니다.
+macOS 14 Sonoma 이상에서 사용할 수 있습니다.
 
-> 이 빌드는 ad-hoc 서명이며 아직 Apple 공증(notarization)을 받지 않아, 첫 실행 시 macOS Gatekeeper가 차단합니다 — **시스템 설정 → 개인정보 보호 및 보안 → 확인 없이 열기**에서 한 번 허용하세요.
-
-### 소스에서 빌드
-
-```sh
-APP=$(Tools/build_release_app.sh | tail -n 1)   # 로컬 Release 앱, Apple 계정 불필요
-open "$APP"
-```
-
-개발용으로 `swift run Modeleaf`도 가능하지만 최적화되지 않은 빌드라 시작이 느립니다.
-
-개발 중 검증은 작은 수정마다 전체 테스트를 반복하지 않도록 단계별로 나뉩니다:
-
-```sh
-Tools/verify.sh focused TOCWidgetTests  # 수정 중인 suite만 검증
-Tools/verify.sh core                    # PDFReaderCoreTests만 실행
-Tools/verify.sh app                     # PDFReaderAppTests만 실행
-Tools/verify.sh full                    # 전체 테스트 + 프로젝트 검증 + diff 검사
-```
-
-PR 생성 전에는 `full`을 실행합니다. CI에서는 Core와 App shard가 독립적으로 병렬 실행됩니다.
+> 아직 Apple 공증을 받지 않은 ad-hoc 서명 빌드입니다. 처음 실행할 때 차단되면 **시스템 설정 → 개인정보 보호 및 보안 → 확인 없이 열기**에서 한 번 허용해 주세요.
 
 ## 업데이트
 
@@ -52,117 +39,55 @@ PR 생성 전에는 `full`을 실행합니다. CI에서는 Core와 App shard가 
 brew upgrade --cask modeleaf
 ```
 
-Homebrew는 일반적으로 로컬 갱신 주기에 따라 업그레이드 전에 설치된 tap을 갱신합니다. Modeleaf가 새 릴리스를 알렸는데도 Homebrew가 이미 최신 버전이라고 한다면 tap 메타데이터를 강제로 갱신한 뒤 다시 업그레이드하세요.
+새 버전이 있는데도 Homebrew에서 이미 최신이라고 나오면 다음 명령으로 갱신합니다.
 
 ```sh
 brew update --force
 brew upgrade --cask modeleaf
 ```
 
-Homebrew가 유일하게 지원되는 설치 및 업데이트 경로입니다. Modeleaf는 실행 시 GitHub Releases를 확인하고 항상 위 Homebrew 명령을 안내하며, Release asset은 cask가 내려받는 바이너리 원본으로 유지됩니다. 오프라인이면 조용히 넘어가며 앱이 스스로 업데이트하지는 않습니다.
+Modeleaf는 실행할 때 [GitHub Releases](https://github.com/DS-argus/modeleaf/releases)에서 새 버전만 확인합니다. 업데이트를 자동으로 설치하지는 않습니다.
 
-## 사용법
-
-문서는 탭에 담기고, 화면을 패널로 분할할 수 있으며, 모든 조작은 키보드로 이뤄집니다. 문서는 1페이지부터 세로 연속·폭 맞춤 레이아웃으로 표시됩니다.
-
-`⌘o`는 통합 열기 창을 엽니다 — 최근 연 PDF를 파일명 fuzzy 검색으로 고르거나 Browse… 행으로 네이티브 파일 대화상자를 열 수 있습니다. Finder → *다음으로 열기*나 앱에 파일을 끌어놓아도 되며, `⌘n`은 새 창, `⌘q`는 종료입니다.
-
-
-`⌘p`는 활성 패널의 PDF를 대상으로 표준 macOS 프린트 패널을 엽니다. 프린트는 명시적인 시스템 출력 작업이며 원본 PDF를 수정하거나 덮어쓰지 않습니다.
-
-`Ctrl+o`와 `Ctrl+i`는 탭과 패널마다 메모리에만 유지되는 Vim 스타일 뒤로/앞으로 기록입니다. 페이지 프롬프트, 첫/마지막 페이지 명령, 문서 내 GoTo 링크 또는 힌트, 화면에 표시된 서로 다른 검색 결과 도착 지점을 기록합니다. 중단되지 않은 하나의 검색 epoch는 검색어가 교체되어도 이어지며 결과 이동을 하나로 합칩니다. 일반 스크롤, 다음/이전 페이지, 확대/축소, 맞춤, 회전은 기록하지 않습니다. 복원할 때는 저장된 페이지와 페이지 내부 앵커로 돌아가되 현재 확대, 맞춤, 회전, 검색 표시 상태는 유지합니다. 뒤로 간 뒤 새로 이동하면 앞으로 기록은 지워지며, 사용할 수 없을 때는 명령 팔레트가 이유를 알려 줍니다. 기능 구현은 릴리스 패키징이나 배포를 수행하지 않으며, 릴리스는 별도의 명시적 작업입니다.
-
-### 기본 키
+## 기본 단축키
 
 | 동작 | 키 |
 |---|---|
-| 스크롤 | `h` `j` `k` `l` 또는 `←` `↓` `↑` `→` |
-| 크게 스크롤 | `d` / `u` |
-| 다음/이전 페이지 | `n` / `p` |
-| 첫/마지막 페이지 | `gg` / `G` |
-| 12페이지로 이동 | `g12` 입력 후 `Enter` |
+| 스크롤 / 크게 스크롤 | `h` `j` `k` `l` / `d` `u` |
+| 이전 / 다음 페이지 | `p` / `n` |
+| 첫 페이지 / 마지막 페이지 | `gg` / `G` |
+| 원하는 페이지로 이동 | `g`, 숫자, `Enter` |
 | 뒤로 / 앞으로 | `Ctrl+o` / `Ctrl+i` |
-| 링크 힌트 | `f` |
-| 링크 목적지 indicator 설정 | `I` |
+| 목차 열기 / 항목 이동 / 바로 가기 | `t` / `J` `K` / 숫자 |
+| 검색 / 다음 결과 / 이전 결과 | `/` / `Enter` / `Shift-Enter` |
+| 링크 힌트 / 도착 위치 표시 설정 | `f` / `I` |
 | 폭 맞춤 / 페이지 맞춤 | `w` / `F` |
-| 확대/축소 | `=` / `-` |
-| 왼쪽 / 오른쪽 회전 | `[` / `]` |
-| 검색 | `/` 입력 후 `Enter` — `Esc`로 해제 |
-| 새 창 | `⌘n` |
-| 활성 PDF 프린트 | `⌘p` |
-| 열기/닫기/종료 | `⌘o` / `⌘w` / `⌘q` |
-| 다음/이전 탭 | `N` / `P` |
-| 1…9번 탭 선택 | `⌘1` … `⌘9` |
-| 오른쪽/아래로 분할 | `Ctrl-b \|` / `Ctrl-b -` |
-| 패널 포커스 이동 | `Ctrl-h` / `Ctrl-j` / `Ctrl-k` / `Ctrl-l` |
-| 다른 패널 모두 닫기 | `Ctrl-b o` |
-| 테마 선택기 | `T` |
-| 명령 팔레트 | `:` 또는 `⌘⇧P` |
-| 설정 리로드 | `Ctrl-b r` |
-| 키보드 도움말 | `?` |
-
-`Enter` / `Esc`(프롬프트 확정 / 취소)와 `Enter` / `Shift-Enter`(다음 / 이전 검색 결과)는 **고정 키**로 항상 동작하며 재설정할 수 없습니다. 읽기 모드에서 `?`를 누르면 전체 단축키를 섹션별로 정리한 도움말 오버레이가 열립니다 — 상태 표시줄의 `? help` 힌트를 눌러도 됩니다.
-
-한 페이지 맞춤 모드에서는 `j`/`↓`/`d`가 다음 페이지로, `k`/`↑`/`u`가 이전 페이지로 이동합니다. `=` 또는 `-`를 누르면 현재 읽기 위치를 유지한 채 세로 연속 보기의 수동 확대/축소 모드로 전환되고, `w`는 세로 연속 폭 맞춤으로 전환됩니다. 활성 상태에서는 하단 상태 바에 `FIT PAGE`와 `SEARCH` pill이 표시됩니다. `[`·`]`는 화면을 90도 단위로 회전하며, 회전은 보기 상태일 뿐이고 패널별로 독립이며 파일에 기록되지 않습니다.
-
-### 탭과 패널
-
-각 탭은 문서 하나를 담고, `+` 버튼이나 `⌘o`로 다른 문서를 엽니다. `Ctrl-b |`·`Ctrl-b -`는 포커스된 패널을 tmux 방식으로 제자리 분할합니다 — 최대 4개, 각 패널이 자체 탭과 문서를 가집니다. 분할하면 현재 페이지는 유지하되 작아진 패널에 맞춰 표시합니다. `Ctrl-b o`는 포커스된 패널만 남기고 모두 닫으며, `Ctrl-h/j/k/l`로 방향에 따라 포커스를 옮깁니다.
-
-### 링크
-
-링크는 클릭할 수 있습니다. 문서 내 링크는 뷰어 안에서 이동하고, 외부 URL은 브라우저로 엽니다. `f`를 누르면 annotation 링크에 라벨이 표시되고, 라벨을 입력해 이동합니다. `Esc`로 취소합니다. 여러 줄로 감싼 링크에는 힌트가 하나만 표시되며, annotation이 있는 링크만 대상이므로 텍스트로만 인쇄된 URL은 클릭하거나 힌트로 열 수 없습니다 — 그런 URL은 선택해 복사하세요. 스크롤하거나 창 크기를 바꾸면 힌트가 닫힙니다.
-
-정확한 목적지 point가 있는 문서 내 GoTo가 검증된 위치에 도착하면 Modeleaf가 대상 위치를 설정 가능한 indicator로 잠시 표시합니다. `I`를 누르면 Style, Color, Size, Duration을 조절하는 키보드 중심 4열 선택기가 열립니다. `Tab`/`Shift-Tab` 또는 `h`/`l`로 열을 이동하고, `j`/`k`로 값을 조절하며, `Enter`로 적용하고 `Esc`로 취소합니다. 마우스 선택과 드래그도 지원합니다. URL 링크, 실패하거나 같은 위치인 이동, 좌표가 불완전한 목적지에는 indicator가 표시되지 않습니다.
-
-### 명령 팔레트
-
-`:` 또는 `⌘⇧P`로 fuzzy 명령 검색을 엽니다. 입력하면 모든 리더 명령을 이름으로 필터링하고, `↑`/`↓`(또는 `Ctrl-j`/`Ctrl-k`)로 이동, `Enter`로 실행, `Esc`로 닫습니다. 각 행에 현재 단축키가 표시되며, 현재 맥락에서 실행할 수 없는 명령(문서 없음·단일 패널 등)은 목록에 흐리게 표시됩니다.
-
-### 테마
-
-내장 테마 7종: 다크 **Tokyo Night**, **Gruvbox Dark**, **Solarized Dark**, **Dracula**, **Everforest**, **Nord**와 라이트 **Catppuccin Latte**. `T`로 실시간 미리보기 선택기를 엽니다(`Enter` 확정, `Esc` 원복). 선택은 별도로 저장되어 다음 실행에 다시 적용됩니다. 테마는 앱 UI만 칠하며 PDF 페이지는 건드리지 않습니다.
+| 확대·축소 / 회전 | `=` `-` / `[` `]` |
+| 열기 / 닫기 / 프린트 / 종료 | `⌘o` / `⌘w` / `⌘p` / `⌘q` |
+| 이전 탭 / 다음 탭 | `P` / `N` |
+| 패널 나누기 / 포커스 이동 | `Ctrl-b \|` `Ctrl-b -` / `Ctrl-h/j/k/l` |
+| 테마 / 명령 팔레트 / 도움말 | `T` / `:` / `?` |
 
 ## 설정
 
-Modeleaf는 실행 시 선택적 파일 하나를 읽고 자동으로 만들거나 덮어쓰지 않습니다. 명시적인 **Write Default Config**와 **Reset Config** 명령 팔레트 명령만 이 파일을 씁니다:
+원하면 다음 경로에 TOML 설정 파일을 만들 수 있습니다.
 
 ```text
 ~/.config/modeleaf/config.toml
 ```
 
-생성된 예시를 복사해 그 사본을 편집하세요:
+키 표기에는 `D`(Command), `C`(Control), `A`(Option), `S`(Shift)를 사용합니다. 기본 설정 작성, 다시 불러오기, 초기화는 명령 팔레트에서 실행할 수 있습니다. 전체 명령과 기본값, 설정 규칙은 [CONFIG.md](../CONFIG.md)에 정리되어 있습니다.
+
+## 직접 빌드하기
 
 ```sh
-mkdir -p ~/.config/modeleaf
-cp PDFReaderApp/Resources/DefaultConfig.toml ~/.config/modeleaf/config.toml
+APP=$(Tools/build_release_app.sh | tail -n 1)
+open "$APP"
 ```
 
-```toml
-[keymap]
-"scroll.down" = ["j", "<Down>"]
-"page.next"   = ["n"]
-"tab.next"    = ["N"]
-
-[navigation]
-small_scroll_points = 56.0
-zoom_factor = 1.12
-
-[input]
-prefix_timeout_ms = 350
-prefix = "<C-b>"        # 패널 prefix; 어떤 바인딩이든 <prefix>가 이 값으로 확장됩니다
-```
-
-키 표기: `D` = Command, `C` = Control, `A` = Option, `S` = Shift (즉 `<D-o>` = ⌘o, `<C-j>` = Ctrl+j). 대문자는 베어 리터럴(`O`)이며 `<S-o>`는 같은 토큰입니다. 다른 수식자와 Shift를 함께 쓰려면 `<D-S-o>`로 표기합니다. `<prefix>`는 패널 prefix로 확장되므로 `prefix` 하나만 바꾸면 모든 패널 바인딩이 함께 바뀝니다. 테마는 TOML이 아니라 앱에서 고르며, 예전 `[theme]` 섹션은 경고와 함께 무시됩니다.
-
-설정은 전체 단위로 검증됩니다: 실행 시 알 수 없는 키, 잘못된 바인딩, 충돌, 범위 초과 값이 하나라도 있으면 파일 전체를 거부하고 내장 기본값을 활성화하며, 모든 오류·경고가 상태 표시줄에 나타납니다. 파일이 없는 것은 정상입니다. **Reload Config**로 재시작 없이 유효한 수정 파일을 적용할 수 있으며, 기본 단축키 `Ctrl-b r`은 `prefix` 재바인딩을 따릅니다. 깨진 설정을 런타임에 리로드하면 적용하지 않고 이전 설정을 유지하며 상태 표시줄에 고정 오류를 표시합니다. 명령 팔레트에는 파일이 없을 때 쓸 수 있는 **Write Default Config**와 기존 파일을 `config.toml.bak`으로 백업한 뒤 기본값을 복원하는 **Reset Config**도 있습니다.
-
-전체 액션 레지스트리, 키 토큰 문법, 검증 규칙, 모든 기본값은 **[CONFIG.md](../CONFIG.md)**(영문)를 참고하세요.
-
----
+개발 중에는 `swift run Modeleaf`로 실행할 수 있습니다. PR을 올리기 전에는 `Tools/verify.sh full`로 전체 검증을 실행합니다.
 
 ## 라이선스
 
 Modeleaf는 [MIT License](../LICENSE)로 배포됩니다.
 
-테마 팔레트 출처: [ThemeAttributions.md](../PDFReaderApp/Theme/ThemeAttributions.md)
+테마 색상 출처: [ThemeAttributions.md](../PDFReaderApp/Theme/ThemeAttributions.md)
