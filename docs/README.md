@@ -10,7 +10,7 @@
 ## 이런 앱입니다
 
 - **원본은 그대로 둡니다.** 주석, 편집, 저장 기능 없이 PDF를 읽는 데만 집중합니다.
-- **키보드로 빠르게 움직입니다.** [Sioyek](https://github.com/ahrm/sioyek), [SumatraPDF](https://github.com/sumatrapdfreader/sumatrapdf), [Vimium](https://github.com/philc/vimium)의 좋은 점을 참고하되 꼭 필요한 기능만 담았습니다.
+- **키보드로 빠르게 움직입니다.** [Sioyek](https://github.com/ahrm/sioyek), [SumatraPDF](https://github.com/sumatrapdfreader/sumatrapdf), [Vimium](https://github.com/philc/vimium), 그리고 Markdown TUI [Leaf](https://github.com/RivoLink/leaf)의 좋은 점을 참고해 읽기에 필요한 기능만 담았습니다.
 - **내 방식대로 바꿀 수 있습니다.** 대부분의 단축키와 읽기 동작은 TOML 파일에서 설정할 수 있습니다.
 
 ## 주요 기능

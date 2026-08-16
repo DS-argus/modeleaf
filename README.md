@@ -12,7 +12,7 @@ https://github.com/user-attachments/assets/1fd81fb3-b600-403c-bcfb-5365aa867503
 ## Philosophy
 
 - **Read-only.** No annotations, editing, or saving. The source PDF is never modified.
-- **Keyboard-first.** Inspired by [Sioyek](https://github.com/ahrm/sioyek), [SumatraPDF](https://github.com/sumatrapdfreader/sumatrapdf), and [Vimium](https://github.com/philc/vimium), but deliberately focused on reading.
+- **Keyboard-first.** Inspired by [Sioyek](https://github.com/ahrm/sioyek), [SumatraPDF](https://github.com/sumatrapdfreader/sumatrapdf), [Vimium](https://github.com/philc/vimium), and the Markdown TUI [Leaf](https://github.com/RivoLink/leaf), while staying deliberately focused on reading.
 - **Configurable.** Most commands and reader behavior can be remapped in one TOML file.
 
 ## Key features
