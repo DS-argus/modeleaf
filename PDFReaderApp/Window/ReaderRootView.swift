@@ -64,6 +64,7 @@ final class ReaderRootView: NSView {
     var onPaneNewTab: ((PaneID) -> Void)?
     private var currentStatus = StatusBarPresentation.empty
     private var renderedSessionSnapshot: ReaderSessionStoreSnapshot?
+    private var transientNoticeTask: Task<Void, Never>?
     /// Absolute divider positions owned by pane topology, keyed by the
     /// unordered pane pair owned by a split band's inner divider; captured
     /// only from committed renders or real user drags.
@@ -366,6 +367,40 @@ final class ReaderRootView: NSView {
         }
     }
 
+    func showActionFeedback(
+        _ message: String,
+        isError: Bool,
+        dismissAfter: Duration = .seconds(2)
+    ) {
+        if isError {
+            dismissTransientNotice()
+            showDiagnostic(message, isError: true)
+            return
+        }
+
+        showDiagnostic(message, isError: false)
+        transientNoticeTask?.cancel()
+        currentStatus.transientNotice = "PATH COPIED"
+        statusBar.render(currentStatus)
+        transientNoticeTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: dismissAfter)
+            } catch {
+                return
+            }
+            guard let self else { return }
+            self.currentStatus.transientNotice = ""
+            self.statusBar.render(self.currentStatus)
+            self.transientNoticeTask = nil
+        }
+    }
+
+    func dismissTransientNotice() {
+        transientNoticeTask?.cancel()
+        transientNoticeTask = nil
+        currentStatus.transientNotice = ""
+        statusBar.render(currentStatus)
+    }
     func showDiagnostic(_ message: String, expandedDetail: String? = nil, isError: Bool = true, pinned: Bool = false) {
         guard !(activeDiagnostic?.pinned == true && !pinned) else { return }
         activeDiagnostic = ReaderActiveDiagnostic(message: message, kind: isError ? .error : .informational, pinned: pinned, expandedDetail: expandedDetail)

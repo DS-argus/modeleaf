@@ -10,6 +10,7 @@ struct StatusBarPresentation: Equatable {
     var zoom: String
     var mode: String = ""
     var isSearchMode: Bool = false
+    var transientNotice: String = ""
     var pendingPrefix: String
     var detail: String
     var expandedDetail: String?
@@ -34,6 +35,7 @@ final class StatusBarView: NSView {
     private let detailLabel = StatusBarView.makeLabel(identifier: "status.diagnostic", monospaced: false)
     private let fitPagePill = StatusModePillView(identifier: "status.mode", accessibilityLabel: "Fit page mode")
     private let searchModePill = StatusModePillView(identifier: "status.searchMode", accessibilityLabel: "Search mode")
+    private let noticePill = StatusModePillView(identifier: "status.notice", accessibilityLabel: "Temporary status")
     private let versionLabel = StatusBarView.makeLabel(identifier: "status.version", monospaced: true)
     private let updateButton = StatusUpdateButton(title: "", target: nil, action: nil)
     private let separator = NSBox()
@@ -71,10 +73,10 @@ final class StatusBarView: NSView {
         helpButton.setAccessibilityLabel("Keyboard help")
         helpButton.setAccessibilityValue("? help")
 
-        for view in [pageLabel, zoomLabel, prefixLabel, fitPagePill, searchModePill] {
+        for view in [pageLabel, zoomLabel, prefixLabel, fitPagePill, searchModePill, noticePill] {
             view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
-        let leading = NSStackView(views: [helpButton, pageLabel, zoomLabel, fitPagePill, searchModePill, prefixLabel])
+        let leading = NSStackView(views: [helpButton, pageLabel, zoomLabel, fitPagePill, searchModePill, noticePill, prefixLabel])
         leading.orientation = .horizontal
         leading.alignment = .centerY
         leading.spacing = 16
@@ -149,6 +151,7 @@ final class StatusBarView: NSView {
         updateButton.contentTintColor = theme[.accent]
         fitPagePill.render(presentation.mode, accent: theme[.accent])
         searchModePill.render(presentation.isSearchMode ? "SEARCH" : "", accent: theme[.accent])
+        noticePill.render(presentation.transientNotice, accent: theme[.accent])
         versionLabel.textColor = theme[.mutedText]
     }
 
@@ -200,6 +203,7 @@ final class StatusBarView: NSView {
         let accent = theme?[.accent]
         fitPagePill.render(presentation.mode, accent: accent)
         searchModePill.render(presentation.isSearchMode ? "SEARCH" : "", accent: accent)
+        noticePill.render(presentation.transientNotice, accent: accent)
         prefixLabel.stringValue = presentation.pendingPrefix.isEmpty ? "" : "prefix  \(presentation.pendingPrefix)"
         detailLabel.stringValue = presentation.detail
         detailLabel.setAccessibilityValue(presentation.detail)
@@ -207,9 +211,10 @@ final class StatusBarView: NSView {
         detailLabel.toolTip = presentation.expandedDetail
         let visibleModes = [presentation.mode, presentation.isSearchMode ? "SEARCH" : ""].filter { !$0.isEmpty }
         let modeDescription = visibleModes.isEmpty ? "" : ", modes \(visibleModes.joined(separator: ", "))"
+        let noticeDescription = presentation.transientNotice.isEmpty ? "" : ", status \(presentation.transientNotice)"
         setAccessibilityValue(
             [
-                "Keyboard help available. Page \(presentation.page), zoom \(presentation.zoom)\(modeDescription), \(presentation.detail). Version \(Self.displayVersion)",
+                "Keyboard help available. Page \(presentation.page), zoom \(presentation.zoom)\(modeDescription)\(noticeDescription), \(presentation.detail). Version \(Self.displayVersion)",
                 presentation.expandedDetail,
             ].compactMap { $0 }.joined(separator: ". ")
         )

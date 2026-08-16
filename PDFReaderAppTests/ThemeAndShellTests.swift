@@ -267,6 +267,7 @@ struct ThemeAndShellTests {
             zoom: "80%",
             mode: "FIT PAGE",
             isSearchMode: true,
+            transientNotice: "PATH COPIED",
             pendingPrefix: "",
             detail: "Reading.pdf",
             expandedDetail: nil,
@@ -279,6 +280,10 @@ struct ThemeAndShellTests {
         let searchModeLabel = findDescendant(in: controller.rootView.statusBar, identifier: "status.searchMode") as? NSTextField
         #expect(searchModeLabel?.stringValue == "SEARCH")
         #expect(searchModeLabel?.isHidden == false)
+        let noticeLabel = findDescendant(in: controller.rootView.statusBar, identifier: "status.notice") as? NSTextField
+        #expect(noticeLabel?.stringValue == "PATH COPIED")
+        #expect(noticeLabel?.isHidden == false)
+        #expect((controller.rootView.statusBar.accessibilityValue() as? String)?.contains("status PATH COPIED") == true)
         controller.rootView.statusBar.performHelpTapForTesting()
         #expect(!controller.rootView.helpOverlay.isHidden)
 
@@ -297,6 +302,31 @@ struct ThemeAndShellTests {
         #expect(controller.window != nil)
     }
 
+    @Test("copied-path feedback uses a transient status pill and errors clear it")
+    func copiedPathFeedbackPillIsTransient() {
+        let root = ReaderRootView()
+        root.apply(theme: AppKitTheme(themeID: .tokyoNight))
+
+        root.showActionFeedback(
+            "Copied PDF path",
+            isError: false,
+            dismissAfter: .seconds(1)
+        )
+
+        let notice = findDescendant(in: root.statusBar, identifier: "status.notice") as? NSTextField
+        #expect(notice?.stringValue == "PATH COPIED")
+        #expect(notice?.isHidden == false)
+        #expect(root.statusBar.presentation.detail == "Copied PDF path")
+        root.dismissTransientNotice()
+        #expect(notice?.isHidden == true)
+        #expect(root.statusBar.presentation.transientNotice.isEmpty)
+
+        root.showActionFeedback("Copied PDF path", isError: false, dismissAfter: .seconds(1))
+        root.showActionFeedback("Could not copy PDF path", isError: true)
+        #expect(notice?.isHidden == true)
+        #expect(root.statusBar.presentation.tone == .error)
+        #expect(root.statusBar.presentation.detail == "Could not copy PDF path")
+    }
     @Test("prompt controls remain inside the overlay at the minimum window width")
     func promptControlsDoNotOverflow() throws {
         let store = ReaderSessionStore()

@@ -443,7 +443,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.showDiagnostic(message, expandedDetail: expandedDetail, isError: isError, pinned: pinned)
     }
     func showActionFeedback(_ message: String, isError: Bool) {
-        showDiagnostic(message, isError: isError)
+        rootView.showActionFeedback(message, isError: isError)
     }
 
     func clearDiagnostic(force: Bool = false) {
