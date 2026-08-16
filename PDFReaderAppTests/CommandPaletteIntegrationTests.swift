@@ -8,6 +8,7 @@ import Testing
 final class HistoryAvailabilitySession: ReaderSessionPresenting, ReaderNavigationHistoryPresenting {
     let id = TabID()
     let title = "History.pdf"
+    let sourceURL = URL(fileURLWithPath: "/tmp/History.pdf")
     var statusSnapshot: ReaderStatusSnapshot { .empty }
     func applyTheme(_ theme: AppKitTheme) {}
     let contentView: NSView = NSView()

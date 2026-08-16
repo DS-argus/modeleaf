@@ -6,7 +6,8 @@ struct ActionRegistryTests {
     @Test("U-ACT-01 exact stable action set")
     func exactStableActionSet() {
         let expected: Set<String> = [
-            "document.open", "document.close", "document.print", "app.quit", "app.new", "palette.open", "help.show",
+            "document.open", "document.close", "document.print", "document.copyPath", "document.revealInFinder",
+            "app.quit", "app.new", "palette.open", "help.show",
             "tab.next", "tab.previous",
             "tab.select.1", "tab.select.2", "tab.select.3",
             "tab.select.4", "tab.select.5", "tab.select.6",
@@ -23,7 +24,7 @@ struct ActionRegistryTests {
             "config.reload", "config.writeDefault", "config.resetDefault",
         ]
         let registry = ActionRegistry.v1
-        #expect(registry.descriptors.count == 61)
+        #expect(registry.descriptors.count == 63)
         #expect(Set(registry.actionIDs).count == registry.actionIDs.count)
         #expect(Set(registry.actionIDs.map(\.rawValue)) == expected)
         #expect(Set(InputContext.allCases) == [.navigation, .pagePrompt, .searchPrompt, .searchResults])
@@ -151,7 +152,8 @@ struct ActionRegistryTests {
             )
         }
         let neverRepeat: Set<ActionID> = [
-            .documentOpen, .documentClose, .documentPrint, .appQuit, .promptCommit, .promptCancel, .searchCancel,
+            .documentOpen, .documentClose, .documentPrint, .documentCopyPath, .documentRevealInFinder,
+            .appQuit, .promptCommit, .promptCancel, .searchCancel,
         ]
         #expect(ActionRegistry.v1.descriptors.filter { neverRepeat.contains($0.id) }.allSatisfy {
             $0.repeatPolicy == .suppressed
