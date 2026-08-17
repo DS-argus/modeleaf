@@ -94,6 +94,66 @@ struct ActionDispatcherTests {
         empty.dispatch(.historyForward)
     }
 
+
+    @Test("file actions use only the active PDF and are inert without one")
+    func fileActionsUseActivePDF() {
+        let store = ReaderSessionStore()
+        let first = RecordingReaderSession(title: "First.pdf")
+        let active = RecordingReaderSession(title: "Active.pdf")
+        #expect(store.insert(first))
+        #expect(store.insert(active))
+        var copiedPaths: [String] = []
+        var revealedURLs: [URL] = []
+        let dispatcher = ActionDispatcher(
+            coordinator: PaneCoordinator(initialStore: store),
+            navigation: BuiltInDefaults.config.navigation,
+            clipboardWriter: { copiedPaths.append($0); return true },
+            fileRevealer: { revealedURLs.append($0) }
+        )
+        let presenter = PromptPresenterSpy()
+        dispatcher.presentation = presenter
+
+        #expect(dispatcher.isActionEnabled(.documentCopyPath))
+        #expect(dispatcher.isActionEnabled(.documentRevealInFinder))
+        dispatcher.dispatch(.documentCopyPath)
+        dispatcher.dispatch(.documentRevealInFinder)
+
+        #expect(copiedPaths == [active.sourceURL.path])
+        #expect(revealedURLs == [active.sourceURL])
+        #expect(presenter.actionFeedback.map(\.0) == ["Copied PDF path"])
+        #expect(presenter.actionFeedback.map(\.1) == [false])
+
+        var emptySideEffectCount = 0
+        let empty = ActionDispatcher(
+            coordinator: PaneCoordinator(initialStore: ReaderSessionStore()),
+            navigation: BuiltInDefaults.config.navigation,
+            clipboardWriter: { _ in emptySideEffectCount += 1; return true },
+            fileRevealer: { _ in emptySideEffectCount += 1 }
+        )
+        #expect(!empty.isActionEnabled(.documentCopyPath))
+        #expect(!empty.isActionEnabled(.documentRevealInFinder))
+        empty.dispatch(.documentCopyPath)
+        empty.dispatch(.documentRevealInFinder)
+        #expect(emptySideEffectCount == 0)
+    }
+
+    @Test("copy-path reports clipboard failure")
+    func copyPathReportsClipboardFailure() {
+        let store = ReaderSessionStore()
+        #expect(store.insert(RecordingReaderSession(title: "Active.pdf")))
+        let dispatcher = ActionDispatcher(
+            coordinator: PaneCoordinator(initialStore: store),
+            navigation: BuiltInDefaults.config.navigation,
+            clipboardWriter: { _ in false }
+        )
+        let presenter = PromptPresenterSpy()
+        dispatcher.presentation = presenter
+
+        dispatcher.dispatch(.documentCopyPath)
+
+        #expect(presenter.actionFeedback.map(\.0) == ["Could not copy PDF path"])
+        #expect(presenter.actionFeedback.map(\.1) == [true])
+    }
     @Test("print targets only the active document and is inert without one")
     func printUsesActiveDocumentOnly() {
         let store = ReaderSessionStore()
@@ -623,6 +683,7 @@ private final class RecordingReaderSession: ReaderSessionPresenting, ReaderNavig
     let title: String
     let contentView: NSView = ActionDispatcherFocusableView()
     let pageCount: Int
+    let sourceURL: URL
     private(set) var events: [RecordingReaderEvent] = []
     private(set) var prepareForCloseCount = 0
     private(set) var searchSnapshot = ReaderSearchSnapshot.empty
@@ -634,6 +695,7 @@ private final class RecordingReaderSession: ReaderSessionPresenting, ReaderNavig
     init(title: String, pageCount: Int = 10) {
         self.title = title
         self.pageCount = pageCount
+        self.sourceURL = URL(fileURLWithPath: "/tmp/\(title)")
     }
 
     var statusSnapshot: ReaderStatusSnapshot {
@@ -691,6 +753,7 @@ private final class PromptPresenterSpy: ReaderWorkflowPresenting {
     var dismissReasons: [KeyInputInvalidationReason] = []
     var dismissContexts: [InputContext] = []
     var globalPreparationCount = 0
+    var actionFeedback: [(String, Bool)] = []
 
     var activePromptKind: ReaderPromptKind? { presentation?.kind }
     var recentFilesOpenCount = 0
@@ -710,6 +773,9 @@ private final class PromptPresenterSpy: ReaderWorkflowPresenting {
 
     func showPromptValidation(_ message: String) {
         validationMessage = message
+    }
+    func showActionFeedback(_ message: String, isError: Bool) {
+        actionFeedback.append((message, isError))
     }
 
     func prepareForGlobalAction() {

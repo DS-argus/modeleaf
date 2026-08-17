@@ -32,7 +32,11 @@ struct KeySequenceEngineTests {
 
     @Test("U-SEQ-03 a longer exact match wins once and clears pending state")
     func longerExactMatchWins() throws {
-        for (source, action) in [("gg", ActionID.pageFirst)] {
+        for (source, action) in [
+            ("gg", ActionID.pageFirst),
+            ("yy", ActionID.documentCopyPath),
+            ("of", ActionID.documentRevealInFinder),
+        ] {
             var engine = try makeEngine()
             let characters = source.map(String.init)
             let first = engine.handle(try token(characters[0]))
@@ -511,6 +515,7 @@ struct KeySequenceEngineTests {
         var bindings = BuiltInDefaults.keymap
         bindings[.historyBack] = [try sequence("x")]
         bindings[.historyForward] = [try sequence("y")]
+        bindings[.documentCopyPath] = []
         var remapped = try makeEngine(bindings: bindings)
         #expect(remapped.handle(try token("x")) == .dispatch(KeyActionDispatch(actionID: .historyBack)))
         #expect(remapped.handle(try token("y")) == .dispatch(KeyActionDispatch(actionID: .historyForward)))

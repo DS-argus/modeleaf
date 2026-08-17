@@ -64,6 +64,7 @@ Modeleaf checks [GitHub Releases](https://github.com/DS-argus/modeleaf/releases)
 | Link hints / indicator settings     | `f` / `I`                     |
 | Fit width / page                    | `w` / `F`                     |
 | Zoom / rotate                       | `=` `-` / `[` `]`             |
+| Copy PDF path / reveal in Finder   | `yy` / `of`                   |
 | Open / close / print / quit         | `⌘o` / `⌘w` / `⌘p` / `⌘q`     |
 | Previous / next tab                 | `P` / `N`                     |
 | Split / focus pane | `Ctrl-b \|` `Ctrl-b -` / `Ctrl-h/j/k/l` |

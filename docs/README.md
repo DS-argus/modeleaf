@@ -62,6 +62,7 @@ Modeleaf는 실행할 때 [GitHub Releases](https://github.com/DS-argus/modeleaf
 | 링크 힌트 / 도착 위치 표시 설정 | `f` / `I` |
 | 폭 맞춤 / 페이지 맞춤 | `w` / `F` |
 | 확대·축소 / 회전 | `=` `-` / `[` `]` |
+| PDF 전체 경로 복사 / Finder에서 보기 | `yy` / `of` |
 | 열기 / 닫기 / 프린트 / 종료 | `⌘o` / `⌘w` / `⌘p` / `⌘q` |
 | 이전 탭 / 다음 탭 | `P` / `N` |
 | 패널 나누기 / 포커스 이동 | `Ctrl-b \|` `Ctrl-b -` / `Ctrl-h/j/k/l` |

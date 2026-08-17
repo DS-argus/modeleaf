@@ -55,6 +55,7 @@ struct HelpOverlayIntegrationTests {
         let validated = try #require(ConfigValidator.validate(SparseAppConfig(keymap: [
             ActionID.historyBack.rawValue: ["x"],
             ActionID.historyForward.rawValue: ["y"],
+            ActionID.documentCopyPath.rawValue: [],
         ])).validatedConfig)
         var dispatched: [ActionID] = []
         let controller = MainWindowController(

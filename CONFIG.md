@@ -71,6 +71,8 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `document.open` | `<D-o>` | global | `suppressed` |
 | `document.close` | `<D-w>` | `navigation`, `searchResults` | `suppressed` |
 | `document.print` | `<D-p>` | global | `suppressed` |
+| `document.copyPath` | `yy` | `navigation`, `searchResults` | `suppressed` |
+| `document.revealInFinder` | `of` | `navigation`, `searchResults` | `suppressed` |
 | `app.quit` | `<D-q>` | global | `suppressed` |
 | `app.new` | `<D-n>` | global | `suppressed` |
 | `palette.open` | `:`, `<D-S-p>` | `navigation`, `searchResults` | `suppressed` |
@@ -281,6 +283,8 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 "document.open"    = ["<D-o>"]  # Cmd+o
 "document.close"   = ["<D-w>"]  # Cmd+w
 "document.print"   = ["<D-p>"]  # Cmd+p
+"document.copyPath" = ["yy"]  # y y
+"document.revealInFinder" = ["of"]  # o f
 "app.quit"         = ["<D-q>"]  # Cmd+q
 "app.new"          = ["<D-n>"]  # Cmd+n
 
