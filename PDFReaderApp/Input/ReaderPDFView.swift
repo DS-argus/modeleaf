@@ -289,7 +289,7 @@ final class ReaderPDFView: PDFView {
         let clipView = scrollView.contentView
         let isFlipped = scrollView.documentView?.isFlipped ?? true
         let proposedOrigin = NSPoint(
-            x: clipView.bounds.origin.x + xPoints,
+            x: clipView.bounds.origin.x + horizontalScroll(constraining: CGFloat(xPoints)),
             y: clipView.bounds.origin.y + (isFlipped ? yPoints : -yPoints)
         )
         let constrained = clipView.constrainBoundsRect(
@@ -298,6 +298,82 @@ final class ReaderPDFView: PDFView {
         clipView.scroll(to: constrained.origin)
         scrollView.reflectScrolledClipView(clipView)
     }
+
+    /// The on-screen rectangle of `page`, including scale and rotation.
+    func displayedRect(of page: PDFPage) -> NSRect {
+        convert(page.bounds(for: .cropBox), from: page)
+    }
+
+    /// Whether `page` is currently narrow enough to be shown in full.
+    func pageFitsViewportWidth(_ page: PDFPage) -> Bool {
+        let width = displayedRect(of: page).width
+        return width.isFinite && width <= bounds.width + Self.horizontalFitTolerance
+    }
+
+    /// The scale that fits `pageWidth` plus its page-break margins into the viewport.
+    func scaleFactorFittingWidth(_ pageWidth: CGFloat) -> CGFloat? {
+        let available = bounds.width
+        let margins = pageBreakMargins.left + pageBreakMargins.right
+        guard pageWidth > 0, pageWidth.isFinite, available > 1 else { return nil }
+        return min(maxScaleFactor, max(minScaleFactor, available / (pageWidth + margins)))
+    }
+
+    /// Centres `page` horizontally when it fits the viewport, and reports whether
+    /// it did. A continuous layout is as wide as the widest page in the document,
+    /// so without this a narrower page keeps whatever horizontal offset the
+    /// previous page left behind. Pages too wide to fit are left alone so the
+    /// reader stays on the part they were reading.
+    @discardableResult
+    func centerHorizontallyIfPageFits(_ page: PDFPage) -> Bool {
+        guard let scrollView = documentScrollView,
+              let documentView = scrollView.documentView
+        else { return false }
+        layoutDocumentView()
+        guard pageFitsViewportWidth(page) else { return false }
+
+        let pageRect = displayedRect(of: page)
+        let offset = documentDistance(pageRect.midX - bounds.midX, in: documentView)
+        guard offset.isFinite else { return false }
+        guard abs(offset) > 0.01 else { return true }
+
+        let clipView = scrollView.contentView
+        let proposedOrigin = NSPoint(x: clipView.bounds.origin.x + offset, y: clipView.bounds.origin.y)
+        let constrained = clipView.constrainBoundsRect(
+            NSRect(origin: proposedOrigin, size: clipView.bounds.size)
+        )
+        clipView.scroll(to: constrained.origin)
+        scrollView.reflectScrolledClipView(clipView)
+        return true
+    }
+
+    /// Keeps horizontal movement inside the current page. A page that already
+    /// fits cannot be pushed off centre into the empty canvas a wider page in
+    /// the same document reserves, and a wider page stops at its own edges.
+    private func horizontalScroll(constraining requested: CGFloat) -> CGFloat {
+        guard requested != 0,
+              let page = currentPage,
+              let documentView = documentScrollView?.documentView
+        else { return requested }
+        let pageRect = displayedRect(of: page)
+        guard pageRect.width.isFinite, pageRect.width > 0 else { return requested }
+        guard pageRect.width > bounds.width + Self.horizontalFitTolerance else { return 0 }
+
+        let scrollableLeft = documentDistance(pageRect.minX, in: documentView)
+        let scrollableRight = documentDistance(pageRect.maxX - bounds.width, in: documentView)
+        return min(max(requested, scrollableLeft), scrollableRight)
+    }
+
+    /// Converts a signed horizontal distance from this view's space into the
+    /// scrolled document's space, which is where clip-view offsets live.
+    /// `NSSize` conversion drops the sign, so the distance is converted as the
+    /// gap between two converted points.
+    private func documentDistance(_ viewDistance: CGFloat, in documentView: NSView) -> CGFloat {
+        let origin = convert(NSPoint(x: 0, y: 0), to: documentView)
+        let shifted = convert(NSPoint(x: viewDistance, y: 0), to: documentView)
+        return shifted.x - origin.x
+    }
+
+    private static let horizontalFitTolerance: CGFloat = 0.5
 
     /// Moves a PDF page-space point onto the visible viewport centre using the
     /// scroll view's document coordinate space. Returns whether PDFKit clamped
