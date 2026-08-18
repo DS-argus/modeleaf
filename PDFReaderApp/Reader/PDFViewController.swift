@@ -138,8 +138,17 @@ final class PDFViewController: NSViewController {
 
     var currentPageNumber: Int? {
         loadViewIfNeeded()
-        guard let page = readerView.currentPage else { return nil }
-        return initialDocument.index(for: page) + 1
+        guard let page = currentReadingPage else { return nil }
+        let index = initialDocument.index(for: page)
+        return index >= 0 ? index + 1 : nil
+    }
+
+    /// The page the reader is looking at, resolved from the viewport rather than
+    /// from `PDFView.currentPage`, which only tracks scrolling PDFKit performs
+    /// itself. Keeping this in step with the navigation anchor keeps the page
+    /// indicator, the page commands, and history agreeing on one location.
+    private var currentReadingPage: PDFPage? {
+        hasVisibleViewport ? readerView.pageAtViewportCenter : readerView.currentPage
     }
 
     var scaleFactor: CGFloat {
@@ -374,7 +383,7 @@ final class PDFViewController: NSViewController {
     }
 
     private func centerCurrentPageHorizontally() {
-        guard let page = readerView.currentPage else { return }
+        guard let page = currentReadingPage else { return }
         readerView.centerHorizontallyIfPageFits(page)
     }
 
