@@ -61,6 +61,8 @@ final class PDFViewController: NSViewController {
     private var viewportMutationHandler: ((ReaderViewportMutationTerminal) -> Void)?
     private var activeViewportEpoch: ReaderViewportMutationEpoch?
     private var nextViewportEpochID: UInt64 = 0
+    private var cachedPageWidthSummary: PageWidthSummary?
+    private var appliedFitWidthViewportWidth: CGFloat?
 
     private let destinationIndicatorView = LinkDestinationIndicatorView(frame: .zero)
     init(document: PDFDocument, traceID: OpenTraceID, metrics: any PDFOpenMetrics) {
@@ -124,6 +126,7 @@ final class PDFViewController: NSViewController {
         super.viewDidLayout()
         if destinationIndicatorView.isVisible { destinationIndicatorView.cancel() }
         applyInitialPresentationIfReady()
+        refitContinuousWidthForViewportChange()
     }
 
     var focusView: NSView {
@@ -252,6 +255,7 @@ final class PDFViewController: NSViewController {
         supersedePendingInitialPresentation()
         readerView.go(to: page)
         readerView.layoutDocumentView()
+        readerView.centerHorizontallyIfPageFits(page)
         return true
     }
 
@@ -297,6 +301,7 @@ final class PDFViewController: NSViewController {
         }
         readerView.autoScales = false
         viewMode = .manual
+        appliedFitWidthViewportWidth = nil
         readerView.scaleFactor = targetScale
         readerView.layoutDocumentView()
 
@@ -311,23 +316,80 @@ final class PDFViewController: NSViewController {
         readerView.autoScales = false
         readerView.scaleFactor = 1
         viewMode = .actualSize
+        appliedFitWidthViewportWidth = nil
     }
 
     func fitWidth() {
         loadViewIfNeeded()
         supersedePendingInitialPresentation()
         readerView.displayMode = .singlePageContinuous
-        readerView.autoScales = true
+        applyContinuousWidthFit()
         viewMode = .fitWidth
     }
 
     func fitPage() {
         loadViewIfNeeded()
         supersedePendingInitialPresentation()
+        appliedFitWidthViewportWidth = nil
         readerView.displayMode = .singlePage
         readerView.autoScales = true
         readerView.layoutDocumentView()
         viewMode = .fitPage
+    }
+
+    /// Fits the width the document is actually read at.
+    ///
+    /// PDFKit's auto-scaling fits the widest page, which is correct only while
+    /// every page shares that width. One oversized page would otherwise shrink
+    /// every ordinary page, so documents that mix page sizes get an explicit
+    /// scale derived from the width most of their pages share.
+    private func applyContinuousWidthFit() {
+        guard let summary = pageWidthSummary,
+              !summary.isUniform,
+              let scale = readerView.scaleFactorFittingWidth(summary.representative)
+        else {
+            appliedFitWidthViewportWidth = nil
+            readerView.autoScales = true
+            readerView.layoutDocumentView()
+            centerCurrentPageHorizontally()
+            return
+        }
+        readerView.autoScales = false
+        readerView.scaleFactor = scale
+        readerView.layoutDocumentView()
+        appliedFitWidthViewportWidth = readerView.bounds.width
+        centerCurrentPageHorizontally()
+    }
+
+    /// An explicit fit-width scale does not track the viewport the way PDFKit's
+    /// auto-scaling does, so it is recomputed whenever the viewport width changes.
+    private func refitContinuousWidthForViewportChange() {
+        guard viewMode == .fitWidth, let applied = appliedFitWidthViewportWidth else { return }
+        let width = readerView.bounds.width
+        guard width > 1, abs(width - applied) > 0.5 else { return }
+        let anchor = captureNavigationSnapshot()
+        applyContinuousWidthFit()
+        guard let anchor, let page = page(for: anchor) else { return }
+        moveAnchorToViewportCenter(anchor, on: page)
+    }
+
+    private func centerCurrentPageHorizontally() {
+        guard let page = readerView.currentPage else { return }
+        readerView.centerHorizontallyIfPageFits(page)
+    }
+
+    private var pageWidthSummary: PageWidthSummary? {
+        if let cachedPageWidthSummary { return cachedPageWidthSummary }
+        var widths: [CGFloat] = []
+        widths.reserveCapacity(initialDocument.pageCount)
+        for index in 0..<initialDocument.pageCount {
+            guard let page = initialDocument.page(at: index) else { continue }
+            let bounds = page.bounds(for: .cropBox)
+            let isQuarterTurned = abs(page.rotation) % 180 == 90
+            widths.append(isQuarterTurned ? bounds.height : bounds.width)
+        }
+        cachedPageWidthSummary = PageWidthMetrics.summary(of: widths)
+        return cachedPageWidthSummary
     }
 
     func rotateLeft() {
@@ -511,6 +573,7 @@ final class PDFViewController: NSViewController {
             page.rotation = (page.rotation + degrees) % 360
             if page.rotation < 0 { page.rotation += 360 }
         }
+        cachedPageWidthSummary = nil
         switch viewMode {
         case .fitWidth: fitWidth()
         case .fitPage: fitPage()
@@ -544,11 +607,11 @@ final class PDFViewController: NSViewController {
             }
         } else {
             readerView.displayMode = .singlePageContinuous
-            readerView.autoScales = true
-            readerView.layoutDocumentView()
+            applyContinuousWidthFit()
             viewMode = .fitWidth
             readerView.go(to: firstPage)
             readerView.layoutDocumentView()
+            readerView.centerHorizontallyIfPageFits(firstPage)
         }
         initialPresentationState = .applied
         success?()
@@ -596,21 +659,38 @@ final class PDFViewController: NSViewController {
     private struct AnchorMoveResult {
         let landing: NavigationSnapshot?
         let wasConstrained: Bool
+        /// Whether the horizontal position was decided by the layout rule rather
+        /// than by the requested anchor.
+        let horizontalWasNormalized: Bool
     }
     @discardableResult
     private func moveAnchorToViewportCenter(_ snapshot: NavigationSnapshot, on page: PDFPage) -> AnchorMoveResult {
         readerView.go(to: page)
         readerView.layoutDocumentView()
         guard hasVisibleViewport else {
-            return AnchorMoveResult(landing: captureNavigationSnapshot(), wasConstrained: false)
+            return AnchorMoveResult(
+                landing: captureNavigationSnapshot(),
+                wasConstrained: false,
+                horizontalWasNormalized: false
+            )
         }
         let wasConstrained = readerView.centerPagePoint(snapshot.pageSpacePoint, on: page) ?? false
-        return AnchorMoveResult(landing: captureNavigationSnapshot(), wasConstrained: wasConstrained)
+        let horizontalWasNormalized = readerView.centerHorizontallyIfPageFits(page)
+        return AnchorMoveResult(
+            landing: captureNavigationSnapshot(),
+            wasConstrained: wasConstrained,
+            horizontalWasNormalized: horizontalWasNormalized
+        )
     }
 
     private func verifiedLanding(_ movement: AnchorMoveResult, requested: NavigationSnapshot) -> Bool {
         guard let landing = movement.landing, landing.pageIndex == requested.pageIndex else { return false }
-        return landing.isSameLocation(as: requested) || movement.wasConstrained
+        if landing.isSameLocation(as: requested) || movement.wasConstrained { return true }
+        // A page that fits the viewport is centred horizontally by layout, so only
+        // the vertical anchor is the caller's to request.
+        guard movement.horizontalWasNormalized else { return false }
+        return abs(landing.pageSpacePoint.y - requested.pageSpacePoint.y)
+            <= NavigationSnapshot.locationTolerance + 1e-9
     }
 
 
@@ -636,11 +716,22 @@ final class PDFViewController: NSViewController {
             active.color = searchPalette.activeResult
             readerView.highlightedSelections = searchSelections
             readerView.setCurrentSelection(active, animate: false)
-            if scrollActiveSelection { readerView.scrollSelectionToVisible(nil) }
+            if scrollActiveSelection {
+                readerView.scrollSelectionToVisible(nil)
+                centerHorizontallyForSelection(active)
+            }
         } else {
             readerView.highlightedSelections = searchSelections.isEmpty ? nil : searchSelections
             readerView.currentSelection = nil
         }
+    }
+
+    /// Leaves a found page where every other jump leaves it. PDFKit scrolls only
+    /// far enough to expose the selection, which leaves a page narrower than the
+    /// continuous layout off centre.
+    private func centerHorizontallyForSelection(_ selection: PDFSelection) {
+        guard let page = selection.pages.first else { return }
+        readerView.centerHorizontallyIfPageFits(page)
     }
 }
 
@@ -712,6 +803,7 @@ extension PDFViewController: ReaderSearchResultPresenting {
             activeSearchIndex = index
             readerView.setCurrentSelection(active, animate: false)
             readerView.scrollSelectionToVisible(nil)
+            centerHorizontallyForSelection(active)
         }
         guard let origin, let landing = captureNavigationSnapshot() else { return .displayedAfterUnverifiedMovement }
         return landing.isSameLocation(as: origin) ? .displayedSame : .displayedDistinct(landing: landing)

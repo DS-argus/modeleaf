@@ -135,6 +135,50 @@ public enum PDFFixtureFactory {
         return url
     }
 
+    /// A document whose pages do not share one size, so a continuous layout has
+    /// to reconcile a common width with a wider outlier.
+    @discardableResult
+    public static func makeMixedPageSizePDF(
+        in directory: URL,
+        name: String = "mixed-page-sizes.pdf",
+        pageSizes: [CGSize],
+        repeatedText: String = "mixed size needle"
+    ) throws -> URL {
+        let url = directory.appendingPathComponent(name)
+        guard let first = pageSizes.first else { throw PDFFixtureError.couldNotCreateContext }
+        guard let consumer = CGDataConsumer(url: url as CFURL) else {
+            throw PDFFixtureError.couldNotCreateConsumer
+        }
+
+        var mediaBox = CGRect(origin: .zero, size: first)
+        guard let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else {
+            throw PDFFixtureError.couldNotCreateContext
+        }
+
+        let font = CTFontCreateWithName("Menlo" as CFString, 14, nil)
+        for (pageIndex, pageSize) in pageSizes.enumerated() {
+            var pageBox = CGRect(origin: .zero, size: pageSize)
+            let pageInfo = [kCGPDFContextMediaBox as String: NSData(bytes: &pageBox, length: MemoryLayout<CGRect>.size)]
+            context.beginPDFPage(pageInfo as CFDictionary)
+            context.saveGState()
+            context.setFillColor(NSColor.white.cgColor)
+            context.fill(pageBox)
+            context.textMatrix = .identity
+            context.textPosition = CGPoint(x: 24, y: max(20, pageSize.height - 72))
+            let text = "Page \(pageIndex + 1) unique-page-\(pageIndex + 1) \(repeatedText)"
+            let attributes: [NSAttributedString.Key: Any] = [
+                NSAttributedString.Key(kCTFontAttributeName as String): font,
+                NSAttributedString.Key(kCTForegroundColorAttributeName as String): NSColor.black.cgColor,
+            ]
+            let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes))
+            CTLineDraw(line, context)
+            context.restoreGState()
+            context.endPDFPage()
+        }
+        context.closePDF()
+        return url
+    }
+
     @discardableResult
     public static func makeTOCOutlinePDF(
         in directory: URL,
