@@ -299,6 +299,15 @@ final class ReaderPDFView: PDFView {
         scrollView.reflectScrolledClipView(clipView)
     }
 
+    /// The page the reader is looking at.
+    ///
+    /// `currentPage` only tracks scrolling PDFKit performs itself, and this view
+    /// scrolls its clip view directly, so the page is resolved from the viewport
+    /// centre instead. That is the same anchor navigation snapshots use.
+    var pageAtViewportCenter: PDFPage? {
+        guard bounds.width > 1, bounds.height > 1 else { return currentPage }
+        return page(for: NSPoint(x: bounds.midX, y: bounds.midY), nearest: true) ?? currentPage
+    }
     /// The on-screen rectangle of `page`, including scale and rotation.
     func displayedRect(of page: PDFPage) -> NSRect {
         convert(page.bounds(for: .cropBox), from: page)
@@ -351,7 +360,7 @@ final class ReaderPDFView: PDFView {
     /// the same document reserves, and a wider page stops at its own edges.
     private func horizontalScroll(constraining requested: CGFloat) -> CGFloat {
         guard requested != 0,
-              let page = currentPage,
+              let page = pageAtViewportCenter,
               let documentView = documentScrollView?.documentView
         else { return requested }
         let pageRect = displayedRect(of: page)
