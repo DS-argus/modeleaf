@@ -191,6 +191,156 @@ struct ReaderSearchWorkflowTests {
         }
     }
 
+    @Test("fit page paints only matches on the displayed page, so no match folds onto it")
+    func fitPageHighlightsOnlyTheDisplayedPage() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(
+                in: directory,
+                name: "fit-page-highlights.pdf",
+                pageCount: 6,
+                repeatedText: "needle"
+            )
+            let document = try #require(PDFDocument(url: url))
+            let session = ReaderSession(sourceURL: url, document: document)
+            let window = mount(session)
+            #expect(window.contentView === session.contentView)
+            let pdfView = try #require(descendantPDFView(in: session.contentView))
+
+            session.beginSearch("needle")
+            #expect(waitUntil {
+                !session.searchSnapshot.isRunning && session.searchSnapshot.matchCount == 6
+            })
+            #expect(try #require(pdfView.highlightedSelections).count == 6)
+
+            session.fitPage()
+            let displayed = displayedPageIndices(of: pdfView, in: document)
+            #expect(!displayed.isEmpty)
+
+            let painted = try #require(pdfView.highlightedSelections)
+            #expect(painted.count < 6)
+            for selection in painted {
+                let page = try #require(selection.pages.first)
+                #expect(displayed.contains(document.index(for: page)))
+            }
+
+            // The defect this covers: a match from another page projected onto the
+            // displayed page lands inside it and is painted over unrelated text.
+            let host = try #require(pdfView.currentPage)
+            let hostIndex = document.index(for: host)
+            let foreign = try #require(
+                document
+                    .findString("needle", withOptions: [.caseInsensitive, .literal])
+                    .first { selection in
+                        guard let page = selection.pages.first else { return false }
+                        return document.index(for: page) != hostIndex
+                    }
+            )
+            let foreignPage = try #require(foreign.pages.first)
+            let projected = pdfView.convert(
+                pdfView.convert(foreign.bounds(for: foreignPage), from: foreignPage),
+                to: host
+            )
+            #expect(host.bounds(for: .mediaBox).intersects(projected))
+            #expect(!painted.contains { $0 === foreign })
+
+            session.prepareForClose()
+        }
+    }
+
+    @Test("leaving fit page restores every match, and re-entering narrows them again")
+    func leavingFitPageRestoresAllHighlights() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(
+                in: directory,
+                name: "fit-page-round-trip.pdf",
+                pageCount: 5,
+                repeatedText: "needle"
+            )
+            let document = try #require(PDFDocument(url: url))
+            let session = ReaderSession(sourceURL: url, document: document)
+            _ = mount(session)
+            let pdfView = try #require(descendantPDFView(in: session.contentView))
+
+            session.beginSearch("needle")
+            #expect(waitUntil {
+                !session.searchSnapshot.isRunning && session.searchSnapshot.matchCount == 5
+            })
+
+            session.fitPage()
+            let inFitPage = try #require(pdfView.highlightedSelections).count
+            #expect(inFitPage < 5)
+
+            session.fitWidth()
+            #expect(try #require(pdfView.highlightedSelections).count == 5)
+
+            session.fitPage()
+            #expect(try #require(pdfView.highlightedSelections).count == inFitPage)
+
+            session.prepareForClose()
+        }
+    }
+
+    @Test("navigating results in fit page follows the displayed page")
+    func resultNavigationInFitPageTracksDisplayedPage() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeTextPDF(
+                in: directory,
+                name: "fit-page-navigation.pdf",
+                pageCount: 6,
+                repeatedText: "needle"
+            )
+            let document = try #require(PDFDocument(url: url))
+            let session = ReaderSession(sourceURL: url, document: document)
+            _ = mount(session)
+            let pdfView = try #require(descendantPDFView(in: session.contentView))
+
+            session.beginSearch("needle")
+            #expect(waitUntil {
+                !session.searchSnapshot.isRunning && session.searchSnapshot.matchCount == 6
+            })
+            session.fitPage()
+
+            for _ in 0..<4 {
+                #expect(session.selectNextSearchResult())
+                let displayed = displayedPageIndices(of: pdfView, in: document)
+                let painted = try #require(pdfView.highlightedSelections)
+                #expect(!painted.isEmpty)
+                for selection in painted {
+                    let page = try #require(selection.pages.first)
+                    #expect(displayed.contains(document.index(for: page)))
+                }
+                let active = try #require(pdfView.currentSelection?.pages.first)
+                #expect(displayed.contains(document.index(for: active)))
+            }
+            session.clearSearch()
+            #expect(pdfView.highlightedSelections == nil)
+            #expect(pdfView.currentSelection == nil)
+
+            session.prepareForClose()
+        }
+    }
+
+    /// The pages a non-continuous layout presents. `visiblePages` answers from
+    /// the viewport and can be empty right after a jump, so the current page —
+    /// the page such a layout displays — is always included.
+    private func displayedPageIndices(of view: PDFView, in document: PDFDocument) -> Set<Int> {
+        let pages = view.visiblePages + [view.currentPage].compactMap { $0 }
+        return Set(pages.map { document.index(for: $0) }.filter { $0 >= 0 })
+    }
+
+    private func mount(_ session: ReaderSession) -> NSWindow {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 720, height: 480),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = session.contentView
+        session.contentView.frame = window.contentLayoutRect
+        session.contentView.layoutSubtreeIfNeeded()
+        return window
+    }
+
     private func waitUntil(
         timeout: TimeInterval = 5,
         condition: () -> Bool

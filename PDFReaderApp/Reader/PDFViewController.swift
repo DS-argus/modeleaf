@@ -119,6 +119,12 @@ final class PDFViewController: NSViewController {
         readerView.internalLinkHandler = self
         readerView.followLinkHandler = { NSWorkspace.shared.open($0) }
         openMetrics.record(.end(.pdfViewDocumentAttach, traceID: openTraceID, outcome: .success))
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(displayedPageDidChange),
+            name: .PDFViewPageChanged,
+            object: readerView
+        )
         view = container
     }
 
@@ -307,6 +313,7 @@ final class PDFViewController: NSViewController {
         )
         if viewMode == .fitPage {
             readerView.displayMode = .singlePageContinuous
+            refreshHighlightsForLayoutChange()
         }
         readerView.autoScales = false
         viewMode = .manual
@@ -334,6 +341,7 @@ final class PDFViewController: NSViewController {
         readerView.displayMode = .singlePageContinuous
         applyContinuousWidthFit()
         viewMode = .fitWidth
+        refreshHighlightsForLayoutChange()
     }
 
     func fitPage() {
@@ -344,6 +352,7 @@ final class PDFViewController: NSViewController {
         readerView.autoScales = true
         readerView.layoutDocumentView()
         viewMode = .fitPage
+        refreshHighlightsForLayoutChange()
     }
 
     /// Fits the width the document is actually read at.
@@ -514,6 +523,7 @@ final class PDFViewController: NSViewController {
         activeViewportEpoch = nil
         readerView.delegate = nil
         readerView.keyEventHandler = nil
+        NotificationCenter.default.removeObserver(self, name: .PDFViewPageChanged, object: readerView)
     }
 
     func detachDocument() {
@@ -723,16 +733,85 @@ final class PDFViewController: NSViewController {
         if let activeSearchIndex, searchSelections.indices.contains(activeSearchIndex) {
             let active = searchSelections[activeSearchIndex]
             active.color = searchPalette.activeResult
-            readerView.highlightedSelections = searchSelections
             readerView.setCurrentSelection(active, animate: false)
             if scrollActiveSelection {
                 readerView.scrollSelectionToVisible(nil)
                 centerHorizontallyForSelection(active)
             }
         } else {
-            readerView.highlightedSelections = searchSelections.isEmpty ? nil : searchSelections
             readerView.currentSelection = nil
         }
+        applyHighlightedSelectionsForCurrentLayout()
+    }
+
+    /// Restricts painted highlights to the pages the layout actually displays.
+    ///
+    /// A continuous layout positions every page, so a match on a distant page
+    /// simply falls outside the viewport. A single-page layout positions only
+    /// the displayed page, so PDFKit collapses selections belonging to other
+    /// pages onto it and paints them over unrelated text.
+    private func applyHighlightedSelectionsForCurrentLayout() {
+        let paintable = highlightableSearchSelections()
+        readerView.highlightedSelections = paintable.isEmpty ? nil : paintable
+
+        if let activeSearchIndex, searchSelections.indices.contains(activeSearchIndex) {
+            let active = searchSelections[activeSearchIndex]
+            if isPaintableOnCurrentLayout(active) {
+                readerView.setCurrentSelection(active, animate: false)
+                return
+            }
+        }
+        if let current = readerView.currentSelection, !isPaintableOnCurrentLayout(current) {
+            readerView.currentSelection = nil
+        }
+    }
+
+    private func highlightableSearchSelections() -> [PDFSelection] {
+        guard laysOutOnePageAtATime else { return searchSelections }
+        return searchSelections.filter(isPaintableOnCurrentLayout)
+    }
+
+    private func isPaintableOnCurrentLayout(_ selection: PDFSelection) -> Bool {
+        guard laysOutOnePageAtATime else { return true }
+        let displayed = displayedPageIndices
+        guard !displayed.isEmpty else { return true }
+        return selection.pages.contains { displayed.contains(initialDocument.index(for: $0)) }
+    }
+
+    private var laysOutOnePageAtATime: Bool {
+        switch readerView.displayMode {
+        case .singlePage, .twoUp: true
+        case .singlePageContinuous, .twoUpContinuous: false
+        @unknown default: false
+        }
+    }
+
+    /// The pages a non-continuous layout is presenting. `visiblePages` answers
+    /// from the viewport and is empty while layout is dirty, so the current page
+    /// — the one such a layout is defined to display — is always included.
+    private var displayedPageIndices: Set<Int> {
+        let pages = readerView.visiblePages + [readerView.currentPage].compactMap { $0 }
+        return Set(pages.map { initialDocument.index(for: $0) }.filter { $0 >= 0 })
+    }
+
+    /// Highlights in a single-page layout depend on which page is displayed, so
+    /// a page change has to recompute them. Continuous layouts paint the same
+    /// full set on every page and are left untouched.
+    private func refreshHighlightsForDisplayedPageChange() {
+        guard laysOutOnePageAtATime, !searchSelections.isEmpty else { return }
+        applyHighlightedSelectionsForCurrentLayout()
+    }
+
+    /// Switching between a continuous and a single-page layout changes which
+    /// matches may be painted, in both directions.
+    private func refreshHighlightsForLayoutChange() {
+        guard !searchSelections.isEmpty else { return }
+        applyHighlightedSelectionsForCurrentLayout()
+    }
+
+    @objc
+    private func displayedPageDidChange(_ notification: Notification) {
+        refreshHighlightsForDisplayedPageChange()
     }
 
     /// Leaves a found page where every other jump leaves it. PDFKit scrolls only
