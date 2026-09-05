@@ -35,6 +35,23 @@ Requires macOS 14 (Sonoma) or newer.
 
 > This build is ad-hoc signed and not yet Apple-notarized. On first launch, allow it in **System Settings → Privacy & Security → Open Anyway**.
 
+## Command line
+
+The Homebrew cask installs the `modeleaf` command alongside the app.
+
+```sh
+modeleaf                         # launch or activate Modeleaf
+modeleaf document.pdf            # open a PDF in the existing app
+modeleaf *.pdf                   # open multiple PDFs as tabs
+modeleaf --new document.pdf      # open in a separate app instance
+modeleaf update                  # update through Homebrew
+modeleaf remove                  # uninstall without deleting configuration
+modeleaf --version
+modeleaf --help
+```
+
+Shells expand globs before Modeleaf receives them. Use `modeleaf open -- <path>` when a path starts with a hyphen or matches a command name.
+
 ## Update
 
 ```sh

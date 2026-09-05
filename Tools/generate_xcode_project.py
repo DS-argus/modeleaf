@@ -31,9 +31,18 @@ TARGETS = {
         "file_type": "wrapper.application",
         "product_type": "com.apple.product-type.application",
         "bundle_id": "com.argus.modeleaf",
-        "deps": ["PDFReaderCore"],
+        "deps": ["PDFReaderCore", "ModeleafCLI"],
         "links": ["PDFReaderCore"],
         "package": True,
+    },
+    "ModeleafCLI": {
+        "product": "modeleaf",
+        "file_type": "compiled.mach-o.executable",
+        "product_type": "com.apple.product-type.tool",
+        "bundle_id": "com.argus.modeleaf.cli",
+        "deps": [],
+        "links": [],
+        "package": False,
     },
     "PDFReaderTestSupport": {
         "product": "PDFReaderTestSupport.framework",
@@ -142,6 +151,11 @@ def settings_lines(name: str, configuration: str) -> list[str]:
             "CODE_SIGN_STYLE = Automatic;",
             'LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";',
         ]
+    elif product_type == "com.apple.product-type.tool":
+        lines += [
+            "PRODUCT_NAME = modeleaf;",
+            "SKIP_INSTALL = YES;",
+        ]
     elif product_type == "com.apple.product-type.framework":
         lines += [
             "DEFINES_MODULE = YES;",
@@ -199,6 +213,11 @@ def generate_pbxproj() -> str:
         f"{{isa = PBXBuildFile; fileRef = {product_ref('PDFReaderCore')} /* PDFReaderCore.framework */; "
         "settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };"
     )
+    lines.append(
+        f"\t\t{oid('embed:PDFReaderApp:ModeleafCLI')} /* modeleaf in Embed CLI */ = "
+        f"{{isa = PBXBuildFile; fileRef = {product_ref('ModeleafCLI')} /* modeleaf */; "
+        "settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };"
+    )
     lines += ["/* End PBXBuildFile section */", "", "/* Begin PBXContainerItemProxy section */"]
 
     for target, data in TARGETS.items():
@@ -242,6 +261,17 @@ def generate_pbxproj() -> str:
         f"\t\t\t\t{oid('embed:PDFReaderApp:PDFReaderCore')} /* PDFReaderCore.framework in Embed Frameworks */,",
         "\t\t\t);",
         "\t\t\tname = \"Embed Frameworks\";",
+        "\t\t\trunOnlyForDeploymentPostprocessing = 0;",
+        "\t\t};",
+        f"\t\t{phase_id('PDFReaderApp', 'embed-cli')} /* Embed CLI */ = {{",
+        "\t\t\tisa = PBXCopyFilesBuildPhase;",
+        "\t\t\tbuildActionMask = 2147483647;",
+        "\t\t\tdstPath = \"\";",
+        "\t\t\tdstSubfolderSpec = 12;",
+        "\t\t\tfiles = (",
+        f"\t\t\t\t{oid('embed:PDFReaderApp:ModeleafCLI')} /* modeleaf in Embed CLI */ ,",
+        "\t\t\t);",
+        "\t\t\tname = \"Embed CLI\";",
         "\t\t\trunOnlyForDeploymentPostprocessing = 0;",
         "\t\t};",
         "/* End PBXCopyFilesBuildPhase section */",
@@ -321,6 +351,7 @@ def generate_pbxproj() -> str:
         ]
         if name == "PDFReaderApp":
             lines.append(f"\t\t\t\t{phase_id(name, 'embed-frameworks')} /* Embed Frameworks */ ,")
+            lines.append(f"\t\t\t\t{phase_id(name, 'embed-cli')} /* Embed CLI */ ,")
         lines += [
             "\t\t\t);",
             "\t\t\tbuildRules = ();",
