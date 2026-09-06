@@ -31,6 +31,19 @@ codesign --verify --deep --strict --verbose=2 "$APP" \
   2>&1 | tee "$LOG_DIR/codesign-verify.log"
 codesign -dv --verbose=4 "$APP" \
   2>&1 | tee "$LOG_DIR/codesign-details.log"
+CLI="$APP/Contents/SharedSupport/modeleaf"
+if [ ! -x "$CLI" ]; then
+  echo "build_release_app: embedded CLI is missing or not executable at '$CLI'" >&2
+  exit 1
+fi
+APP_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist")
+CLI_VERSION=$("$CLI" --version)
+if [ "$CLI_VERSION" != "modeleaf $APP_VERSION" ]; then
+  echo "build_release_app: CLI version '$CLI_VERSION' does not match app version '$APP_VERSION'" >&2
+  exit 1
+fi
+codesign --verify --strict --verbose=2 "$CLI" \
+  2>&1 | tee "$LOG_DIR/cli-codesign-verify.log"
 shasum -a 256 "$APP/Contents/MacOS/Modeleaf" \
   | tee "$LOG_DIR/binary-sha256.log"
 

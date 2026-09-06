@@ -38,6 +38,20 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "55B900B65A83F464B38B30F4"
+               BuildableName = "modeleaf"
+               BlueprintName = "ModeleafCLI"
+               ReferencedContainer = "container:Modeleaf.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "40C2AD90F2AA40999071909A"
                BuildableName = "PDFReaderTestSupport.framework"
                BlueprintName = "PDFReaderTestSupport"

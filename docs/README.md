@@ -33,6 +33,23 @@ macOS 14 Sonoma 이상에서 사용할 수 있습니다.
 
 > 아직 Apple 공증을 받지 않은 ad-hoc 서명 빌드입니다. 처음 실행할 때 차단되면 **시스템 설정 → 개인정보 보호 및 보안 → 확인 없이 열기**에서 한 번 허용해 주세요.
 
+## 명령줄
+
+Homebrew cask가 앱과 함께 `modeleaf` 명령을 설치합니다.
+
+```sh
+modeleaf                         # Modeleaf 실행 또는 활성화
+modeleaf document.pdf            # 기존 앱에서 PDF 열기
+modeleaf *.pdf                   # 여러 PDF를 탭으로 열기
+modeleaf --new document.pdf      # 별도 앱 인스턴스에서 열기
+modeleaf update                  # Homebrew를 통해 업데이트
+modeleaf remove                  # 설정을 유지하고 제거
+modeleaf --version               # 또는: modeleaf -v
+modeleaf --help
+```
+
+glob은 Modeleaf에 전달되기 전에 셸에서 확장됩니다. 경로가 하이픈으로 시작하거나 명령 이름과 같다면 `modeleaf open -- <경로>`를 사용하세요.
+
 ## 업데이트
 
 ```sh
