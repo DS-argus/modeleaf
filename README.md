@@ -46,7 +46,7 @@ modeleaf *.pdf                   # open multiple PDFs as tabs
 modeleaf --new document.pdf      # open in a separate app instance
 modeleaf update                  # update through Homebrew
 modeleaf remove                  # uninstall without deleting configuration
-modeleaf --version
+modeleaf --version               # or: modeleaf -v
 modeleaf --help
 ```
 

@@ -82,7 +82,7 @@ enum CLIParser {
             switch argument {
             case "-h", "--help":
                 return .help
-            case "--version":
+            case "-v", "--version":
                 return .version
             case "-n", "--new":
                 newInstance = true
@@ -285,7 +285,7 @@ struct ModeleafCLI {
     Options:
       -n, --new  Open a new Modeleaf instance
       -h, --help Show this help
-          --version  Show the installed Modeleaf version
+      -v, --version  Show the installed Modeleaf version
 
     Exit status:
       0 on success, 2 for invalid usage, and 3 for invalid input.

@@ -105,10 +105,12 @@ struct ModeleafCLITests {
         #expect(help.standard.only?.contains("modeleaf [--new] [PDF ...]") == true)
         #expect(help.runner.invocations.isEmpty)
 
-        let version = try Fixture(version: "9.8.7")
-        #expect(version.run("--version") == 0)
-        #expect(version.standard == ["modeleaf 9.8.7"])
-        #expect(version.runner.invocations.isEmpty)
+        for option in ["-v", "--version"] {
+            let version = try Fixture(version: "9.8.7")
+            #expect(version.run(option) == 0)
+            #expect(version.standard == ["modeleaf 9.8.7"])
+            #expect(version.runner.invocations.isEmpty)
+        }
     }
 
     @Test("version fails clearly outside an app bundle")

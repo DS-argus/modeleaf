@@ -44,7 +44,7 @@ modeleaf *.pdf                   # 여러 PDF를 탭으로 열기
 modeleaf --new document.pdf      # 별도 앱 인스턴스에서 열기
 modeleaf update                  # Homebrew를 통해 업데이트
 modeleaf remove                  # 설정을 유지하고 제거
-modeleaf --version
+modeleaf --version               # 또는: modeleaf -v
 modeleaf --help
 ```
 
