@@ -267,7 +267,15 @@ struct ReaderSessionTests {
             let afterViewportScroll = scrollView.contentView.bounds.origin
 
             #expect(session.viewMode == .manual)
-            #expect(session.currentPageNumber == initialPage)
+            // Manual scrolling moves the viewport instead of stepping pages the
+            // way fit page does, so the reported page only follows the viewport
+            // across a boundary and never runs ahead of it.
+            #expect(abs(afterPointScroll.x - initial.x) < 0.001)
+            #expect(abs(afterViewportScroll.x - initial.x) < 0.001)
+            let startPage = try #require(initialPage)
+            let landingPage = try #require(session.currentPageNumber)
+            #expect(landingPage >= startPage)
+            #expect(landingPage - startPage <= 1)
             #expect(afterPointScroll != initial)
             #expect(afterViewportScroll != afterPointScroll)
         }

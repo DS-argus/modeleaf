@@ -11,6 +11,7 @@ let package = Package(
         .library(name: "PDFReaderCore", targets: ["PDFReaderCore"]),
         .library(name: "PDFReaderTestSupport", targets: ["PDFReaderTestSupport"]),
         .executable(name: "Modeleaf", targets: ["PDFReaderApp"]),
+        .executable(name: "ModeleafCLI", targets: ["ModeleafCLI"]),
     ],
     dependencies: [
         .package(
@@ -22,6 +23,10 @@ let package = Package(
         .target(
             name: "PDFReaderCore",
             path: "PDFReaderCore"
+        ),
+        .executableTarget(
+            name: "ModeleafCLI",
+            path: "ModeleafCLI"
         ),
         .executableTarget(
             name: "PDFReaderApp",
@@ -43,6 +48,11 @@ let package = Package(
             dependencies: ["PDFReaderCore"],
             path: "PDFReaderCoreTests",
             exclude: ["Snapshots"]
+        ),
+        .testTarget(
+            name: "ModeleafCLITests",
+            dependencies: ["ModeleafCLI"],
+            path: "ModeleafCLITests"
         ),
         .testTarget(
             name: "PDFReaderAppTests",

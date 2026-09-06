@@ -96,6 +96,35 @@ struct PDFOpenServiceTests {
         }
     }
 
+    @Test("multiple external URLs open as tabs and record only successful documents in recents")
+    func multipleExternalURLsRecordSuccessfulDocuments() throws {
+        try withTemporaryDirectory { directory in
+            let first = try PDFFixtureFactory.makeTextPDF(in: directory, name: "first.pdf", pageCount: 1)
+            let second = try PDFFixtureFactory.makeTextPDF(in: directory, name: "second.pdf", pageCount: 1)
+            let missing = directory.appendingPathComponent("missing.pdf")
+            let store = ReaderSessionStore()
+            let recentStore = RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json"))
+            let controller = ApplicationController(
+                configService: ConfigService(
+                    source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))
+                ),
+                sessionStore: store,
+                themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
+                recentFilesStore: recentStore,
+                terminationHandler: {}
+            )
+
+            _ = controller.mainWindowController
+            controller.openExternalDocuments([first, missing, second])
+
+            #expect(store.sessionCount == 2)
+            #expect(store.activeSession?.title == "second.pdf")
+            #expect(recentStore.load().map(\.absolutePath) == [second.path, first.path])
+
+            while controller.coordinator.closeActiveTab() {}
+        }
+    }
+
     private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("pdf-reader-open-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

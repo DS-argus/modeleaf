@@ -18,6 +18,7 @@ LOCK = PROJECT / "project.xcworkspace" / "xcshareddata" / "swiftpm" / "Package.r
 EXPECTED_TARGETS = {
     "PDFReaderCore": "com.apple.product-type.framework",
     "PDFReaderApp": "com.apple.product-type.application",
+    "ModeleafCLI": "com.apple.product-type.tool",
     "PDFReaderTestSupport": "com.apple.product-type.framework",
     "PDFReaderCoreTests": "com.apple.product-type.bundle.unit-test",
     "PDFReaderAppTests": "com.apple.product-type.bundle.unit-test",
@@ -97,10 +98,18 @@ def main() -> None:
         require(targets[name].get("productType") == product_type, f"{name} has wrong product type")
 
     app_phases = [objects[phase_id] for phase_id in targets["PDFReaderApp"]["buildPhases"]]
-    embed_phases = [phase for phase in app_phases if phase.get("isa") == "PBXCopyFilesBuildPhase"]
-    require(len(embed_phases) == 1, "PDFReaderApp must have one Embed Frameworks phase")
-    require(embed_phases[0].get("dstSubfolderSpec") == "10", "Embed Frameworks destination is invalid")
-
+    copy_phases = [phase for phase in app_phases if phase.get("isa") == "PBXCopyFilesBuildPhase"]
+    require(len(copy_phases) == 2, "PDFReaderApp must embed its framework and CLI")
+    phases_by_name = {phase.get("name"): phase for phase in copy_phases}
+    require(phases_by_name["Embed Frameworks"].get("dstSubfolderSpec") == "10", "Embed Frameworks destination is invalid")
+    require(phases_by_name["Embed CLI"].get("dstSubfolderSpec") == "12", "CLI must be embedded in SharedSupport")
+    cli_product_id = targets["ModeleafCLI"]["productReference"]
+    cli_build_files = [
+        objects[file_id]
+        for file_id in phases_by_name["Embed CLI"].get("files", [])
+    ]
+    require(len(cli_build_files) == 1, "Embed CLI must contain exactly one executable")
+    require(cli_build_files[0].get("fileRef") == cli_product_id, "Embed CLI must copy the ModeleafCLI product")
     package_refs = [
         value for value in objects.values() if value.get("isa") == "XCRemoteSwiftPackageReference"
     ]
@@ -121,7 +130,7 @@ def main() -> None:
         "Debug builds must use only the active architecture",
     )
     target_configs = [value for value in build_configs if "PRODUCT_BUNDLE_IDENTIFIER" in value.get("buildSettings", {})]
-    require(len(target_configs) == 12, "each of six targets must have Debug and Release configurations")
+    require(len(target_configs) == 14, "each of seven targets must have Debug and Release configurations")
     for config in target_configs:
         settings = config["buildSettings"]
         require(settings.get("SWIFT_VERSION") == "6.0", "target does not use Swift 6")
@@ -150,6 +159,11 @@ def main() -> None:
         )
         require(settings.get("GENERATE_INFOPLIST_FILE") == "NO", "PDFReaderApp must use its checked-in Info.plist")
         require(settings.get("INFOPLIST_FILE") == "PDFReaderApp/Info.plist", "PDFReaderApp Info.plist path is invalid")
+
+    cli_config_list = objects[targets["ModeleafCLI"]["buildConfigurationList"]]
+    for config_id in cli_config_list["buildConfigurations"]:
+        settings = objects[config_id]["buildSettings"]
+        require(settings.get("PRODUCT_NAME") == "modeleaf", "CLI product must be named modeleaf")
 
     app_target_id = next(
         object_id for object_id, value in objects.items() if value is targets["PDFReaderApp"]

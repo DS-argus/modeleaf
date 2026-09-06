@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import PDFReaderCore
 
@@ -19,6 +20,7 @@ protocol ReaderWorkflowPresenting: AnyObject {
     func presentAvailableUpdate()
     func presentPrompt(_ presentation: PromptPresentation)
     func showPromptValidation(_ message: String)
+    func showActionFeedback(_ message: String, isError: Bool)
     func prepareForGlobalAction()
     func dismissPromptAndRestoreFocus(
         to context: InputContext,
@@ -36,6 +38,7 @@ extension ReaderWorkflowPresenting {
     func toggleTOCDrawer() {}
     func scrollTOCDrawerDown() {}
     func scrollTOCDrawerUp() {}
+    func showActionFeedback(_ message: String, isError: Bool) {}
 }
 
 @MainActor
@@ -48,6 +51,8 @@ private var newInstanceHandler: () -> Void
     private var configReloadHandler: () -> Void
     private var configWriteDefaultHandler: () -> Void
     private var configResetDefaultHandler: () -> Void
+    private var clipboardWriter: (String) -> Bool
+    private var fileRevealer: (URL) -> Void
 
     private var citationPreviewToggleHandler: () -> Void
     weak var presentation: (any ReaderWorkflowPresenting)?
@@ -61,7 +66,14 @@ private var newInstanceHandler: () -> Void
         configReloadHandler: @escaping () -> Void = {},
         configWriteDefaultHandler: @escaping () -> Void = {},
         configResetDefaultHandler: @escaping () -> Void = {},
-        citationPreviewToggleHandler: @escaping () -> Void = {}
+        citationPreviewToggleHandler: @escaping () -> Void = {},
+        clipboardWriter: @escaping (String) -> Bool = { value in
+            NSPasteboard.general.clearContents()
+            return NSPasteboard.general.setString(value, forType: .string)
+        },
+        fileRevealer: @escaping (URL) -> Void = { url in
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        }
     ) {
         self.coordinator = coordinator
         self.navigation = navigation
@@ -72,6 +84,8 @@ self.newInstanceHandler = newInstanceHandler
         self.configWriteDefaultHandler = configWriteDefaultHandler
         self.configResetDefaultHandler = configResetDefaultHandler
         self.citationPreviewToggleHandler = citationPreviewToggleHandler
+        self.clipboardWriter = clipboardWriter
+        self.fileRevealer = fileRevealer
     }
 
     func configureLifecycleHandlers(
@@ -122,6 +136,16 @@ newInstanceHandler = newInstance
             guard activeSession != nil else { return }
             presentation?.prepareForGlobalAction()
             _ = activeSession?.printDocument()
+        case .documentCopyPath:
+            guard let session = activeSession else { return }
+            if clipboardWriter(session.sourceURL.path) {
+                presentation?.showActionFeedback("Copied PDF path", isError: false)
+            } else {
+                presentation?.showActionFeedback("Could not copy PDF path", isError: true)
+            }
+        case .documentRevealInFinder:
+            guard let session = activeSession else { return }
+            fileRevealer(session.sourceURL)
         case .appQuit:
             presentation?.prepareForGlobalAction()
             terminationHandler()
@@ -259,7 +283,7 @@ newInstanceHandler = newInstance
     private var activeSession: (any ReaderSessionPresenting)? { coordinator.activeSession }
 
     func isActionEnabled(_ action: ActionID) -> Bool {
-        if action == .documentPrint { return activeSession != nil }
+        if [.documentPrint, .documentCopyPath, .documentRevealInFinder].contains(action) { return activeSession != nil }
         if action == .updateShow { return presentation?.hasAvailableUpdate == true }
         return true
     }

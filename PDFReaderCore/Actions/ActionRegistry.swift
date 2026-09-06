@@ -33,6 +33,8 @@ public struct ActionRegistry: Sendable {
         ActionDescriptor(id: .documentOpen, title: "Open PDF…", scope: .global),
         ActionDescriptor(id: .documentClose, title: "Close PDF", scope: .contexts(readerContexts)),
         ActionDescriptor(id: .documentPrint, title: "Print…", scope: .global, repeatPolicy: .suppressed),
+        ActionDescriptor(id: .documentCopyPath, title: "Copy PDF Path", scope: .contexts(readerContexts), repeatPolicy: .suppressed),
+        ActionDescriptor(id: .documentRevealInFinder, title: "Reveal PDF in Finder", scope: .contexts(readerContexts), repeatPolicy: .suppressed),
         ActionDescriptor(id: .appQuit, title: "Quit Modeleaf", scope: .global),
         ActionDescriptor(id: .appNew, title: "New Window", scope: .global),
         ActionDescriptor(id: .paletteOpen, title: "Command Palette", scope: .contexts(readerContexts)),

@@ -522,6 +522,9 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func showDiagnostic(_ message: String, expandedDetail: String? = nil, isError: Bool = true, pinned: Bool = false) {
         rootView.showDiagnostic(message, expandedDetail: expandedDetail, isError: isError, pinned: pinned)
     }
+    func showActionFeedback(_ message: String, isError: Bool) {
+        rootView.showActionFeedback(message, isError: isError)
+    }
 
     func clearDiagnostic(force: Bool = false) {
         rootView.clearDiagnostic(force: force)

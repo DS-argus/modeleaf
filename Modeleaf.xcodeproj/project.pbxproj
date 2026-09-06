@@ -13,6 +13,7 @@
 		43B4D3A16A4F1F02612D4193 /* PDFReaderTestSupport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C70AF9CD6A05F9871BF0721A /* PDFReaderTestSupport.framework */; };
 		C24C6A546675DDB8990762C3 /* TOMLDecoder in Frameworks */ = {isa = PBXBuildFile; productRef = 72ED85A22FC6BDB47FF1AE81 /* TOMLDecoder */; };
 		069F4A77557CBECC25DAEFD9 /* PDFReaderCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		9A782F277E5B3721FAFB9604 /* modeleaf in Embed CLI */ = {isa = PBXBuildFile; fileRef = D9F7E1B8369DC1F12A8FDC58 /* modeleaf */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -22,6 +23,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 3C367607D7884AFCF274C257;
 			remoteInfo = PDFReaderCore;
+		};
+		17BB735FD1A3D45E486236F0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 55B900B65A83F464B38B30F4;
+			remoteInfo = ModeleafCLI;
 		};
 		07EBDA1DF561E0DD36155F31 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -70,6 +78,7 @@
 /* Begin PBXFileReference section */
 		2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PDFReaderCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		57627DBA3634259684E38C8B /* Modeleaf.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Modeleaf.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D9F7E1B8369DC1F12A8FDC58 /* modeleaf */ = {isa = PBXFileReference; explicitFileType = compiled.mach-o.executable; includeInIndex = 0; path = modeleaf; sourceTree = BUILT_PRODUCTS_DIR; };
 		C70AF9CD6A05F9871BF0721A /* PDFReaderTestSupport.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PDFReaderTestSupport.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		C44B5EE66DCFBB36F4265D67 /* PDFReaderCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PDFReaderCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D0F8ABEDA3041AC0459241E /* PDFReaderAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PDFReaderAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -98,6 +107,17 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		DA56942F0B8F4742575B3CC5 /* Embed CLI */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 12;
+			files = (
+				9A782F277E5B3721FAFB9604 /* modeleaf in Embed CLI */ ,
+			);
+			name = "Embed CLI";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -112,6 +132,11 @@
 				0BF5E403C9EB9FB82621255C /* Exceptions for PDFReaderApp */,
 			);
 			path = PDFReaderApp;
+			sourceTree = "<group>";
+		};
+		1581DA260512DB5E929182C2 /* ModeleafCLI */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ModeleafCLI;
 			sourceTree = "<group>";
 		};
 		4444264E4A98851A3B3B20B6 /* PDFReaderTestSupport */ = {
@@ -150,6 +175,13 @@
 			files = (
 				4642C58A0AFFED69A72DAD2C /* PDFReaderCore.framework in Frameworks */,
 				C24C6A546675DDB8990762C3 /* TOMLDecoder in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		678A6AF3F24D5A2BEBE8C52C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -193,6 +225,7 @@
 			children = (
 				4FD9ADCBD804C041872D21DD /* PDFReaderCore */,
 				1E3DBE79DA87710F2D1B1058 /* PDFReaderApp */,
+				1581DA260512DB5E929182C2 /* ModeleafCLI */,
 				4444264E4A98851A3B3B20B6 /* PDFReaderTestSupport */,
 				95E941A930F7035D033BB969 /* PDFReaderCoreTests */,
 				8E366546A588094F6D92378C /* PDFReaderAppTests */,
@@ -206,6 +239,7 @@
 			children = (
 				2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */,
 				57627DBA3634259684E38C8B /* Modeleaf.app */,
+				D9F7E1B8369DC1F12A8FDC58 /* modeleaf */,
 				C70AF9CD6A05F9871BF0721A /* PDFReaderTestSupport.framework */,
 				C44B5EE66DCFBB36F4265D67 /* PDFReaderCoreTests.xctest */,
 				2D0F8ABEDA3041AC0459241E /* PDFReaderAppTests.xctest */,
@@ -246,10 +280,12 @@
 				72D049584CEFEB0484EF40C9 /* Frameworks */ ,
 				86A4EBE2FE09CAD6E7DCB684 /* Resources */ ,
 				2A8A484AAE77FC2EE7372172 /* Embed Frameworks */ ,
+				DA56942F0B8F4742575B3CC5 /* Embed CLI */ ,
 			);
 			buildRules = ();
 			dependencies = (
 				59ABA8418AB3FF3232466AAE /* PBXTargetDependency */,
+				F99CC489B0021FFF3625CFFF /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				1E3DBE79DA87710F2D1B1058 /* PDFReaderApp */,
@@ -261,6 +297,27 @@
 			productName = PDFReaderApp;
 			productReference = 57627DBA3634259684E38C8B /* Modeleaf.app */;
 			productType = "com.apple.product-type.application";
+		};
+		55B900B65A83F464B38B30F4 /* ModeleafCLI */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 05E9258EC064BB68DEE9D3DC /* Build configuration list for PBXNativeTarget "ModeleafCLI" */;
+			buildPhases = (
+				2F3048DE3AE07F724E35D406 /* Sources */ ,
+				678A6AF3F24D5A2BEBE8C52C /* Frameworks */ ,
+				8F5BD16326892698DB71E575 /* Resources */ ,
+			);
+			buildRules = ();
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				1581DA260512DB5E929182C2 /* ModeleafCLI */,
+			);
+			name = ModeleafCLI;
+			packageProductDependencies = (
+			);
+			productName = ModeleafCLI;
+			productReference = D9F7E1B8369DC1F12A8FDC58 /* modeleaf */;
+			productType = "com.apple.product-type.tool";
 		};
 		40C2AD90F2AA40999071909A /* PDFReaderTestSupport */ = {
 			isa = PBXNativeTarget;
@@ -378,6 +435,7 @@
 			targets = (
 				3C367607D7884AFCF274C257 /* PDFReaderCore */,
 				7F722F72E711E72F04E27923 /* PDFReaderApp */,
+				55B900B65A83F464B38B30F4 /* ModeleafCLI */,
 				40C2AD90F2AA40999071909A /* PDFReaderTestSupport */,
 				CB8572D9B0A8C22D71776B07 /* PDFReaderCoreTests */,
 				13E763036D8F76C938B7DA71 /* PDFReaderAppTests */,
@@ -394,6 +452,12 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		86A4EBE2FE09CAD6E7DCB684 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8F5BD16326892698DB71E575 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = ();
@@ -438,6 +502,12 @@
 			files = ();
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		2F3048DE3AE07F724E35D406 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C6F026C54921352B486FCB00 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -469,6 +539,11 @@
 			isa = PBXTargetDependency;
 			target = 3C367607D7884AFCF274C257 /* PDFReaderCore */;
 			targetProxy = 984988DA8FF266A31B67D28D /* PBXContainerItemProxy */;
+		};
+		F99CC489B0021FFF3625CFFF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 55B900B65A83F464B38B30F4 /* ModeleafCLI */;
+			targetProxy = 17BB735FD1A3D45E486236F0 /* PBXContainerItemProxy */;
 		};
 		B4D925758211BEDB03C577A5 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -602,6 +677,33 @@
 				PRODUCT_MODULE_NAME = PDFReaderApp;
 				CODE_SIGN_STYLE = Automatic;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+			};
+			name = Release;
+		};
+		4B59E25E315AA2A4B77AB0E1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.modeleaf.cli;
+				GENERATE_INFOPLIST_FILE = YES;
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_NAME = modeleaf;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+			};
+			name = Debug;
+		};
+		467297CC7A3543FF2E2590A9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.argus.modeleaf.cli;
+				GENERATE_INFOPLIST_FILE = YES;
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_NAME = modeleaf;
+				SKIP_INSTALL = YES;
 			};
 			name = Release;
 		};
@@ -743,6 +845,12 @@
 		0D5239B38F4F1C5EBC5EDA2B /* Build configuration list for PBXNativeTarget "PDFReaderApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (AA8DF525F31ACFF09B3E6D8C /* Debug */, 4E0F9E840F15A9A911F2E110 /* Release */);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		05E9258EC064BB68DEE9D3DC /* Build configuration list for PBXNativeTarget "ModeleafCLI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (4B59E25E315AA2A4B77AB0E1 /* Debug */, 467297CC7A3543FF2E2590A9 /* Release */);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};

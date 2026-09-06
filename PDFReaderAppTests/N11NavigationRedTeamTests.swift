@@ -352,6 +352,7 @@ struct N11NavigationRedTeamTests {
         let remapped = try #require(ConfigValidator.validate(SparseAppConfig(keymap: [
             ActionID.historyBack.rawValue: ["x"],
             ActionID.historyForward.rawValue: ["y"],
+            ActionID.documentCopyPath.rawValue: [],
         ])).validatedConfig)
         for context in [InputContext.navigation, .pagePrompt, .searchPrompt, .searchResults] {
             var actions: [ActionID] = []

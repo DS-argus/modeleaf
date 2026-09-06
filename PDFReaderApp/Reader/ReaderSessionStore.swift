@@ -18,6 +18,7 @@ protocol ReaderDuplicateValidating: AnyObject {
 protocol ReaderSessionPresenting: ReaderNavigationHistoryPresenting {
     var id: TabID { get }
     var title: String { get }
+    var sourceURL: URL { get }
     var contentView: NSView { get }
     var focusView: NSView { get }
     var statusSnapshot: ReaderStatusSnapshot { get }
