@@ -251,10 +251,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.citationPreviewOverlay.onCommit = { [weak self, weak provider] item in
             guard let self,
                   self.coordinator.snapshot.activeID == sessionID,
-                  item.isResolved
+                  item.isResolved,
+                  let destination = item.destination
             else { return }
             self.dismissCitationPreviewAndRestoreFocus()
-            provider?.activateLink(item.destination)
+            provider?.activateLink(destination)
         }
         rootView.citationPreviewOverlay.onSearch = { [weak self] item in
             guard let self,

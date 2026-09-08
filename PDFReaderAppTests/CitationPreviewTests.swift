@@ -85,6 +85,64 @@ struct CitationPreviewTests {
         #expect(CitationReferenceExtractor.extract(marker: 3, from: gapped) == "[3] Ada Author. A title")
     }
 
+    @Test("mapped numeric lists preserve every member, source order and selected annotation")
+    func mappedNumericListContracts() throws {
+        let cases: [(String, Int, [Int], [Int])] = [
+            ("D01-primacy.pdf", 0, [39, 40, 41], [36, 37, 30]),
+            ("D01-primacy.pdf", 0, [1, 2, 3, 4, 5], [1, 2, 3, 4, 5]),
+            ("D02-portfolio.pdf", 1, [4, 5], [7, 8]),
+            ("D04-spegc.pdf", 1, [32, 33], [67, 68]),
+            ("D01-primacy.pdf", 0, Array(25...32), [23, 10, 24, 25, 26, 27, 28, 29]),
+            ("D07-realappiance.pdf", 2, [4], [9]),
+            ("D07-realappiance.pdf", 2, [5], [8]),
+            ("D07-realappiance.pdf", 2, [6], [6]),
+            ("D07-realappiance.pdf", 2, [7], [3]),
+            ("D07-realappiance.pdf", 2, [8], [2]),
+        ]
+        for (file, pageIndex, annotations, members) in cases {
+            let url = URL(fileURLWithPath: "docs/citation-papers/\(file)")
+            guard FileManager.default.fileExists(atPath: url.path) else { continue }
+            let document = try #require(PDFDocument(url: url))
+            let page = try #require(document.page(at: pageIndex))
+            let resolver = CitationPreviewResolver(document: document)
+            for (selectedIndex, annotationIndex) in annotations.enumerated() {
+                let annotation = try #require(page.annotations.indices.contains(annotationIndex) ? page.annotations[annotationIndex] : nil)
+                let link = try #require(links(on: page, in: document).first { $0.rects.contains(annotation.bounds) })
+                guard case let .preview(group) = resolver.resolve(link) else {
+                    Issue.record("\(file) p\(pageIndex + 1) a\(annotationIndex) did not preview")
+                    continue
+                }
+                #expect(group.items.map(\.label) == members.map { "[\($0)]" })
+                #expect(group.selectedIndex == selectedIndex)
+                #expect(group.items.allSatisfy { $0.isResolved })
+                #expect(group.items[selectedIndex].destination == link.target)
+            }
+        }
+    }
+    @Test("numeric groups retain a member whose source annotation is missing")
+    func missingNumericLinkMember() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeCitationPreviewPDF(in: directory)
+            let document = try #require(PDFDocument(url: url))
+            let page = try #require(document.page(at: 0))
+            let missing = try #require(page.annotations.first {
+                page.selection(for: $0.bounds)?.string?.trimmingCharacters(in: .whitespacesAndNewlines) == "4"
+            })
+            page.removeAnnotation(missing)
+            let selected = try #require(links(on: page, in: document).first {
+                page.selection(for: $0.rects[0])?.string?.trimmingCharacters(in: .whitespacesAndNewlines) == "3"
+            })
+            guard case let .preview(group) = CitationPreviewResolver(document: document).resolve(selected) else {
+                Issue.record("Partially linked citation group must remain visible")
+                return
+            }
+            #expect(group.items.map(\.label) == ["[3]", "[4]", "[5]"])
+            #expect(group.items[1].state == .unresolved(reason: .missingTarget))
+            #expect(group.items[1].destination == nil)
+            #expect(group.items[0].isResolved && group.items[2].isResolved)
+        }
+    }
+
     @Test("reference lookup rejects nonfinite and sentinel destination coordinates")
     func destinationCoordinateGuards() {
         let page = PDFPage()
@@ -510,7 +568,7 @@ struct CitationPreviewTests {
 
         #expect(session.currentPageNumber == 1)
         #expect(!session.canGoBack && !session.canGoForward)
-        session.activateLink(item.destination)
+        session.activateLink(try #require(item.destination))
         let destinationPageIndex = try #require(item.destinationPageIndex)
         #expect(session.currentPageNumber == destinationPageIndex + 1)
         #expect(session.canGoBack && !session.canGoForward)

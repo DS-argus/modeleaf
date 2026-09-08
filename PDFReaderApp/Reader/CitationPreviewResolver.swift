@@ -49,7 +49,7 @@ enum CitationPreviewItemState: Equatable {
 
 struct CitationPreviewItem: Equatable {
     let label: String
-    let destination: ReaderLinkTarget
+    let destination: ReaderLinkTarget?
     let referenceText: String
     let state: CitationPreviewItemState
 
@@ -68,7 +68,7 @@ struct CitationPreviewItem: Equatable {
 
     init(
         label: String,
-        destination: ReaderLinkTarget,
+        destination: ReaderLinkTarget?,
         referenceText: String,
         state: CitationPreviewItemState = .resolved
     ) {
@@ -425,14 +425,9 @@ final class CitationPreviewResolver {
                 around: selected.bounds,
                 on: sourcePage
            ) {
-            let items = sourceGroup.map(previewItem(for:))
-            // Brackets alone also describe equations, notes and section links.
-            // A resolved bibliography member establishes the group's citation role.
-            guard items.contains(where: \.isResolved) else { return .activate(link.target) }
-            guard let selectedIndex = sourceGroup.firstIndex(where: { Self.markersMatch($0, selectedMarker) }) else {
-                return .activate(link.target)
-            }
-            return .preview(CitationPreviewGroup(items: items, selectedIndex: selectedIndex))
+            // A verified member establishes bibliography role; bracketed equations alone do not.
+            guard sourceGroup.items.contains(where: \.isResolved) else { return .activate(link.target) }
+            return .preview(sourceGroup)
         }
 
         if let sourceGroup = reconstructedAuthorYearGroup(containing: selected, on: sourcePage) {
@@ -452,7 +447,7 @@ final class CitationPreviewResolver {
         containing selectedMarker: CitationMarker,
         around selectedBounds: CGRect,
         on page: PDFPage
-    ) -> [CitationMarker]? {
+    ) -> CitationPreviewGroup? {
         guard let text = page.string else { return nil }
         let pattern = try! NSRegularExpression(
             pattern: #"\[\s*[0-9]{1,4}(?:\s*[,;]\s*[0-9]{1,4})*\s*\]"#
@@ -474,10 +469,19 @@ final class CitationPreviewResolver {
                 guard contains(annotation.bounds) else { return nil }
                 return marker(for: annotation, on: page)
             }.sorted(by: Self.sourceReadingOrder)
-            guard candidates.map(\.marker) == numbers,
-                  candidates.contains(where: { Self.markersMatch($0, selectedMarker) })
-            else { continue }
-            return candidates
+            var consumed = Set<Int>()
+            var selectedIndex: Int?
+            let items = numbers.enumerated().map { index, number -> CitationPreviewItem in
+                let matches = candidates.indices.filter { !consumed.contains($0) && candidates[$0].marker == number }
+                guard let match = matches.first else {
+                    return CitationPreviewItem(label: "[\(number)]", destination: nil, referenceText: "", state: .unresolved(reason: .missingTarget))
+                }
+                consumed.insert(match)
+                if Self.markersMatch(candidates[match], selectedMarker) { selectedIndex = index }
+                return previewItem(for: candidates[match])
+            }
+            guard let selectedIndex, consumed.count == candidates.count else { continue }
+            return CitationPreviewGroup(items: items, selectedIndex: selectedIndex)
         }
         return nil
     }
