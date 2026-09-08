@@ -598,6 +598,8 @@ final class PDFViewController: NSViewController {
               let firstPage = initialDocument.page(at: 0)
         else { return }
         initialPresentationState = .applying
+        let epoch = beginViewportMutation(.system)
+        defer { finishViewportMutation(epoch) }
         let navigation = pendingPresentationNavigation
         let success = pendingPresentationSuccessHandler
         let failure = pendingPresentationFailureHandler

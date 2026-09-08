@@ -11,6 +11,12 @@ struct ReaderSessionTests {
     @Test("a newly mounted PDF opens on page one in continuous fit-width layout")
     func initialPresentationFitsFirstPageOnce() throws {
         try withSession(pageCount: 3) { session, _ in
+            var publishedPages: [Int?] = []
+            session.setPresentationChangeHandler {
+                if session.initialPresentationState == .applied {
+                    publishedPages.append(session.currentPageNumber)
+                }
+            }
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 720, height: 480),
                 styleMask: [.titled],
@@ -30,6 +36,8 @@ struct ReaderSessionTests {
             #expect(view.displayMode == .singlePageContinuous)
             #expect(view.autoScales)
             #expect(abs(view.scaleFactor - view.scaleFactorForSizeToFit) < 0.01)
+            #expect(publishedPages.last == 1)
+            #expect(!session.canGoBack)
 
             session.zoom(by: 1.25)
             let manuallySelectedScale = session.scaleFactor
