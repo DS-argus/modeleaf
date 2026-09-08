@@ -902,19 +902,63 @@ struct CitationPreviewTests {
             guard case let .goTo(_, point?) = link.target else { return false }
             return abs(point.y - 216.845) < 0.5
         })
-        guard case .activate = ambiguousResolver.resolve(shorthandAuthorLink) else {
-            Issue.record("Expected partially resolvable shorthand group to fall back")
+        guard case let .preview(authorGroup) = ambiguousResolver.resolve(shorthandAuthorLink) else {
+            Issue.record("Shorthand author should open the complete two-member group")
             return
         }
+        #expect(authorGroup.items.map(\.label) == ["Wu & Goodman 2018", "Wu & Goodman 2019"])
+        #expect(authorGroup.selectedIndex == 0)
         let ambiguousLink = try #require(links(sourceText: "2019", in: ambiguousDocument).first { link in
             guard case let .goTo(_, point?) = link.target else { return false }
             return abs(point.y - 161.054) < 0.5
         })
-        guard case .activate = ambiguousResolver.resolve(ambiguousLink) else {
-            Issue.record("Expected omitted-author shorthand year to fall back")
+        guard case let .preview(yearGroup) = ambiguousResolver.resolve(ambiguousLink) else {
+            Issue.record("Omitted-author year should resolve using same-group author context")
             return
         }
+        #expect(yearGroup.items.map(\.label) == ["Wu & Goodman 2018", "Wu & Goodman 2019"])
+        #expect(yearGroup.selectedIndex == 1)
+        #expect(yearGroup.items.allSatisfy { $0.isResolved })
         #expect(try PDFFixtureFactory.sha256(of: ambiguousURL) == ambiguousBefore)
+    }
+    @Test("mapped author-year groups preserve every native target including omitted suffixes")
+    func mappedAuthorYearGroupContracts() throws {
+        let cases: [(String, Int, [Int], Int)] = [
+            ("D09-codevae.pdf", 0, Array(5...8), 2),
+            ("D10-posterior-sampling.pdf", 0, [2, 3], 2),
+            ("D11-submix.pdf", 0, Array(1...14), 7),
+            ("D14-structural-information.pdf", 2, Array(6...11), 3),
+            ("D09-codevae.pdf", 0, Array(1...4), 2),
+            ("D13-charmer.pdf", 1, Array(34...40), 4),
+        ]
+        for (file, pageIndex, indices, count) in cases {
+            let url = URL(fileURLWithPath: "docs/citation-papers/\(file)")
+            guard FileManager.default.fileExists(atPath: url.path) else { continue }
+            let document = try #require(PDFDocument(url: url))
+            let page = try #require(document.page(at: pageIndex))
+            let sourceLinks = try indices.map { index in
+                let annotation = try #require(page.annotations.indices.contains(index) ? page.annotations[index] : nil)
+                return try #require(links(on: page, in: document).first { $0.rects.contains(annotation.bounds) })
+            }
+            var targets: [ReaderLinkTarget] = []
+            for link in sourceLinks where !targets.contains(link.target) { targets.append(link.target) }
+            #expect(targets.count == count)
+            let resolver = CitationPreviewResolver(document: document)
+            for link in sourceLinks {
+                guard case let .preview(group) = resolver.resolve(link) else {
+                    Issue.record("\(file) p\(pageIndex + 1) group did not preview")
+                    continue
+                }
+                #expect(group.items.count == count)
+                #expect(group.items.map(\.destination) == targets.map(Optional.some))
+                #expect(group.items.allSatisfy { $0.isResolved })
+                #expect(group.items[group.selectedIndex].destination == link.target)
+                if file == "D13-charmer.pdf" {
+                    #expect(group.items[1].label.contains("2023a"))
+                    #expect(group.items[2].label.contains("2023b"))
+                }
+            }
+        }
     }
     @Test("stage four author-year occurrences use native target and source-bound geometry")
     func stageFourAuthorYearCorpusContract() throws {
@@ -927,6 +971,14 @@ struct CitationPreviewTests {
             ("D10-posterior-sampling.pdf", 2, [2, 3], "Al Marjani et al. 2021", 9),
             ("D08-grammaticality.pdf", 0, [2, 3], "Chomsky 1957", 8),
             ("D13-charmer.pdf", 0, [22, 23], "Morris et al. 2020a", 10),
+            ("D08-grammaticality.pdf", 0, [6, 7], "Lau et al. 2017", 8),
+            ("D08-grammaticality.pdf", 0, [8, 9], "Sprouse et al. 2018", 9),
+            ("D12-model-routing.pdf", 2, [24, 25], "Cortes et al. 2021c", 10),
+            ("D12-model-routing.pdf", 2, [26, 27], "Mohri et al. 2019", 11),
+            ("D12-model-routing.pdf", 2, [28, 29], "Agarwal and Zhang 2022", 9),
+            ("D08-grammaticality.pdf", 5, [26], "Pereira 2000", 8),
+            ("D08-grammaticality.pdf", 5, [27, 28], "Saul and Pereira 1997", 9),
+            ("D08-grammaticality.pdf", 5, [29], "Mikolov 2012", 8),
         ]
         for fixture in cases {
             let path = "docs/citation-papers/\(fixture.file)"
