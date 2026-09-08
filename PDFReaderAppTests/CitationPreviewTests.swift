@@ -19,11 +19,61 @@ struct CitationPreviewTests {
         #expect(CitationPreviewClassifier.marker(in: "3, 4") == nil)
         #expect(CitationPreviewClassifier.marker(in: "Smith 2024") == nil)
         #expect(CitationPreviewClassifier.bracketedMarkers(in: "Prior work [3, 4; 5] agrees", containing: 4) == [3, 4, 5])
-        #expect(CitationPreviewClassifier.bracketedMarkers(in: "Figure (4) and section 5", containing: 4) == nil)
+        #expect(CitationPreviewClassifier.bracketedMarkers(in: "Figure 4 and section 5", containing: 4) == nil)
+        #expect(CitationPreviewClassifier.bracketedMarkers(in: "(4)", containing: 4) == [4])
+        #expect(CitationPreviewClassifier.bracketedMarkers(in: "(2;3)", containing: 3) == [2, 3])
+        #expect(CitationPreviewClassifier.bracketedMarkers(in: "(12–14)", containing: 13) == [12, 13, 14])
+        #expect(CitationPreviewClassifier.bracketedMarkers(in: "[12, pp. 13–14]", containing: 12) == [12])
+        #expect(CitationPreviewClassifier.bracketedMarkers(in: "[see 12, p. 3; 14, p. 8]", containing: 14) == [12, 14])
         #expect(CitationPreviewClassifier.bracketedMarkers(in: "[3-5]", containing: 3) == [3, 4, 5])
         #expect(CitationPreviewClassifier.bracketedMarkers(in: "[1, 3–5, 8]", containing: 4) == [1, 3, 4, 5, 8])
         #expect(CitationPreviewClassifier.bracketedMarkers(in: "[5–3]", containing: 3) == nil)
         #expect(CitationPreviewClassifier.bracketedMarkers(in: "[1–9999]", containing: 1) == nil)
+    }
+    @Test("round numeric citations and notes preserve citation membership and context")
+    func citationNoteContracts() throws {
+        let cases: [(String, Int, [Int], Int, String?)] = [
+            ("D05-molvision.pdf", 0, [1], 1, nil),
+            ("D05-molvision.pdf", 0, [2, 3], 2, nil),
+            ("D12-model-routing.pdf", 3, [7, 8], 1, "e.g."),
+            ("D12-model-routing.pdf", 7, Array(7...10), 2, "e.g."),
+            ("D18-orthogonal-manifold.pdf", 5, [6, 7], 1, "Chapter 3"),
+            ("D18-orthogonal-manifold.pdf", 5, [8, 9], 1, "Prop 15.23"),
+            ("D16-labeldp-pro.pdf", 7, [26, 27], 1, "Section 5.2"),
+            ("D16-labeldp-pro.pdf", 0, [29, 30], 1, nil),
+            ("D16-labeldp-pro.pdf", 0, [31, 32], 1, nil),
+        ]
+        for (file, pageIndex, indices, count, context) in cases {
+            let url = URL(fileURLWithPath: "docs/citation-papers/\(file)")
+            guard FileManager.default.fileExists(atPath: url.path) else { continue }
+            let document = try #require(PDFDocument(url: url))
+            let page = try #require(document.page(at: pageIndex))
+            for index in indices {
+                let annotation = page.annotations[index]
+                let link = try #require(links(on: page, in: document).first { $0.rects.contains(annotation.bounds) })
+                guard case let .preview(group) = CitationPreviewResolver(document: document).resolve(link) else {
+                    Issue.record("\(file) p\(pageIndex + 1) a\(index) did not preview")
+                    continue
+                }
+                #expect(group.items.count == count)
+                #expect(group.items.allSatisfy { $0.isResolved })
+                #expect(group.items[group.selectedIndex].destination == link.target)
+                if let context {
+                    #expect(group.sourceContext?.contains(context) == true)
+                    let overlay = CitationPreviewOverlayView(frame: CGRect(x: 0, y: 0, width: 900, height: 700))
+                    overlay.present(group: group, anchorRect: .zero)
+                    #expect(overlay.referenceTextForTesting.contains(context))
+                }
+            }
+        }
+        let noteURL = URL(fileURLWithPath: "docs/citation-papers/D16-labeldp-pro.pdf")
+        if FileManager.default.fileExists(atPath: noteURL.path) {
+            let document = try #require(PDFDocument(url: noteURL))
+            let page = try #require(document.page(at: 7))
+            let annotation = page.annotations[22]
+            let link = try #require(links(on: page, in: document).first { $0.rects.contains(annotation.bounds) })
+            #expect(CitationPreviewResolver(document: document).resolve(link) == .activate(link.target))
+        }
     }
     @Test("alphabetic and opaque labels retain native bibliography identity")
     func opaqueCitationContracts() throws {
@@ -1143,6 +1193,23 @@ struct CitationPreviewTests {
             }
             #expect(group.items.map(\.label) == ["[7]"])
             #expect(group.items[group.selectedIndex].destination == wholeBracket.target)
+            for link in links where (link.rects.first?.minY ?? 0) < 630 {
+                guard case let .preview(extra) = resolver.resolve(link) else {
+                    Issue.record("Baseline numeric, round range and locator fixtures must preview")
+                    continue
+                }
+                let y = link.rects[0].minY
+                if y > 610 {
+                    #expect(extra.items.count == 1)
+                } else if y > 590 {
+                    #expect(extra.items.map(\.label) == ["[1]", "[2]", "[3]"])
+                    #expect(extra.items.allSatisfy { $0.isResolved })
+                } else {
+                    #expect(extra.items.map(\.label) == ["[7]"])
+                    #expect(extra.sourceContext?.contains("pp. 13–14") == true)
+                }
+                #expect(extra.items[extra.selectedIndex].destination == link.target)
+            }
         }
     }
     private func makeNumericSourceGeometryPDF(in directory: URL) throws -> URL {
@@ -1165,6 +1232,9 @@ struct CitationPreviewTests {
             "Adjacent [2][3]",
             "Range [1–3] nearby [1]",
             "Whole [7]",
+            "Bare 7 then 3",
+            "Round (1–3)",
+            "Locator [7, pp. 13–14]",
         ]
         let sourceLineObjects = sourceLines.map {
             CTLineCreateWithAttributedString(NSAttributedString(string: $0, attributes: attributes))
@@ -1213,6 +1283,11 @@ struct CitationPreviewTests {
             AnnotationSpec(lineIndex: 2, token: "1", occurrence: 0, destinationY: 700),
             AnnotationSpec(lineIndex: 2, token: "[1]", occurrence: 0, destinationY: 700),
             AnnotationSpec(lineIndex: 3, token: "[7]", occurrence: 0, destinationY: 640),
+            AnnotationSpec(lineIndex: 4, token: "7", occurrence: 0, destinationY: 640),
+            AnnotationSpec(lineIndex: 4, token: "3", occurrence: 0, destinationY: 660),
+            AnnotationSpec(lineIndex: 5, token: "1", occurrence: 0, destinationY: 700),
+            AnnotationSpec(lineIndex: 5, token: "3", occurrence: 0, destinationY: 660),
+            AnnotationSpec(lineIndex: 6, token: "7", occurrence: 0, destinationY: 640),
         ]
         for spec in specs {
             let text = sourceLines[spec.lineIndex] as NSString

@@ -290,9 +290,9 @@ final class CitationPreviewOverlayView: NSView {
         guard let item = selectedItem else { return }
         for (index, tab) in tabViews.enumerated() { tab.isSelected = index == selectedIndex }
         titleLabel.stringValue = item.isResolved ? "Reference" : "Reference unavailable"
-        referenceTextView.string = item.referenceText
+        referenceTextView.string = [group?.sourceContext, item.referenceText].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "\n\n")
         referenceTextView.setAccessibilityValue(
-            item.isResolved ? item.referenceText : (item.unresolvedReason?.message ?? "Reference text could not be verified.")
+            item.isResolved ? referenceTextView.string : (item.unresolvedReason?.message ?? "Reference text could not be verified.")
         )
         setAccessibilityValue(
             "Reference \(item.label) of \(group?.items.count ?? 0)\(item.isResolved ? "" : " (unresolved)")"

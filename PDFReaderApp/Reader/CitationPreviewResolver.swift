@@ -96,6 +96,7 @@ struct CitationPreviewItem: Equatable {
 struct CitationPreviewGroup: Equatable {
     let items: [CitationPreviewItem]
     let selectedIndex: Int
+    var sourceContext: String? = nil
 }
 
 enum LinkHintResolution: Equatable {
@@ -130,7 +131,7 @@ enum AuthorYearCitationClassifier {
         return match.range == range
     }
     static func key(from fragments: [String]) -> AuthorYearCitationKey? {
-        let text = joinFragments(fragments)
+        let text = CitationPreviewClassifier.cleanedBody(joinFragments(fragments))
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
         let matches = yearPattern.matches(in: text, range: range)
         guard matches.count == 1,
@@ -215,20 +216,33 @@ enum AuthorYearCitationClassifier {
 }
 
 enum CitationPreviewClassifier {
-    private static let exactMarker = try! NSRegularExpression(pattern: #"^\s*(?:([0-9]{1,4})|\[\s*([0-9]{1,4})\s*\])\s*$"#)
-    static let groupPattern = #"\[\s*[0-9]{1,4}(?:\s*[-–−]\s*[0-9]{1,4})?(?:\s*[,;]\s*[0-9]{1,4}(?:\s*[-–−]\s*[0-9]{1,4})?)*\s*\]"#
+    private static let exactMarker = try! NSRegularExpression(pattern: #"^\s*(?:([0-9]{1,4})|\[\s*([0-9]{1,4})\s*\]|\(\s*([0-9]{1,4})\s*\))\s*$"#)
+    static let groupPattern = #"(?:\[[^\[\]()]{1,2048}\]|\([^()\[\]]{1,2048}\))"#
     private static let bracketedGroup = try! NSRegularExpression(pattern: groupPattern)
 
     static func marker(in exactSourceText: String) -> Int? {
         let range = NSRange(exactSourceText.startIndex..<exactSourceText.endIndex, in: exactSourceText)
         guard let match = exactMarker.firstMatch(in: exactSourceText, range: range),
-              let markerRange = Range(match.range(at: match.range(at: 1).location == NSNotFound ? 2 : 1), in: exactSourceText)
+              let capture = (1..<match.numberOfRanges).first(where: { match.range(at: $0).location != NSNotFound }),
+              let markerRange = Range(match.range(at: capture), in: exactSourceText)
         else { return nil }
         return Int(exactSourceText[markerRange])
     }
 
+    static func cleanedBody(_ text: String) -> String {
+        text.trimmingCharacters(in: CharacterSet(charactersIn: "[]() ").union(.whitespacesAndNewlines))
+            .replacingOccurrences(of: #"(?i)^(?:e\.g\.,?|see(?: also)?|cf\.)\s*"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"(?i),?\s*(?:pp?\.|pages?|Chapter|Section|Prop\.?)\s*[0-9]+(?:[.–−-][0-9]+)*"#, with: "", options: .regularExpression)
+    }
+
+    static func sourceContext(in text: String) -> String? {
+        let body = text.trimmingCharacters(in: CharacterSet(charactersIn: "[]() ").union(.whitespacesAndNewlines))
+        guard cleanedBody(text) != body else { return nil }
+        return text.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"(?i)(Chapter|Section|Prop\.?|pp?\.)(?=[0-9])"#, with: "$1 ", options: .regularExpression)
+    }
     static func expandedMarkers(in group: String) -> [Int]? {
-        let body = group.trimmingCharacters(in: CharacterSet(charactersIn: "[] ").union(.whitespacesAndNewlines))
+        let body = cleanedBody(group)
         var result: [Int] = []
         for component in body.components(separatedBy: CharacterSet(charactersIn: ",;")) {
             let bounds = component.components(separatedBy: CharacterSet(charactersIn: "-–−"))
@@ -471,6 +485,12 @@ final class CitationPreviewResolver {
               let selected = matchingAnnotation(for: link, on: sourcePage)
         else { return .activate(link.target) }
 
+        let numericMarker = marker(for: selected, on: sourcePage)?.marker
+        if (numericMarker == nil || (1900...2099).contains(numericMarker!)),
+           let sourceGroup = reconstructedAuthorYearGroup(containing: selected, on: sourcePage) {
+            return .preview(sourceGroup)
+        }
+
         if let selectedMarker = marker(for: selected, on: sourcePage),
            let sourceGroup = reconstructedSourceGroup(
                 containing: selectedMarker,
@@ -483,14 +503,30 @@ final class CitationPreviewResolver {
             }
         }
 
-        if let sourceGroup = reconstructedAuthorYearGroup(containing: selected, on: sourcePage) {
-            return .preview(sourceGroup)
+        if let item = baselineNumericItem(for: selected, on: sourcePage) {
+            return .preview(CitationPreviewGroup(items: [item], selectedIndex: 0))
         }
-
         if let group = opaqueSourceGroup(containing: selected, on: sourcePage) { return .preview(group) }
         return .activate(link.target)
     }
 
+    private func baselineNumericItem(for selected: PDFAnnotation, on page: PDFPage) -> CitationPreviewItem? {
+        guard let marker = marker(for: selected, on: page),
+              let text = page.string,
+              let lines = page.selection(for: page.bounds(for: .cropBox))?.selectionsByLine()
+        else { return nil }
+        let wrappers = try! NSRegularExpression(pattern: CitationPreviewClassifier.groupPattern)
+        guard !wrappers.matches(in: text, range: NSRange(text.startIndex..<text.endIndex, in: text)).contains(where: {
+            guard let selection = page.selection(for: $0.range) else { return false }
+            return selectionIntersects(selection, bounds: selected.bounds, on: page)
+        }), lines.contains(where: {
+            let bounds = $0.bounds(for: page)
+            return abs(bounds.midY - selected.bounds.midY) <= 2 && bounds.height <= selected.bounds.height * 1.5
+                && ($0.string ?? "").rangeOfCharacter(from: .letters) != nil
+        }) else { return nil }
+        let item = previewItem(for: marker)
+        return item.isResolved ? item : nil
+    }
     private func opaqueSourceGroup(containing selected: PDFAnnotation, on page: PDFPage) -> CitationPreviewGroup? {
         guard let text = page.string else { return nil }
         let label = #"[A-Za-z][A-Za-z0-9+._-]*"#
@@ -575,7 +611,7 @@ final class CitationPreviewResolver {
                 return previewItem(for: candidates[match])
             }
             guard let selectedIndex, consumed.count == candidates.count else { continue }
-            return CitationPreviewGroup(items: items, selectedIndex: selectedIndex)
+            return CitationPreviewGroup(items: items, selectedIndex: selectedIndex, sourceContext: CitationPreviewClassifier.sourceContext(in: groupText))
         }
         return nil
     }
@@ -850,7 +886,7 @@ final class CitationPreviewResolver {
                 destination: component[0].destination, referenceText: "", state: .unresolved(reason: .referenceUnavailable))
         }
         guard let selectedIndex, items.contains(where: \.isResolved) else { return nil }
-        return CitationPreviewGroup(items: items, selectedIndex: selectedIndex)
+        return CitationPreviewGroup(items: items, selectedIndex: selectedIndex, sourceContext: CitationPreviewClassifier.sourceContext(in: occurrence.text))
     }
 
     private func bareAuthorYearGroup(
