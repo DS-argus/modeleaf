@@ -9,7 +9,16 @@ import Testing
 @Suite("Citation preview contracts")
 @MainActor
 struct CitationPreviewTests {
-    @Test("classifier accepts only exact numeric markers inside bracketed numeric groups")
+    private func citationFixtureExists(atPath path: String) -> Bool {
+        guard !FileManager.default.fileExists(atPath: path) else { return true }
+        if ProcessInfo.processInfo.environment["MODELEAF_REQUIRE_CITATION_FIXTURES"] == "1" {
+            Issue.record("Required citation fixture is unavailable: \(path)")
+        } else {
+            print("UNAVAILABLE optional citation fixture (not verified): \(path)")
+        }
+        return false
+    }
+    @Test("numeric classifier distinguishes exact markers and expands scoped groups")
     func classifierContract() {
         #expect(CitationPreviewClassifier.marker(in: " 13 ") == 13)
         #expect(CitationPreviewClassifier.marker(in: "[7]") == 7)
@@ -18,17 +27,17 @@ struct CitationPreviewTests {
         #expect(CitationPreviewClassifier.marker(in: "[7") == nil)
         #expect(CitationPreviewClassifier.marker(in: "3, 4") == nil)
         #expect(CitationPreviewClassifier.marker(in: "Smith 2024") == nil)
-        #expect(CitationPreviewClassifier.bracketedMarkers(in: "Prior work [3, 4; 5] agrees", containing: 4) == [3, 4, 5])
-        #expect(CitationPreviewClassifier.bracketedMarkers(in: "Figure 4 and section 5", containing: 4) == nil)
-        #expect(CitationPreviewClassifier.bracketedMarkers(in: "(4)", containing: 4) == [4])
-        #expect(CitationPreviewClassifier.bracketedMarkers(in: "(2;3)", containing: 3) == [2, 3])
-        #expect(CitationPreviewClassifier.bracketedMarkers(in: "(12–14)", containing: 13) == [12, 13, 14])
-        #expect(CitationPreviewClassifier.bracketedMarkers(in: "[12, pp. 13–14]", containing: 12) == [12])
-        #expect(CitationPreviewClassifier.bracketedMarkers(in: "[see 12, p. 3; 14, p. 8]", containing: 14) == [12, 14])
-        #expect(CitationPreviewClassifier.bracketedMarkers(in: "[3-5]", containing: 3) == [3, 4, 5])
-        #expect(CitationPreviewClassifier.bracketedMarkers(in: "[1, 3–5, 8]", containing: 4) == [1, 3, 4, 5, 8])
-        #expect(CitationPreviewClassifier.bracketedMarkers(in: "[5–3]", containing: 3) == nil)
-        #expect(CitationPreviewClassifier.bracketedMarkers(in: "[1–9999]", containing: 1) == nil)
+        #expect(CitationPreviewClassifier.bracketedGroups(in: "Prior work [3, 4; 5] agrees") == [[3, 4, 5]])
+        #expect(CitationPreviewClassifier.bracketedGroups(in: "Figure 4 and section 5").isEmpty)
+        #expect(CitationPreviewClassifier.bracketedGroups(in: "(4)") == [[4]])
+        #expect(CitationPreviewClassifier.bracketedGroups(in: "(2;3)") == [[2, 3]])
+        #expect(CitationPreviewClassifier.bracketedGroups(in: "(12–14)") == [[12, 13, 14]])
+        #expect(CitationPreviewClassifier.bracketedGroups(in: "[12, pp. 13–14]") == [[12]])
+        #expect(CitationPreviewClassifier.bracketedGroups(in: "[see 12, p. 3; 14, p. 8]") == [[12, 14]])
+        #expect(CitationPreviewClassifier.bracketedGroups(in: "[3-5]") == [[3, 4, 5]])
+        #expect(CitationPreviewClassifier.bracketedGroups(in: "[1, 3–5, 8]") == [[1, 3, 4, 5, 8]])
+        #expect(CitationPreviewClassifier.bracketedGroups(in: "[5–3]").isEmpty)
+        #expect(CitationPreviewClassifier.bracketedGroups(in: "[1–9999]").isEmpty)
     }
     @Test("round numeric citations and notes preserve citation membership and context")
     func citationNoteContracts() throws {
@@ -45,7 +54,7 @@ struct CitationPreviewTests {
         ]
         for (file, pageIndex, indices, count, context) in cases {
             let url = URL(fileURLWithPath: "docs/citation-papers/\(file)")
-            guard FileManager.default.fileExists(atPath: url.path) else { continue }
+            guard citationFixtureExists(atPath: url.path) else { continue }
             let document = try #require(PDFDocument(url: url))
             let page = try #require(document.page(at: pageIndex))
             for index in indices {
@@ -67,7 +76,7 @@ struct CitationPreviewTests {
             }
         }
         let noteURL = URL(fileURLWithPath: "docs/citation-papers/D16-labeldp-pro.pdf")
-        if FileManager.default.fileExists(atPath: noteURL.path) {
+        if citationFixtureExists(atPath: noteURL.path) {
             let document = try #require(PDFDocument(url: noteURL))
             let page = try #require(document.page(at: 7))
             let annotation = page.annotations[22]
@@ -83,7 +92,7 @@ struct CitationPreviewTests {
             ("D16-labeldp-pro.pdf", [33], ["app"]),
         ] {
             let url = URL(fileURLWithPath: "docs/citation-papers/\(file)")
-            guard FileManager.default.fileExists(atPath: url.path) else { continue }
+            guard citationFixtureExists(atPath: url.path) else { continue }
             let document = try #require(PDFDocument(url: url))
             let page = try #require(document.page(at: 0))
             for (expectedSelection, index) in indices.enumerated() {
@@ -103,9 +112,13 @@ struct CitationPreviewTests {
 
     @Test("author-year classifier joins split and hyphenated fragments and validates exact reference keys")
     func authorYearClassifierContract() throws {
+        let mentionedAuthors = try #require(AuthorYearCitationClassifier.key(from: ["Smith & Jones", "2020"]))
+        #expect(!AuthorYearCitationClassifier.validates(mentionedAuthors,
+            referenceText: "Brown, B. 2020. Smith and Jones benchmark."))
+        #expect(!AuthorYearCitationClassifier.validates(mentionedAuthors,
+            referenceText: "Smith and Jones benchmark, 2020. Brown, B."))
         let simple = try #require(AuthorYearCitationClassifier.key(from: ["Germain et al.", "2015"]))
         #expect(simple.label == "Germain et al. 2015")
-        #expect(simple.primarySurname == "Germain")
         #expect(AuthorYearCitationClassifier.validates(
             simple,
             referenceText: "Germain, P., Lacasse, A. A verified title. PMLR, 2015."
@@ -143,6 +156,7 @@ struct CitationPreviewTests {
 
     @Test("Google Scholar URL preserves the complete reference as one encoded query")
     func googleScholarSearchURLContract() throws {
+        #expect(citationScholarQuery(for: "[12] García & 李.\nA title.") == "García & 李.\nA title.")
         let reference = "[7] Edward J. Hu et al. LoRA: Low-rank adaptation & fine-tuning."
         let url = try #require(googleScholarSearchURL(for: reference))
         let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
@@ -154,8 +168,26 @@ struct CitationPreviewTests {
         #expect(citationScholarQuery(for: "24. Lee, Lin & Fanti. Supplemental reference") == "Lee, Lin & Fanti. Supplemental reference")
     }
 
+    @Test("numeric extraction refuses to mark capped reference prefixes as complete")
+    func truncatedNumericReferenceContract() {
+        let lines = (0..<9).map { index in
+            CitationTextLine(text: index == 0 ? "[7] Long reference" : "continuation \(index)",
+                bounds: CGRect(x: 40, y: 700 - index * 14, width: 220, height: 12))
+        }
+        #expect(CitationReferenceExtractor.extract(marker: 7, from: lines) == nil)
+        #expect(CitationReferenceExtractor.extract(marker: 7, from: Array(lines.prefix(8))) != nil)
+        let overlong = CitationTextLine(text: "[7] " + String(repeating: "x", count: 701), bounds: lines[0].bounds)
+        #expect(CitationReferenceExtractor.extract(marker: 7, from: [overlong]) == nil)
+    }
     @Test("extractor stops at the next marker, large gap, and bounded size")
     func extractorContract() {
+        let wrapped = [
+            CitationTextLine(text: "[3] Author. Title", bounds: CGRect(x: 40, y: 700, width: 220, height: 12)),
+            CitationTextLine(text: "2019. Journal, volume pages.", bounds: CGRect(x: 52, y: 684, width: 220, height: 12)),
+        ]
+        #expect(CitationReferenceExtractor.extract(marker: 3, from: wrapped) == "[3] Author. Title 2019. Journal, volume pages.")
+        let ambiguous = CitationTextLine(text: "2019. Beta reference.", bounds: CGRect(x: 40, y: 684, width: 220, height: 12))
+        #expect(CitationReferenceExtractor.extract(marker: 3, from: [wrapped[0], ambiguous]) == nil)
         let lines = [
             CitationTextLine(text: "[3] Ada Author. A title", bounds: CGRect(x: 40, y: 700, width: 220, height: 12)),
             CitationTextLine(text: "continued venue text", bounds: CGRect(x: 40, y: 684, width: 220, height: 12)),
@@ -197,7 +229,7 @@ struct CitationPreviewTests {
         ]
         for (file, pageIndex, annotations, members) in cases {
             let url = URL(fileURLWithPath: "docs/citation-papers/\(file)")
-            guard FileManager.default.fileExists(atPath: url.path) else { continue }
+            guard citationFixtureExists(atPath: url.path) else { continue }
             let document = try #require(PDFDocument(url: url))
             let page = try #require(document.page(at: pageIndex))
             let resolver = CitationPreviewResolver(document: document)
@@ -254,13 +286,14 @@ struct CitationPreviewTests {
         let page = PDFPage()
         let sentinel = CGFloat(Float.greatestFiniteMagnitude)
         let points = [
+            CGPoint(x: -10000, y: 700),
             CGPoint(x: CGFloat.nan, y: 700),
             CGPoint(x: 40, y: CGFloat.infinity),
             CGPoint(x: -sentinel, y: 700),
             CGPoint(x: 40, y: sentinel),
         ]
         for point in points {
-            #expect(!CitationReferenceEntryExtractor.isUsableDestinationPoint(point))
+            #expect(!CitationReferenceEntryExtractor.isUsableDestinationPoint(point, on: page))
             #expect(CitationReferenceEntryExtractor.numericEntry(marker: 7, destinationPoint: point, on: page) == nil)
             #expect(CitationReferenceEntryExtractor.entry(destinationPoint: point, on: page) == nil)
             #expect(CitationReferenceEntryExtractor.candidates(destinationPoint: point, on: page).isEmpty)
@@ -341,6 +374,17 @@ struct CitationPreviewTests {
         overlay.dismiss()
         #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "\t", keyCode: 48))))
         #expect(overlay.selectedLabelForTesting == nil)
+        overlay.onCommit = { _ in Issue.record("Stale commit must not run") }
+        overlay.present(group: CitationPreviewGroup(items: [item], selectedIndex: 0), anchorRect: .zero)
+        overlay.present(group: CitationPreviewGroup(items: [], selectedIndex: 0), anchorRect: .zero)
+        #expect(overlay.isHidden && !overlay.hasCallbacksForTesting)
+        #expect(overlay.referenceTextForTesting.isEmpty && overlay.selectedLabelForTesting == nil)
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "\r", keyCode: 36))))
+        overlay.setFrameSize(NSSize(width: 200, height: 420))
+        overlay.present(group: CitationPreviewGroup(items: [item], selectedIndex: 0), anchorRect: .zero)
+        overlay.layoutSubtreeIfNeeded()
+        #expect(overlay.cardFrameForTesting.minX >= 0)
+        #expect(overlay.cardFrameForTesting.maxX <= overlay.bounds.maxX)
     }
     @Test("unresolved members remain selectable but Enter and Scholar are inert")
     func unresolvedSelectionActions() throws {
@@ -647,7 +691,7 @@ struct CitationPreviewTests {
     @Test("author-year preview resolution remains nonmutating until Move commits one history jump")
     func authorYearHistoryContract() throws {
         let path = "test-pdf/citation-annotation-corpus/ICML/2022-pac-bayesian-rate-efficient.pdf"
-        guard FileManager.default.fileExists(atPath: path) else { return }
+        guard citationFixtureExists(atPath: path) else { return }
         let url = URL(fileURLWithPath: path)
         let before = try PDFFixtureFactory.sha256(of: url)
         let document = try #require(PDFDocument(url: url))
@@ -682,14 +726,14 @@ struct CitationPreviewTests {
         #expect(session.currentPageNumber == 1)
         #expect(try PDFFixtureFactory.sha256(of: url) == before)
     }
-    @Test("real corpus positives resolve author-year and noncitation links stay ordinary")
+    @Test("real numeric corpus positives resolve and external links retain ordinary activation")
     func realCorpusContract() throws {
         let samples: [(path: String, expected: [Int])] = [
             ("test-pdf/citation-annotation-corpus/NeurIPS/2022-federated-submodel-optimization.pdf", [3, 4, 5, 6]),
             ("test-pdf/citation-annotation-corpus/NeurIPS/2025-primacy-of-magnitude.pdf", [1, 2, 3, 4, 5]),
             ("test-pdf/citation-annotation-corpus/ICLR/2022-s4.pdf", [1, 13]),
         ]
-        guard samples.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) else { return }
+        guard samples.allSatisfy({ citationFixtureExists(atPath: $0.path) }) else { return }
 
         for sample in samples {
             let url = URL(fileURLWithPath: sample.path)
@@ -705,7 +749,7 @@ struct CitationPreviewTests {
         }
 
         let fallbackURL = URL(fileURLWithPath: "test-pdf/citation-annotation-corpus/NeurIPS/2024-microadam.pdf")
-        guard FileManager.default.fileExists(atPath: fallbackURL.path) else { return }
+        guard citationFixtureExists(atPath: fallbackURL.path) else { return }
         let before = try PDFFixtureFactory.sha256(of: fallbackURL)
         let fallbackDocument = try #require(PDFDocument(url: fallbackURL))
         let resolver = CitationPreviewResolver(document: fallbackDocument)
@@ -738,7 +782,7 @@ struct CitationPreviewTests {
     @Test("D01 N01 resolves a single [7] from its source geometry")
     func primacySingleNumericContract() throws {
         let path = "test-pdf/citation-annotation-corpus/NeurIPS/2025-primacy-of-magnitude.pdf"
-        guard FileManager.default.fileExists(atPath: path) else { return }
+        guard citationFixtureExists(atPath: path) else { return }
         let document = try #require(PDFDocument(url: URL(fileURLWithPath: path)))
         let sourcePage = try #require(document.page(at: 0))
         let annotation = try #require(sourcePage.annotations.indices.contains(12) ? sourcePage.annotations[12] : nil)
@@ -759,7 +803,7 @@ struct CitationPreviewTests {
     @Test("D03 N05 resolves [24] against the supplemental bibliography, not main references")
     func neuralPlexerSupplementalSingleContract() throws {
         let path = "docs/citation-papers/D03-neuralplexer3.pdf"
-        guard FileManager.default.fileExists(atPath: path) else { return }
+        guard citationFixtureExists(atPath: path) else { return }
         let document = try #require(PDFDocument(url: URL(fileURLWithPath: path)))
         let sourcePage = try #require(document.page(at: 27))
         let link = try #require(links(on: sourcePage, in: document).first { link in
@@ -784,7 +828,7 @@ struct CitationPreviewTests {
     @Test("NeurIPS 2025 multiline numeric groups are selection-invariant and references are complete")
     func neurIPS2025PhaseOneContract() throws {
         let path = "test-pdf/citation-annotation-corpus/NeurIPS/2025-primacy-of-magnitude.pdf"
-        guard FileManager.default.fileExists(atPath: path) else { return }
+        guard citationFixtureExists(atPath: path) else { return }
         let url = URL(fileURLWithPath: path)
         let before = try PDFFixtureFactory.sha256(of: url)
         let document = try #require(PDFDocument(url: url))
@@ -834,7 +878,7 @@ struct CitationPreviewTests {
                 "Bailoni, A."
             ),
         ]
-        guard fixtures.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) else { return }
+        guard fixtures.allSatisfy({ citationFixtureExists(atPath: $0.path) }) else { return }
 
         for fixture in fixtures {
             let url = URL(fileURLWithPath: fixture.path)
@@ -877,6 +921,7 @@ struct CitationPreviewTests {
             ]
         }
         #expect(CitationReferenceEntryExtractor.layout(of: twoColumn, pageBounds: page) == .twoColumns(splitX: 300))
+        #expect(CitationReferenceEntryExtractor.layout(of: Array(twoColumn.prefix(4)), pageBounds: page) == .twoColumns(splitX: 300))
     }
 
     @Test("ICML author-year fragments resolve from author or year without mutating corpus PDFs")
@@ -933,7 +978,7 @@ struct CitationPreviewTests {
                 referencePrefix: "Kingma, D. P. and Welling, M."
             ),
         ])
-        guard fixtures.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) else { return }
+        guard fixtures.allSatisfy({ citationFixtureExists(atPath: $0.path) }) else { return }
 
         let expectedGroups = [
             "James 1998": ["James 1998", "Lacasse et al. 2006"],
@@ -1008,7 +1053,7 @@ struct CitationPreviewTests {
         ]
         for (file, pageIndex, indices, count) in cases {
             let url = URL(fileURLWithPath: "docs/citation-papers/\(file)")
-            guard FileManager.default.fileExists(atPath: url.path) else { continue }
+            guard citationFixtureExists(atPath: url.path) else { continue }
             let document = try #require(PDFDocument(url: url))
             let page = try #require(document.page(at: pageIndex))
             let sourceLinks = try indices.map { index in
@@ -1057,7 +1102,7 @@ struct CitationPreviewTests {
         ]
         for fixture in cases {
             let path = "docs/citation-papers/\(fixture.file)"
-            guard FileManager.default.fileExists(atPath: path) else { continue }
+            guard citationFixtureExists(atPath: path) else { continue }
             let document = try #require(PDFDocument(url: URL(fileURLWithPath: path)))
             let page = try #require(document.page(at: fixture.sourcePage))
             let resolver = CitationPreviewResolver(document: document)
@@ -1092,7 +1137,7 @@ struct CitationPreviewTests {
                 return sourcePage.selection(for: rect)?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             }
             let links = links(on: sourcePage, in: document)
-            let wholeLinks = links.filter { sourceText($0).contains("Whole") }
+            let wholeLinks = links.filter { sourceText($0).contains("Whole") && !sourceText($0).contains(";") }
             #expect(wholeLinks.count == 2)
             for link in wholeLinks {
                 guard case let .preview(group) = resolver.resolve(link) else {
@@ -1111,6 +1156,8 @@ struct CitationPreviewTests {
                     continue
                 }
                 #expect(group.items.map(\.label) == ["Square 2021"])
+                #expect(group.items[group.selectedIndex].destination == link.target)
+                #expect(group.items[group.selectedIndex].isResolved)
             }
 
             let bareLink = try #require(links.first { sourceText($0) == "2022" })
@@ -1129,10 +1176,41 @@ struct CitationPreviewTests {
                 #expect(customGroup.items.allSatisfy { $0.isResolved })
                 #expect(customGroup.items[customGroup.selectedIndex].destination == link.target)
             }
+            let multi = try #require(links.first { sourceText($0).contains("Whole") && sourceText($0).contains(";") })
+            guard case let .preview(wholeGroup) = resolver.resolve(multi) else {
+                Issue.record("Whole author-year multicitation must preserve unmatched members")
+                return
+            }
+            #expect(wholeGroup.items.map(\.label) == ["Whole 2020", "Square 2021"])
+            #expect(wholeGroup.items[0].destination == multi.target)
+            #expect(wholeGroup.items[1].destination == nil && wholeGroup.items[1].isUnresolved)
+            let suffixLink = try #require(links.first { sourceText($0) == "b" })
+            guard case let .preview(suffixGroup) = resolver.resolve(suffixLink) else {
+                Issue.record("Suffix b must resolve independently of a")
+                return
+            }
+            #expect(suffixGroup.items.map(\.label) == ["Suffix 2023a", "Suffix 2023b"])
+            #expect(suffixGroup.selectedIndex == 1)
+            #expect(suffixGroup.items[0].referenceText == "Suffix Author. 2023a. First suffix reference.")
+            #expect(suffixGroup.items[1].referenceText == "Suffix Author. 2023b. Second suffix reference.")
+            #expect(suffixGroup.items[1].destination == suffixLink.target)
+            let continuationLink = try #require(links.first { sourceText($0).contains("SameIndent") })
+            guard case let .preview(continued) = resolver.resolve(continuationLink) else {
+                Issue.record("Same-indent continuation must remain in its reference")
+                return
+            }
+            #expect(continued.items[0].referenceText == "SameIndent Author. 2024. Title. In NeurIPS.")
+            let ampersand = try #require(links.first { sourceText($0) == "2018" })
+            guard case let .preview(ampersandGroup) = resolver.resolve(ampersand) else {
+                Issue.record("Bare linked year must preserve ampersand-separated authors")
+                return
+            }
+            #expect(ampersandGroup.items[0].label == "Sagi & Rokach 2018")
+            #expect(ampersandGroup.items[0].destination == ampersand.target)
         }
     }
 
-    @Test("numeric source geometry keeps bracket occurrences independent and rejects a nearby range")
+    @Test("numeric occurrences preserve independent wrappers, whole links and unresolved range members")
     func numericSourceGeometryContract() throws {
         try withTemporaryDirectory { directory in
             let url = try makeNumericSourceGeometryPDF(in: directory)
@@ -1193,7 +1271,7 @@ struct CitationPreviewTests {
             }
             #expect(group.items.map(\.label) == ["[7]"])
             #expect(group.items[group.selectedIndex].destination == wholeBracket.target)
-            for link in links where (link.rects.first?.minY ?? 0) < 630 {
+            for link in links where link.rects[0].minY < 630 && link.rects[0].minY > 570 {
                 guard case let .preview(extra) = resolver.resolve(link) else {
                     Issue.record("Baseline numeric, round range and locator fixtures must preview")
                     continue
@@ -1210,6 +1288,42 @@ struct CitationPreviewTests {
                 }
                 #expect(extra.items[extra.selectedIndex].destination == link.target)
             }
+            for link in links where link.rects[0].minY < 550 && sourceText(link) != "[7]" {
+                guard case let .preview(wholeGroup) = resolver.resolve(link) else {
+                    Issue.record("Whole numeric group must preserve members: \(sourceText(link))")
+                    continue
+                }
+                #expect(wholeGroup.items.count == (sourceText(link).contains("–") ? 3 : 2))
+                #expect(wholeGroup.items[0].destination == link.target)
+                #expect(wholeGroup.items[0].isResolved)
+                #expect(wholeGroup.items[0].referenceText == "[1] First verified reference.")
+                #expect(wholeGroup.items.dropFirst().allSatisfy { $0.isUnresolved && $0.destination == nil })
+            }
+            let duplicate = try #require(links.first { sourceText($0) == "[7]" && $0.rects[0].minY < 500 })
+            guard case let .preview(duplicateGroup) = resolver.resolve(duplicate) else {
+                Issue.record("Same-page duplicate marker must bind to its own native destination")
+                return
+            }
+            #expect(duplicateGroup.items[0].referenceText == "[7] Duplicate reference.")
+            #expect(duplicateGroup.items[0].destination == duplicate.target)
+            let bibliographyPage = try #require(document.page(at: 1))
+            #expect(CitationReferenceEntryExtractor.numericEntry(marker: 7, destinationPoint: CGPoint(x: 48, y: 604), on: bibliographyPage) == nil)
+            let locatorLink = try #require(links.first { sourceText($0) == "7" && $0.rects[0].minY < 590 })
+            let merged = ReaderLink(sourcePageIndex: 0, rects: wholeBracket.rects + locatorLink.rects,
+                target: locatorLink.target, primaryLabelRect: locatorLink.primaryLabelRect)
+            guard case let .preview(mergedGroup) = resolver.resolve(merged) else {
+                Issue.record("Merged-link primary rectangle must retain selected occurrence")
+                return
+            }
+            #expect(mergedGroup.sourceContext?.contains("pp. 13–14") == true)
+
+            let bare = try #require(links.first { sourceText($0) == "7" && $0.rects[0].minY > 610 && $0.rects[0].minY < 630 })
+            let footnote = try #require(sourcePage.selection(for: sourcePage.bounds(for: .cropBox))?.selectionsByLine().first { $0.string?.contains("7. Footnote text") == true })
+            let annotation = try #require(sourcePage.annotations.first { $0.bounds == bare.primaryLabelRect })
+            let point = CGPoint(x: 48, y: footnote.bounds(for: sourcePage).maxY)
+            annotation.action = PDFActionGoTo(destination: PDFDestination(page: sourcePage, at: point))
+            let noteLink = ReaderLink(sourcePageIndex: 0, rects: bare.rects, target: .goTo(pageIndex: 0, point: point), primaryLabelRect: bare.primaryLabelRect)
+            #expect(resolver.resolve(noteLink) == .activate(noteLink.target))
         }
     }
     private func makeNumericSourceGeometryPDF(in directory: URL) throws -> URL {
@@ -1235,6 +1349,12 @@ struct CitationPreviewTests {
             "Bare 7 then 3",
             "Round (1–3)",
             "Locator [7, pp. 13–14]",
+            "7. Footnote text",
+            "Whole list [1,3]",
+            "Whole range [1–3]",
+            "[1,",
+            "3]",
+            "Duplicate [7]",
         ]
         let sourceLineObjects = sourceLines.map {
             CTLineCreateWithAttributedString(NSAttributedString(string: $0, attributes: attributes))
@@ -1248,10 +1368,13 @@ struct CitationPreviewTests {
         context.endPDFPage()
 
         let bibliographyLines = [
+            ("References", CGFloat(730)),
             ("[1] First verified reference.", CGFloat(700)),
             ("[2] Second verified reference.", CGFloat(680)),
             ("[3] Third verified reference.", CGFloat(660)),
             ("[7] Seventh verified reference.", CGFloat(640)),
+            ("[7] Duplicate reference.", CGFloat(620)),
+            ("[7] This reference is too wide for the detected column.", CGFloat(600)),
         ]
         context.beginPDFPage(nil)
         for (text, y) in bibliographyLines {
@@ -1260,6 +1383,10 @@ struct CitationPreviewTests {
                 CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes)),
                 context
             )
+        }
+        for (text, y) in [("[90] Remote entry.", CGFloat(700)), ("Remote continuation.", CGFloat(680))] {
+            context.textPosition = CGPoint(x: 350, y: y)
+            CTLineDraw(CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes)), context)
         }
         context.endPDFPage()
         context.closePDF()
@@ -1288,6 +1415,9 @@ struct CitationPreviewTests {
             AnnotationSpec(lineIndex: 5, token: "1", occurrence: 0, destinationY: 700),
             AnnotationSpec(lineIndex: 5, token: "3", occurrence: 0, destinationY: 660),
             AnnotationSpec(lineIndex: 6, token: "7", occurrence: 0, destinationY: 640),
+            AnnotationSpec(lineIndex: 8, token: "[1,3]", occurrence: 0, destinationY: 700),
+            AnnotationSpec(lineIndex: 9, token: "[1–3]", occurrence: 0, destinationY: 700),
+            AnnotationSpec(lineIndex: 12, token: "[7]", occurrence: 0, destinationY: 620),
         ]
         for spec in specs {
             let text = sourceLines[spec.lineIndex] as NSString
@@ -1324,6 +1454,13 @@ struct CitationPreviewTests {
             sourcePage.addAnnotation(annotation)
         }
 
+        let wrappedRange = (try #require(sourcePage.string) as NSString).range(of: "[1,\n3]")
+        guard wrappedRange.location != NSNotFound, let wrapped = sourcePage.selection(for: wrappedRange) else {
+            throw PDFFixtureError.couldNotWriteDocument
+        }
+        let multilineAnnotation = PDFAnnotation(bounds: wrapped.bounds(for: sourcePage), forType: .link, withProperties: nil)
+        multilineAnnotation.action = PDFActionGoTo(destination: PDFDestination(page: destinationPage, at: CGPoint(x: 48, y: 704)))
+        sourcePage.addAnnotation(multilineAnnotation)
         let outputURL = directory.appendingPathComponent("numeric-source-geometry.pdf")
         guard document.write(to: outputURL), PDFDocument(url: outputURL) != nil else {
             throw PDFFixtureError.couldNotWriteDocument
@@ -1350,6 +1487,10 @@ struct CitationPreviewTests {
             "[Square, 2021]",
             "Bare 2022",
             "[Red; Blue]",
+            "(Whole 2020; Square 2021)",
+            "(Suffix 2023a,b)",
+            "(SameIndent 2024)",
+            "Sagi & Rokach 2018",
         ]
         let sourceLineObjects = sourceLines.map {
             CTLineCreateWithAttributedString(NSAttributedString(string: $0, attributes: attributes))
@@ -1368,6 +1509,12 @@ struct CitationPreviewTests {
             ("Bare Author. 2022. Bare reference.", CGFloat(660)),
             ("[Red] Custom red reference without a year.", CGFloat(640)),
             ("[Blue] Custom blue reference without a year.", CGFloat(620)),
+            ("Suffix Author. 2023a. First suffix reference.", CGFloat(600)),
+            ("Suffix Author. 2023b. Second suffix reference.", CGFloat(580)),
+            ("SameIndent Author. 2024. Title.", CGFloat(560)),
+            ("In NeurIPS.", CGFloat(546)),
+            ("1234. Another reference.", CGFloat(530)),
+            ("Sagi, O. and Rokach, L. 2018. Bare authors.", CGFloat(500)),
         ]
         context.beginPDFPage(nil)
         context.textMatrix = .identity
@@ -1400,6 +1547,11 @@ struct CitationPreviewTests {
             AnnotationSpec(lineIndex: 2, token: "2022", occurrence: 0, destinationY: 660),
             AnnotationSpec(lineIndex: 3, token: "Red", occurrence: 0, destinationY: 640),
             AnnotationSpec(lineIndex: 3, token: "Blue", occurrence: 0, destinationY: 620),
+            AnnotationSpec(lineIndex: 4, token: "(Whole 2020; Square 2021)", occurrence: 0, destinationY: 700),
+            AnnotationSpec(lineIndex: 5, token: "Suffix 2023a", occurrence: 0, destinationY: 600),
+            AnnotationSpec(lineIndex: 5, token: "b", occurrence: 0, destinationY: 580),
+            AnnotationSpec(lineIndex: 6, token: "(SameIndent 2024)", occurrence: 0, destinationY: 560),
+            AnnotationSpec(lineIndex: 7, token: "2018", occurrence: 0, destinationY: 500),
         ]
         for spec in specs {
             let text = sourceLines[spec.lineIndex] as NSString

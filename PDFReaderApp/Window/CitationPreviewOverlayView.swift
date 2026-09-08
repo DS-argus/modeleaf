@@ -4,7 +4,6 @@ import AppKit
 final class CitationPreviewOverlayView: NSView {
     private enum Metrics {
         static let preferredWidth: CGFloat = 520
-        static let minimumWidth: CGFloat = 280
         static let edgeInset: CGFloat = 16
         static let cardGap: CGFloat = 10
         static let chromeHeight: CGFloat = 127
@@ -146,7 +145,10 @@ final class CitationPreviewOverlayView: NSView {
     }
 
     func present(group: CitationPreviewGroup, anchorRect: CGRect) {
-        guard !group.items.isEmpty, group.items.indices.contains(group.selectedIndex) else { return }
+        guard !group.items.isEmpty, group.items.indices.contains(group.selectedIndex) else {
+            dismiss()
+            return
+        }
         self.group = group
         self.anchorRect = anchorRect
         selectedIndex = group.selectedIndex
@@ -159,6 +161,9 @@ final class CitationPreviewOverlayView: NSView {
 
     func dismiss() {
         group = nil
+        onCommit = nil
+        onSearch = nil
+        onDismiss = nil
         tabViews.forEach { tabs.removeArrangedSubview($0); $0.removeFromSuperview() }
         tabViews = []
         titleLabel.stringValue = "Reference"
@@ -201,7 +206,7 @@ final class CitationPreviewOverlayView: NSView {
     override func layout() {
         guard !isHidden else { super.layout(); return }
         let availableWidth = max(0, bounds.width - (Metrics.edgeInset * 2))
-        let width = min(Metrics.preferredWidth, max(Metrics.minimumWidth, availableWidth))
+        let width = min(Metrics.preferredWidth, availableWidth)
         let maximumCardHeight = max(0, bounds.height - (Metrics.edgeInset * 2))
         let textWidth = max(1, width - 32)
         let desiredReferenceHeight = referenceTextHeight(for: textWidth)
