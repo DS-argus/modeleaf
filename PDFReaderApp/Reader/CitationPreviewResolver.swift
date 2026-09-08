@@ -142,9 +142,7 @@ enum AuthorYearCitationClassifier {
         if let completeYearRange = Range(matches[0].range, in: text) {
             authors.removeSubrange(completeYearRange)
         }
-        authors = authors
-            .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "(),;")))
-            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        authors = normalizedAuthors(authors)
         guard authors.rangeOfCharacter(from: .letters) != nil,
               !authors.lowercased().hasPrefix("et al")
         else { return nil }
@@ -161,12 +159,29 @@ enum AuthorYearCitationClassifier {
 
     static func validates(_ key: AuthorYearCitationKey, referenceText: String) -> Bool {
         let foldedReference = folded(referenceText)
-        let foldedSurname = folded(key.primarySurname)
-        guard foldedReference.hasPrefix(foldedSurname) else { return false }
         let yearToken = "\(key.year)\(key.yearSuffix)"
-        let pattern = try! NSRegularExpression(pattern: #"\b"# + NSRegularExpression.escapedPattern(for: yearToken) + #"\b"#)
+        let yearPattern = try! NSRegularExpression(
+            pattern: #"(?<![0-9A-Za-z])"# + NSRegularExpression.escapedPattern(for: yearToken) + #"(?![0-9A-Za-z])"#
+        )
         let range = NSRange(foldedReference.startIndex..<foldedReference.endIndex, in: foldedReference)
-        return pattern.firstMatch(in: foldedReference, range: range) != nil
+        guard yearPattern.firstMatch(in: foldedReference, range: range) != nil else { return false }
+
+        let authorTokens = key.authors
+            .split(whereSeparator: { $0.isWhitespace || $0 == "&" || $0 == "," })
+            .map { String($0).trimmingCharacters(in: .punctuationCharacters) }
+            .filter { token in
+                let folded = self.folded(token)
+                return token.rangeOfCharacter(from: .letters) != nil
+                    && !["et", "al", "and"].contains(folded)
+            }
+        guard !authorTokens.isEmpty else { return false }
+        return authorTokens.allSatisfy { surname in
+            let surnamePattern = try! NSRegularExpression(
+                pattern: #"(?<![\p{L}])"# + NSRegularExpression.escapedPattern(for: folded(surname)) + #"(?![\p{L}])"#,
+                options: [.caseInsensitive]
+            )
+            return surnamePattern.firstMatch(in: foldedReference, range: range) != nil
+        }
     }
 
     private static func joinFragments(_ fragments: [String]) -> String {
@@ -183,6 +198,13 @@ enum AuthorYearCitationClassifier {
             }
         }
         return result.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+    }
+
+    private static func normalizedAuthors(_ authors: String) -> String {
+        authors
+            .replacingOccurrences(of: #"[’']s\b"#, with: "", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "(),;[]")))
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
     }
 
     private static func folded(_ text: String) -> String {
@@ -445,18 +467,13 @@ final class CitationPreviewResolver {
                 on: sourcePage
            ) {
             // A verified member establishes bibliography role; bracketed equations alone do not.
-            guard sourceGroup.items.contains(where: \.isResolved) else { return .activate(link.target) }
-            return .preview(sourceGroup)
+            if sourceGroup.items.contains(where: \.isResolved) {
+                return .preview(sourceGroup)
+            }
         }
 
         if let sourceGroup = reconstructedAuthorYearGroup(containing: selected, on: sourcePage) {
-            let resolved = sourceGroup.compactMap { marker in
-                previewItem(for: marker).map { (marker: marker, item: $0) }
-            }
-            guard resolved.count == sourceGroup.count,
-                  let selectedIndex = resolved.firstIndex(where: { $0.marker.containsSelectedAnnotation })
-            else { return .activate(link.target) }
-            return .preview(CitationPreviewGroup(items: resolved.map(\.item), selectedIndex: selectedIndex))
+            return .preview(sourceGroup)
         }
 
         return .activate(link.target)
@@ -637,109 +654,369 @@ final class CitationPreviewResolver {
         )
     }
 
+    private struct AuthorYearFragment {
+        let bounds: CGRect
+        let text: String
+        let destination: ReaderLinkTarget
+    }
+
+    private struct AuthorYearSourceOccurrence {
+        let range: NSRange
+        let text: String
+        let bounds: CGRect
+        let fragments: [AuthorYearFragment]
+    }
+
+    private static let authorYearWrapperPattern = try! NSRegularExpression(
+        pattern: #"(?:\([^()]{1,180}\)|\[[^\[\]]{1,180}\])"#
+    )
+    private static let authorYearYearPattern = try! NSRegularExpression(
+        pattern: #"\b((?:19|20)[0-9]{2}[a-z]?)\b"#,
+        options: [.caseInsensitive]
+    )
+
     private func reconstructedAuthorYearGroup(
         containing selected: PDFAnnotation,
         on page: PDFPage
-    ) -> [AuthorYearCitationMarker]? {
-        let pageBounds = page.bounds(for: .cropBox)
-        let midpoint = pageBounds.midX
-        let columnBounds = selected.bounds.midX < midpoint
-            ? CGRect(
-                x: pageBounds.minX,
-                y: pageBounds.minY,
-                width: midpoint - pageBounds.minX,
-                height: pageBounds.height
-            )
-            : CGRect(
-                x: midpoint,
-                y: pageBounds.minY,
-                width: pageBounds.maxX - midpoint,
-                height: pageBounds.height
-            )
-        let verticalPadding: CGFloat = 20
-        let verticalBounds = CGRect(
-            x: columnBounds.minX,
-            y: selected.bounds.minY - verticalPadding,
-            width: columnBounds.width,
-            height: selected.bounds.height + verticalPadding * 2
-        ).intersection(pageBounds)
+    ) -> CitationPreviewGroup? {
+        guard let text = page.string,
+              let selectedTarget = Self.linkTarget(selected)
+        else { return nil }
+        let fragments = authorYearFragments(on: page)
+        let fullRange = NSRange(text.startIndex..<text.endIndex, in: text)
 
-        let annotations = page.annotations.filter { annotation in
-            guard annotation.bounds.intersects(verticalBounds),
-                  let target = Self.linkTarget(annotation),
-                  case .goTo = target
-            else { return false }
-            return true
-        }
-        var groups: [(destination: ReaderLinkTarget, annotations: [PDFAnnotation])] = []
-        for annotation in annotations {
-            guard let destination = Self.linkTarget(annotation) else { continue }
-            if let index = groups.firstIndex(where: { $0.destination == destination }) {
-                groups[index].annotations.append(annotation)
-            } else {
-                groups.append((destination, [annotation]))
+        for match in Self.authorYearWrapperPattern.matches(in: text, range: fullRange) {
+            guard let selection = page.selection(for: match.range),
+                  let occurrenceText = substring(in: text, range: match.range)
+            else { continue }
+            let wrapperBounds = selectionBounds(selection, on: page)
+            let selectedIsInside = selectionIntersects(selection, bounds: selected.bounds, on: page)
+            let selectedIsAdjacent = Self.sourceFragmentsAreAdjacent(selected.bounds, wrapperBounds)
+            var occurrenceFragments = fragments.filter {
+                selectionIntersects(selection, bounds: $0.bounds, on: page)
+            }
+            let selectedText = page.selection(for: selected.bounds)?.string ?? ""
+            guard selectedIsInside || (selectedIsAdjacent && !containsYear(selectedText)
+                && occurrenceFragments.contains { Self.targetsMatch($0.destination, selectedTarget) })
+            else { continue }
+            let selectedTargetFragments = fragments.filter {
+                Self.targetsMatch($0.destination, selectedTarget)
+            }
+            if let selectedComponent = sourceComponent(containing: selected.bounds, among: selectedTargetFragments) {
+                for fragment in selectedComponent where !occurrenceFragments.contains(where: {
+                    Self.rect($0.bounds, matches: fragment.bounds)
+                }) {
+                    let isSelected = Self.rect(fragment.bounds, matches: selected.bounds)
+                    let isAuthorFragment = !containsYear(fragment.text) && hasAuthorText(fragment.text)
+                    guard isSelected || isAuthorFragment && Self.sourceFragmentsAreAdjacent(fragment.bounds, wrapperBounds) else { continue }
+                    occurrenceFragments.append(fragment)
+                }
+            }
+            let occurrence = AuthorYearSourceOccurrence(
+                range: match.range,
+                text: occurrenceText,
+                bounds: wrapperBounds,
+                fragments: occurrenceFragments
+            )
+            if let group = authorYearGroup(
+                occurrence: occurrence,
+                selected: selected,
+                selectedTarget: selectedTarget,
+                page: page,
+                sourceText: text
+            ) {
+                return group
             }
         }
 
-        let markers = groups.compactMap { group -> AuthorYearCitationMarker? in
-            let ordered = group.annotations.sorted { Self.sourceReadingOrder($0.bounds, $1.bounds) }
-            let fragments = ordered.map { page.selection(for: $0.bounds)?.string ?? "" }
-            guard let key = AuthorYearCitationClassifier.key(from: fragments) else { return nil }
-            let bounds = ordered.dropFirst().reduce(ordered[0].bounds) { $0.union($1.bounds) }
+        return bareAuthorYearGroup(
+            containing: selected,
+            selectedTarget: selectedTarget,
+            sourceText: text,
+            fragments: fragments,
+            on: page
+        )
+    }
+
+    private func authorYearFragments(on page: PDFPage) -> [AuthorYearFragment] {
+        page.annotations.compactMap { annotation in
+            guard let destination = Self.linkTarget(annotation),
+                  case .goTo = destination,
+                  let text = page.selection(for: annotation.bounds)?.string,
+                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else { return nil }
+            return AuthorYearFragment(
+                bounds: annotation.bounds,
+                text: text,
+                destination: destination
+            )
+        }
+    }
+
+    private func authorYearGroup(
+        occurrence: AuthorYearSourceOccurrence,
+        selected: PDFAnnotation,
+        selectedTarget: ReaderLinkTarget,
+        page: PDFPage,
+        sourceText: String
+    ) -> CitationPreviewGroup? {
+        let components = targetComponents(occurrence.fragments)
+        guard !components.isEmpty else { return nil }
+        let occurrenceRange = NSRange(occurrence.text.startIndex..<occurrence.text.endIndex, in: occurrence.text)
+        let occurrenceYearCount = Self.authorYearYearPattern.numberOfMatches(
+            in: occurrence.text,
+            range: occurrenceRange
+        )
+        let markers = components.compactMap { component -> AuthorYearCitationMarker? in
+            let hasAuthorFragment = component.contains { hasAuthorText($0.text) }
+            // A year-only member in a compressed multi-citation is an omitted-author
+            // shorthand; keep it for the later compressed-group stage instead.
+            guard occurrenceYearCount <= 1 || hasAuthorFragment,
+                  let key = authorYearKey(
+                for: component,
+                occurrence: occurrence,
+                sourceText: sourceText,
+                page: page
+            ) else { return nil }
+            let bounds = component.dropFirst().reduce(component[0].bounds) { $0.union($1.bounds) }
             return AuthorYearCitationMarker(
                 sourceBounds: bounds,
                 key: key,
-                destination: group.destination,
-                containsSelectedAnnotation: ordered.contains { Self.rect($0.bounds, matches: selected.bounds) },
-                sourceFragments: ordered.map(\.bounds)
+                destination: component[0].destination,
+                containsSelectedAnnotation: component.contains {
+                    Self.rect($0.bounds, matches: selected.bounds)
+                        || Self.targetsMatch($0.destination, selectedTarget)
+                            && $0.bounds.intersects(selected.bounds)
+                },
+                sourceFragments: component.map(\.bounds)
             )
         }.sorted { Self.sourceReadingOrder($0.sourceBounds, $1.sourceBounds) }
 
-        guard let selectedIndex = markers.firstIndex(where: \.containsSelectedAnnotation) else { return nil }
-        let sourceLineBounds = page.selection(for: verticalBounds)?.selectionsByLine().map {
-            $0.bounds(for: page)
-        } ?? []
-        let contentMinX = sourceLineBounds.map(\.minX).min() ?? columnBounds.minX
-        let contentMaxX = sourceLineBounds.map(\.maxX).max() ?? columnBounds.maxX
-        var lowerBound = selectedIndex
-        while lowerBound > 0,
-              Self.authorYearMarkersAreAdjacent(
-                markers[lowerBound - 1],
-                markers[lowerBound],
-                contentMinX: contentMinX,
-                contentMaxX: contentMaxX
-              ) {
-            lowerBound -= 1
+        guard let selectedIndex = markers.firstIndex(where: \.containsSelectedAnnotation),
+              markers.count == components.count
+        else { return nil }
+        let items = markers.compactMap(previewItem(for:))
+        guard items.count == markers.count else { return nil }
+        return CitationPreviewGroup(items: items, selectedIndex: selectedIndex)
+    }
+
+    private func bareAuthorYearGroup(
+        containing selected: PDFAnnotation,
+        selectedTarget: ReaderLinkTarget,
+        sourceText: String,
+        fragments: [AuthorYearFragment],
+        on page: PDFPage
+    ) -> CitationPreviewGroup? {
+        let fullRange = NSRange(sourceText.startIndex..<sourceText.endIndex, in: sourceText)
+        let wrappedRanges = Self.authorYearWrapperPattern.matches(in: sourceText, range: fullRange).map(\.range)
+        let yearMatches = Self.authorYearYearPattern.matches(in: sourceText, range: fullRange)
+        let targetFragments = fragments.filter { Self.targetsMatch($0.destination, selectedTarget) }
+        guard let sourceComponent = sourceComponent(containing: selected.bounds, among: targetFragments) else { return nil }
+
+        for match in yearMatches.sorted(by: {
+            yearDistance($0.range, to: sourceComponent, page: page)
+                < yearDistance($1.range, to: sourceComponent, page: page)
+        }) {
+            let globalYearRange = match.range
+            guard !wrappedRanges.contains(where: { NSIntersectionRange($0, globalYearRange).length > 0 }),
+                  let yearToken = substring(in: sourceText, range: globalYearRange),
+                  let yearSelection = page.selection(for: globalYearRange),
+                  let prefix = substring(
+                      in: sourceText,
+                      range: NSRange(location: 0, length: globalYearRange.location)
+                  ),
+                  let author = trailingAuthorPrefix(before: prefix),
+                  let key = AuthorYearCitationClassifier.key(from: [author, yearToken])
+            else { continue }
+
+            let yearBounds = yearSelection.bounds(for: page)
+            guard sourceComponent.contains(where: {
+                abs($0.bounds.midY - yearBounds.midY) <= 28
+                    && (Self.rect($0.bounds, matches: selected.bounds)
+                        || $0.bounds.insetBy(dx: -180, dy: -2).intersects(yearBounds))
+            }) else { continue }
+
+            let bounds = sourceComponent.dropFirst().reduce(sourceComponent[0].bounds.union(yearBounds)) {
+                $0.union($1.bounds)
+            }
+            let marker = AuthorYearCitationMarker(
+                sourceBounds: bounds,
+                key: key,
+                destination: selectedTarget,
+                containsSelectedAnnotation: true,
+                sourceFragments: sourceComponent.map(\.bounds)
+            )
+            guard let item = previewItem(for: marker) else { return nil }
+            return CitationPreviewGroup(items: [item], selectedIndex: 0)
         }
-        var upperBound = selectedIndex
-        while upperBound + 1 < markers.count,
-              Self.authorYearMarkersAreAdjacent(
-                markers[upperBound],
-                markers[upperBound + 1],
-                contentMinX: contentMinX,
-                contentMaxX: contentMaxX
-              ) {
-            upperBound += 1
-        }
-        let result = Array(markers[lowerBound...upperBound])
-        let matchedFragments = markers.flatMap(\.sourceFragments)
-        let hasAdjacentUnmatchedYear = annotations.contains { annotation in
-            let isMatched = matchedFragments.contains { Self.rect($0, matches: annotation.bounds) }
-            guard !isMatched,
-                  let text = page.selection(for: annotation.bounds)?.string,
-                  AuthorYearCitationClassifier.isYearFragment(text)
-            else { return false }
-            return result.flatMap(\.sourceFragments).contains {
-                Self.sourceFragmentsAreAdjacent(
-                    $0,
-                    annotation.bounds,
-                    contentMinX: contentMinX,
-                    contentMaxX: contentMaxX
-                )
+        return nil
+    }
+
+    private func sourceComponent(
+        containing bounds: CGRect,
+        among fragments: [AuthorYearFragment]
+    ) -> [AuthorYearFragment]? {
+        let ordered = fragments.sorted { Self.sourceReadingOrder($0.bounds, $1.bounds) }
+        guard let seed = ordered.firstIndex(where: {
+            Self.rect($0.bounds, matches: bounds) || $0.bounds.intersects(bounds)
+        }) else { return nil }
+        var included = Set([seed])
+        var changed = true
+        while changed {
+            changed = false
+            for index in ordered.indices where !included.contains(index) {
+                guard included.contains(where: { Self.sourceFragmentsAreAdjacent(ordered[$0].bounds, ordered[index].bounds) }) else { continue }
+                included.insert(index)
+                changed = true
             }
         }
-        guard !hasAdjacentUnmatchedYear else { return nil }
-        return result
+        return ordered.enumerated().compactMap { included.contains($0.offset) ? $0.element : nil }
+    }
+
+    private static func sourceFragmentsAreAdjacent(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
+        let (earlier, later) = sourceReadingOrder(lhs, rhs) ? (lhs, rhs) : (rhs, lhs)
+        let verticalGap = abs(earlier.midY - later.midY)
+        if verticalGap <= 4 {
+            return max(0, later.minX - earlier.maxX) <= 36
+        }
+        guard verticalGap <= 20 else { return false }
+        return earlier.maxX >= later.minX - 8 || abs(earlier.minX - later.minX) <= 36
+    }
+
+    private func targetComponents(_ fragments: [AuthorYearFragment]) -> [[AuthorYearFragment]] {
+        var groups: [[AuthorYearFragment]] = []
+        for fragment in fragments {
+            guard let index = groups.lastIndex(where: {
+                guard let first = $0.first else { return false }
+                return Self.targetsMatch(first.destination, fragment.destination)
+            }) else {
+                groups.append([fragment])
+                continue
+            }
+            if groups[index].contains(where: { containsYear($0.text) }) && containsYear(fragment.text) {
+                groups.append([fragment])
+            } else {
+                groups[index].append(fragment)
+            }
+        }
+        return groups.map { $0.sorted { Self.sourceReadingOrder($0.bounds, $1.bounds) } }
+    }
+
+    private func authorYearKey(
+        for component: [AuthorYearFragment],
+        occurrence: AuthorYearSourceOccurrence,
+        sourceText: String,
+        page: PDFPage
+    ) -> AuthorYearCitationKey? {
+        if let key = AuthorYearCitationClassifier.key(from: component.map(\.text)) {
+            return key
+        }
+        let localRange = NSRange(occurrence.text.startIndex..<occurrence.text.endIndex, in: occurrence.text)
+        let yearMatches = Self.authorYearYearPattern.matches(in: occurrence.text, range: localRange)
+        guard !yearMatches.isEmpty else { return nil }
+        let occurrenceRange = occurrence.range
+        let selectedYear = yearMatches.min { lhs, rhs in
+            let lhsRange = NSRange(
+                location: occurrenceRange.location + lhs.range.location,
+                length: lhs.range.length
+            )
+            let rhsRange = NSRange(
+                location: occurrenceRange.location + rhs.range.location,
+                length: rhs.range.length
+            )
+            return yearDistance(lhsRange, to: component, page: page)
+                < yearDistance(rhsRange, to: component, page: page)
+        }
+        guard let selectedYear,
+              let yearToken = substring(in: occurrence.text, range: selectedYear.range)
+        else { return nil }
+        let precedingYear = yearMatches
+            .filter { $0.range.location < selectedYear.range.location }
+            .max { $0.range.location < $1.range.location }
+        let memberStart = precedingYear.map { $0.range.location + $0.range.length }
+            ?? (occurrence.text.first == "(" || occurrence.text.first == "[" ? 1 : 0)
+        let memberLength = selectedYear.range.location + selectedYear.range.length - memberStart
+        guard memberLength > 0,
+              let memberText = substring(
+                  in: occurrence.text,
+                  range: NSRange(location: memberStart, length: memberLength)
+              )
+        else { return nil }
+        if let key = AuthorYearCitationClassifier.key(from: [memberText]) {
+            return key
+        }
+        guard let prefix = substring(in: sourceText, range: NSRange(location: 0, length: occurrence.range.location)),
+              let author = trailingAuthorPrefix(before: prefix)
+        else { return nil }
+        return AuthorYearCitationClassifier.key(from: [author, memberText])
+    }
+
+    private func yearDistance(
+        _ range: NSRange,
+        to component: [AuthorYearFragment],
+        page: PDFPage
+    ) -> CGFloat {
+        guard let selection = page.selection(for: range) else { return .greatestFiniteMagnitude }
+        let bounds = selection.bounds(for: page)
+        return component.map {
+            abs($0.bounds.midX - bounds.midX) + abs($0.bounds.midY - bounds.midY)
+        }.min() ?? .greatestFiniteMagnitude
+    }
+
+    private func trailingAuthorPrefix(before text: String) -> String? {
+        let tokens = text
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .split(separator: " ")
+        guard !tokens.isEmpty else { return nil }
+        let connectors = Set(["et", "al.", "al", "and", "&"])
+        let stopWords = Set([
+            "a", "an", "the", "against", "as", "at", "by", "for", "from", "in", "into", "of",
+            "on", "or", "that", "to", "with", "since", "provided", "while", "we", "our"
+        ])
+        var accepted: [String] = []
+        for rawToken in tokens.reversed() {
+            let token = String(rawToken).trimmingCharacters(in: .punctuationCharacters)
+            let folded = token.lowercased()
+            guard !token.isEmpty, token.rangeOfCharacter(from: .letters) != nil else { break }
+            let isConnector = connectors.contains(folded)
+            let startsUppercase = token.first?.isUppercase == true
+            guard isConnector || startsUppercase else { break }
+            if accepted.isEmpty, stopWords.contains(folded) { break }
+            accepted.append(folded == "al" && rawToken.hasSuffix(".") ? "al." : token)
+            if accepted.count == 8 { break }
+        }
+        let result = accepted.reversed().joined(separator: " ")
+        return result.isEmpty ? nil : result
+    }
+
+    private func substring(in text: String, range: NSRange) -> String? {
+        guard let swiftRange = Range(range, in: text) else { return nil }
+        return String(text[swiftRange])
+    }
+
+    private func selectionBounds(_ selection: PDFSelection, on page: PDFPage) -> CGRect {
+        let pieces = selection.selectionsByLine().map { $0.bounds(for: page) }
+        return pieces.dropFirst().reduce(pieces.first ?? selection.bounds(for: page)) { $0.union($1) }
+    }
+
+    private func selectionIntersects(_ selection: PDFSelection, bounds: CGRect, on page: PDFPage) -> Bool {
+        let pieces = selection.selectionsByLine().map { $0.bounds(for: page) }
+        return pieces.contains { $0.insetBy(dx: -1, dy: -1).intersects(bounds) }
+    }
+
+    private func containsYear(_ text: String) -> Bool {
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        return Self.authorYearYearPattern.firstMatch(in: text, range: range) != nil
+    }
+
+    private func hasAuthorText(_ text: String) -> Bool {
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        let withoutYears = Self.authorYearYearPattern.stringByReplacingMatches(
+            in: text,
+            range: range,
+            withTemplate: ""
+        )
+        return withoutYears.rangeOfCharacter(from: .letters) != nil
     }
 
     private func referenceText(marker: Int, point: CGPoint, on page: PDFPage) -> String? {
@@ -770,37 +1047,6 @@ final class CitationPreviewResolver {
         let pageIndex = document.index(for: page)
         guard pageIndex >= 0 else { return nil }
         return .goTo(pageIndex: pageIndex, point: destination.point)
-    }
-
-    private static func authorYearMarkersAreAdjacent(
-        _ lhs: AuthorYearCitationMarker,
-        _ rhs: AuthorYearCitationMarker,
-        contentMinX: CGFloat,
-        contentMaxX: CGFloat
-    ) -> Bool {
-        guard let lhsLast = lhs.sourceFragments.last, let rhsFirst = rhs.sourceFragments.first else { return false }
-        return sourceFragmentsAreAdjacent(
-            lhsLast,
-            rhsFirst,
-            contentMinX: contentMinX,
-            contentMaxX: contentMaxX
-        )
-    }
-    private static func sourceFragmentsAreAdjacent(
-        _ lhs: CGRect,
-        _ rhs: CGRect,
-        contentMinX: CGFloat,
-        contentMaxX: CGFloat
-    ) -> Bool {
-        let (earlier, later) = sourceReadingOrder(lhs, rhs) ? (lhs, rhs) : (rhs, lhs)
-        if abs(earlier.midY - later.midY) <= 4 {
-            return max(0, later.minX - earlier.maxX) <= 30
-        }
-        let lineGap = earlier.midY - later.midY
-        return lineGap > 4
-            && lineGap <= 18
-            && earlier.maxX >= contentMaxX - 8
-            && later.minX <= contentMinX + 8
     }
 
     private static func sourceReadingOrder(_ lhs: CitationMarker, _ rhs: CitationMarker) -> Bool {
