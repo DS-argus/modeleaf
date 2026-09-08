@@ -10,6 +10,7 @@ struct StatusBarPresentation: Equatable {
     var zoom: String
     var mode: String = ""
     var isSearchMode: Bool = false
+    var isExperimentalMode: Bool = false
     var transientNotice: String = ""
     var pendingPrefix: String
     var detail: String
@@ -35,6 +36,7 @@ final class StatusBarView: NSView {
     private let detailLabel = StatusBarView.makeLabel(identifier: "status.diagnostic", monospaced: false)
     private let fitPagePill = StatusModePillView(identifier: "status.mode", accessibilityLabel: "Fit page mode")
     private let searchModePill = StatusModePillView(identifier: "status.searchMode", accessibilityLabel: "Search mode")
+    private let experimentalPill = StatusModePillView(identifier: "status.experimentalMode", accessibilityLabel: "Experimental citation preview enabled")
     private let noticePill = StatusModePillView(identifier: "status.notice", accessibilityLabel: "Temporary status")
     private let versionLabel = StatusBarView.makeLabel(identifier: "status.version", monospaced: true)
     private let updateButton = StatusUpdateButton(title: "", target: nil, action: nil)
@@ -74,10 +76,10 @@ final class StatusBarView: NSView {
         helpButton.setAccessibilityLabel("Keyboard help")
         helpButton.setAccessibilityValue("? help")
 
-        for view in [pageLabel, zoomLabel, prefixLabel, fitPagePill, searchModePill, noticePill] {
+        for view in [pageLabel, zoomLabel, prefixLabel, fitPagePill, searchModePill, experimentalPill, noticePill] {
             view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
-        let leading = NSStackView(views: [helpButton, pageLabel, zoomLabel, fitPagePill, searchModePill, noticePill, prefixLabel])
+        let leading = NSStackView(views: [helpButton, pageLabel, zoomLabel, fitPagePill, searchModePill, experimentalPill, noticePill, prefixLabel])
         leading.orientation = .horizontal
         leading.alignment = .centerY
         leading.spacing = 16
@@ -152,6 +154,7 @@ final class StatusBarView: NSView {
         updateButton.contentTintColor = theme[.accent]
         fitPagePill.render(presentation.mode, accent: theme[.accent])
         searchModePill.render(presentation.isSearchMode ? "SEARCH" : "", accent: theme[.accent])
+        experimentalPill.render(presentation.isExperimentalMode ? "CITATION PREVIEW" : "", accent: .systemRed, filled: false)
         noticePill.render(presentation.transientNotice, accent: Self.noticeAccent)
         versionLabel.textColor = theme[.mutedText]
     }
@@ -204,13 +207,14 @@ final class StatusBarView: NSView {
         let accent = theme?[.accent]
         fitPagePill.render(presentation.mode, accent: accent)
         searchModePill.render(presentation.isSearchMode ? "SEARCH" : "", accent: accent)
+        experimentalPill.render(presentation.isExperimentalMode ? "CITATION PREVIEW" : "", accent: .systemRed, filled: false)
         noticePill.render(presentation.transientNotice, accent: Self.noticeAccent)
         prefixLabel.stringValue = presentation.pendingPrefix.isEmpty ? "" : "prefix  \(presentation.pendingPrefix)"
         detailLabel.stringValue = presentation.detail
         detailLabel.setAccessibilityValue(presentation.detail)
         detailLabel.setAccessibilityHelp(presentation.expandedDetail)
         detailLabel.toolTip = presentation.expandedDetail
-        let visibleModes = [presentation.mode, presentation.isSearchMode ? "SEARCH" : ""].filter { !$0.isEmpty }
+        let visibleModes = [presentation.mode, presentation.isSearchMode ? "SEARCH" : "", presentation.isExperimentalMode ? "CITATION PREVIEW" : ""].filter { !$0.isEmpty }
         let modeDescription = visibleModes.isEmpty ? "" : ", modes \(visibleModes.joined(separator: ", "))"
         let noticeDescription = presentation.transientNotice.isEmpty ? "" : ", status \(presentation.transientNotice)"
         setAccessibilityValue(
@@ -300,14 +304,14 @@ private final class StatusModePillView: NSView {
 
     required init?(coder: NSCoder) { nil }
 
-    func render(_ text: String, accent: NSColor?) {
+    func render(_ text: String, accent: NSColor?, filled: Bool = true) {
         label.stringValue = text
         isHidden = text.isEmpty
         setAccessibilityValue(text)
         label.isHidden = text.isEmpty
         guard let accent else { return }
         label.textColor = accent
-        layer?.backgroundColor = accent.withAlphaComponent(0.16).cgColor
+        layer?.backgroundColor = (filled ? accent.withAlphaComponent(0.16) : NSColor.clear).cgColor
         layer?.borderColor = accent.withAlphaComponent(0.55).cgColor
         layer?.borderWidth = 1
     }

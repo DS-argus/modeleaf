@@ -161,6 +161,7 @@ final class CitationPreviewOverlayView: NSView {
         group = nil
         tabViews.forEach { tabs.removeArrangedSubview($0); $0.removeFromSuperview() }
         tabViews = []
+        titleLabel.stringValue = "Reference"
         referenceTextView.string = ""
         referenceScrollView.contentView.scroll(to: .zero)
         isHidden = true
@@ -172,6 +173,9 @@ final class CitationPreviewOverlayView: NSView {
             moveSelection(by: -1)
         case 124:
             moveSelection(by: 1)
+        case 48:
+            guard event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return false }
+            moveSelection(by: event.modifierFlags.contains(.shift) ? -1 : 1)
         case 36, 76:
             if event.modifierFlags.contains(.shift) { searchSelection() }
             else { commitSelection() }
@@ -226,6 +230,8 @@ final class CitationPreviewOverlayView: NSView {
         card.layoutSubtreeIfNeeded()
     }
 
+    var selectedStateForTesting: CitationPreviewItemState? { selectedItem?.state }
+    var selectedIsResolvedForTesting: Bool? { selectedItem?.isResolved }
     var visibleLabelsForTesting: [String] { group?.items.map(\.label) ?? [] }
     var selectedLabelForTesting: String? { selectedItem?.label }
     var referenceTextForTesting: String { referenceTextView.string }
@@ -259,7 +265,7 @@ final class CitationPreviewOverlayView: NSView {
         tabViews.forEach { tabs.removeArrangedSubview($0); $0.removeFromSuperview() }
         guard let group else { tabViews = []; return }
         tabViews = group.items.enumerated().map { index, item in
-            let tab = CitationPreviewTabView(labelText: item.label)
+            let tab = CitationPreviewTabView(labelText: item.label, isResolved: item.isResolved)
             tab.onPointerEnter = { [weak self] in self?.select(index) }
             tab.onPointerActivate = { [weak self] in self?.select(index) }
             if let theme { tab.apply(theme: theme) }
@@ -270,7 +276,7 @@ final class CitationPreviewOverlayView: NSView {
 
     private func moveSelection(by offset: Int) {
         guard let group else { return }
-        let next = min(max(selectedIndex + offset, 0), group.items.count - 1)
+        let next = (selectedIndex + offset + group.items.count) % group.items.count
         select(next)
     }
 
@@ -283,20 +289,25 @@ final class CitationPreviewOverlayView: NSView {
     private func updateSelection() {
         guard let item = selectedItem else { return }
         for (index, tab) in tabViews.enumerated() { tab.isSelected = index == selectedIndex }
+        titleLabel.stringValue = item.isResolved ? "Reference" : "Reference unavailable"
         referenceTextView.string = item.referenceText
-        referenceTextView.setAccessibilityValue(item.referenceText)
-        setAccessibilityValue("Reference \(item.label) of \(group?.items.count ?? 0)")
+        referenceTextView.setAccessibilityValue(
+            item.isResolved ? item.referenceText : (item.unresolvedReason?.message ?? "Reference text could not be verified.")
+        )
+        setAccessibilityValue(
+            "Reference \(item.label) of \(group?.items.count ?? 0)\(item.isResolved ? "" : " (unresolved)")"
+        )
         referenceScrollView.contentView.scroll(to: .zero)
         needsLayout = true
     }
 
     private func commitSelection() {
-        guard let item = selectedItem else { return }
+        guard let item = selectedItem, item.isResolved else { return }
         onCommit?(item)
     }
 
     private func searchSelection() {
-        guard let item = selectedItem else { return }
+        guard let item = selectedItem, item.isResolved else { return }
         onSearch?(item)
     }
 
@@ -312,7 +323,7 @@ final class CitationPreviewOverlayView: NSView {
 
     private func renderKeyHint() {
         guard let theme else {
-            keyHintLabel.stringValue = "h / l  Select reference    ↩  Move    ⇧↩  Scholar    Esc  Close"
+            keyHintLabel.stringValue = "h/l ⇥/⇧⇥  Select    ↩  Move    ⇧↩  Scholar    Esc  Close"
             return
         }
         let result = NSMutableAttributedString()
@@ -325,7 +336,7 @@ final class CitationPreviewOverlayView: NSView {
             .foregroundColor: theme[.mutedText],
         ]
         for (shortcut, description) in [
-            ("h / l", "  Select reference    "),
+            ("h/l ⇥/⇧⇥", "  Select    "),
             ("↩", "  Move    "),
             ("⇧↩", "  Scholar    "),
             ("Esc", "  Close"),
@@ -341,10 +352,12 @@ final class CitationPreviewOverlayView: NSView {
 private final class CitationPreviewTabView: PointerActionView {
     var isSelected = false { didSet { updateAppearance() } }
     private let label: NSTextField
+    private let isResolved: Bool
     private var theme: AppKitTheme?
 
-    init(labelText: String) {
+    init(labelText: String, isResolved: Bool = true) {
         self.label = NSTextField(labelWithString: labelText)
+        self.isResolved = isResolved
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerRadius = 5
@@ -375,8 +388,15 @@ private final class CitationPreviewTabView: PointerActionView {
 
     private func updateAppearance() {
         guard let theme else { return }
-        label.textColor = isSelected ? theme[.background] : theme[.foreground]
-        layer?.backgroundColor = (isSelected ? theme[.accent] : theme.separator).cgColor
-        setAccessibilityValue(isSelected ? "Selected" : "Not selected")
+        let enabled = isResolved
+        label.textColor = isSelected && enabled
+            ? theme[.background]
+            : (enabled ? theme[.foreground] : theme[.mutedText])
+        layer?.backgroundColor = (isSelected && enabled ? theme[.accent] : theme.separator).cgColor
+        setAccessibilityValue(
+            isSelected
+                ? (enabled ? "Selected" : "Selected, unresolved")
+                : (enabled ? "Not selected" : "Not selected, unresolved")
+        )
     }
 }

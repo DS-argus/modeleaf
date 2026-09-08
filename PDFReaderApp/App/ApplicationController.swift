@@ -129,6 +129,7 @@ final class ApplicationController {
         self.actionDispatcher.configureConfigResetDefaultHandler { [weak self] in self?.resetConfig() }
         coordinator.applyLinkDestinationIndicatorSettings(currentIndicatorSettings)
         coordinator.applyCitationPreviewEnabled(isCitationPreviewEnabled)
+        mainWindowController.rootView.setCitationPreviewEnabled(isCitationPreviewEnabled)
         self.actionDispatcher.configureCitationPreviewToggleHandler { [weak self] in self?.toggleCitationPreview() }
     }
 
@@ -297,6 +298,7 @@ final class ApplicationController {
         isCitationPreviewEnabled.toggle()
         mainWindowController.dismissAllTransientOverlays()
         coordinator.applyCitationPreviewEnabled(isCitationPreviewEnabled)
+        mainWindowController.rootView.setCitationPreviewEnabled(isCitationPreviewEnabled)
         let state = isCitationPreviewEnabled ? "ON" : "OFF"
         if case let .failed(message) = citationPreviewSettingsStore.persist(isCitationPreviewEnabled) {
             mainWindowController.showDiagnostic(

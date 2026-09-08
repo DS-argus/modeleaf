@@ -63,6 +63,7 @@ final class ReaderRootView: NSView {
     var onPaneSelect: ((PaneID, TabID) -> Void)?
     var onPaneClose: ((PaneID, TabID) -> Void)?
     var onPaneNewTab: ((PaneID) -> Void)?
+    private var isCitationPreviewEnabled = false
     private var currentStatus = StatusBarPresentation.empty
     private var renderedSessionSnapshot: ReaderSessionStoreSnapshot?
     private var transientNoticeTask: Task<Void, Never>?
@@ -226,6 +227,11 @@ final class ReaderRootView: NSView {
             return container
         }
     }
+    func setCitationPreviewEnabled(_ enabled: Bool) {
+        isCitationPreviewEnabled = enabled
+        currentStatus.isExperimentalMode = enabled
+        statusBar.render(currentStatus)
+    }
     private func renderStatus(_ sessionStatus: ReaderStatusSnapshot?) {
         if let sessionStatus {
             currentStatus.page = sessionStatus.page
@@ -240,6 +246,7 @@ final class ReaderRootView: NSView {
         } else if activeDiagnostic?.pinned != true {
             currentStatus = .empty
         }
+        currentStatus.isExperimentalMode = isCitationPreviewEnabled
         statusBar.render(currentStatus)
     }
     private func configurePane(_ id: PaneID, snapshot: PaneCoordinatorSnapshot, label: String) -> PaneView {

@@ -305,6 +305,36 @@ struct ThemeAndShellTests {
         #expect(controller.window != nil)
     }
 
+    @Test("experimental mode stays red across themes and coexists with SEARCH")
+    func experimentalModePill() throws {
+        let bar = StatusBarView(frame: CGRect(x: 0, y: 0, width: 1100, height: 32))
+        var state = StatusBarPresentation.empty
+        state.isSearchMode = true
+        state.isExperimentalMode = true
+        bar.render(state)
+        let label = try #require(findDescendant(in: bar, identifier: "status.experimentalMode") as? NSTextField)
+        let search = try #require(findDescendant(in: bar, identifier: "status.searchMode") as? NSTextField)
+        for themeID in ThemeID.allCases {
+            bar.apply(theme: AppKitTheme(themeID: themeID))
+            #expect(label.stringValue == "CITATION PREVIEW")
+            #expect(label.superview?.isHidden == false)
+            #expect(label.textColor?.hexRGB == NSColor.systemRed.hexRGB)
+            let background = try #require(label.superview?.layer?.backgroundColor.flatMap(NSColor.init(cgColor:)))
+            let border = try #require(label.superview?.layer?.borderColor.flatMap(NSColor.init(cgColor:)))
+            #expect(background.alphaComponent == 0)
+            #expect(border.hexRGB == NSColor.systemRed.hexRGB)
+            #expect(abs(border.alphaComponent - 0.55) < 0.001)
+            #expect(search.superview?.layer?.backgroundColor?.alpha == 0.16)
+            #expect(search.stringValue == "SEARCH")
+            #expect(search.superview?.isHidden == false)
+            #expect((bar.accessibilityValue() as? String)?.contains("SEARCH, CITATION PREVIEW") == true)
+        }
+        state.isExperimentalMode = false
+        bar.render(state)
+        #expect(label.superview?.isHidden == true)
+        #expect(search.superview?.isHidden == false)
+        #expect((bar.accessibilityValue() as? String)?.contains("CITATION PREVIEW") == false)
+    }
     @Test("copied-path feedback uses a transient status pill and errors clear it")
     func copiedPathFeedbackPillIsTransient() {
         let root = ReaderRootView()

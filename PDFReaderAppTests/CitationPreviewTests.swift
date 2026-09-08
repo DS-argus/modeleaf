@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import PDFKit
 import PDFReaderCore
 import PDFReaderTestSupport
@@ -11,6 +12,10 @@ struct CitationPreviewTests {
     @Test("classifier accepts only exact numeric markers inside bracketed numeric groups")
     func classifierContract() {
         #expect(CitationPreviewClassifier.marker(in: " 13 ") == 13)
+        #expect(CitationPreviewClassifier.marker(in: "[7]") == 7)
+        #expect(CitationPreviewClassifier.marker(in: " [ 13 ] ") == 13)
+        #expect(CitationPreviewClassifier.marker(in: "[3, 4]") == nil)
+        #expect(CitationPreviewClassifier.marker(in: "[7") == nil)
         #expect(CitationPreviewClassifier.marker(in: "3, 4") == nil)
         #expect(CitationPreviewClassifier.marker(in: "Smith 2024") == nil)
         #expect(CitationPreviewClassifier.bracketedMarkers(in: "Prior work [3, 4; 5] agrees", containing: 4) == [3, 4, 5])
@@ -52,6 +57,7 @@ struct CitationPreviewTests {
         #expect(components.queryItems == [URLQueryItem(name: "q", value: reference)])
         #expect(components.path == "/scholar")
         #expect(citationScholarQuery(for: reference) == "Edward J. Hu et al. LoRA: Low-rank adaptation & fine-tuning.")
+        #expect(citationScholarQuery(for: "24. Lee, Lin & Fanti. Supplemental reference") == "Lee, Lin & Fanti. Supplemental reference")
     }
 
     @Test("extractor stops at the next marker, large gap, and bounded size")
@@ -63,6 +69,14 @@ struct CitationPreviewTests {
         ]
         #expect(CitationReferenceExtractor.extract(marker: 3, from: lines) == "[3] Ada Author. A title continued venue text")
         #expect(CitationReferenceExtractor.extract(marker: 9, from: lines) == nil)
+        #expect(CitationReferenceExtractor.extract(
+            marker: 24,
+            from: [CitationTextLine(text: "24. Lee, Lin & Fanti. Supplemental reference", bounds: CGRect(x: 40, y: 700, width: 220, height: 12))]
+        ) == "24. Lee, Lin & Fanti. Supplemental reference")
+        #expect(CitationReferenceExtractor.extract(
+            marker: 2019,
+            from: [CitationTextLine(text: "2019.", bounds: CGRect(x: 40, y: 700, width: 40, height: 12))]
+        ) == nil)
 
         let gapped = [
             lines[0],
@@ -71,6 +85,23 @@ struct CitationPreviewTests {
         #expect(CitationReferenceExtractor.extract(marker: 3, from: gapped) == "[3] Ada Author. A title")
     }
 
+    @Test("reference lookup rejects nonfinite and sentinel destination coordinates")
+    func destinationCoordinateGuards() {
+        let page = PDFPage()
+        let sentinel = CGFloat(Float.greatestFiniteMagnitude)
+        let points = [
+            CGPoint(x: CGFloat.nan, y: 700),
+            CGPoint(x: 40, y: CGFloat.infinity),
+            CGPoint(x: -sentinel, y: 700),
+            CGPoint(x: 40, y: sentinel),
+        ]
+        for point in points {
+            #expect(!CitationReferenceEntryExtractor.isUsableDestinationPoint(point))
+            #expect(CitationReferenceEntryExtractor.numericEntry(marker: 7, destinationPoint: point, on: page) == nil)
+            #expect(CitationReferenceEntryExtractor.entry(destinationPoint: point, on: page) == nil)
+            #expect(CitationReferenceEntryExtractor.candidates(destinationPoint: point, on: page).isEmpty)
+        }
+    }
     @Test("synthetic PDF resolves independent markers into a verified group without changing bytes")
     func syntheticResolverContract() throws {
         try withTemporaryDirectory { directory in
@@ -96,6 +127,98 @@ struct CitationPreviewTests {
         }
     }
 
+    @Test("numeric lookup failures stay visible as unresolved members with their native target")
+    func unresolvedResolverContract() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeCitationPreviewPDF(in: directory)
+            let document = try #require(PDFDocument(url: url))
+            let sourcePage = try #require(document.page(at: 0))
+            let destinationPage = try #require(document.page(at: 1))
+            let annotation = try #require(sourcePage.annotations.first { annotation in
+                (sourcePage.selection(for: annotation.bounds)?.string ?? "").contains("4")
+            })
+            let nativeTarget = ReaderLinkTarget.goTo(
+                pageIndex: 1,
+                point: CGPoint(x: 40, y: 40)
+            )
+            annotation.action = PDFActionGoTo(
+                destination: PDFDestination(page: destinationPage, at: CGPoint(x: 40, y: 40))
+            )
+            let link = ReaderLink(
+                sourcePageIndex: 0,
+                rects: [annotation.bounds],
+                target: nativeTarget,
+                primaryLabelRect: annotation.bounds
+            )
+
+            guard case let .preview(group) = CitationPreviewResolver(document: document).resolve(link) else {
+                Issue.record("A verified citation context should retain an unresolved member")
+                return
+            }
+            let selected = group.items[group.selectedIndex]
+            #expect(selected.label == "[4]")
+            #expect(selected.state == .unresolved(reason: .referenceUnavailable))
+            #expect(selected.destination == nativeTarget)
+            #expect(selected.referenceText.isEmpty)
+        }
+    }
+    @Test("single-reference navigation remains selected and dismissed navigation is inert")
+    func singleReferenceNavigation() throws {
+        let overlay = CitationPreviewOverlayView(frame: CGRect(x: 0, y: 0, width: 640, height: 420))
+        let item = CitationPreviewItem(label: "[1]", destinationPageIndex: 1, destinationPoint: .zero, referenceText: "Only reference")
+        overlay.present(group: CitationPreviewGroup(items: [item], selectedIndex: 0), anchorRect: .zero)
+        for (characters, modifiers, keyCode) in [
+            ("h", NSEvent.ModifierFlags(), UInt16(0)), ("l", [], 0),
+            ("\t", [], 48), ("\t", [.shift], 48),
+        ] {
+            #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: characters, modifiers: modifiers, keyCode: keyCode))))
+            #expect(overlay.selectedLabelForTesting == "[1]")
+        }
+        overlay.dismiss()
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "\t", keyCode: 48))))
+        #expect(overlay.selectedLabelForTesting == nil)
+    }
+    @Test("unresolved members remain selectable but Enter and Scholar are inert")
+    func unresolvedSelectionActions() throws {
+        let overlay = CitationPreviewOverlayView(frame: CGRect(x: 0, y: 0, width: 640, height: 420))
+        let unresolved = CitationPreviewItem(
+            label: "[9]",
+            destination: .goTo(pageIndex: 4, point: nil),
+            referenceText: "",
+            state: .unresolved(reason: .referenceUnavailable)
+        )
+        let resolved = CitationPreviewItem(
+            label: "[10]",
+            destination: .goTo(pageIndex: 5, point: CGPoint(x: 40, y: 700)),
+            referenceText: "[10] Verified reference",
+            state: .resolved
+        )
+        var committed: CitationPreviewItem?
+        var searched: CitationPreviewItem?
+        overlay.onCommit = { committed = $0 }
+        overlay.onSearch = { searched = $0 }
+        overlay.present(
+            group: CitationPreviewGroup(items: [unresolved, resolved], selectedIndex: 0),
+            anchorRect: .zero
+        )
+
+        #expect(overlay.selectedStateForTesting == .unresolved(reason: .referenceUnavailable))
+        #expect(unresolved.destinationPoint == nil)
+        #expect(unresolved.destinationPageIndex == Optional(4))
+        #expect(overlay.selectedIsResolvedForTesting == false)
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "\r", keyCode: 36))))
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "\r", modifiers: [.shift], keyCode: 36))))
+        #expect(committed == nil)
+        #expect(searched == nil)
+        #expect(!overlay.isHidden)
+
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "l"))))
+        #expect(overlay.selectedLabelForTesting == "[10]")
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "\r", keyCode: 36))))
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "\r", modifiers: [.shift], keyCode: 36))))
+        #expect(committed?.label == "[10]")
+        #expect(searched?.label == "[10]")
+    }
     @Test("overlay supports h/l, arrows, pointer tabs, Enter, Shift+Enter, Esc, and themed hints")
     func overlayContract() throws {
         let overlay = CitationPreviewOverlayView(frame: CGRect(x: 0, y: 0, width: 640, height: 420))
@@ -122,6 +245,22 @@ struct CitationPreviewTests {
         #expect(overlay.selectedLabelForTesting == "[3]")
         #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "", keyCode: 124))))
         #expect(overlay.selectedLabelForTesting == "[4]")
+        for (characters, modifiers, keyCode, expected) in [
+            ("l", NSEvent.ModifierFlags(), UInt16(0), "[3]"),
+            ("h", [], 0, "[4]"),
+            ("\t", [], 48, "[3]"),
+            ("\t", [.shift], 48, "[4]"),
+            ("", [], 124, "[3]"),
+            ("", [], 123, "[4]"),
+        ] {
+            #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: characters, modifiers: modifiers, keyCode: keyCode))))
+            #expect(overlay.selectedLabelForTesting == expected)
+        }
+        #expect(!overlay.handleKeyDown(try #require(makeKeyEvent(characters: "\t", modifiers: [.control], keyCode: 48))))
+        #expect(overlay.selectedLabelForTesting == "[4]")
+        #expect(committed == nil)
+        #expect(searched == nil)
+        #expect(dismissed == 0)
         overlay.pointerEnterTabForTesting(at: 0)
         #expect(overlay.selectedLabelForTesting == "[3]")
         overlay.pointerActivateTabForTesting(at: 1)
@@ -136,7 +275,7 @@ struct CitationPreviewTests {
         #expect(overlay.bounds.contains(overlay.cardFrameForTesting))
 
         let hint = overlay.keyHintForTesting
-        for shortcut in ["h / l", "↩", "⇧↩", "Esc"] {
+        for shortcut in ["h/l", "⇥/⇧⇥", "↩", "⇧↩", "Esc"] {
             let range = (hint.string as NSString).range(of: shortcut)
             #expect(range.location != NSNotFound)
             let color = hint.attribute(.foregroundColor, at: range.location, effectiveRange: nil) as? NSColor
@@ -295,6 +434,7 @@ struct CitationPreviewTests {
                 keyCode: 8
             ))))
             #expect(controller.isCitationPreviewEnabled)
+            #expect(controller.mainWindowController.rootView.statusBar.presentation.isExperimentalMode)
             #expect(settingsStore.load() == .selected(true))
             guard case let .preview(group) = session.resolveLinkHint(link) else {
                 Issue.record("Preview must resolve after enabling experimental mode")
@@ -307,6 +447,7 @@ struct CitationPreviewTests {
             )
             controller.dispatch(.citationPreviewToggle)
             #expect(!controller.isCitationPreviewEnabled)
+            #expect(!controller.mainWindowController.rootView.statusBar.presentation.isExperimentalMode)
             #expect(controller.mainWindowController.rootView.citationPreviewOverlay.isHidden)
             guard case .activate = session.resolveLinkHint(link) else {
                 Issue.record("Disabling must restore ordinary link activation immediately")
@@ -328,6 +469,11 @@ struct CitationPreviewTests {
             )
             defer { restarted.mainWindowController.close() }
             #expect(restarted.isCitationPreviewEnabled)
+            #expect(restarted.mainWindowController.rootView.statusBar.presentation.isExperimentalMode)
+            #expect(restarted.openDocument(at: pdfURL))
+            #expect(restarted.mainWindowController.rootView.statusBar.presentation.isExperimentalMode)
+            #expect(restarted.coordinator.closeActiveTab())
+            #expect(restarted.mainWindowController.rootView.statusBar.presentation.isExperimentalMode)
             restarted.dispatch(.citationPreviewToggle)
             #expect(!restarted.isCitationPreviewEnabled)
             #expect(settingsStore.load() == .selected(false))
@@ -365,7 +511,8 @@ struct CitationPreviewTests {
         #expect(session.currentPageNumber == 1)
         #expect(!session.canGoBack && !session.canGoForward)
         session.activateLink(item.destination)
-        #expect(session.currentPageNumber == item.destinationPageIndex + 1)
+        let destinationPageIndex = try #require(item.destinationPageIndex)
+        #expect(session.currentPageNumber == destinationPageIndex + 1)
         #expect(session.canGoBack && !session.canGoForward)
         #expect(session.goBack() == .verifiedLanding)
         #expect(session.currentPageNumber == 1)
@@ -404,6 +551,52 @@ struct CitationPreviewTests {
         #expect(try PDFFixtureFactory.sha256(of: fallbackURL) == before)
     }
 
+    @Test("D01 N01 resolves a single [7] from its source geometry")
+    func primacySingleNumericContract() throws {
+        let path = "test-pdf/citation-annotation-corpus/NeurIPS/2025-primacy-of-magnitude.pdf"
+        guard FileManager.default.fileExists(atPath: path) else { return }
+        let document = try #require(PDFDocument(url: URL(fileURLWithPath: path)))
+        let sourcePage = try #require(document.page(at: 0))
+        let annotation = try #require(sourcePage.annotations.indices.contains(12) ? sourcePage.annotations[12] : nil)
+        let link = try #require(links(on: sourcePage, in: document).first { $0.rects.contains(annotation.bounds) })
+        guard case let .preview(group) = CitationPreviewResolver(document: document).resolve(link) else {
+            Issue.record("D01 p1 a12 should resolve as a numeric single preview")
+            return
+        }
+        let item = group.items[group.selectedIndex]
+        #expect(group.items.map(\.label) == ["[7]"])
+        #expect(item.state == .resolved)
+        #expect(item.destination == link.target)
+        #expect(item.destinationPageIndex == Optional(9))
+        #expect(item.referenceText.contains("Edward J. Hu"))
+        #expect(item.referenceText.localizedCaseInsensitiveContains("LoRA"))
+
+    }
+    @Test("D03 N05 resolves [24] against the supplemental bibliography, not main references")
+    func neuralPlexerSupplementalSingleContract() throws {
+        let path = "docs/citation-papers/D03-neuralplexer3.pdf"
+        guard FileManager.default.fileExists(atPath: path) else { return }
+        let document = try #require(PDFDocument(url: URL(fileURLWithPath: path)))
+        let sourcePage = try #require(document.page(at: 27))
+        let link = try #require(links(on: sourcePage, in: document).first { link in
+            guard let rect = link.rects.first,
+                  sourcePage.selection(for: rect)?.string?.trimmingCharacters(in: .whitespacesAndNewlines) == "24",
+                  case let .goTo(pageIndex, _) = link.target
+            else { return false }
+            return pageIndex == 36
+        })
+        let resolver = CitationPreviewResolver(document: document)
+        guard case let .preview(group) = resolver.resolve(link) else {
+            Issue.record("D03 p28 a7 should resolve as a numeric single preview")
+            return
+        }
+        let item = group.items[group.selectedIndex]
+        #expect(group.items.map(\.label) == ["[24]"])
+        #expect(item.state == .resolved)
+        #expect(item.destination == link.target)
+        #expect(item.destinationPageIndex == Optional(36))
+        #expect(item.referenceText.contains("Lee, S., Lin, Z. & Fanti, G."))
+    }
     @Test("NeurIPS 2025 multiline numeric groups are selection-invariant and references are complete")
     func neurIPS2025PhaseOneContract() throws {
         let path = "test-pdf/citation-annotation-corpus/NeurIPS/2025-primacy-of-magnitude.pdf"
@@ -613,6 +806,177 @@ struct CitationPreviewTests {
             return
         }
         #expect(try PDFFixtureFactory.sha256(of: ambiguousURL) == ambiguousBefore)
+    }
+    @Test("numeric source geometry keeps bracket occurrences independent and rejects a nearby range")
+    func numericSourceGeometryContract() throws {
+        try withTemporaryDirectory { directory in
+            let url = try makeNumericSourceGeometryPDF(in: directory)
+            let document = try #require(PDFDocument(url: url))
+            let sourcePage = try #require(document.page(at: 0))
+            let resolver = CitationPreviewResolver(document: document)
+            let links = links(on: sourcePage, in: document)
+            let sourceText: (ReaderLink) -> String = { link in
+                guard let rect = link.rects.first else { return "" }
+                return sourcePage.selection(for: rect)?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            }
+
+            let repeated = links.filter {
+                sourceText($0) == "[1]" && ($0.rects.first?.minY ?? 0) > 680
+            }
+            #expect(repeated.count == 2)
+            for link in repeated {
+                guard case let .preview(group) = resolver.resolve(link) else {
+                    Issue.record("Repeated [1] must resolve as its own source group")
+                    continue
+                }
+                #expect(group.items.map(\.label) == ["[1]"])
+                #expect(group.items[group.selectedIndex].destination == link.target)
+            }
+
+            for marker in ["[2]", "[3]"] {
+                let link = try #require(links.first { sourceText($0) == marker })
+                guard case let .preview(group) = resolver.resolve(link) else {
+                    Issue.record("Adjacent \(marker) must remain an independent source group")
+                    continue
+                }
+                #expect(group.items.map(\.label) == [marker])
+            }
+
+            let rangeEndpoint = try #require(links.first {
+                sourceText($0) == "1" && ($0.rects.first?.minY ?? 0) < 680
+            })
+            guard case .activate = resolver.resolve(rangeEndpoint) else {
+                Issue.record("A range endpoint must not borrow a nearby standalone [1]")
+                return
+            }
+
+            let standaloneNearRange = try #require(links.first {
+                sourceText($0) == "[1]" && ($0.rects.first?.minY ?? 0) < 680
+            })
+            guard case let .preview(group) = resolver.resolve(standaloneNearRange) else {
+                Issue.record("The standalone [1] next to a range must still resolve")
+                return
+            }
+            #expect(group.items.map(\.label) == ["[1]"])
+
+            let wholeBracket = try #require(links.first { sourceText($0) == "[7]" })
+            guard case let .preview(group) = resolver.resolve(wholeBracket) else {
+                Issue.record("A whole-bracket annotation must resolve as a single citation")
+                return
+            }
+            #expect(group.items.map(\.label) == ["[7]"])
+            #expect(group.items[group.selectedIndex].destination == wholeBracket.target)
+        }
+    }
+    private func makeNumericSourceGeometryPDF(in directory: URL) throws -> URL {
+        let sourceURL = directory.appendingPathComponent("numeric-source-\(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: sourceURL) }
+        guard let consumer = CGDataConsumer(url: sourceURL as CFURL) else {
+            throw PDFFixtureError.couldNotCreateConsumer
+        }
+        var mediaBox = CGRect(x: 0, y: 0, width: 612, height: 792)
+        guard let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else {
+            throw PDFFixtureError.couldNotCreateContext
+        }
+        let font = CTFontCreateWithName("Menlo" as CFString, 14, nil)
+        let attributes: [NSAttributedString.Key: Any] = [
+            NSAttributedString.Key(kCTFontAttributeName as String): font,
+            NSAttributedString.Key(kCTForegroundColorAttributeName as String): NSColor.black.cgColor,
+        ]
+        let sourceLines = [
+            "Repeated [1] and [1]",
+            "Adjacent [2][3]",
+            "Range [1–3] nearby [1]",
+            "Whole [7]",
+        ]
+        let sourceLineObjects = sourceLines.map {
+            CTLineCreateWithAttributedString(NSAttributedString(string: $0, attributes: attributes))
+        }
+        context.beginPDFPage(nil)
+        context.textMatrix = .identity
+        for (index, line) in sourceLineObjects.enumerated() {
+            context.textPosition = CGPoint(x: 48, y: CGFloat(700 - (index * 20)))
+            CTLineDraw(line, context)
+        }
+        context.endPDFPage()
+
+        let bibliographyLines = [
+            ("[1] First verified reference.", CGFloat(700)),
+            ("[2] Second verified reference.", CGFloat(680)),
+            ("[3] Third verified reference.", CGFloat(660)),
+            ("[7] Seventh verified reference.", CGFloat(640)),
+        ]
+        context.beginPDFPage(nil)
+        for (text, y) in bibliographyLines {
+            context.textPosition = CGPoint(x: 48, y: y)
+            CTLineDraw(
+                CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes)),
+                context
+            )
+        }
+        context.endPDFPage()
+        context.closePDF()
+
+        guard let document = PDFDocument(url: sourceURL),
+              let sourcePage = document.page(at: 0),
+              let destinationPage = document.page(at: 1)
+        else { throw PDFFixtureError.couldNotOpenGeneratedDocument }
+
+        struct AnnotationSpec {
+            let lineIndex: Int
+            let token: String
+            let occurrence: Int
+            let destinationY: CGFloat
+        }
+        let specs = [
+            AnnotationSpec(lineIndex: 0, token: "[1]", occurrence: 0, destinationY: 700),
+            AnnotationSpec(lineIndex: 0, token: "[1]", occurrence: 1, destinationY: 700),
+            AnnotationSpec(lineIndex: 1, token: "[2]", occurrence: 0, destinationY: 680),
+            AnnotationSpec(lineIndex: 1, token: "[3]", occurrence: 0, destinationY: 660),
+            AnnotationSpec(lineIndex: 2, token: "1", occurrence: 0, destinationY: 700),
+            AnnotationSpec(lineIndex: 2, token: "[1]", occurrence: 0, destinationY: 700),
+            AnnotationSpec(lineIndex: 3, token: "[7]", occurrence: 0, destinationY: 640),
+        ]
+        for spec in specs {
+            let text = sourceLines[spec.lineIndex] as NSString
+            var searchStart = 0
+            var tokenRange = NSRange(location: NSNotFound, length: 0)
+            for _ in 0...spec.occurrence {
+                guard searchStart <= text.length else { break }
+                let searchRange = NSRange(location: searchStart, length: text.length - searchStart)
+                tokenRange = text.range(of: spec.token, options: [], range: searchRange)
+                guard tokenRange.location != NSNotFound else { break }
+                searchStart = tokenRange.location + tokenRange.length
+            }
+            guard tokenRange.location != NSNotFound else { continue }
+            let line = sourceLineObjects[spec.lineIndex]
+            let start = CTLineGetOffsetForStringIndex(line, tokenRange.location, nil)
+            let end = CTLineGetOffsetForStringIndex(
+                line,
+                tokenRange.location + tokenRange.length,
+                nil
+            )
+            let bounds = CGRect(
+                x: 48 + start - 1,
+                y: CGFloat(700 - (spec.lineIndex * 20)) - 3,
+                width: max(8, end - start + 2),
+                height: 18
+            )
+            let annotation = PDFAnnotation(bounds: bounds, forType: .link, withProperties: nil)
+            annotation.action = PDFActionGoTo(
+                destination: PDFDestination(
+                    page: destinationPage,
+                    at: CGPoint(x: 48, y: spec.destinationY + 4)
+                )
+            )
+            sourcePage.addAnnotation(annotation)
+        }
+
+        let outputURL = directory.appendingPathComponent("numeric-source-geometry.pdf")
+        guard document.write(to: outputURL), PDFDocument(url: outputURL) != nil else {
+            throw PDFFixtureError.couldNotWriteDocument
+        }
+        return outputURL
     }
     private func openCitationPreview(
         controller: MainWindowController,

@@ -374,6 +374,44 @@ final class ReaderWorkflowUITests: XCTestCase {
     }
 
     @MainActor
+    func testE2E16WholeBracketCitationPreviewPreservesPositionUntilEnter() throws {
+        try withEnvironment { environment, app in
+            let url = try makePDF(
+                in: environment.fixtures, name: "Citation.pdf", pages: 2,
+                text: "[7] Alpha. Verified citation reference. 2024."
+            )
+            guard let document = PDFDocument(url: url),
+                  let source = document.page(at: 0),
+                  let target = document.page(at: 1),
+                  let selection = source.selection(for: NSRange(location: 0, length: 3))
+            else { throw UITestFixtureError.cannotCreatePDF }
+            let annotation = PDFAnnotation(bounds: selection.bounds(for: source), forType: .link, withProperties: nil)
+            annotation.action = PDFActionGoTo(destination: PDFDestination(page: target, at: CGPoint(x: 72, y: 720)))
+            source.addAnnotation(annotation)
+            guard document.write(to: url) else { throw UITestFixtureError.cannotCreatePDF }
+            app.typeKey("o", modifierFlags: .command)
+            try choosePDF(url, in: app)
+            app.typeKey("c", modifierFlags: .shift)
+            XCTAssertTrue(waitForStatus("status.experimentalMode", containing: "CITATION PREVIEW", in: app))
+            let originalPage = status("status.page", in: app).labelOrValue
+            app.typeText("ff")
+            let reference = app.textViews["citationPreview.referenceText"]
+            XCTAssertTrue(reference.waitForExistence(timeout: 3))
+            XCTAssertTrue(reference.labelOrValue.contains("Verified citation reference"))
+            XCTAssertEqual(status("status.page", in: app).labelOrValue, originalPage)
+            let attachment = XCTAttachment(screenshot: app.screenshot())
+            attachment.name = "whole-bracket-citation-preview"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            app.typeKey(.escape, modifierFlags: [])
+            XCTAssertEqual(status("status.page", in: app).labelOrValue, originalPage)
+            app.typeText("ff")
+            XCTAssertTrue(reference.waitForExistence(timeout: 3))
+            app.typeKey(.return, modifierFlags: [])
+            XCTAssertTrue(waitForStatus("status.page", containing: "2 / 2", in: app))
+        }
+    }
+    @MainActor
     private func withEnvironment(
         config: String? = nil,
         body: (UITestEnvironment, XCUIApplication) throws -> Void

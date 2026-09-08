@@ -17,15 +17,80 @@ struct AuthorYearCitationMarker: Equatable {
     let sourceFragments: [CGRect]
 }
 
+enum CitationPreviewUnresolvedReason: Equatable {
+    case missingTarget
+    case invalidDestination
+    case referenceUnavailable
+
+    var message: String {
+        switch self {
+        case .missingTarget: return "Citation target is unavailable."
+        case .invalidDestination: return "Citation target coordinates could not be verified."
+        case .referenceUnavailable: return "Reference text could not be verified."
+        }
+    }
+}
+
+enum CitationPreviewItemState: Equatable {
+    case resolved
+    case unresolved(reason: CitationPreviewUnresolvedReason)
+
+    var isResolved: Bool {
+        if case .resolved = self { return true }
+        return false
+    }
+
+    var isUnresolved: Bool { !isResolved }
+    var unresolvedReason: CitationPreviewUnresolvedReason? {
+        guard case let .unresolved(reason) = self else { return nil }
+        return reason
+    }
+}
+
 struct CitationPreviewItem: Equatable {
     let label: String
-    let destinationPageIndex: Int
-    let destinationPoint: CGPoint
+    let destination: ReaderLinkTarget
     let referenceText: String
+    let state: CitationPreviewItemState
 
-    var destination: ReaderLinkTarget {
-        .goTo(pageIndex: destinationPageIndex, point: destinationPoint)
+    init(
+        label: String,
+        destinationPageIndex: Int,
+        destinationPoint: CGPoint,
+        referenceText: String,
+        state: CitationPreviewItemState = .resolved
+    ) {
+        self.label = label
+        self.destination = .goTo(pageIndex: destinationPageIndex, point: destinationPoint)
+        self.referenceText = referenceText
+        self.state = state
     }
+
+    init(
+        label: String,
+        destination: ReaderLinkTarget,
+        referenceText: String,
+        state: CitationPreviewItemState = .resolved
+    ) {
+        self.label = label
+        self.destination = destination
+        self.referenceText = referenceText
+        self.state = state
+    }
+
+    var destinationPageIndex: Int? {
+        guard case let .goTo(pageIndex, _) = destination else { return nil }
+        return pageIndex
+    }
+
+    var destinationPoint: CGPoint? {
+        guard case let .goTo(_, point) = destination else { return nil }
+        return point
+    }
+
+    var isResolved: Bool { state.isResolved }
+    var isUnresolved: Bool { state.isUnresolved }
+    var unresolvedReason: CitationPreviewUnresolvedReason? { state.unresolvedReason }
 }
 
 struct CitationPreviewGroup: Equatable {
@@ -128,7 +193,7 @@ enum AuthorYearCitationClassifier {
 }
 
 enum CitationPreviewClassifier {
-    private static let exactMarker = try! NSRegularExpression(pattern: #"^\s*([0-9]{1,4})\s*$"#)
+    private static let exactMarker = try! NSRegularExpression(pattern: #"^\s*(?:([0-9]{1,4})|\[\s*([0-9]{1,4})\s*\])\s*$"#)
     private static let bracketedGroup = try! NSRegularExpression(
         pattern: #"\[\s*[0-9]{1,4}(?:\s*[,;]\s*[0-9]{1,4})*\s*\]"#
     )
@@ -137,7 +202,7 @@ enum CitationPreviewClassifier {
     static func marker(in exactSourceText: String) -> Int? {
         let range = NSRange(exactSourceText.startIndex..<exactSourceText.endIndex, in: exactSourceText)
         guard let match = exactMarker.firstMatch(in: exactSourceText, range: range),
-              let markerRange = Range(match.range(at: 1), in: exactSourceText)
+              let markerRange = Range(match.range(at: match.range(at: 1).location == NSNotFound ? 2 : 1), in: exactSourceText)
         else { return nil }
         return Int(exactSourceText[markerRange])
     }
@@ -173,8 +238,12 @@ enum CitationReferenceExtractor {
                 if abs($0.bounds.maxY - $1.bounds.maxY) > 1 { return $0.bounds.maxY > $1.bounds.maxY }
                 return $0.bounds.minX < $1.bounds.minX
             }
-        let markerPattern = try! NSRegularExpression(pattern: #"^\s*\[\s*\#(marker)\s*\](?:\s|$)"#)
-        let nextMarkerPattern = try! NSRegularExpression(pattern: #"^\s*\[\s*[0-9]{1,4}\s*\](?:\s|$)"#)
+        let markerPattern = try! NSRegularExpression(
+            pattern: #"^\s*(?:\[\s*\#(marker)\s*\](?:\s|$)|\#(marker)\.[ \t]+\S)"#
+        )
+        let nextMarkerPattern = try! NSRegularExpression(
+            pattern: #"^\s*(?:\[\s*[0-9]{1,4}\s*\](?:\s|$)|[0-9]{1,4}\.[ \t]+\S)"#
+        )
         guard let start = ordered.firstIndex(where: { line in
             let range = NSRange(line.text.startIndex..<line.text.endIndex, in: line.text)
             return markerPattern.firstMatch(in: line.text, range: range) != nil
@@ -215,6 +284,14 @@ enum CitationReferenceEntryExtractor {
     private static let baselineTolerance: CGFloat = 2
     private static let startIndentTolerance: CGFloat = 4
     private static let destinationTolerance: CGFloat = 36
+    private static let destinationSentinelThreshold = CGFloat(Float.greatestFiniteMagnitude) / 2
+
+    static func isUsableDestinationPoint(_ point: CGPoint) -> Bool {
+        point.x.isFinite
+            && point.y.isFinite
+            && abs(point.x) < destinationSentinelThreshold
+            && abs(point.y) < destinationSentinelThreshold
+    }
 
     static func layout(of lines: [CitationTextLine], pageBounds: CGRect) -> CitationReferencePageLayout {
         let midpoint = pageBounds.midX
@@ -232,18 +309,20 @@ enum CitationReferenceEntryExtractor {
     }
 
     static func numericEntry(marker: Int, destinationPoint: CGPoint, on page: PDFPage) -> String? {
+        guard isUsableDestinationPoint(destinationPoint) else { return nil }
         let lines = pageLines(on: page)
         let columns = columnLines(lines, pageBounds: page.bounds(for: .cropBox))
         let minimumY = destinationPoint.y - 220
         let maximumY = destinationPoint.y + 48
         let matches = columns.compactMap { column -> String? in
             let nearby = column.filter { $0.bounds.maxY >= minimumY && $0.bounds.minY <= maximumY }
-            return CitationReferenceExtractor.extract(marker: marker, from: nearby)
+            return CitationReferenceExtractor.extract(marker: marker, from: mergeFragmentsOnBaselines(nearby))
         }
         return matches.count == 1 ? matches[0] : nil
     }
 
     static func entry(destinationPoint: CGPoint, on page: PDFPage) -> CitationReferenceEntryCandidate? {
+        guard isUsableDestinationPoint(destinationPoint) else { return nil }
         let matches = candidates(destinationPoint: destinationPoint, on: page)
             .map { candidate in
                 let origin = candidate.lines.map { $0.bounds.minX }.min() ?? .greatestFiniteMagnitude
@@ -256,6 +335,7 @@ enum CitationReferenceEntryExtractor {
     }
 
     static func candidates(destinationPoint: CGPoint, on page: PDFPage) -> [CitationReferenceEntryCandidate] {
+        guard isUsableDestinationPoint(destinationPoint) else { return [] }
         let lines = pageLines(on: page)
         return columnLines(lines, pageBounds: page.bounds(for: .cropBox)).enumerated().compactMap { index, column in
             let physicalLines = mergeFragmentsOnBaselines(column)
@@ -345,12 +425,14 @@ final class CitationPreviewResolver {
                 around: selected.bounds,
                 on: sourcePage
            ) {
-            let resolved = sourceGroup.compactMap { marker in
-                previewItem(for: marker).map { (marker: marker.marker, item: $0) }
+            let items = sourceGroup.map(previewItem(for:))
+            // Brackets alone also describe equations, notes and section links.
+            // A resolved bibliography member establishes the group's citation role.
+            guard items.contains(where: \.isResolved) else { return .activate(link.target) }
+            guard let selectedIndex = sourceGroup.firstIndex(where: { Self.markersMatch($0, selectedMarker) }) else {
+                return .activate(link.target)
             }
-            if let selectedIndex = resolved.firstIndex(where: { $0.marker == selectedMarker.marker }) {
-                return .preview(CitationPreviewGroup(items: resolved.map(\.item), selectedIndex: selectedIndex))
-            }
+            return .preview(CitationPreviewGroup(items: items, selectedIndex: selectedIndex))
         }
 
         if let sourceGroup = reconstructedAuthorYearGroup(containing: selected, on: sourcePage) {
@@ -371,42 +453,70 @@ final class CitationPreviewResolver {
         around selectedBounds: CGRect,
         on page: PDFPage
     ) -> [CitationMarker]? {
-        let pageBounds = page.bounds(for: .cropBox)
-        let verticalPadding: CGFloat = 16
-        let contextBounds = CGRect(
-            x: pageBounds.minX,
-            y: selectedBounds.minY - verticalPadding,
-            width: pageBounds.width,
-            height: selectedBounds.height + (verticalPadding * 2)
-        ).intersection(pageBounds)
-        guard let context = page.selection(for: contextBounds)?.string else { return nil }
-        let groups = CitationPreviewClassifier.bracketedGroups(in: context).sorted { $0.count > $1.count }
-        guard !groups.isEmpty else { return nil }
-
-        let candidates = page.annotations.compactMap { annotation -> CitationMarker? in
-            guard annotation.bounds.intersects(contextBounds) else { return nil }
-            return marker(for: annotation, on: page)
-        }.sorted(by: Self.sourceReadingOrder)
-
-        for markers in groups where markers.contains(selectedMarker.marker) {
-            guard candidates.count >= markers.count else { continue }
-            for start in 0...(candidates.count - markers.count) {
-                let candidate = Array(candidates[start..<(start + markers.count)])
-                guard candidate.map(\.marker) == markers,
-                      candidate.contains(selectedMarker)
-                else { continue }
-                return candidate
+        guard let text = page.string else { return nil }
+        let pattern = try! NSRegularExpression(
+            pattern: #"\[\s*[0-9]{1,4}(?:\s*[,;]\s*[0-9]{1,4})*\s*\]"#
+        )
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        for match in pattern.matches(in: text, range: range) {
+            guard let selection = page.selection(for: match.range),
+                  let groupText = selection.string,
+                  let numbers = CitationPreviewClassifier.bracketedGroups(in: groupText).first
+            else { continue }
+            let fragments = selection.selectionsByLine().map { $0.bounds(for: page) }
+            func contains(_ bounds: CGRect) -> Bool {
+                fragments.contains { fragment in
+                    fragment.insetBy(dx: -1, dy: -1).contains(CGPoint(x: bounds.midX, y: bounds.midY))
+                }
             }
+            guard contains(selectedBounds) else { continue }
+            let candidates = page.annotations.compactMap { annotation -> CitationMarker? in
+                guard contains(annotation.bounds) else { return nil }
+                return marker(for: annotation, on: page)
+            }.sorted(by: Self.sourceReadingOrder)
+            guard candidates.map(\.marker) == numbers,
+                  candidates.contains(where: { Self.markersMatch($0, selectedMarker) })
+            else { continue }
+            return candidates
         }
         return nil
     }
 
-
     private func matchingAnnotation(for link: ReaderLink, on page: PDFPage) -> PDFAnnotation? {
         page.annotations.first { annotation in
-            guard let target = Self.linkTarget(annotation), target == link.target else { return false }
+            guard let target = Self.linkTarget(annotation), Self.targetsMatch(target, link.target) else {
+                return false
+            }
             return link.rects.contains { Self.rect($0, matches: annotation.bounds) }
         }
+    }
+
+    private static func targetsMatch(_ lhs: ReaderLinkTarget, _ rhs: ReaderLinkTarget) -> Bool {
+        switch (lhs, rhs) {
+        case let (.url(lhsURL), .url(rhsURL)):
+            return lhsURL == rhsURL
+        case let (.goTo(lhsPage, lhsPoint), .goTo(rhsPage, rhsPoint)):
+            guard lhsPage == rhsPage else { return false }
+            switch (lhsPoint, rhsPoint) {
+            case (nil, nil):
+                return true
+            case let (.some(lhsPoint), .some(rhsPoint)):
+                let xMatches = lhsPoint.x == rhsPoint.x || (!lhsPoint.x.isFinite && !rhsPoint.x.isFinite)
+                let yMatches = lhsPoint.y == rhsPoint.y || (!lhsPoint.y.isFinite && !rhsPoint.y.isFinite)
+                return xMatches && yMatches
+            default:
+                return false
+            }
+        default:
+            return false
+        }
+    }
+
+    private static func markersMatch(_ lhs: CitationMarker, _ rhs: CitationMarker) -> Bool {
+        lhs.sourcePageIndex == rhs.sourcePageIndex
+            && lhs.marker == rhs.marker
+            && rect(lhs.sourceBounds, matches: rhs.sourceBounds)
+            && targetsMatch(lhs.destination, rhs.destination)
     }
 
     private func marker(for annotation: PDFAnnotation, on page: PDFPage) -> CitationMarker? {
@@ -421,34 +531,58 @@ final class CitationPreviewResolver {
         )
     }
 
-    private func previewItem(for marker: CitationMarker) -> CitationPreviewItem? {
-        guard case let .goTo(pageIndex, point?) = marker.destination,
-              let page = document.page(at: pageIndex),
-              pageIndex >= 0, pageIndex < document.pageCount,
-              let referenceText = referenceText(marker: marker.marker, point: point, on: page)
-        else { return nil }
+    private func previewItem(for marker: CitationMarker) -> CitationPreviewItem {
+        guard case let .goTo(pageIndex, point) = marker.destination else {
+            return CitationPreviewItem(
+                label: "[\(marker.marker)]",
+                destination: marker.destination,
+                referenceText: "",
+                state: .unresolved(reason: .missingTarget)
+            )
+        }
+        guard pageIndex >= 0,
+              let point,
+              pageIndex < document.pageCount,
+              CitationReferenceEntryExtractor.isUsableDestinationPoint(point),
+              let page = document.page(at: pageIndex)
+        else {
+            return CitationPreviewItem(
+                label: "[\(marker.marker)]",
+                destination: marker.destination,
+                referenceText: "",
+                state: .unresolved(reason: .invalidDestination)
+            )
+        }
+        guard let referenceText = referenceText(marker: marker.marker, point: point, on: page) else {
+            return CitationPreviewItem(
+                label: "[\(marker.marker)]",
+                destination: marker.destination,
+                referenceText: "",
+                state: .unresolved(reason: .referenceUnavailable)
+            )
+        }
         return CitationPreviewItem(
             label: "[\(marker.marker)]",
-            destinationPageIndex: pageIndex,
-            destinationPoint: point,
-            referenceText: referenceText
+            destination: marker.destination,
+            referenceText: referenceText,
+            state: .resolved
         )
     }
 
     private func previewItem(for marker: AuthorYearCitationMarker) -> CitationPreviewItem? {
         guard case let .goTo(pageIndex, point?) = marker.destination,
-              pageIndex >= 0, pageIndex < document.pageCount,
-              point.y.isFinite,
-              abs(point.y) < CGFloat(Float.greatestFiniteMagnitude) / 2,
+              pageIndex >= 0,
+              pageIndex < document.pageCount,
+              CitationReferenceEntryExtractor.isUsableDestinationPoint(point),
               let page = document.page(at: pageIndex),
               let entry = CitationReferenceEntryExtractor.entry(destinationPoint: point, on: page),
               AuthorYearCitationClassifier.validates(marker.key, referenceText: entry.rawText)
         else { return nil }
         return CitationPreviewItem(
             label: marker.key.label,
-            destinationPageIndex: pageIndex,
-            destinationPoint: point,
-            referenceText: entry.rawText
+            destination: marker.destination,
+            referenceText: entry.rawText,
+            state: .resolved
         )
     }
 
@@ -558,8 +692,7 @@ final class CitationPreviewResolver {
     }
 
     private func referenceText(marker: Int, point: CGPoint, on page: PDFPage) -> String? {
-        let sentinelThreshold = CGFloat(Float.greatestFiniteMagnitude) / 2
-        guard point.y.isFinite, abs(point.y) < sentinelThreshold else { return nil }
+        guard CitationReferenceEntryExtractor.isUsableDestinationPoint(point) else { return nil }
         return CitationReferenceEntryExtractor.numericEntry(
             marker: marker,
             destinationPoint: point,

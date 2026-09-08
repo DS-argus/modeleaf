@@ -13,7 +13,7 @@ func googleScholarSearchURL(for text: String) -> URL? {
 func citationScholarQuery(for referenceText: String) -> String {
     referenceText
         .replacingOccurrences(
-            of: #"^\s*\[\s*\d{1,4}\s*\]\s*"#,
+            of: #"^\s*(?:\[\s*\d{1,4}\s*\]|\d{1,4}\.)\s*"#,
             with: "",
             options: .regularExpression
         )
@@ -249,12 +249,18 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         guard coordinator.snapshot.activeID == sessionID else { return }
         beginTransientOverlay()
         rootView.citationPreviewOverlay.onCommit = { [weak self, weak provider] item in
-            guard let self, self.coordinator.snapshot.activeID == sessionID else { return }
+            guard let self,
+                  self.coordinator.snapshot.activeID == sessionID,
+                  item.isResolved
+            else { return }
             self.dismissCitationPreviewAndRestoreFocus()
             provider?.activateLink(item.destination)
         }
         rootView.citationPreviewOverlay.onSearch = { [weak self] item in
-            guard let self, self.coordinator.snapshot.activeID == sessionID else { return }
+            guard let self,
+                  self.coordinator.snapshot.activeID == sessionID,
+                  item.isResolved
+            else { return }
             self.dismissCitationPreviewAndRestoreFocus()
             self.citationSearchHandler(citationScholarQuery(for: item.referenceText))
         }
