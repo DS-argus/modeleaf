@@ -25,6 +25,31 @@ struct CitationPreviewTests {
         #expect(CitationPreviewClassifier.bracketedMarkers(in: "[5–3]", containing: 3) == nil)
         #expect(CitationPreviewClassifier.bracketedMarkers(in: "[1–9999]", containing: 1) == nil)
     }
+    @Test("alphabetic and opaque labels retain native bibliography identity")
+    func opaqueCitationContracts() throws {
+        for (file, indices, labels) in [
+            ("D15-improving-bandits.pdf", [6], ["BR25"]),
+            ("D15-improving-bandits.pdf", [4, 5], ["HKR16", "Pat+23"]),
+            ("D16-labeldp-pro.pdf", [33], ["app"]),
+        ] {
+            let url = URL(fileURLWithPath: "docs/citation-papers/\(file)")
+            guard FileManager.default.fileExists(atPath: url.path) else { continue }
+            let document = try #require(PDFDocument(url: url))
+            let page = try #require(document.page(at: 0))
+            for (expectedSelection, index) in indices.enumerated() {
+                let annotation = page.annotations[index]
+                let link = try #require(links(on: page, in: document).first { $0.rects.contains(annotation.bounds) })
+                guard case let .preview(group) = CitationPreviewResolver(document: document).resolve(link) else {
+                    Issue.record("\(file) a\(index) did not preview")
+                    continue
+                }
+                #expect(group.items.map(\.label) == labels)
+                #expect(group.selectedIndex == expectedSelection)
+                #expect(group.items.allSatisfy { $0.isResolved })
+                #expect(group.items[group.selectedIndex].destination == link.target)
+            }
+        }
+    }
 
     @Test("author-year classifier joins split and hyphenated fragments and validates exact reference keys")
     func authorYearClassifierContract() throws {
@@ -1044,6 +1069,16 @@ struct CitationPreviewTests {
                 return
             }
             #expect(group.items.map(\.label) == ["Bare 2022"])
+            for token in ["Red", "Blue"] {
+                let link = try #require(links.first { sourceText($0) == token })
+                guard case let .preview(customGroup) = resolver.resolve(link) else {
+                    Issue.record("Custom opaque multicitation must resolve without a numeric or year assumption")
+                    continue
+                }
+                #expect(customGroup.items.map(\.label) == ["Red", "Blue"])
+                #expect(customGroup.items.allSatisfy { $0.isResolved })
+                #expect(customGroup.items[customGroup.selectedIndex].destination == link.target)
+            }
         }
     }
 
@@ -1239,6 +1274,7 @@ struct CitationPreviewTests {
             "Whole (2020) and Whole (2020)",
             "[Square, 2021]",
             "Bare 2022",
+            "[Red; Blue]",
         ]
         let sourceLineObjects = sourceLines.map {
             CTLineCreateWithAttributedString(NSAttributedString(string: $0, attributes: attributes))
@@ -1255,6 +1291,8 @@ struct CitationPreviewTests {
             ("Whole Author. 2020. Whole reference.", CGFloat(700)),
             ("Square Author. 2021. Square reference.", CGFloat(680)),
             ("Bare Author. 2022. Bare reference.", CGFloat(660)),
+            ("[Red] Custom red reference without a year.", CGFloat(640)),
+            ("[Blue] Custom blue reference without a year.", CGFloat(620)),
         ]
         context.beginPDFPage(nil)
         context.textMatrix = .identity
@@ -1285,6 +1323,8 @@ struct CitationPreviewTests {
             AnnotationSpec(lineIndex: 1, token: "Square", occurrence: 0, destinationY: 680),
             AnnotationSpec(lineIndex: 1, token: "2021", occurrence: 0, destinationY: 680),
             AnnotationSpec(lineIndex: 2, token: "2022", occurrence: 0, destinationY: 660),
+            AnnotationSpec(lineIndex: 3, token: "Red", occurrence: 0, destinationY: 640),
+            AnnotationSpec(lineIndex: 3, token: "Blue", occurrence: 0, destinationY: 620),
         ]
         for spec in specs {
             let text = sourceLines[spec.lineIndex] as NSString

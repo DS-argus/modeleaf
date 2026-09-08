@@ -487,9 +487,54 @@ final class CitationPreviewResolver {
             return .preview(sourceGroup)
         }
 
+        if let group = opaqueSourceGroup(containing: selected, on: sourcePage) { return .preview(group) }
         return .activate(link.target)
     }
 
+    private func opaqueSourceGroup(containing selected: PDFAnnotation, on page: PDFPage) -> CitationPreviewGroup? {
+        guard let text = page.string else { return nil }
+        let label = #"[A-Za-z][A-Za-z0-9+._-]*"#
+        let contents = label + #"(?:\s*[,;]\s*"# + label + #")*"#
+        let pattern = try! NSRegularExpression(pattern: #"(?:\[\s*"# + contents + #"\s*\]|\(\s*"# + contents + #"\s*\))"#)
+        for match in pattern.matches(in: text, range: NSRange(text.startIndex..<text.endIndex, in: text)) {
+            guard let selection = page.selection(for: match.range), selectionIntersects(selection, bounds: selected.bounds, on: page),
+                  let groupText = selection.string
+            else { continue }
+            let labels = groupText.trimmingCharacters(in: CharacterSet(charactersIn: "[]() "))
+                .components(separatedBy: CharacterSet(charactersIn: ",;"))
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            let annotations = page.annotations.filter { selectionIntersects(selection, bounds: $0.bounds, on: page) }
+            var consumed = Set<Int>()
+            var selectedIndex: Int?
+            let items = labels.enumerated().map { index, label -> CitationPreviewItem in
+                let annotationIndex = annotations.indices.first { candidate in
+                    !consumed.contains(candidate) && (page.selection(for: annotations[candidate].bounds)?.string ?? "")
+                        .trimmingCharacters(in: CharacterSet(charactersIn: "[]() ").union(.whitespacesAndNewlines)) == label
+                }
+                guard let annotationIndex else {
+                    return CitationPreviewItem(label: label, destination: nil, referenceText: "", state: .unresolved(reason: .missingTarget))
+                }
+                consumed.insert(annotationIndex)
+                let annotation = annotations[annotationIndex]
+                if Self.rect(annotation.bounds, matches: selected.bounds) { selectedIndex = index }
+                let target = Self.linkTarget(annotation)
+                guard case let .goTo(pageIndex, point?) = target, let destinationPage = document.page(at: pageIndex),
+                      let candidate = CitationReferenceEntryExtractor.entry(destinationPoint: point, on: destinationPage)
+                else { return CitationPreviewItem(label: label, destination: target, referenceText: "", state: .unresolved(reason: .referenceUnavailable)) }
+                let escaped = NSRegularExpression.escapedPattern(for: label)
+                let matchesLabel = candidate.rawText.range(of: #"^\s*[\[(]"# + escaped + #"[\])]"#, options: .regularExpression) != nil
+                let bibliographyHeading = destinationPage.string?.range(of: #"(?im)^\s*(?:references|bibliography)\s*$"#, options: .regularExpression) != nil
+                let bibliographyContent = candidate.rawText.range(of: #"https?:\s*//|\b(?:19|20)[0-9]{2}\b"#, options: .regularExpression) != nil
+                guard matchesLabel || (bibliographyHeading && bibliographyContent) else {
+                    return CitationPreviewItem(label: label, destination: target, referenceText: "", state: .unresolved(reason: .referenceUnavailable))
+                }
+                return CitationPreviewItem(label: label, destination: target, referenceText: candidate.rawText)
+            }
+            guard let selectedIndex, items.contains(where: \.isResolved) else { continue }
+            return CitationPreviewGroup(items: items, selectedIndex: selectedIndex)
+        }
+        return nil
+    }
     private func reconstructedSourceGroup(
         containing selectedMarker: CitationMarker,
         around selectedBounds: CGRect,
