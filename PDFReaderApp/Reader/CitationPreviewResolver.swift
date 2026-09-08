@@ -194,10 +194,8 @@ enum AuthorYearCitationClassifier {
 
 enum CitationPreviewClassifier {
     private static let exactMarker = try! NSRegularExpression(pattern: #"^\s*(?:([0-9]{1,4})|\[\s*([0-9]{1,4})\s*\])\s*$"#)
-    private static let bracketedGroup = try! NSRegularExpression(
-        pattern: #"\[\s*[0-9]{1,4}(?:\s*[,;]\s*[0-9]{1,4})*\s*\]"#
-    )
-    private static let number = try! NSRegularExpression(pattern: #"[0-9]{1,4}"#)
+    static let groupPattern = #"\[\s*[0-9]{1,4}(?:\s*[-–−]\s*[0-9]{1,4})?(?:\s*[,;]\s*[0-9]{1,4}(?:\s*[-–−]\s*[0-9]{1,4})?)*\s*\]"#
+    private static let bracketedGroup = try! NSRegularExpression(pattern: groupPattern)
 
     static func marker(in exactSourceText: String) -> Int? {
         let range = NSRange(exactSourceText.startIndex..<exactSourceText.endIndex, in: exactSourceText)
@@ -207,17 +205,25 @@ enum CitationPreviewClassifier {
         return Int(exactSourceText[markerRange])
     }
 
+    static func expandedMarkers(in group: String) -> [Int]? {
+        let body = group.trimmingCharacters(in: CharacterSet(charactersIn: "[] ").union(.whitespacesAndNewlines))
+        var result: [Int] = []
+        for component in body.components(separatedBy: CharacterSet(charactersIn: ",;")) {
+            let bounds = component.components(separatedBy: CharacterSet(charactersIn: "-–−"))
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            guard let first = bounds.first.flatMap(Int.init), first > 0, bounds.count <= 2 else { return nil }
+            let last = bounds.count == 2 ? Int(bounds[1]) : first
+            guard let last, last >= first, last <= 9999, result.count + last - first + 1 <= 256 else { return nil }
+            result.append(contentsOf: first...last)
+        }
+        return result.isEmpty ? nil : result
+    }
     static func bracketedGroups(in sourceContext: String) -> [[Int]] {
         let range = NSRange(sourceContext.startIndex..<sourceContext.endIndex, in: sourceContext)
         return bracketedGroup.matches(in: sourceContext, range: range).compactMap { match in
             guard let groupRange = Range(match.range, in: sourceContext) else { return nil }
             let group = String(sourceContext[groupRange])
-            let groupNSRange = NSRange(group.startIndex..<group.endIndex, in: group)
-            let markers = number.matches(in: group, range: groupNSRange).compactMap { numberMatch -> Int? in
-                guard let swiftRange = Range(numberMatch.range, in: group) else { return nil }
-                return Int(group[swiftRange])
-            }
-            return markers.isEmpty ? nil : markers
+            return expandedMarkers(in: group)
         }
     }
 
@@ -308,6 +314,19 @@ enum CitationReferenceEntryExtractor {
         return .twoColumns(splitX: midpoint)
     }
 
+    static func numericEntryLocations(on page: PDFPage) -> [(number: Int, point: CGPoint)] {
+        let pattern = try! NSRegularExpression(pattern: #"^\s*(?:\[\s*([0-9]{1,4})\s*\]|([0-9]{1,4})\.)[ \t]+\S"#)
+        return columnLines(pageLines(on: page), pageBounds: page.bounds(for: .cropBox)).flatMap { column in
+            mergeFragmentsOnBaselines(column).compactMap { line in
+                let range = NSRange(line.text.startIndex..<line.text.endIndex, in: line.text)
+                guard let match = pattern.firstMatch(in: line.text, range: range),
+                      let label = Range(match.range(at: match.range(at: 1).location == NSNotFound ? 2 : 1), in: line.text),
+                      let number = Int(line.text[label])
+                else { return nil }
+                return (number: number, point: CGPoint(x: line.bounds.minX, y: line.bounds.maxY))
+            }
+        }
+    }
     static func numericEntry(marker: Int, destinationPoint: CGPoint, on page: PDFPage) -> String? {
         guard isUsableDestinationPoint(destinationPoint) else { return nil }
         let lines = pageLines(on: page)
@@ -450,7 +469,7 @@ final class CitationPreviewResolver {
     ) -> CitationPreviewGroup? {
         guard let text = page.string else { return nil }
         let pattern = try! NSRegularExpression(
-            pattern: #"\[\s*[0-9]{1,4}(?:\s*[,;]\s*[0-9]{1,4})*\s*\]"#
+            pattern: CitationPreviewClassifier.groupPattern
         )
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
         for match in pattern.matches(in: text, range: range) {
@@ -474,6 +493,8 @@ final class CitationPreviewResolver {
             let items = numbers.enumerated().map { index, number -> CitationPreviewItem in
                 let matches = candidates.indices.filter { !consumed.contains($0) && candidates[$0].marker == number }
                 guard let match = matches.first else {
+                    if groupText.rangeOfCharacter(from: CharacterSet(charactersIn: "-–−")) != nil,
+                       let item = intermediateItem(number: number, candidates: candidates) { return item }
                     return CitationPreviewItem(label: "[\(number)]", destination: nil, referenceText: "", state: .unresolved(reason: .missingTarget))
                 }
                 consumed.insert(match)
@@ -486,6 +507,32 @@ final class CitationPreviewResolver {
         return nil
     }
 
+    private func intermediateItem(number: Int, candidates: [CitationMarker]) -> CitationPreviewItem? {
+        guard let lower = candidates.filter({ $0.marker < number }).max(by: { $0.marker < $1.marker }),
+              let upper = candidates.filter({ $0.marker > number }).min(by: { $0.marker < $1.marker }),
+              case let .goTo(lowerPage, lowerPoint?) = lower.destination,
+              case let .goTo(upperPage, upperPoint?) = upper.destination,
+              lowerPage >= 0, upperPage >= lowerPage, upperPage < document.pageCount,
+              upperPage - lowerPage <= 16,
+              CitationReferenceEntryExtractor.isUsableDestinationPoint(lowerPoint),
+              CitationReferenceEntryExtractor.isUsableDestinationPoint(upperPoint)
+        else { return nil }
+        var entries: [(number: Int, page: Int, point: CGPoint)] = []
+        for index in lowerPage...upperPage {
+            guard let page = document.page(at: index) else { return nil }
+            entries += CitationReferenceEntryExtractor.numericEntryLocations(on: page).map {
+                (number: $0.number, page: index, point: $0.point)
+            }
+        }
+        let starts = entries.indices.filter { entries[$0].number == lower.marker && entries[$0].page == lowerPage && abs(entries[$0].point.y - lowerPoint.y) <= 48 }
+        let ends = entries.indices.filter { entries[$0].number == upper.marker && entries[$0].page == upperPage && abs(entries[$0].point.y - upperPoint.y) <= 48 }
+        guard starts.count == 1, ends.count == 1, let start = starts.first, let end = ends.first, start < end else { return nil }
+        let matches = entries[(start + 1)..<end].filter { $0.number == number }
+        guard matches.count == 1, let match = matches.first, let page = document.page(at: match.page),
+              let text = referenceText(marker: number, point: match.point, on: page)
+        else { return nil }
+        return CitationPreviewItem(label: "[\(number)]", destination: .goTo(pageIndex: match.page, point: match.point), referenceText: text)
+    }
     private func matchingAnnotation(for link: ReaderLink, on page: PDFPage) -> PDFAnnotation? {
         page.annotations.first { annotation in
             guard let target = Self.linkTarget(annotation), Self.targetsMatch(target, link.target) else {

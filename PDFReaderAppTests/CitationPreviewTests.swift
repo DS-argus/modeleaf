@@ -20,7 +20,10 @@ struct CitationPreviewTests {
         #expect(CitationPreviewClassifier.marker(in: "Smith 2024") == nil)
         #expect(CitationPreviewClassifier.bracketedMarkers(in: "Prior work [3, 4; 5] agrees", containing: 4) == [3, 4, 5])
         #expect(CitationPreviewClassifier.bracketedMarkers(in: "Figure (4) and section 5", containing: 4) == nil)
-        #expect(CitationPreviewClassifier.bracketedMarkers(in: "[3-5]", containing: 3) == nil)
+        #expect(CitationPreviewClassifier.bracketedMarkers(in: "[3-5]", containing: 3) == [3, 4, 5])
+        #expect(CitationPreviewClassifier.bracketedMarkers(in: "[1, 3–5, 8]", containing: 4) == [1, 3, 4, 5, 8])
+        #expect(CitationPreviewClassifier.bracketedMarkers(in: "[5–3]", containing: 3) == nil)
+        #expect(CitationPreviewClassifier.bracketedMarkers(in: "[1–9999]", containing: 1) == nil)
     }
 
     @Test("author-year classifier joins split and hyphenated fragments and validates exact reference keys")
@@ -98,6 +101,8 @@ struct CitationPreviewTests {
             ("D07-realappiance.pdf", 2, [6], [6]),
             ("D07-realappiance.pdf", 2, [7], [3]),
             ("D07-realappiance.pdf", 2, [8], [2]),
+            ("D03-neuralplexer3.pdf", 3, [2, 3], [12, 13, 14]),
+            ("D04-spegc.pdf", 0, Array(9...14), [44, 45, 46, 56, 61, 69, 70]),
         ]
         for (file, pageIndex, annotations, members) in cases {
             let url = URL(fileURLWithPath: "docs/citation-papers/\(file)")
@@ -105,9 +110,11 @@ struct CitationPreviewTests {
             let document = try #require(PDFDocument(url: url))
             let page = try #require(document.page(at: pageIndex))
             let resolver = CitationPreviewResolver(document: document)
-            for (selectedIndex, annotationIndex) in annotations.enumerated() {
+            for annotationIndex in annotations {
                 let annotation = try #require(page.annotations.indices.contains(annotationIndex) ? page.annotations[annotationIndex] : nil)
                 let link = try #require(links(on: page, in: document).first { $0.rects.contains(annotation.bounds) })
+                let number = try #require(CitationPreviewClassifier.marker(in: page.selection(for: annotation.bounds)?.string ?? ""))
+                let selectedIndex = try #require(members.firstIndex(of: number))
                 guard case let .preview(group) = resolver.resolve(link) else {
                     Issue.record("\(file) p\(pageIndex + 1) a\(annotationIndex) did not preview")
                     continue
@@ -115,6 +122,14 @@ struct CitationPreviewTests {
                 #expect(group.items.map(\.label) == members.map { "[\($0)]" })
                 #expect(group.selectedIndex == selectedIndex)
                 #expect(group.items.allSatisfy { $0.isResolved })
+                if file == "D03-neuralplexer3.pdf" {
+                    #expect(group.items[1].referenceText.contains("Kornilov"))
+                    #expect(group.items[1].destinationPageIndex == 10)
+                }
+                if file == "D04-spegc.pdf", members.first == 44 {
+                    #expect(group.items[1].referenceText.contains("Niu"))
+                    #expect(group.items[1].destinationPageIndex == 9)
+                }
                 #expect(group.items[selectedIndex].destination == link.target)
             }
         }
@@ -903,10 +918,12 @@ struct CitationPreviewTests {
             let rangeEndpoint = try #require(links.first {
                 sourceText($0) == "1" && ($0.rects.first?.minY ?? 0) < 680
             })
-            guard case .activate = resolver.resolve(rangeEndpoint) else {
-                Issue.record("A range endpoint must not borrow a nearby standalone [1]")
+            guard case let .preview(rangeGroup) = resolver.resolve(rangeEndpoint) else {
+                Issue.record("Range membership must be preserved without borrowing nearby [1]")
                 return
             }
+            #expect(rangeGroup.items.map(\.label) == ["[1]", "[2]", "[3]"])
+            #expect(rangeGroup.items[1].isUnresolved && rangeGroup.items[2].isUnresolved)
 
             let standaloneNearRange = try #require(links.first {
                 sourceText($0) == "[1]" && ($0.rects.first?.minY ?? 0) < 680
