@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import CoreGraphics
 import CoreText
 import PDFKit
@@ -22,9 +23,9 @@ final class ReaderWorkflowUITests: XCTestCase {
             app.typeKey(.F12, modifierFlags: .command)
             try choosePDF(pdf, in: app)
 
-            XCTAssertTrue(app.descendants(matching: .any)["pdfCanvas"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "value == %@", "Modeleaf fixture · page 1")).firstMatch.waitForExistence(timeout: 5))
             XCTAssertTrue(tab(named: "Remapped.pdf", in: app).exists)
-            XCTAssertTrue(status("status.page", in: app).labelOrValue.contains("1 / 20"))
+            XCTAssertTrue(waitForStatus("status.page", containing: "1 / 20", in: app))
         }
     }
 
@@ -39,9 +40,9 @@ final class ReaderWorkflowUITests: XCTestCase {
             try choosePDF(second, in: app)
 
             XCTAssertEqual(app.radioButtons.count, 2)
-            app.typeText("gT")
+            app.typeKey("p", modifierFlags: .shift)
             XCTAssertEqual(tab(named: "First.pdf", in: app).value as? String, "selected")
-            app.typeText("gt")
+            app.typeKey("n", modifierFlags: .shift)
             XCTAssertEqual(tab(named: "Second.pdf", in: app).value as? String, "selected")
 
             app.typeKey("w", modifierFlags: .command)
@@ -377,7 +378,7 @@ final class ReaderWorkflowUITests: XCTestCase {
     func testE2E16WholeBracketCitationPreviewPreservesPositionUntilEnter() throws {
         try withEnvironment { environment, app in
             let url = try makePDF(
-                in: environment.fixtures, name: "Citation.pdf", pages: 2,
+                in: environment.fixtures, name: "Citation.pdf", pages: 8,
                 text: "[7] Alpha. Verified citation reference. 2024."
             )
             guard let document = PDFDocument(url: url),
@@ -391,6 +392,8 @@ final class ReaderWorkflowUITests: XCTestCase {
             guard document.write(to: url) else { throw UITestFixtureError.cannotCreatePDF }
             app.typeKey("o", modifierFlags: .command)
             try choosePDF(url, in: app)
+            app.typeText("gg")
+            XCTAssertTrue(waitForStatus("status.page", containing: "1 / 8", in: app))
             app.typeKey("c", modifierFlags: .shift)
             XCTAssertTrue(waitForStatus("status.experimentalMode", containing: "CITATION PREVIEW", in: app))
             let originalPage = status("status.page", in: app).labelOrValue
@@ -408,30 +411,265 @@ final class ReaderWorkflowUITests: XCTestCase {
             app.typeText("ff")
             XCTAssertTrue(reference.waitForExistence(timeout: 3))
             app.typeKey(.return, modifierFlags: [])
-            XCTAssertTrue(waitForStatus("status.page", containing: "2 / 2", in: app))
+            XCTAssertTrue(waitForStatus("status.page", containing: "2 / 8", in: app))
         }
     }
+    @MainActor
+    func testE2E17RealCitationFamiliesPreserveSelectionAndNativeTargets() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let cases: [(name: String, file: String, page: Int, annotations: [Int], members: Int)] = [
+            ("numeric-single", "D01-primacy.pdf", 0, [12], 1),
+            ("numeric-list", "D01-primacy.pdf", 0, Array(1...5), 5),
+            ("numeric-range", "D03-neuralplexer3.pdf", 3, [2, 3], 3),
+            ("author-single", "D08-grammaticality.pdf", 0, [0, 1], 1),
+            ("author-group", "D11-submix.pdf", 0, Array(1...14), 7),
+            ("opaque-group", "D15-improving-bandits.pdf", 0, [4, 5], 2),
+            ("round-group", "D05-molvision.pdf", 0, [2, 3], 2),
+            ("locator", "D18-orthogonal-manifold.pdf", 5, [6, 7], 1),
+        ]
+        for sample in cases {
+            let original = root.appendingPathComponent("docs/citation-papers/\(sample.file)")
+            guard FileManager.default.fileExists(atPath: original.path) else {
+                throw XCTSkip("Local research fixture unavailable: \(sample.file)")
+            }
+            try withEnvironment { environment, app in
+                let originalHash = try sha256(original)
+                let document = try XCTUnwrap(PDFDocument(url: original))
+                let source = try XCTUnwrap(document.page(at: sample.page))
+                let first = source.annotations[sample.annotations[0]]
+                let target = try XCTUnwrap((first.action as? PDFActionGoTo)?.destination.page)
+                let targetPage = document.index(for: target) + 1
+                for (index, annotation) in source.annotations.enumerated() where !sample.annotations.contains(index) {
+                    source.removeAnnotation(annotation)
+                }
+                let copy = environment.fixtures.appendingPathComponent("\(sample.name).pdf")
+                XCTAssertTrue(document.write(to: copy))
+                app.typeKey("o", modifierFlags: .command)
+                try choosePDF(copy, in: app)
+                app.typeText("gg")
+                app.typeKey("f", modifierFlags: .shift)
+                for _ in 0..<sample.page { app.typeText("n") }
+                XCTAssertTrue(waitForStatus("status.page", containing: "\(sample.page + 1) /", in: app), sample.name)
+                app.typeKey("c", modifierFlags: .shift)
+                XCTAssertTrue(waitForStatus("status.experimentalMode", containing: "CITATION PREVIEW", in: app))
+                let originalPage = status("status.page", in: app).labelOrValue
+                app.typeText("ff")
+                let reference = app.textViews["citationPreview.referenceText"]
+                XCTAssertTrue(reference.waitForExistence(timeout: 5), sample.name)
+                XCTAssertTrue(waitForStatus("citationPreviewOverlay", containing: "of \(sample.members)", in: app), sample.name)
+                let firstSelection = status("citationPreviewOverlay", in: app).labelOrValue
+                XCTAssertFalse(firstSelection.contains("unresolved"), sample.name)
+                if sample.members > 1 {
+                    app.typeText("l")
+                    XCTAssertNotEqual(status("citationPreviewOverlay", in: app).labelOrValue, firstSelection)
+                    app.typeText("h")
+                    XCTAssertEqual(status("citationPreviewOverlay", in: app).labelOrValue, firstSelection)
+                    app.typeKey(.tab, modifierFlags: [])
+                    XCTAssertNotEqual(status("citationPreviewOverlay", in: app).labelOrValue, firstSelection)
+                    app.typeKey(.tab, modifierFlags: .shift)
+                    XCTAssertEqual(status("citationPreviewOverlay", in: app).labelOrValue, firstSelection)
+                    app.typeText("h")
+                    XCTAssertNotEqual(status("citationPreviewOverlay", in: app).labelOrValue, firstSelection)
+                    app.typeText("l")
+                    XCTAssertEqual(status("citationPreviewOverlay", in: app).labelOrValue, firstSelection)
+                }
+                XCTAssertEqual(status("status.page", in: app).labelOrValue, originalPage)
+                if sample.name == "locator" { XCTAssertTrue(reference.labelOrValue.contains("Chapter 3")) }
+                let image = XCTAttachment(screenshot: app.screenshot())
+                image.name = "native-\(sample.name)"
+                image.lifetime = .keepAlways
+                add(image)
+                app.typeKey(.escape, modifierFlags: [])
+                XCTAssertFalse(reference.exists)
+                XCTAssertEqual(status("status.page", in: app).labelOrValue, originalPage)
+                app.typeText("ff")
+                XCTAssertTrue(reference.waitForExistence(timeout: 5))
+                app.typeKey(.return, modifierFlags: [])
+                XCTAssertTrue(waitForStatus("status.page", containing: "\(targetPage) /", in: app), sample.name)
+                app.typeKey("o", modifierFlags: .control)
+                XCTAssertTrue(waitForStatus("status.page", containing: "\(sample.page + 1) /", in: app), sample.name)
+                XCTAssertEqual(try sha256(original), originalHash)
+            }
+        }
+    }
+    @MainActor
+    func testE2E18UnresolvedCitationActionsAndDocumentLifecycle() throws {
+        try withEnvironment { environment, app in
+            let url = try makePDF(in: environment.fixtures, name: "Lifecycle-citations.pdf", pages: 8,
+                pageTexts: ["[1, 2, 3]", "[1] Alpha. Native citation fixture. 2024.", "[3] Gamma. Native citation fixture. 2025."])
+            let document = try XCTUnwrap(PDFDocument(url: url))
+            let source = try XCTUnwrap(document.page(at: 0))
+            for (offset, pageIndex) in [(1, 1), (7, 2)] {
+                let selection = try XCTUnwrap(source.selection(for: NSRange(location: offset, length: 1)))
+                let target = try XCTUnwrap(document.page(at: pageIndex))
+                let annotation = PDFAnnotation(bounds: selection.bounds(for: source), forType: .link, withProperties: nil)
+                annotation.action = PDFActionGoTo(destination: PDFDestination(page: target, at: CGPoint(x: 72, y: 720)))
+                source.addAnnotation(annotation)
+            }
+            XCTAssertTrue(document.write(to: url))
+            let other = try makePDF(in: environment.fixtures, name: "Lifecycle-other.pdf", pages: 8)
+            app.typeKey("o", modifierFlags: .command)
+            try choosePDF(url, in: app)
+            app.typeText("gg")
+            XCTAssertTrue(waitForStatus("status.page", containing: "1 / 8", in: app))
+            app.typeKey("c", modifierFlags: .shift)
+            app.typeText("ff")
+            let reference = app.textViews["citationPreview.referenceText"]
+            XCTAssertTrue(reference.waitForExistence(timeout: 3))
+            app.typeText("l")
+            XCTAssertTrue(waitForStatus("citationPreviewOverlay", containing: "[2] of 3 (unresolved)", in: app))
+            app.typeKey(.return, modifierFlags: [])
+            XCTAssertTrue(reference.exists)
+            app.typeKey(.return, modifierFlags: .shift)
+            XCTAssertEqual(app.state, .runningForeground)
+            XCTAssertTrue(reference.exists)
+            XCTAssertTrue(waitForStatus("status.page", containing: "1 / 8", in: app))
+            app.typeKey(.rightArrow, modifierFlags: [])
+            XCTAssertTrue(waitForStatus("citationPreviewOverlay", containing: "[3] of 3", in: app))
+            app.typeKey(.leftArrow, modifierFlags: [])
+            XCTAssertTrue(waitForStatus("citationPreviewOverlay", containing: "[2] of 3 (unresolved)", in: app))
+            app.typeText("h")
+            XCTAssertTrue(waitForStatus("citationPreviewOverlay", containing: "[1] of 3", in: app))
+            app.typeKey("o", modifierFlags: .command)
+            try choosePDF(other, in: app)
+            XCTAssertFalse(reference.exists)
+            XCTAssertTrue(waitForStatus("status.experimentalMode", containing: "CITATION PREVIEW", in: app))
+            app.typeKey("w", modifierFlags: .command)
+            XCTAssertTrue(tab(named: url.lastPathComponent, in: app).exists)
+            app.typeText("ff")
+            XCTAssertTrue(reference.waitForExistence(timeout: 3))
+            app.typeKey("w", modifierFlags: .command)
+            XCTAssertTrue(tab(named: url.lastPathComponent, in: app).exists)
+            XCTAssertTrue(reference.exists)
+            app.buttons["Close \(url.lastPathComponent)"].click()
+            XCTAssertFalse(tab(named: url.lastPathComponent, in: app).exists)
+            XCTAssertFalse(reference.exists)
+            XCTAssertTrue(waitForStatus("status.experimentalMode", containing: "CITATION PREVIEW", in: app))
+            app.terminate()
+            app.launch()
+            try positionTestWindow(app)
+            XCTAssertTrue(waitForStatus("status.experimentalMode", containing: "CITATION PREVIEW", in: app))
+            app.typeKey("o", modifierFlags: .command)
+            try choosePDF(url, in: app)
+            app.typeText("gg")
+            app.typeText("ff")
+            XCTAssertTrue(reference.waitForExistence(timeout: 3))
+            app.typeKey(.return, modifierFlags: .shift)
+            let browserActivated = NSPredicate { _, _ in app.state == .runningBackground }
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: browserActivated, object: nil)], timeout: 5), .completed)
+            let image = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            image.name = "resolved-citation-scholar-handoff"
+            image.lifetime = .keepAlways
+            add(image)
+            app.activate()
+            XCTAssertTrue(waitForStatus("status.page", containing: "1 / 8", in: app))
+        }
+    }
+    @MainActor
+    func testE2E19OriginalTableCitationsSurviveDelayAndReopen() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let original = root.appendingPathComponent("test-pdf/citation-annotation-corpus/UAI/2024-adversarial-weak-supervision.pdf")
+        let originalHash = try sha256(original)
+        let document = try XCTUnwrap(PDFDocument(url: original))
+        let source = try XCTUnwrap(document.page(at: 7))
+        let destination = try XCTUnwrap((source.annotations[0].action as? PDFActionGoTo)?.destination.page)
+        let targetPage = document.index(for: destination) + 1
+        try withEnvironment { environment, app in
+            let copy = environment.fixtures.appendingPathComponent("Original-Table-1.pdf")
+            try FileManager.default.copyItem(at: original, to: copy)
+            let reference = app.textViews["citationPreview.referenceText"]
+            @MainActor
+            func openTable() throws {
+                app.typeKey("o", modifierFlags: .command)
+                try choosePDF(copy, in: app)
+                app.typeText("gg")
+                app.typeKey("f", modifierFlags: .shift)
+                for _ in 0..<7 { app.typeText("n") }
+                XCTAssertTrue(waitForStatus("status.page", containing: "8 / 49", in: app))
+            }
+            try openTable()
+            app.typeKey("c", modifierFlags: .shift)
+            XCTAssertTrue(waitForStatus("status.experimentalMode", containing: "CITATION PREVIEW", in: app))
+            // Preserve all 40 original annotations: hints have two characters.
+            for (label, author) in [("ff", "Xian"), ("fd", "Mazzetto"), ("ff", "Xian")] {
+                app.typeText("f" + label)
+                XCTAssertTrue(reference.waitForExistence(timeout: 5), author)
+                XCTAssertTrue(reference.labelOrValue.contains(author), reference.labelOrValue)
+                XCTAssertTrue(waitForStatus("status.page", containing: "8 / 49", in: app))
+                app.typeKey(.escape, modifierFlags: [])
+                XCTAssertFalse(reference.exists)
+                let delay = expectation(description: "Allow delayed PDFKit text processing")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4) { delay.fulfill() }
+                wait(for: [delay], timeout: 6)
+            }
+            app.typeText("fff")
+            XCTAssertTrue(reference.waitForExistence(timeout: 5))
+            app.typeKey(.return, modifierFlags: [])
+            XCTAssertTrue(waitForStatus("status.page", containing: "\(targetPage) / 49", in: app))
+            app.typeKey("o", modifierFlags: .control)
+            XCTAssertTrue(waitForStatus("status.page", containing: "8 / 49", in: app))
+            app.typeKey("w", modifierFlags: .command)
+            try openTable()
+            app.typeText("fff")
+            XCTAssertTrue(reference.waitForExistence(timeout: 5))
+            XCTAssertTrue(reference.labelOrValue.contains("Xian"))
+            app.typeKey(.escape, modifierFlags: [])
+            XCTAssertEqual(try sha256(copy), originalHash)
+        }
+        XCTAssertEqual(try sha256(original), originalHash)
+    }
+
     @MainActor
     private func withEnvironment(
         config: String? = nil,
         body: (UITestEnvironment, XCUIApplication) throws -> Void
     ) throws {
         let environment = try UITestEnvironment(config: config)
-        defer { environment.remove() }
+        let originalInputSource = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
         let app = XCUIApplication()
         app.launchEnvironment["HOME"] = environment.home.path
         app.launchEnvironment["CFFIXED_USER_HOME"] = environment.home.path
+        var didCleanUp = false
+        let cleanUp: @MainActor () -> Void = {
+            guard !didCleanUp else { return }
+            didCleanUp = true
+            app.terminate()
+            XCTAssertEqual(TISSelectInputSource(originalInputSource), noErr)
+            environment.remove()
+        }
+        addTeardownBlock { @MainActor in cleanUp() }
+        defer { cleanUp() }
         app.launch()
-        defer { app.terminate() }
+        try positionTestWindow(app)
         try body(environment, app)
     }
 
     @MainActor
+    private func positionTestWindow(_ app: XCUIApplication) throws {
+        let window = app.windows["mainWindow"]
+        XCTAssertTrue(window.waitForExistence(timeout: 5))
+        app.activate()
+        let frame = window.frame
+        let origin = window.coordinate(withNormalizedOffset: .zero)
+        let title = origin.withOffset(CGVector(dx: frame.width / 2, dy: 12))
+        let destination = origin.withOffset(CGVector(dx: 80 - frame.minX + frame.width / 2, dy: 80 - frame.minY + 12))
+        title.press(forDuration: 0.2, thenDragTo: destination)
+        app.activate()
+        XCTAssertEqual(TISSelectInputSource(TISCopyCurrentASCIICapableKeyboardInputSource().takeRetainedValue()), noErr)
+    }
+
+    @MainActor
     private func choosePDF(_ url: URL, in app: XCUIApplication) throws {
-        XCTAssertTrue(app.sheets.firstMatch.waitForExistence(timeout: 3), "Open panel did not appear")
+        guard app.descendants(matching: .any)["recentFilesOpenOverlay"].waitForExistence(timeout: 3) else { throw UITestFixtureError.missingControl("Recent-file chooser") }
+        app.activate()
+        app.typeKey(.return, modifierFlags: [])
+        guard app.sheets.firstMatch.waitForExistence(timeout: 3) else { throw UITestFixtureError.missingControl("Open panel") }
+        XCTAssertEqual(TISSelectInputSource(TISCopyCurrentASCIICapableKeyboardInputSource().takeRetainedValue()), noErr)
         app.typeKey("g", modifierFlags: [.command, .shift])
-        let pathField = app.textFields.element(boundBy: max(0, app.textFields.count - 1))
-        XCTAssertTrue(pathField.waitForExistence(timeout: 2), "Go-to-path field did not appear")
+        let pathField = app.sheets["GoToWindow"].textFields["PathTextField"]
+        guard pathField.waitForExistence(timeout: 3) else { throw UITestFixtureError.missingControl("Go-to-path field") }
+        XCTAssertEqual(TISSelectInputSource(TISCopyCurrentASCIICapableKeyboardInputSource().takeRetainedValue()), noErr)
+        app.typeKey("a", modifierFlags: .command)
         pathField.typeText(url.path)
         app.typeKey(.return, modifierFlags: [])
         let open = app.sheets.buttons["Open"].firstMatch
@@ -477,7 +715,8 @@ final class ReaderWorkflowUITests: XCTestCase {
         in directory: URL,
         name: String,
         pages: Int,
-        text: String = "Modeleaf fixture"
+        text: String = "Modeleaf fixture",
+        pageTexts: [String] = []
     ) throws -> URL {
         let url = directory.appendingPathComponent(name)
         var mediaBox = CGRect(x: 0, y: 0, width: 612, height: 792)
@@ -492,7 +731,7 @@ final class ReaderWorkflowUITests: XCTestCase {
             context.beginPDFPage(nil)
             context.textPosition = CGPoint(x: 72, y: 700)
             let line = CTLineCreateWithAttributedString(
-                NSAttributedString(string: "\(text) · page \(page)", attributes: attributes)
+                NSAttributedString(string: "\(pageTexts.indices.contains(page - 1) ? pageTexts[page - 1] : text) · page \(page)", attributes: attributes)
             )
             CTLineDraw(line, context)
             context.endPDFPage()
@@ -547,6 +786,7 @@ private struct UITestEnvironment {
 
 private enum UITestFixtureError: Error {
     case cannotCreatePDF
+    case missingControl(String)
 }
 
 private extension XCUIElement {

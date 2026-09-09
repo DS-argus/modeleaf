@@ -643,6 +643,91 @@ struct CitationPreviewTests {
             #expect(session.currentPageNumber == 2)
         }
     }
+    @Test("citation preview tears down when closing the last document")
+    func previewTeardownOnLastDocumentClose() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeCitationPreviewPDF(in: directory)
+            let session = try PDFOpenService().open(url: url)
+            let coordinator = PaneCoordinator()
+            let controller = MainWindowController(
+                coordinator: coordinator,
+                theme: AppKitTheme(themeID: .tokyoNight),
+                actionHandler: { _ in }
+            )
+            defer {
+                while coordinator.closeActiveTab() {}
+                controller.close()
+            }
+            #expect(coordinator.insert(session, into: .createIfEmpty))
+            controller.rootView.layoutSubtreeIfNeeded()
+            controller.window?.contentView?.layoutSubtreeIfNeeded()
+
+            try openCitationPreview(controller: controller, session: session, marker: 4)
+            let overlay = controller.rootView.citationPreviewOverlay
+            #expect(!overlay.isHidden)
+            #expect(coordinator.closeActiveTab())
+            #expect(coordinator.snapshot.isEmpty)
+            #expect(coordinator.snapshot.activeID == nil)
+            #expect(overlay.isHidden)
+            #expect(overlay.selectedLabelForTesting == nil)
+            #expect(overlay.selectedStateForTesting == nil)
+            #expect(overlay.referenceTextForTesting.isEmpty)
+            #expect(!overlay.hasCallbacksForTesting)
+            #expect(coordinator.snapshot.inputContext == .navigation)
+            #expect(controller.inputContextForTesting == .navigation)
+        }
+    }
+
+    @Test("citation preview invalidates on session refresh and active document change")
+    func previewTeardownOnActiveDocumentChange() throws {
+        try withTemporaryDirectory { directory in
+            let url = try PDFFixtureFactory.makeCitationPreviewPDF(in: directory)
+            let first = try PDFOpenService().open(url: url)
+            let second = try PDFOpenService().open(url: url)
+            let coordinator = PaneCoordinator()
+            let controller = MainWindowController(
+                coordinator: coordinator,
+                theme: AppKitTheme(themeID: .tokyoNight),
+                actionHandler: { _ in }
+            )
+            defer {
+                while coordinator.closeActiveTab() {}
+                controller.close()
+            }
+            #expect(coordinator.insert(first, into: .createIfEmpty))
+            #expect(coordinator.insert(second, into: .createIfEmpty))
+            #expect(coordinator.activate(tab: first.id))
+            controller.rootView.layoutSubtreeIfNeeded()
+            controller.window?.contentView?.layoutSubtreeIfNeeded()
+            let paneID = try #require(coordinator.snapshot.activePaneID)
+
+            try openCitationPreview(controller: controller, session: first, marker: 4)
+            let overlay = controller.rootView.citationPreviewOverlay
+            let firstPage = first.currentPageNumber
+            #expect(!overlay.isHidden)
+            let store = try #require(coordinator.store(for: paneID))
+            store.sessionDidChange(first.id)
+            #expect(overlay.isHidden)
+            #expect(!overlay.hasCallbacksForTesting)
+            try openCitationPreview(controller: controller, session: first, marker: 4)
+            #expect(!overlay.isHidden)
+
+            #expect(coordinator.activate(tab: second.id))
+            #expect(coordinator.snapshot.activeID == second.id)
+            #expect(overlay.isHidden)
+            #expect(overlay.selectedLabelForTesting == nil)
+            #expect(overlay.selectedStateForTesting == nil)
+            #expect(overlay.referenceTextForTesting.isEmpty)
+            #expect(!overlay.hasCallbacksForTesting)
+            #expect(coordinator.snapshot.inputContext == .navigation)
+            #expect(controller.inputContextForTesting == .navigation)
+
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "", keyCode: 53)))
+            _ = controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "\r", keyCode: 36)))
+            #expect(first.currentPageNumber == firstPage)
+            #expect(second.currentPageNumber == 1)
+        }
+    }
 
     @Test("citation preview defaults OFF, persists Shift-C toggles, and bypasses resolution when disabled")
     func experimentalToggleContract() throws {
