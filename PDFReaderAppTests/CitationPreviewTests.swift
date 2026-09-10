@@ -30,6 +30,7 @@ struct CitationPreviewTests {
         case missingBoundary
         case terminalPositive
         case terminalAmbiguous
+        case capitalizedAmbiguous
         case mismatchedIndent
         case endOfDocument
     }
@@ -2221,7 +2222,7 @@ struct CitationPreviewTests {
         switch scenario {
         case .sourceNotAtPageEnd, .endOfDocument:
             entryText = "Anchor Author. 2020. A deliberately wrapped bibliography title ends."
-        case .terminalPositive, .terminalAmbiguous:
+        case .terminalPositive, .terminalAmbiguous, .capitalizedAmbiguous:
             entryText = "Anchor Author. A deliberately wrapped bibliography title with its publication year already present. 2020."
         case .unrelatedContinuation, .missingBoundary, .positive, .startsNewEntry, .startsHeading, .mismatchedIndent:
             entryText = "Anchor Author. 2020. A deliberately wrapped bibliography title continues without a terminal mark"
@@ -2274,6 +2275,9 @@ struct CitationPreviewTests {
             draw("Next Author. Next reference.", at: CGPoint(x: 48, y: 680))
         case .terminalAmbiguous:
             draw("Unrelated continuation after a terminal year.", at: CGPoint(x: 64, y: 720))
+            draw("Next Author. Next reference.", at: CGPoint(x: 48, y: 680))
+        case .capitalizedAmbiguous:
+            draw("Deep Learning.", at: CGPoint(x: 64, y: 720))
             draw("Next Author. Next reference.", at: CGPoint(x: 48, y: 680))
         case .mismatchedIndent:
             draw("next-page continuation with different indentation.", at: CGPoint(x: 80, y: 720))

@@ -612,8 +612,13 @@ enum CitationReferenceEntryExtractor {
         guard let firstColumn = columns.first, !firstColumn.isEmpty else { return .ambiguous }
         let physicalLines = mergeFragmentsOnBaselines(firstColumn)
         guard let first = physicalLines.first else { return .ambiguous }
+        let pageBounds = page.bounds(for: .cropBox)
+        guard let sourceColumnOrigin = columnLines(pageLines(on: page), pageBounds: pageBounds)
+            .first?.map({ $0.bounds.minX }).min() else { return .ambiguous }
+        let referenceOrigin = sourceColumnOrigin - pageBounds.minX + nextPageBounds.minX
         func isBoundary(_ line: CitationTextLine) -> Bool {
-            isBibliographyHeading(line.text) || isReferenceStart(line.text)
+            isBibliographyHeading(line.text)
+                || (isReferenceStart(line.text) && abs(line.bounds.minX - referenceOrigin) <= startIndentTolerance)
                 || isNativeEntryBoundary(line, points: nativeBoundaryPoints[pageIndex + 1] ?? [])
         }
         if isBoundary(first) { return .end }
