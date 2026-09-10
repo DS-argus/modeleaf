@@ -620,6 +620,51 @@ final class ReaderWorkflowUITests: XCTestCase {
     }
 
     @MainActor
+    func testE2E20OriginalYarowskyBibliographyContinuesAcrossPages() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let original = root.appendingPathComponent("test-pdf/citation-annotation-corpus/UAI/2024-adversarial-weak-supervision.pdf")
+        guard FileManager.default.fileExists(atPath: original.path) else { throw XCTSkip("Local UAI fixture unavailable") }
+        try withEnvironment { environment, app in
+            let originalHash = try sha256(original)
+            let copy = environment.fixtures.appendingPathComponent("Yarowsky-original.pdf")
+            try FileManager.default.copyItem(at: original, to: copy)
+            let document = try XCTUnwrap(PDFDocument(url: copy))
+            let source = try XCTUnwrap(document.page(at: 0))
+            XCTAssertEqual(source.annotations.count, 16)
+            let target = try XCTUnwrap((source.annotations[4].action as? PDFActionGoTo)?.destination.page)
+            let targetPage = document.index(for: target) + 1
+            app.typeKey("o", modifierFlags: .command)
+            try choosePDF(copy, in: app)
+            XCTAssertTrue(waitForStatus("status.page", containing: "1 / 49", in: app))
+            app.activate()
+            app.typeKey("f", modifierFlags: .shift)
+            app.typeKey("c", modifierFlags: .shift)
+            XCTAssertTrue(waitForStatus("status.experimentalMode", containing: "CITATION PREVIEW", in: app))
+            XCTAssertTrue(waitForStatus("status.page", containing: "1 / 49", in: app))
+            for hint in ["s", "l"] {
+                app.typeText("f" + hint)
+                let reference = app.textViews["citationPreview.referenceText"]
+                XCTAssertTrue(waitForStatus("citationPreviewOverlay", containing: "Yarowsky 1995", in: app))
+                XCTAssertTrue(reference.waitForExistence(timeout: 3))
+                XCTAssertTrue(reference.labelOrValue.contains("David Yarowsky"))
+                XCTAssertTrue(reference.labelOrValue.contains("33rd Annual Meeting"))
+                XCTAssertTrue(reference.labelOrValue.contains("1995"))
+                XCTAssertFalse(reference.labelOrValue.contains("Yue Yu"))
+                XCTAssertTrue(waitForStatus("status.page", containing: "1 / 49", in: app))
+                let image = XCTAttachment(screenshot: app.screenshot())
+                image.name = "original-yarowsky-complete-reference-\(hint)"
+                image.lifetime = .keepAlways
+                add(image)
+                app.typeKey(.return, modifierFlags: [])
+                XCTAssertTrue(waitForStatus("status.page", containing: "\(targetPage) / 49", in: app))
+                app.typeKey("o", modifierFlags: .control)
+                XCTAssertTrue(waitForStatus("status.page", containing: "1 / 49", in: app))
+            }
+            XCTAssertEqual(try sha256(copy), originalHash)
+            XCTAssertEqual(try sha256(original), originalHash)
+        }
+    }
+    @MainActor
     private func withEnvironment(
         config: String? = nil,
         body: (UITestEnvironment, XCUIApplication) throws -> Void
