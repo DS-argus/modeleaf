@@ -176,6 +176,11 @@ struct CitationPreviewTests {
             referenceText: "Alex Warstadt, Amanpreet Singh, and Samuel R. Bowman. 2019. Neural Network Acceptability Judgments."
         ))
         #expect(suffixed.yearSuffix == "a")
+        let spacedDiacriticAuthors = try #require(AuthorYearCitationClassifier.key(from: ["B¨ orgers and Sarin", "1997"]))
+        #expect(AuthorYearCitationClassifier.validates(
+            spacedDiacriticAuthors,
+            referenceText: "B¨ orgers, T. and Sarin, R. (1997). Learning through reinforcement and replicator dynamics."
+        ))
         #expect(AuthorYearCitationClassifier.key(from: ["et al.", "2020"]) == nil)
         #expect(AuthorYearCitationClassifier.key(from: ["Figure", "2020", "2021"]) == nil)
         #expect(AuthorYearCitationClassifier.isYearFragment("2020a"))
@@ -262,6 +267,9 @@ struct CitationPreviewTests {
             CitationTextLine(text: "must not be joined", bounds: CGRect(x: 40, y: 650, width: 220, height: 12)),
         ]
         #expect(CitationReferenceExtractor.extract(marker: 3, from: gapped) == "[3] Ada Author. A title")
+        #expect(!CitationReferenceEntryExtractor.isReferenceStart("References"))
+        #expect(CitationReferenceEntryExtractor.isReferenceStart("B¨ orgers, T. and Sarin, R. (1997). Learning through reinforcement."))
+        #expect(CitationReferenceEntryExtractor.isReferenceStart("´ de Montbrun, E. and Renault, J. (2022). Convergence."))
         #expect(!CitationReferenceEntryExtractor.isReferenceStart("In NeurIPS."))
         #expect(!CitationReferenceEntryExtractor.isReferenceStart("A Continuation."))
         #expect(!CitationReferenceEntryExtractor.isReferenceStart("Theory and Practice."))
@@ -1183,6 +1191,125 @@ struct CitationPreviewTests {
         #expect(yearGroup.selectedIndex == 1)
         #expect(yearGroup.items.allSatisfy { $0.isResolved })
         #expect(try PDFFixtureFactory.sha256(of: ambiguousURL) == ambiguousBefore)
+    }
+    @Test("additional corpus boundaries preserve exact author-year targets and stop at successor authors")
+    func additionalCitationRepairContracts() throws {
+        let cases: [(path: String, sourcePage: Int, annotation: Int, target: ReaderLinkTarget, label: String, group: [String], prefix: String, rejected: [String])] = [
+            (
+                "test-pdf/citation-annotation-corpus/ICML/2024-charmer.pdf",
+                0,
+                9,
+                .goTo(pageIndex: 8, point: CGPoint(x: 35.52, y: 385.975)),
+                "Alzantot et al. 2018",
+                ["Belinkov & Bisk 2018", "Alzantot et al. 2018"],
+                "Alzantot, M., Sharma, Y., Elgohary, A., Ho, B.-J., Srivas-",
+                ["Belinkov,", "Gao,"]
+            ),
+            (
+                "test-pdf/citation-annotation-corpus/ICML/2024-charmer.pdf",
+                0,
+                34,
+                .goTo(pageIndex: 8, point: CGPoint(x: 35.52, y: 385.975)),
+                "Alzantot et al. 2018",
+                ["Alzantot et al. 2018", "Gao et al. 2018", "Jin et al. 2020", "Li et al. 2020", "Garg & Ramakrishnan 2020", "Wallace et al. 2020"],
+                "Alzantot, M., Sharma, Y., Elgohary, A., Ho, B.-J., Srivas-",
+                ["Belinkov,", "Gao,"]
+            ),
+            (
+                "test-pdf/citation-annotation-corpus/AISTATS/2023-last-iterate-zero-sum.pdf",
+                0,
+                24,
+                .goTo(pageIndex: 9, point: CGPoint(x: 43.075, y: 653.891)),
+                "Daskalakis and Panageas 2019",
+                ["Daskalakis and Panageas 2019", "Wei et al. 2021b"],
+                "Daskalakis, C. and Panageas, I. (2019). Last-iterate conver-",
+                ["de Montbrun", "Renault"]
+            ),
+            (
+                "test-pdf/citation-annotation-corpus/AISTATS/2023-last-iterate-zero-sum.pdf",
+                1,
+                11,
+                .goTo(pageIndex: 8, point: CGPoint(x: 295.075, y: 721.993)),
+                "Bauer et al. 2019",
+                ["Hofbauer and Sigmund 1998", "Hofbauer et al. 2009", "Zagorsky et al. 2013", "Bauer et al. 2019"],
+                "Bauer, J., Broom, M., and Alonso, E. (2019). The stabiliza-",
+                ["Bena¨ ım", "Hirsch"]
+            ),
+            (
+                "test-pdf/citation-annotation-corpus/AISTATS/2023-last-iterate-zero-sum.pdf",
+                1,
+                1,
+                .goTo(pageIndex: 8, point: CGPoint(x: 295.075, y: 261.934)),
+                "B¨ orgers and Sarin 1997",
+                ["B¨ orgers and Sarin 1997", "Bloembergen et al. 2015"],
+                "B¨ orgers, T. and Sarin, R. (1997). Learning through rein-",
+                ["Cai,", "Bloembergen,"]
+            ),
+        ]
+        guard cases.allSatisfy({ citationFixtureExists(atPath: $0.path) }) else { return }
+
+        for fixture in cases {
+            let url = URL(fileURLWithPath: fixture.path)
+            let before = try PDFFixtureFactory.sha256(of: url)
+            let document = try #require(PDFDocument(url: url))
+            let page = try #require(document.page(at: fixture.sourcePage))
+            let annotation = try #require(
+                page.annotations.indices.contains(fixture.annotation) ? page.annotations[fixture.annotation] : nil
+            )
+            let target = try #require(self.target(for: annotation, in: document))
+            #expect(target == fixture.target)
+            let link = ReaderLink(
+                sourcePageIndex: fixture.sourcePage,
+                rects: [annotation.bounds],
+                target: target,
+                primaryLabelRect: annotation.bounds
+            )
+            let resolver = CitationPreviewResolver(document: document)
+            guard case let .preview(group) = resolver.resolve(link) else {
+                Issue.record("\(fixture.path) p\(fixture.sourcePage + 1) a\(fixture.annotation) did not produce a preview")
+                continue
+            }
+            #expect(group.items.map(\.label) == fixture.group)
+            #expect(group.items[group.selectedIndex].label == fixture.label)
+            #expect(group.items[group.selectedIndex].destination == fixture.target)
+            #expect(group.items.allSatisfy { $0.isResolved })
+            let selected = group.items[group.selectedIndex]
+            #expect(selected.referenceText.hasPrefix(fixture.prefix))
+            for rejected in fixture.rejected {
+                #expect(!selected.referenceText.contains(rejected))
+            }
+            #expect(try PDFFixtureFactory.sha256(of: url) == before)
+        }
+    }
+    @Test("Charmer p2 Alzantot author and year links preview the native reference")
+    func charmerAuthorYearPreviewContract() throws {
+        let path = "test-pdf/citation-annotation-corpus/ICML/2024-charmer.pdf"
+        guard citationFixtureExists(atPath: path) else { return }
+        let document = try #require(PDFDocument(url: URL(fileURLWithPath: path)))
+        let page = try #require(document.page(at: 1))
+        let resolver = CitationPreviewResolver(document: document)
+        let expectedTarget = ReaderLinkTarget.goTo(pageIndex: 8, point: CGPoint(x: 35.52, y: 385.975))
+        for annotationIndex in [32, 33] {
+            let annotation = try #require(page.annotations.indices.contains(annotationIndex) ? page.annotations[annotationIndex] : nil)
+            let target = try #require(self.target(for: annotation, in: document))
+            #expect(target == expectedTarget)
+            let link = ReaderLink(
+                sourcePageIndex: 1,
+                rects: [annotation.bounds],
+                target: target,
+                primaryLabelRect: annotation.bounds
+            )
+            guard case let .preview(group) = resolver.resolve(link) else {
+                Issue.record("Charmer p2 a\(annotationIndex) did not produce an Alzantot preview")
+                continue
+            }
+            #expect(group.items.map(\.label) == ["Alzantot et al. 2018"])
+            #expect(group.selectedIndex == 0)
+            #expect(group.items[0].destination == expectedTarget)
+            #expect(group.items[0].isResolved)
+            #expect(group.items[0].referenceText.hasPrefix("Alzantot, M., Sharma, Y., Elgohary, A., Ho, B.-J., Srivas-"))
+            #expect(!group.items[0].referenceText.contains("Belinkov,"))
+        }
     }
     @Test("mapped author-year groups preserve every native target including omitted suffixes")
     func mappedAuthorYearGroupContracts() throws {

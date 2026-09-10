@@ -3,6 +3,15 @@ import Foundation
 import PDFKit
 import PDFReaderCore
 
+private func normalizedPDFGlyphSpacing(_ text: String) -> String {
+    // PDF extraction can emit a spacing accent before a separate letter glyph.
+    return text.replacingOccurrences(
+        of: #"[´¨ˇ`](?=\s+\p{L})\s+"#,
+        with: "",
+        options: .regularExpression
+    )
+}
+
 struct CitationMarker: Equatable {
     let sourcePageIndex: Int
     let sourceBounds: CGRect
@@ -159,7 +168,8 @@ enum AuthorYearCitationClassifier {
         let range = NSRange(foldedReference.startIndex..<foldedReference.endIndex, in: foldedReference)
         guard yearPattern.firstMatch(in: foldedReference, range: range) != nil else { return false }
 
-        let authorTokens = key.authors
+        let normalizedAuthors = normalizedPDFGlyphSpacing(key.authors)
+        let authorTokens = normalizedAuthors
             .split(whereSeparator: { $0.isWhitespace || $0 == "&" || $0 == "," })
             .map { String($0).trimmingCharacters(in: .punctuationCharacters) }
             .filter { token in
@@ -168,18 +178,19 @@ enum AuthorYearCitationClassifier {
                     && !["et", "al", "and"].contains(folded)
             }
         guard let primaryAuthor = authorTokens.first else { return false }
+
         let authorBoundary = try! NSRegularExpression(pattern: #",|(?<!\b\p{Lu})\.(?:\s|$)"#)
         let rawRange = NSRange(referenceText.startIndex..<referenceText.endIndex, in: referenceText)
         let boundary = authorBoundary.firstMatch(in: referenceText, range: rawRange)?.range.location ?? rawRange.length
-        let rawAuthorPrefix = String((referenceText as NSString).substring(to: boundary))
+        let rawAuthorPrefix = normalizedPDFGlyphSpacing(String((referenceText as NSString).substring(to: boundary)))
+            .replacingOccurrences(of: #"(?<=[\p{L}])-\s+(?=\p{Ll})"#, with: "", options: .regularExpression)
             .replacingOccurrences(of: #"^\s*(?:\[[^\]]+\]|[0-9]{1,4}\.)\s*"#, with: "", options: .regularExpression)
         let particles = Set(["&", "and", "et", "al", "de", "del", "di", "da", "du", "la", "le", "van", "von", "der", "den"])
-        let nameTokens = rawAuthorPrefix.replacingOccurrences(of: #"([´ˇ`])\s+"#, with: "$1", options: .regularExpression)
-            .replacingOccurrences(of: #"(?<=[\p{L}])-\s+(?=\p{Ll})"#, with: "", options: .regularExpression)
-            .split(whereSeparator: \.isWhitespace)
+        let nameTokens = rawAuthorPrefix.split(whereSeparator: \.isWhitespace)
         guard nameTokens.allSatisfy({ token in
             token.contains(where: \.isUppercase) || particles.contains(token.lowercased())
         }) else { return false }
+
         let authorPrefix = folded(rawAuthorPrefix)
         let primaryPattern = #"(?<![\p{L}])"# + NSRegularExpression.escapedPattern(for: folded(primaryAuthor)) + #"(?![\p{L}])"#
         guard authorPrefix.range(of: primaryPattern, options: .regularExpression) != nil else { return false }
@@ -216,7 +227,8 @@ enum AuthorYearCitationClassifier {
     }
 
     private static func folded(_ text: String) -> String {
-        text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+        normalizedPDFGlyphSpacing(text)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
             .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -436,10 +448,11 @@ enum CitationReferenceEntryExtractor {
         return first.candidate
     }
     static func isReferenceStart(_ text: String) -> Bool {
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = normalizedPDFGlyphSpacing(text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard normalized.range(of: #"^(?:In|A|An|The)\s"#, options: .regularExpression) == nil else { return false }
-        return normalized.range(of: #"^\s*(?:\[[^\]]+\]|[0-9]{1,4}\.[ \t]+\S|\p{Lu}[\p{L}'’\-]*,\s*\p{Lu}|(?:\p{Lu}[\p{L}'’.\-]*\s+){1,4}\p{Lu}[\p{L}'’\-]*[,.])"#,
-            options: .regularExpression) != nil
+        let authorWithInitial = #"(?:\p{Lu}[\p{L}'’\-]*|(?:de|del|di|da|du|la|le|van|von|der|den)\s+\p{Lu}[\p{L}'’\-]*)\s*,\s*\p{Lu}(?:[\p{L}.'’\-]*)"#
+        let pattern = #"^\s*(?:\[[^\]]+\]|[0-9]{1,4}\.[ \t]+\S|"# + authorWithInitial + #"|(?:\p{Lu}[\p{L}'’\.\-]*\s+){1,4}\p{Lu}[\p{L}'’\-]*[,.])"#
+        return normalized.range(of: pattern, options: .regularExpression) != nil
     }
 
     private static func isAuthorConnectorStart(_ text: String) -> Bool {
@@ -499,7 +512,8 @@ enum CitationReferenceEntryExtractor {
             guard let origin = physicalLines.filter({ abs($0.bounds.maxY - destinationPoint.y) <= destinationTolerance })
                 .map({ $0.bounds.minX }).min() else { return nil }
             let starts = physicalLines.indices.filter {
-                physicalLines[$0].bounds.minX <= origin + startIndentTolerance
+                !isBibliographyHeading(physicalLines[$0].text)
+                    && physicalLines[$0].bounds.minX <= origin + startIndentTolerance
             }
             guard let start = starts.min(by: {
                 max(physicalLines[$0].bounds.minY - destinationPoint.y, destinationPoint.y - physicalLines[$0].bounds.maxY, 0)
@@ -510,7 +524,7 @@ enum CitationReferenceEntryExtractor {
                 guard index > start else { return false }
                 let text = physicalLines[index].text
                 if physicalLines[index].bounds.minX <= origin + startIndentTolerance,
-                   isReferenceStart(text) { return true }
+                   (isBibliographyHeading(text) || isReferenceStart(text)) { return true }
                 guard isAuthorConnectorStart(text) else { return false }
                 return isNativeEntryBoundary(physicalLines[index], points: nativePoints)
             }) ?? physicalLines.endIndex
@@ -521,7 +535,7 @@ enum CitationReferenceEntryExtractor {
                 if let nextOrigin = continuation.map({ $0.bounds.minX }).min() {
                     let accepted = continuation.prefix { line in
                         guard line.bounds.minX <= nextOrigin + startIndentTolerance else { return true }
-                        if isReferenceStart(line.text) { return false }
+                        if isBibliographyHeading(line.text) || isReferenceStart(line.text) { return false }
                         guard isAuthorConnectorStart(line.text) else { return true }
                         return !isNativeEntryBoundary(line, points: nativePoints)
                     }
