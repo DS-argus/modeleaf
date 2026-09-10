@@ -21,6 +21,19 @@ struct CitationPreviewTests {
         case precedingBodyBeforeYear
     }
 
+    private enum CrossPageBibliographyCase: CaseIterable, Equatable {
+        case positive
+        case startsNewEntry
+        case startsHeading
+        case sourceNotAtPageEnd
+        case unrelatedContinuation
+        case missingBoundary
+        case terminalPositive
+        case terminalAmbiguous
+        case mismatchedIndent
+        case endOfDocument
+    }
+
     private func citationFixtureExists(atPath path: String) -> Bool {
         guard !FileManager.default.fileExists(atPath: path) else { return true }
         if ProcessInfo.processInfo.environment["MODELEAF_REQUIRE_CITATION_FIXTURES"] == "1" {
@@ -338,8 +351,8 @@ struct CitationPreviewTests {
         for point in points {
             #expect(!CitationReferenceEntryExtractor.isUsableDestinationPoint(point, on: page))
             #expect(CitationReferenceEntryExtractor.numericEntry(marker: 7, destinationPoint: point, on: page) == nil)
-            #expect(CitationReferenceEntryExtractor.entry(destinationPoint: point, on: page, nativePoints: []) == nil)
-            #expect(CitationReferenceEntryExtractor.candidates(destinationPoint: point, on: page, nativePoints: []).isEmpty)
+            #expect(CitationReferenceEntryExtractor.entry(destinationPoint: point, on: page, nativeBoundaryPoints: [:]) == nil)
+            #expect(CitationReferenceEntryExtractor.candidates(destinationPoint: point, on: page, nativeBoundaryPoints: [:]).isEmpty)
         }
     }
     @Test("synthetic PDF resolves independent markers into a verified group without changing bytes")
@@ -1014,14 +1027,14 @@ struct CitationPreviewTests {
             let document = try #require(PDFDocument(url: url))
             let destination = try #require(goToDestination(sourceText: fixture.source, in: document))
             let page = try #require(destination.page)
-            let nativePoints = CitationReferenceEntryExtractor.nativeDestinationPoints(in: document)[document.index(for: page)] ?? []
+            let nativePoints = CitationReferenceEntryExtractor.nativeDestinationPoints(in: document)
             let candidates = CitationReferenceEntryExtractor.candidates(
                 destinationPoint: destination.point,
-                on: page, nativePoints: nativePoints
+                on: page, nativeBoundaryPoints: nativePoints
             )
             let selected = try #require(CitationReferenceEntryExtractor.entry(
                 destinationPoint: destination.point,
-                on: page, nativePoints: nativePoints
+                on: page, nativeBoundaryPoints: nativePoints
             ))
             #expect(selected.rawText.hasPrefix(fixture.expected))
             #expect(!selected.rawText.contains(fixture.rejectedNeighbor))
@@ -1358,6 +1371,96 @@ struct CitationPreviewTests {
             #expect(!group.items[group.selectedIndex].referenceText.contains("Ghadimi"))
         }
     }
+    @Test("Yarowsky bibliography continuation keeps both native author-year links and excludes the next entry")
+    func yarowskyBibliographyContinuationContract() throws {
+        let path = "test-pdf/citation-annotation-corpus/UAI/2024-adversarial-weak-supervision.pdf"
+        guard citationFixtureExists(atPath: path) else { return }
+        let document = try #require(PDFDocument(url: URL(fileURLWithPath: path)))
+        func sourceText(_ link: ReaderLink) -> String {
+            guard let page = document.page(at: link.sourcePageIndex), let rect = link.rects.first else { return "" }
+            return page.selection(for: rect)?.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }
+        func targetPage(_ target: ReaderLinkTarget) -> Int? {
+            guard case let .goTo(pageIndex, _) = target else { return nil }
+            return pageIndex
+        }
+        func targetPoint(_ target: ReaderLinkTarget) -> CGPoint? {
+            guard case let .goTo(_, point) = target else { return nil }
+            return point
+        }
+        let links = allLinks(in: document).filter { link in
+            let text = sourceText(link)
+            return (text == "Yarowsky" || text == "1995")
+                && targetPage(link.target) == 11
+                && abs((targetPoint(link.target)?.x ?? .greatestFiniteMagnitude) - 286.712) < 1
+                && abs((targetPoint(link.target)?.y ?? .greatestFiniteMagnitude) - 86.91) < 1
+        }
+        #expect(links.count == 2)
+        let resolver = CitationPreviewResolver(document: document)
+        for link in links {
+            guard case let .preview(group) = resolver.resolve(link) else {
+                Issue.record("Yarowsky \(sourceText(link)) did not produce a citation preview")
+                continue
+            }
+            #expect(group.items.map(\.label) == ["Yarowsky 1995"])
+            #expect(group.selectedIndex == 0)
+            let item = group.items[group.selectedIndex]
+            #expect(item.isResolved)
+            #expect(item.destination == link.target)
+            #expect(item.destination == ReaderLinkTarget.goTo(pageIndex: 11, point: CGPoint(x: 286.712, y: 86.91)))
+            #expect(item.referenceText.contains("Unsupervised Word Sense Disambigua"))
+            #expect(item.referenceText.contains("tion Rivaling Supervised Methods"))
+            #expect(item.referenceText.contains("the 33rd Annual Meeting of the Association for Computa- tional Linguistics"))
+            #expect(item.referenceText.contains("pages 189–196, 1995"))
+            #expect(!item.referenceText.contains("Yue Yu"))
+        }
+    }
+
+    @Test("bounded bibliography continuation requires an edge, paragraph evidence, and a real next boundary")
+    func boundedBibliographyContinuationBoundaryContract() throws {
+        for scenario in CrossPageBibliographyCase.allCases {
+            try withTemporaryDirectory { directory in
+                let url = try makeCrossPageBibliographyPDF(in: directory, scenario: scenario)
+                let document = try #require(PDFDocument(url: url))
+                if scenario == .endOfDocument { document.removePage(at: 2) }
+                let sourcePage = try #require(document.page(at: 0))
+                let sourceLinks = links(on: sourcePage, in: document)
+                #expect(sourceLinks.count == 2)
+                let resolver = CitationPreviewResolver(document: document)
+                for link in sourceLinks {
+                    let resolution = resolver.resolve(link)
+                    if scenario == .positive || scenario == .terminalPositive {
+                        guard case let .preview(group) = resolution else {
+                            Issue.record("Positive bibliography continuation did not produce a preview")
+                            continue
+                        }
+                        #expect(group.items.map(\.label) == ["Anchor 2020"])
+                        #expect(group.items[group.selectedIndex].isResolved)
+                        #expect(group.items[group.selectedIndex].destination == link.target)
+                        #expect(group.items[group.selectedIndex].referenceText.contains("next-page continuation"))
+                        #expect(!group.items[group.selectedIndex].referenceText.contains("Next Author"))
+                    } else if [.sourceNotAtPageEnd, .startsNewEntry, .startsHeading, .endOfDocument].contains(scenario) {
+                        guard case let .preview(group) = resolution else {
+                            Issue.record("Proven reference end did not preserve the complete original entry")
+                            continue
+                        }
+                        let item = group.items[group.selectedIndex]
+                        #expect(item.isResolved)
+                        #expect(item.destination == link.target)
+                        #expect(!item.referenceText.contains("next-page continuation"))
+                        #expect(!item.referenceText.contains("Next Author"))
+                    } else {
+                        guard case let .activate(target) = resolution else {
+                            Issue.record("Ambiguous bibliography seam must not resolve a truncated prefix")
+                            continue
+                        }
+                        #expect(target == link.target)
+                    }
+                }
+            }
+        }
+    }
+
 
     @Test("R03 cross-page author-year fragments require exact brackets, body edges, and native targets")
     func crossPageAuthorYearBoundaryContract() throws {
@@ -2084,6 +2187,158 @@ struct CitationPreviewTests {
             throw PDFFixtureError.couldNotWriteDocument
         }
         return outputURL
+    }
+
+    private func makeCrossPageBibliographyPDF(
+        in directory: URL,
+        scenario: CrossPageBibliographyCase
+    ) throws -> URL {
+        let sourceURL = directory.appendingPathComponent("cross-page-bibliography-\(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: sourceURL) }
+        guard let consumer = CGDataConsumer(url: sourceURL as CFURL) else {
+            throw PDFFixtureError.couldNotCreateConsumer
+        }
+        var mediaBox = CGRect(x: 0, y: 0, width: 612, height: 792)
+        guard let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil) else {
+            throw PDFFixtureError.couldNotCreateContext
+        }
+        let font = CTFontCreateWithName("Menlo" as CFString, 14, nil)
+        let attributes: [NSAttributedString.Key: Any] = [
+            NSAttributedString.Key(kCTFontAttributeName as String): font,
+            NSAttributedString.Key(kCTForegroundColorAttributeName as String): NSColor.black.cgColor,
+        ]
+        func line(_ text: String) -> CTLine {
+            CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes))
+        }
+        func draw(_ text: String, at point: CGPoint) {
+            context.textPosition = point
+            CTLineDraw(line(text), context)
+        }
+
+        let sourceText = "[Anchor, 2020]"
+        let sourceLine = line(sourceText)
+        let entryText: String
+        switch scenario {
+        case .sourceNotAtPageEnd, .endOfDocument:
+            entryText = "Anchor Author. 2020. A deliberately wrapped bibliography title ends."
+        case .terminalPositive, .terminalAmbiguous:
+            entryText = "Anchor Author. A deliberately wrapped bibliography title with its publication year already present. 2020."
+        case .unrelatedContinuation, .missingBoundary, .positive, .startsNewEntry, .startsHeading, .mismatchedIndent:
+            entryText = "Anchor Author. 2020. A deliberately wrapped bibliography title continues without a terminal mark"
+        }
+        let entryLines = wrapTextInsidePage(entryText, attributes: attributes, maxWidth: 500)
+        let entryLastBaseline: CGFloat = scenario == .sourceNotAtPageEnd ? 420 : 70
+        let entryFirstBaseline = entryLastBaseline + CGFloat(max(0, entryLines.count - 1) * 16)
+
+        context.beginPDFPage(nil)
+        context.textMatrix = .identity
+        draw(sourceText, at: CGPoint(x: 48, y: 700))
+        context.endPDFPage()
+
+        context.beginPDFPage(nil)
+        context.textMatrix = .identity
+        draw("References", at: CGPoint(x: 48, y: 740))
+        for (index, text) in entryLines.enumerated() {
+            draw(text, at: CGPoint(
+                x: index == 0 ? 48 : 64,
+                y: entryFirstBaseline - CGFloat(index * 16)
+            ))
+        }
+        context.endPDFPage()
+
+        context.beginPDFPage(nil)
+        context.textMatrix = .identity
+        switch scenario {
+        case .positive:
+            draw("next-page continuation supplies the remaining venue and pages.", at: CGPoint(x: 64, y: 720))
+            draw("Additional publication details remain here.", at: CGPoint(x: 64, y: 704))
+            draw("Next Author. Next reference.", at: CGPoint(x: 48, y: 680))
+        case .startsNewEntry:
+            draw("Next Author. Next reference.", at: CGPoint(x: 48, y: 720))
+            draw("next-page continuation should not be borrowed.", at: CGPoint(x: 64, y: 704))
+        case .startsHeading:
+            draw("References", at: CGPoint(x: 48, y: 740))
+            draw("next-page continuation should not be borrowed.", at: CGPoint(x: 64, y: 720))
+            draw("Next Author. Next reference.", at: CGPoint(x: 48, y: 680))
+        case .sourceNotAtPageEnd:
+            draw("next-page continuation should not be borrowed.", at: CGPoint(x: 64, y: 720))
+            draw("Next Author. Next reference.", at: CGPoint(x: 48, y: 680))
+        case .unrelatedContinuation:
+            draw("Unrelated continuation without paragraph evidence.", at: CGPoint(x: 64, y: 720))
+            draw("Next Author. Next reference.", at: CGPoint(x: 48, y: 680))
+        case .missingBoundary:
+            draw("next-page continuation has no proven boundary.", at: CGPoint(x: 64, y: 720))
+            draw("another continuation line remains unbounded.", at: CGPoint(x: 64, y: 704))
+        case .terminalPositive:
+            draw("In next-page continuation with the remaining venue.", at: CGPoint(x: 64, y: 720))
+            draw("Next Author. Next reference.", at: CGPoint(x: 48, y: 680))
+        case .terminalAmbiguous:
+            draw("Unrelated continuation after a terminal year.", at: CGPoint(x: 64, y: 720))
+            draw("Next Author. Next reference.", at: CGPoint(x: 48, y: 680))
+        case .mismatchedIndent:
+            draw("next-page continuation with different indentation.", at: CGPoint(x: 80, y: 720))
+            draw("Next Author. Next reference.", at: CGPoint(x: 48, y: 680))
+        case .endOfDocument:
+            break
+        }
+        context.endPDFPage()
+        context.closePDF()
+
+        guard let document = PDFDocument(url: sourceURL),
+              let sourcePage = document.page(at: 0),
+              let bibliographyPage = document.page(at: 1)
+        else { throw PDFFixtureError.couldNotOpenGeneratedDocument }
+
+        func addAnnotation(to page: PDFPage, token: String) {
+            let text = sourceText as NSString
+            let range = text.range(of: token)
+            guard range.location != NSNotFound else { return }
+            let start = CTLineGetOffsetForStringIndex(sourceLine, range.location, nil)
+            let end = CTLineGetOffsetForStringIndex(sourceLine, range.location + range.length, nil)
+            let annotation = PDFAnnotation(
+                bounds: CGRect(x: 48 + start - 1, y: 697, width: max(8, end - start), height: 18),
+                forType: .link,
+                withProperties: nil
+            )
+            annotation.action = PDFActionGoTo(destination: PDFDestination(
+                page: bibliographyPage,
+                at: CGPoint(x: 48, y: entryFirstBaseline + 4)
+            ))
+            page.addAnnotation(annotation)
+        }
+        addAnnotation(to: sourcePage, token: "Anchor")
+        addAnnotation(to: sourcePage, token: "2020")
+
+        let outputURL = directory.appendingPathComponent("cross-page-bibliography.pdf")
+        guard document.write(to: outputURL), PDFDocument(url: outputURL) != nil else {
+            throw PDFFixtureError.couldNotWriteDocument
+        }
+        return outputURL
+    }
+
+    private func wrapTextInsidePage(
+        _ text: String,
+        attributes: [NSAttributedString.Key: Any],
+        maxWidth: CGFloat
+    ) -> [String] {
+        var result: [String] = []
+        var current = ""
+        for word in text.split(whereSeparator: \.isWhitespace) {
+            let value = String(word)
+            let candidate = current.isEmpty ? value : current + " " + value
+            let candidateLine = CTLineCreateWithAttributedString(
+                NSAttributedString(string: candidate, attributes: attributes)
+            )
+            let width = CGFloat(CTLineGetTypographicBounds(candidateLine, nil, nil, nil))
+            if !current.isEmpty, width > maxWidth {
+                result.append(current)
+                current = value
+            } else {
+                current = candidate
+            }
+        }
+        if !current.isEmpty { result.append(current) }
+        return result
     }
 
     private func openCitationPreview(

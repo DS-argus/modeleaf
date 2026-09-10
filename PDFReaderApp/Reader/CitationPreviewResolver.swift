@@ -423,11 +423,11 @@ enum CitationReferenceEntryExtractor {
         return first.text
     }
 
-    static func entry(destinationPoint: CGPoint, on page: PDFPage, nativePoints: [CGPoint]) -> CitationReferenceEntryCandidate? {
+    static func entry(destinationPoint: CGPoint, on page: PDFPage, nativeBoundaryPoints: [Int: [CGPoint]]) -> CitationReferenceEntryCandidate? {
         guard isUsableDestinationPoint(destinationPoint, on: page) else { return nil }
-        let matches = candidates(destinationPoint: destinationPoint, on: page, nativePoints: nativePoints)
+        let matches = candidates(destinationPoint: destinationPoint, on: page, nativeBoundaryPoints: nativeBoundaryPoints)
             .map { candidate in
-                let origin = candidate.lines.map { $0.bounds.minX }.min() ?? .greatestFiniteMagnitude
+                let origin = candidate.lines.first?.bounds.minX ?? .greatestFiniteMagnitude
                 return (candidate: candidate, distance: abs(origin - destinationPoint.x))
             }
             .sorted { $0.distance < $1.distance }
@@ -485,8 +485,13 @@ enum CitationReferenceEntryExtractor {
         }
     }
 
-    static func candidates(destinationPoint: CGPoint, on page: PDFPage, nativePoints: [CGPoint]) -> [CitationReferenceEntryCandidate] {
+    static func candidates(
+        destinationPoint: CGPoint,
+        on page: PDFPage,
+        nativeBoundaryPoints: [Int: [CGPoint]]
+    ) -> [CitationReferenceEntryCandidate] {
         guard isUsableDestinationPoint(destinationPoint, on: page) else { return [] }
+        let nativePoints = page.document.flatMap { nativeBoundaryPoints[$0.index(for: page)] } ?? []
         let lines = pageLines(on: page)
         let columns = columnLines(lines, pageBounds: page.bounds(for: .cropBox))
         return columns.enumerated().compactMap { index, column in
@@ -510,21 +515,122 @@ enum CitationReferenceEntryExtractor {
                 return isNativeEntryBoundary(physicalLines[index], points: nativePoints)
             }) ?? physicalLines.endIndex
             var entryLines = Array(physicalLines[start..<next])
+            var reachesLastColumn = index == columns.count - 1
             if next == physicalLines.endIndex, index + 1 < columns.count {
                 let continuation = mergeFragmentsOnBaselines(columns[index + 1])
                 if let nextOrigin = continuation.map({ $0.bounds.minX }).min() {
-                    entryLines += continuation.prefix { line in
+                    let accepted = continuation.prefix { line in
                         guard line.bounds.minX <= nextOrigin + startIndentTolerance else { return true }
                         if isReferenceStart(line.text) { return false }
                         guard isAuthorConnectorStart(line.text) else { return true }
                         return !isNativeEntryBoundary(line, points: nativePoints)
                     }
+                    entryLines += accepted
+                    reachesLastColumn = accepted.count == continuation.count
+                }
+            }
+            if next == physicalLines.endIndex,
+               reachesLastColumn,
+               reachesPageBottom(entryLines, on: page) {
+                switch adjacentPageContinuation(from: entryLines, on: page, nativeBoundaryPoints: nativeBoundaryPoints) {
+                case let .continuation(continuation): entryLines += continuation
+                case .end: break
+                case .ambiguous: return nil
                 }
             }
             let rawText = normalized(entryLines.map(\.text).joined(separator: " "))
             guard !rawText.isEmpty else { return nil }
             return CitationReferenceEntryCandidate(columnIndex: index, lines: entryLines, rawText: rawText)
         }
+    }
+
+    private static let pageEdgeBand: CGFloat = 72
+
+    private static func reachesPageBottom(_ lines: [CitationTextLine], on page: PDFPage) -> Bool {
+        guard let last = lines.last else { return false }
+        let bounds = page.bounds(for: .cropBox)
+        return last.bounds.minY <= bounds.minY + pageEdgeBand
+    }
+
+    private static func isBibliographyHeading(_ text: String) -> Bool {
+        text.range(of: #"(?i)^\s*(?:references|bibliography)\s*$"#, options: .regularExpression) != nil
+    }
+
+    private static func hasBibliographyHeading(on page: PDFPage) -> Bool {
+        pageLines(on: page).contains { isBibliographyHeading($0.text) }
+    }
+
+    private static func isBibliographyContinuationSource(_ page: PDFPage) -> Bool {
+        if hasBibliographyHeading(on: page) { return true }
+        guard let document = page.document else { return false }
+        let pageIndex = document.index(for: page)
+        guard pageIndex > 0,
+              pageIndex < document.pageCount,
+              let previousPage = document.page(at: pageIndex - 1) else { return false }
+        return hasBibliographyHeading(on: previousPage)
+    }
+
+    private static func hasTextContinuationEvidence(previous: String, first: String) -> Bool {
+        guard let firstCharacter = first.first,
+              first.rangeOfCharacter(from: .letters) != nil,
+              let lastCharacter = normalized(previous).last
+        else { return false }
+        if first.range(of: #"(?i)^(?:and|or|of|in|on|for|with|to|from)\b"#, options: .regularExpression) != nil {
+            return true
+        }
+        guard !isTerminalText(previous) else { return false }
+        if firstCharacter.isLowercase { return true }
+        return "-,:;([{\"".contains(lastCharacter)
+    }
+
+    private static func isTerminalText(_ text: String) -> Bool {
+        guard let lastCharacter = normalized(text).last else { return false }
+        return ".!?)]}".contains(lastCharacter)
+    }
+
+
+    private enum BibliographySeam {
+        case continuation([CitationTextLine])
+        case end
+        case ambiguous
+    }
+
+    private static func adjacentPageContinuation(
+        from entryLines: [CitationTextLine],
+        on page: PDFPage,
+        nativeBoundaryPoints: [Int: [CGPoint]]
+    ) -> BibliographySeam {
+        guard let previous = entryLines.last,
+              let origin = entryLines.first?.bounds.minX,
+              let document = page.document else { return .ambiguous }
+        let pageIndex = document.index(for: page)
+        guard pageIndex >= 0, pageIndex < document.pageCount else { return .ambiguous }
+        if pageIndex + 1 == document.pageCount { return .end }
+        guard let nextPage = document.page(at: pageIndex + 1) else { return .ambiguous }
+        let nextPageBounds = nextPage.bounds(for: .cropBox)
+        let columns = columnLines(pageLines(on: nextPage), pageBounds: nextPageBounds)
+        guard let firstColumn = columns.first, !firstColumn.isEmpty else { return .ambiguous }
+        let physicalLines = mergeFragmentsOnBaselines(firstColumn)
+        guard let first = physicalLines.first else { return .ambiguous }
+        func isBoundary(_ line: CitationTextLine) -> Bool {
+            isBibliographyHeading(line.text) || isReferenceStart(line.text)
+                || isNativeEntryBoundary(line, points: nativeBoundaryPoints[pageIndex + 1] ?? [])
+        }
+        if isBoundary(first) { return .end }
+        guard isBibliographyContinuationSource(page),
+              first.bounds.maxY >= nextPageBounds.maxY - pageEdgeBand,
+              hasTextContinuationEvidence(previous: previous.text, first: first.text),
+              let boundaryIndex = physicalLines.indices.dropFirst().first(where: { isBoundary(physicalLines[$0]) })
+        else { return .ambiguous }
+        let boundaryOrigin = physicalLines[boundaryIndex].bounds.minX
+        let sourceIndent = previous.bounds.minX - origin
+        let continuation = Array(physicalLines[..<boundaryIndex])
+        guard sourceIndent >= startIndentTolerance - 1,
+              continuation.allSatisfy({ abs(($0.bounds.minX - boundaryOrigin) - sourceIndent) <= baselineTolerance }),
+              zip(continuation, continuation.dropFirst()).allSatisfy({ upper, lower in
+                  upper.bounds.minY - lower.bounds.maxY <= CitationReferenceExtractor.maximumLineGap
+              }) else { return .ambiguous }
+        return .continuation(continuation)
     }
 
     static func isInBibliographyRegion(_ bounds: CGRect, on page: PDFPage) -> Bool {
@@ -692,7 +798,7 @@ final class CitationPreviewResolver {
                 if Self.rect(annotation.bounds, matches: selected.bounds) { selectedIndex = index }
                 let target = Self.linkTarget(annotation)
                 guard case let .goTo(pageIndex, point?) = target, let destinationPage = document.page(at: pageIndex),
-                      let candidate = CitationReferenceEntryExtractor.entry(destinationPoint: point, on: destinationPage, nativePoints: nativeBoundaries[pageIndex] ?? [])
+                      let candidate = CitationReferenceEntryExtractor.entry(destinationPoint: point, on: destinationPage, nativeBoundaryPoints: nativeBoundaries)
                 else { return CitationPreviewItem(label: label, destination: target, referenceText: "", state: .unresolved(reason: .referenceUnavailable)) }
                 let escaped = NSRegularExpression.escapedPattern(for: label)
                 let matchesLabel = candidate.rawText.range(of: #"^\s*[\[(]"# + escaped + #"[\])]"#, options: .regularExpression) != nil
@@ -897,7 +1003,7 @@ final class CitationPreviewResolver {
             return CitationPreviewItem(label: key.label, destination: destination,
                 referenceText: "", state: .unresolved(reason: .invalidDestination))
         }
-        guard let entry = CitationReferenceEntryExtractor.entry(destinationPoint: point, on: page, nativePoints: nativeBoundaries[pageIndex] ?? []),
+        guard let entry = CitationReferenceEntryExtractor.entry(destinationPoint: point, on: page, nativeBoundaryPoints: nativeBoundaries),
               AuthorYearCitationClassifier.validates(key, referenceText: entry.rawText)
         else {
             return CitationPreviewItem(label: key.label, destination: destination,
