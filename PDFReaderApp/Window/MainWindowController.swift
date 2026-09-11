@@ -489,7 +489,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         guard let availableUpdate else { return }
         let shortcut = resolvedConfig.keymap.bindings(for: .updateShow).first
             .flatMap(KeyBindingHint.text(for:)) ?? "U"
-        rootView.presentUpdateBanner("\u{2191} Modeleaf \(availableUpdate.version) available  [\(shortcut)]") { [weak self] in
+        rootView.presentUpdateBanner("\(availableUpdate.version) available → modeleaf update · Details [\(shortcut)]") { [weak self] in
             self?.presentAvailableUpdate()
         }
     }

@@ -54,15 +54,17 @@ Shells expand globs before Modeleaf receives them. Use `modeleaf open -- <path>`
 
 ## Update
 
+Use Modeleaf's update command so the installed CLI and cask stay in sync:
+
 ```sh
-brew upgrade --cask modeleaf
+modeleaf update
 ```
 
-If Homebrew has stale metadata:
+If Homebrew reports that Modeleaf is already up to date while a newer release is listed on GitHub, refresh its metadata and retry:
 
 ```sh
 brew update --force
-brew upgrade --cask modeleaf
+modeleaf update
 ```
 
 Modeleaf checks [GitHub Releases](https://github.com/DS-argus/modeleaf/releases) at launch but never updates itself.
@@ -105,6 +107,12 @@ open "$APP"
 ```
 
 For development, use `swift run Modeleaf`. Run `Tools/verify.sh full` before opening a pull request.
+
+## Release preparation
+
+For each release, maintainers add `release-notes/<version>.txt` (without the `v` tag prefix), for example `release-notes/0.13.0.txt`. Write 2-5 concise English, user-facing bullets based on the actual changes since the preceding release; each non-empty line must be a Markdown bullet beginning with `- `, and placeholders are not accepted.
+
+Push only the matching `v<version>` tag, such as `v0.13.0`. The workflow verifies the tag, runs tests, packages the app, creates or updates a draft release with one `## Highlights` section plus GitHub's generated details, updates Homebrew, and then publishes. Rerunning a tag refreshes only its draft and keeps generated notes; an already-published release is never rewritten.
 
 ## License
 

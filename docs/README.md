@@ -52,15 +52,17 @@ glob은 Modeleaf에 전달되기 전에 셸에서 확장됩니다. 경로가 하
 
 ## 업데이트
 
+설치된 CLI와 cask를 함께 최신 상태로 맞추려면 Modeleaf의 업데이트 명령을 사용하세요.
+
 ```sh
-brew upgrade --cask modeleaf
+modeleaf update
 ```
 
-새 버전이 있는데도 Homebrew에서 이미 최신이라고 나오면 다음 명령으로 갱신합니다.
+GitHub에 새 릴리스가 있는데 Homebrew가 이미 최신이라고 표시하면 메타데이터를 갱신한 뒤 다시 실행합니다.
 
 ```sh
 brew update --force
-brew upgrade --cask modeleaf
+modeleaf update
 ```
 
 Modeleaf는 실행할 때 [GitHub Releases](https://github.com/DS-argus/modeleaf/releases)에서 새 버전만 확인합니다. 업데이트를 자동으로 설치하지는 않습니다.
@@ -103,6 +105,12 @@ open "$APP"
 ```
 
 개발 중에는 `swift run Modeleaf`로 실행할 수 있습니다. PR을 올리기 전에는 `Tools/verify.sh full`로 전체 검증을 실행합니다.
+
+## 릴리스 준비 (관리자)
+
+각 릴리스에는 `v` 접두사를 제외한 버전으로 `release-notes/<version>.txt` 파일을 추가합니다(예: `release-notes/0.13.0.txt`). 직전 릴리스의 실제 변경 사항을 바탕으로 2-5개의 간결한 영어 사용자용 bullet을 작성하세요. 비어 있지 않은 각 줄은 `- `로 시작하는 Markdown bullet이어야 하며 placeholder는 허용되지 않습니다.
+
+일치하는 `v<version>` tag만 push하면 됩니다(예: `v0.13.0`). Workflow가 tag를 확인하고 테스트와 패키징을 거쳐 GitHub 생성 상세 내용 앞에 `## Highlights`를 하나만 넣은 draft를 만든 뒤 Homebrew를 갱신하고 publish합니다. 같은 tag를 다시 실행하면 draft만 갱신하며 생성된 상세 내용은 유지하고, 이미 publish된 release는 다시 쓰지 않습니다.
 
 ## 라이선스
 

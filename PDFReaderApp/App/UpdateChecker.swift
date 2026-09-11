@@ -30,6 +30,11 @@ final class UpdateChecker {
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let tag = object["tag_name"] as? String
         else { return nil }
-        return UpdateNotice.availableUpdate(current: currentVersion, latest: tag)
+        return UpdateNotice.availableUpdate(
+            current: currentVersion,
+            latest: tag,
+            body: object["body"] as? String,
+            releaseURL: object["html_url"] as? String
+        )
     }
 }

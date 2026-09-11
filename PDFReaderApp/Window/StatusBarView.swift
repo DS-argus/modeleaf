@@ -95,8 +95,8 @@ final class StatusBarView: NSView {
         updateButton.setContentHuggingPriority(.required, for: .horizontal)
         updateButton.setAccessibilityIdentifier("status.update")
         updateButton.prepareForAutoLayout()
-        updateButton.setAccessibilityLabel("View update instructions")
-        updateButton.toolTip = "View update instructions"
+        updateButton.setAccessibilityLabel("View release details")
+        updateButton.toolTip = "View release details"
         updateButton.onHoverChange = { [weak updateButton] hovering in
             updateButton?.layer?.backgroundColor = hovering
                 ? (updateButton?.contentTintColor ?? .controlAccentColor).withAlphaComponent(0.12).cgColor
@@ -161,24 +161,54 @@ final class StatusBarView: NSView {
         let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines)
         updateText = (trimmed?.isEmpty == false) ? trimmed : nil
         updateButton.isHidden = updateText == nil
-        updateButton.toolTip = updateText
+        updateButton.toolTip = updateText.map { _ in "View release details" }
         restyleUpdateButton()
     }
 
     private func restyleUpdateButton() {
         guard let updateText else {
             updateButton.attributedTitle = NSAttributedString(string: "")
+            updateButton.setAccessibilityValue(nil)
             return
         }
+        let title = displayUpdateText(for: updateText)
         let accent = theme?[.accent] ?? .controlAccentColor
-        updateButton.attributedTitle = NSAttributedString(
-            string: updateText,
+        let attributed = NSMutableAttributedString(
+            string: title,
             attributes: [
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
                 .foregroundColor: accent,
             ]
         )
+        let commandRange = (title as NSString).range(of: "modeleaf update")
+        if commandRange.location != NSNotFound {
+            attributed.addAttribute(
+                .font,
+                value: NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold),
+                range: commandRange
+            )
+        }
+        updateButton.attributedTitle = attributed
         updateButton.setAccessibilityValue(updateText)
+    }
+
+    override func layout() {
+        super.layout()
+        if updateText != nil { restyleUpdateButton() }
+    }
+
+    private func displayUpdateText(for text: String) -> String {
+        guard bounds.width > 0, bounds.width < 620,
+              let availableRange = text.range(of: " available") else { return text }
+        let version = String(text[..<availableRange.lowerBound])
+        guard let open = text.lastIndex(of: "["), let close = text.lastIndex(of: "]"), open < close else {
+            return version
+        }
+        let shortcut = String(text[text.index(after: open)..<close])
+        if text.contains("modeleaf update") {
+            return "\(version) → modeleaf update [\(shortcut)]"
+        }
+        return "\(version) [\(shortcut)]"
     }
 
     @objc private func helpTapped() {
