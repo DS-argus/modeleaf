@@ -1,0 +1,3 @@
+- See the latest release highlights in a compact update panel without leaving your document.
+- Copy the update command with Enter, or open the full release notes with Shift+Enter.
+- Find the update command directly in the status bar, with a compact layout for smaller windows.
