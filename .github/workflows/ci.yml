@@ -21,6 +21,8 @@ jobs:
             mode: core
           - shard: app
             mode: app
+          - shard: cli
+            mode: cli
     steps:
       - uses: actions/checkout@v5
 
