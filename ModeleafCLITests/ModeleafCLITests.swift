@@ -141,6 +141,16 @@ struct ModeleafCLITests {
         ])
     }
 
+    @Test("failed exec returns a POSIX error without replacing the test process")
+    func execFailure() {
+        let executable = URL(fileURLWithPath: "/definitely/missing/modeleaf-" + UUID().uuidString)
+        #expect(throws: POSIXError(.ENOENT)) {
+            try SystemCLIProcessRunner().run(
+                CLIInvocation(executableURL: executable, arguments: ["sentinel", "--value"])
+            )
+        }
+    }
+
     @Test("child exit status is preserved")
     func preservesExitStatus() throws {
         let fixture = try Fixture(status: 42)

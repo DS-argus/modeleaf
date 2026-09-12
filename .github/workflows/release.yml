@@ -48,6 +48,7 @@ jobs:
             modeleaf-${{ runner.os }}-${{ steps.toolchain.outputs.fingerprint }}-${{ hashFiles('Package.resolved') }}-core-
 
       - name: Verify tag matches the app version
+        id: version
         run: |
           set -euo pipefail
           version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' PDFReaderApp/Info.plist)
@@ -55,9 +56,22 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match app version $version" >&2
             exit 1
           }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release summary
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 Tools/release_notes.py validate \
+            --version "$VERSION" \
+            --summary "release-notes/${VERSION}.txt"
 
       - name: Run tests
         run: Tools/verify.sh full --disable-automatic-resolution
+
+      - name: Test release note composition
+        run: python3 Tools/test_release_notes.py
 
       - name: Build and package
         id: pkg
@@ -68,15 +82,79 @@ jobs:
       - name: Stage draft GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+          work=$(mktemp -d)
+          trap 'rm -rf "$work"' EXIT
+          summary="release-notes/${VERSION}.txt"
+          release_json="$work/release.json"
+          generated="$work/generated.md"
+          body="$work/body.md"
+          existing_release=false
+
+          # A draft is updated from its current body so a rerun never loses
+          # generated sections. A published release is immutable here.
+          if gh release view "$GITHUB_REF_NAME" --json isDraft,body > "$release_json"; then
+            existing_release=true
+            draft=$(python3 - "$release_json" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              release = json.load(handle)
+          print("true" if release.get("isDraft") else "false")
+          PY
+            )
+            if [ "$draft" != "true" ]; then
+              echo "Release $GITHUB_REF_NAME is already published; refusing to rewrite it" >&2
+              exit 1
+            fi
+            python3 - "$release_json" > "$generated" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              release = json.load(handle)
+          sys.stdout.write(release.get("body") or "")
+          PY
+            if [ -z "$(tr -d '[:space:]' < "$generated")" ]; then
+              echo "Draft $GITHUB_REF_NAME has no generated notes; regenerating them" >&2
+              gh api --method POST \
+                -H 'Accept: application/vnd.github+json' \
+                "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+                -f tag_name="$GITHUB_REF_NAME" \
+                -f target_commitish="$GITHUB_SHA" \
+                --jq '.body // ""' > "$generated"
+            fi
+          else
+            # GitHub's generate-notes endpoint is the supported API equivalent
+            # of gh release create --generate-notes, and is deterministic for
+            # this tag's target commit.
+            gh api --method POST \
+              -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="$GITHUB_REF_NAME" \
+              -f target_commitish="$GITHUB_SHA" \
+              --jq '.body // ""' > "$generated"
+          fi
+
+          python3 Tools/release_notes.py compose \
+            --version "$VERSION" \
+            --summary "$summary" \
+            --generated "$generated" \
+            --output "$body"
+
+          if [ "$existing_release" = true ]; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "Modeleaf $VERSION" \
+              --notes-file "$body"
             gh release upload "$GITHUB_REF_NAME" "${{ steps.pkg.outputs.zip }}" --clobber
           else
             gh release create "$GITHUB_REF_NAME" \
               "${{ steps.pkg.outputs.zip }}" \
-              --title "Modeleaf ${{ steps.pkg.outputs.version }}" \
-              --generate-notes \
+              --title "Modeleaf $VERSION" \
+              --notes-file "$body" \
               --draft
           fi
 

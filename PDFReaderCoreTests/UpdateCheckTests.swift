@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import PDFReaderCore
 
@@ -26,5 +27,71 @@ struct UpdateCheckTests {
 
         let update = try #require(UpdateNotice.availableUpdate(current: "0.2.0", latest: "v0.3.0"))
         #expect(update.version == AppVersion("0.3.0"))
+    }
+
+    @Test("extracts the unfenced highlights section and stops at the next top-level heading")
+    func highlightsExtraction() throws {
+        let body = """
+        # Release v0.3.0
+
+        ## Highlights
+        - Faster page navigation
+        - More reliable tabs
+
+        ### Details
+        This remains part of the summary.
+
+        ## Installation
+        brew upgrade --cask modeleaf
+        """
+        let update = try #require(UpdateNotice.availableUpdate(current: "0.2.0", latest: "0.3.0", body: body))
+        #expect(update.highlights == "- Faster page navigation\n- More reliable tabs\n\n### Details\nThis remains part of the summary.")
+    }
+
+    @Test("ignores headings inside fenced blocks and treats empty summaries as absent")
+    func fencedAndEmptyHighlights() throws {
+        let body = """
+        ```markdown
+        ## Highlights
+        - hidden
+        ```
+        ## Highlights
+        ```swift
+        ## Still content
+        ```
+        ## Next
+        """
+        let update = try #require(UpdateNotice.availableUpdate(current: "0.2.0", latest: "0.3.0", body: body))
+        #expect(update.highlights == "```swift\n## Still content\n```")
+
+        let empty = try #require(UpdateNotice.availableUpdate(current: "0.2.0", latest: "0.3.0", body: "## Highlights\n   \n## Notes"))
+        #expect(empty.highlights == nil)
+    }
+
+    @Test("release links are restricted at both policy and public construction boundaries")
+    func releaseURLValidation() throws {
+        let version = try #require(AppVersion("0.3.0"))
+        let valid = URL(string: "https://github.com/DS-argus/modeleaf/releases/tag/v0.3.0")!
+        #expect(AvailableUpdate(version: version, releaseURL: valid).releaseURL == valid)
+
+        for raw in [
+            "http://github.com/DS-argus/modeleaf/releases/tag/v0.3.0",
+            "https://evil.example/DS-argus/modeleaf/releases/tag/v0.3.0",
+            "https://user:password@github.com/DS-argus/modeleaf/releases/tag/v0.3.0",
+            "https://github.com:443/DS-argus/modeleaf/releases/tag/v0.3.0",
+            "https://github.com/DS-argus/modeleaf/releases/tag/",
+            "https://github.com/DS-argus/modeleaf/releases/tag/v0.3.0?download=1",
+            "https://github.com/DS-argus/modeleaf/releases/tag/v0.3.0#notes"
+        ] {
+            let url = try #require(URL(string: raw))
+            #expect(AvailableUpdate(version: version, releaseURL: url).releaseURL == nil)
+        }
+
+        let update = try #require(UpdateNotice.availableUpdate(
+            current: "0.2.0",
+            latest: "0.3.0",
+            releaseURL: "https://github.com/DS-argus/modeleaf/releases/tag/v0.3.0?download=1"
+        ))
+        #expect(update.releaseURL == nil)
     }
 }
