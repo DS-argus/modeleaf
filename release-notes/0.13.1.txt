@@ -1,0 +1,2 @@
+- Fixed terminal confirmation hangs when running `modeleaf update` or `modeleaf remove`.
+- If updating from 0.13.0 or earlier, run `brew upgrade --cask modeleaf` directly once to avoid the old CLI confirmation bug. After installing 0.13.1, use `modeleaf update` normally.

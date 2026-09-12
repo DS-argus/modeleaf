@@ -10,6 +10,7 @@ Usage:
   Tools/verify.sh focused <test-filter> [swift-test-options...]
   Tools/verify.sh core [swift-test-options...]
   Tools/verify.sh app [swift-test-options...]
+  Tools/verify.sh cli [swift-test-options...]
   Tools/verify.sh full [swift-test-options...]
   Tools/verify.sh hygiene [base-sha head-sha]
 EOF
@@ -23,6 +24,11 @@ check_diff_hygiene() {
   elif base=$(git merge-base HEAD origin/main 2>/dev/null); then
     git diff --check "$base" HEAD
   fi
+}
+
+run_cli_pty() {
+  bin_dir=$(swift build --show-bin-path "$@")
+  python3 Tools/test_cli_pty.py --cli "$bin_dir/ModeleafCLI"
 }
 
 mode=${1:-}
@@ -44,9 +50,15 @@ case "$mode" in
     shift
     swift test --filter PDFReaderAppTests "$@"
     ;;
+  cli)
+    shift
+    swift test --filter ModeleafCLITests "$@"
+    run_cli_pty "$@"
+    ;;
   full)
     shift
     swift test "$@"
+    run_cli_pty "$@"
     python3 Tools/validate_xcode_project.py
     check_diff_hygiene
     ;;

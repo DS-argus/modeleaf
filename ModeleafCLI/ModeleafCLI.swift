@@ -12,12 +12,45 @@ protocol CLIProcessRunning {
 
 struct SystemCLIProcessRunner: CLIProcessRunning {
     func run(_ invocation: CLIInvocation) throws -> Int32 {
-        let process = Process()
-        process.executableURL = invocation.executableURL
-        process.arguments = invocation.arguments
-        try process.run()
-        process.waitUntilExit()
-        return process.terminationStatus
+        let arguments = [invocation.executableURL.path] + invocation.arguments
+        let pointerCount = arguments.count + 1
+        let (allocationSize, overflow) = pointerCount.multipliedReportingOverflow(
+            by: MemoryLayout<UnsafeMutablePointer<CChar>?>.stride
+        )
+        guard !overflow, let rawArguments = malloc(allocationSize) else {
+            throw POSIXError(.ENOMEM)
+        }
+
+        let argumentPointers = rawArguments.bindMemory(
+            to: UnsafeMutablePointer<CChar>?.self,
+            capacity: pointerCount
+        )
+        for index in 0..<pointerCount {
+            argumentPointers[index] = nil
+        }
+        defer {
+            for index in 0..<arguments.count {
+                if let pointer = argumentPointers[index] {
+                    free(pointer)
+                }
+            }
+            free(rawArguments)
+        }
+
+        for (index, argument) in arguments.enumerated() {
+            guard let pointer = argument.withCString({ strdup($0) }) else {
+                throw POSIXError(.ENOMEM)
+            }
+            argumentPointers[index] = pointer
+        }
+        argumentPointers[arguments.count] = nil
+
+        guard let executable = argumentPointers[0] else {
+            throw POSIXError(.EINVAL)
+        }
+        execv(executable, argumentPointers)
+        let errorCode = errno
+        throw POSIXError(POSIXErrorCode(rawValue: errorCode) ?? .EIO)
     }
 }
 
