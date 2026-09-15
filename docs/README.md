@@ -4,6 +4,7 @@
 </div>
 
 키보드만으로 빠르게 읽고 이동할 수 있는 macOS용 PDF 뷰어입니다. 원본 파일은 건드리지 않으며, 화면은 문서에 최대한 집중할 수 있게 간결하게 구성했습니다.
+> **Windows:** [Modeleaf for Windows](https://github.com/DS-argus/modeleaf-win)를 개발 중입니다. 현재 기능과 제한 사항은 해당 README에서 확인할 수 있습니다.
 
 [English](../README.md)
 

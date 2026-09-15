@@ -4,6 +4,7 @@
 </div>
 
 A native, read-only macOS PDF viewer — keyboard-first, Vim-flavored, with native tabs and a minimal interface.
+> **Windows:** [Modeleaf for Windows](https://github.com/DS-argus/modeleaf-win) is actively evolving. See its README for current features and limitations.
 
 [Korean](docs/README.md)
 
