@@ -9,7 +9,8 @@ enum PDFOpenError: Error, Equatable, LocalizedError {
     case missingFile(String)
     case unreadableFile(String)
     case malformedDocument(String)
-    case lockedDocument(String)
+    case passwordRequired(String)
+    case cancelled
     case emptyDocument(String)
 
     var errorDescription: String? { presentation }
@@ -24,8 +25,10 @@ enum PDFOpenError: Error, Equatable, LocalizedError {
             "PDF file is not readable: \(path)"
         case let .malformedDocument(path):
             "PDF is malformed or unsupported: \(path)"
-        case let .lockedDocument(path):
-            "Password-protected PDFs are not supported yet: \(path)"
+        case let .passwordRequired(path):
+            "Password required to open PDF: \(path)"
+        case .cancelled:
+            "PDF opening was cancelled."
         case let .emptyDocument(path):
             "PDF contains no pages: \(path)"
         }
@@ -41,8 +44,10 @@ enum PDFOpenError: Error, Equatable, LocalizedError {
             .unreadableFile
         case .malformedDocument:
             .malformedDocument
-        case .lockedDocument:
+        case .passwordRequired:
             .lockedDocument
+        case .cancelled:
+            .cancelled
         case .emptyDocument:
             .emptyDocument
         }
@@ -99,7 +104,8 @@ final class PDFOpenService {
     func open(
         url: URL,
         traceID: OpenTraceID = OpenTraceID(),
-        metrics: any PDFOpenMetrics = NoopPDFOpenMetrics()
+        metrics: any PDFOpenMetrics = NoopPDFOpenMetrics(),
+        passwordProvider: ((Bool) -> String?)? = nil
     ) throws -> ReaderSession {
         metrics.record(.begin(.filePreflight, traceID: traceID))
         guard url.isFileURL else {
@@ -128,9 +134,16 @@ final class PDFOpenService {
         metrics.record(.end(.pdfDocumentInit, traceID: traceID, outcome: .success))
 
         metrics.record(.begin(.documentPolicyValidation, traceID: traceID))
-        guard !document.isLocked else {
-            metrics.record(.end(.documentPolicyValidation, traceID: traceID, outcome: .lockedDocument))
-            throw PDFOpenError.lockedDocument(path)
+        do {
+            try unlockIfNeeded(
+                document: document,
+                path: path,
+                passwordProvider: passwordProvider
+            )
+        } catch {
+            let outcome = (error as? PDFOpenError)?.metricOutcome ?? .unexpectedFailure
+            metrics.record(.end(.documentPolicyValidation, traceID: traceID, outcome: outcome))
+            throw error
         }
         guard document.pageCount > 0 else {
             metrics.record(.end(.documentPolicyValidation, traceID: traceID, outcome: .emptyDocument))
@@ -145,5 +158,32 @@ final class PDFOpenService {
             traceID: traceID,
             metrics: metrics
         )
+    }
+
+    private func unlockIfNeeded(
+        document: PDFDocument,
+        path: String,
+        passwordProvider: ((Bool) -> String?)?
+    ) throws {
+        guard document.isLocked else { return }
+        guard let passwordProvider else {
+            throw PDFOpenError.passwordRequired(path)
+        }
+
+        var hadInvalidAttempt = false
+        while true {
+            guard let password = passwordProvider(hadInvalidAttempt) else {
+                throw PDFOpenError.cancelled
+            }
+
+            let didUnlock = document.unlock(withPassword: password)
+            if didUnlock && !document.isLocked {
+                return
+            }
+            guard document.isLocked else {
+                throw PDFOpenError.passwordRequired(path)
+            }
+            hadInvalidAttempt = true
+        }
     }
 }

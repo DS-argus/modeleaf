@@ -13,6 +13,7 @@ final class ApplicationController {
     private let pdfOpenService: PDFOpenService
     private let openMetrics: any PDFOpenMetrics
     private let openPanelPresenter: any PDFOpenPanelPresenting
+    private let passwordPresenter: any PDFPasswordPresenting
     private let actionDispatcher: ActionDispatcher
     private var pendingDuplicateTraces: [TabID: OpenTraceID] = [:]
     private let themeStore: ThemeSelectionStore
@@ -74,6 +75,7 @@ final class ApplicationController {
         pdfOpenService: PDFOpenService = PDFOpenService(),
         openMetrics: any PDFOpenMetrics = OSLogPDFOpenMetrics(),
         openPanelPresenter: any PDFOpenPanelPresenting = NativePDFOpenPanelPresenter(),
+        passwordPresenter: any PDFPasswordPresenting = NativePDFPasswordPresenter(),
         themeStore: ThemeSelectionStore = ThemeSelectionStore(),
         indicatorSettingsStore: LinkDestinationIndicatorSettingsStore = LinkDestinationIndicatorSettingsStore(),
         recentFilesStore: RecentFilesStore = RecentFilesStore(),
@@ -85,6 +87,7 @@ final class ApplicationController {
         self.coordinator = PaneCoordinator(initialStore: sessionStore)
         self.configFileStore = ConfigFileStore(fileURL: configService.source.url)
         self.pdfOpenService = pdfOpenService; self.openMetrics = openMetrics; self.openPanelPresenter = openPanelPresenter; self.themeStore = themeStore; self.recentFilesStore = recentFilesStore
+        self.passwordPresenter = passwordPresenter
         self.indicatorSettingsStore = indicatorSettingsStore
         switch themeStore.load() {
         case let .selected(id): self.currentThemeID = id; self.themeStartupDiagnostic = nil
@@ -234,7 +237,7 @@ final class ApplicationController {
     @discardableResult func openDocument(at url: URL, target: PaneOpenTarget = .createIfEmpty) -> Bool {
         let traceID = OpenTraceID(); openMetrics.record(.point(.openRequested, traceID: traceID)); openMetrics.record(.begin(.openTotal, traceID: traceID))
         do {
-            let session = try pdfOpenService.open(url: url, traceID: traceID, metrics: openMetrics)
+            let session = try openSession(at: url, traceID: traceID)
             session.applyTheme(AppKitTheme(themeID: currentThemeID))
             session.applyLinkDestinationIndicatorSettings(currentIndicatorSettings)
             guard coordinator.insert(session, into: target) else { session.prepareForClose(reason: .insertionRejected); mainWindowController.showDiagnostic("Could not create a PDF tab for \(url.lastPathComponent)"); recordOpenFailure(traceID: traceID, outcome: .insertionRejected); return false }
@@ -245,6 +248,9 @@ final class ApplicationController {
             openMetrics.record(.point(.openReady, traceID: traceID, outcome: .success))
             openMetrics.record(.end(.openTotal, traceID: traceID, outcome: .success))
             return true
+        } catch PDFOpenError.cancelled {
+            openMetrics.record(.end(.openTotal, traceID: traceID, outcome: .cancelled))
+            return false
         } catch let error as PDFOpenError { mainWindowController.showDiagnostic(error.presentation); recordOpenFailure(traceID: traceID, outcome: error.metricOutcome); return false
         } catch { mainWindowController.showDiagnostic("Could not open PDF: \(error.localizedDescription)"); recordOpenFailure(traceID: traceID, outcome: .unexpectedFailure); return false }
     }
@@ -273,15 +279,32 @@ final class ApplicationController {
     private func presentOpenPanel(target: PaneOpenTarget = .createIfEmpty) { openPanelPresenter.present(attachedTo: mainWindowController.window) { [weak self] url in guard let self, let url else { return }; _ = self.openDocument(at: url, target: target) } }
     private func recordOpenFailure(traceID: OpenTraceID, outcome: PDFOpenMetricOutcome) { openMetrics.record(.point(.openFailed, traceID: traceID, outcome: outcome)); openMetrics.record(.end(.openTotal, traceID: traceID, outcome: outcome)) }
 
+    private func openSession(at url: URL, traceID: OpenTraceID) throws -> ReaderSession {
+        var prompted = false
+        defer {
+            if prompted { mainWindowController.restoreReaderFocus() }
+        }
+        return try pdfOpenService.open(url: url, traceID: traceID, metrics: openMetrics) { invalidPassword in
+            if !prompted {
+                self.mainWindowController.dismissAllTransientOverlays()
+                self.mainWindowController.prepareForGlobalAction()
+            }
+            prompted = true
+            return self.passwordPresenter.requestPassword(for: url, invalidPassword: invalidPassword)
+        }
+    }
+
     private func makeDuplicate(from snapshot: ReaderDuplicationSnapshot) -> (any ReaderSessionPresenting)? {
         let traceID = OpenTraceID(); openMetrics.record(.point(.openRequested, traceID: traceID)); openMetrics.record(.begin(.openTotal, traceID: traceID))
         do {
-            let session = try pdfOpenService.open(url: snapshot.sourceURL, traceID: traceID, metrics: openMetrics)
+            let session = try openSession(at: snapshot.sourceURL, traceID: traceID)
             session.applyTheme(AppKitTheme(themeID: currentThemeID))
             session.applyLinkDestinationIndicatorSettings(currentIndicatorSettings)
             session.seedPendingPresentation(snapshot)
             pendingDuplicateTraces[session.id] = traceID
             return session
+        } catch PDFOpenError.cancelled {
+            openMetrics.record(.end(.openTotal, traceID: traceID, outcome: .cancelled))
         } catch let error as PDFOpenError { mainWindowController.showDiagnostic(error.presentation); recordOpenFailure(traceID: traceID, outcome: error.metricOutcome)
         } catch { mainWindowController.showDiagnostic("Could not duplicate PDF: \(error.localizedDescription)"); recordOpenFailure(traceID: traceID, outcome: .unexpectedFailure) }
         return nil

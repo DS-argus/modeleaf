@@ -162,6 +162,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         focusActiveSurface(snapshot: coordinator.snapshot)
     }
 
+    func restoreReaderFocus() {
+        window?.makeKeyAndOrderFront(nil)
+        focusActiveSurface(snapshot: coordinator.snapshot)
+    }
+
     func presentLinkHints() {
         dismissAllTransientOverlays(restoringContext: false)
         guard inputRouter.context == .navigation,

@@ -20,6 +20,7 @@ https://github.com/user-attachments/assets/1fd81fb3-b600-403c-bcfb-5365aa867503
 
 - Keyboard-first navigation, search, link hints, and embedded-outline TOC
 - Native tabs and a recent-file picker
+- Password-protected local PDFs with a native secure prompt; passwords are never saved
 - Command palette and seven built-in themes
 - Fit, zoom, rotation, history, and system printing
 - TOML-configurable commands and reader behavior
