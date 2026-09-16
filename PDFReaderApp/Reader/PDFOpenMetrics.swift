@@ -36,6 +36,7 @@ enum PDFOpenMetricOutcome: String, Equatable, Hashable, Sendable {
     case malformedDocument
     case lockedDocument
     case emptyDocument
+    case cancelled
     case insertionRejected
     case unexpectedFailure
     case userClose

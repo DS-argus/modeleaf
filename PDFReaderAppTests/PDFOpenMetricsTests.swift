@@ -66,7 +66,7 @@ struct PDFOpenMetricsTests {
             )
             try expectFailure(
                 url: locked,
-                error: .lockedDocument(locked.path),
+                error: .passwordRequired(locked.path),
                 signatures: [
                     "filePreflight.begin.-",
                     "filePreflight.end.success",
@@ -89,6 +89,39 @@ struct PDFOpenMetricsTests {
                 ],
                 service: PDFOpenService(documentLoader: { _ in PDFDocument() })
             )
+        }
+    }
+
+    @Test("cancelled password entry ends document validation as cancelled")
+    func cancelledPasswordEntryEndsValidationAsCancelled() throws {
+        try withTemporaryDirectory { directory in
+            let locked = try PDFFixtureFactory.makeLockedPDF(in: directory)
+            let metrics = RecordingPDFOpenMetrics()
+            let traceID = fixedTraceID(3)
+            var promptStates: [Bool] = []
+
+            #expect(throws: PDFOpenError.cancelled) {
+                try PDFOpenService().open(
+                    url: locked,
+                    traceID: traceID,
+                    metrics: metrics,
+                    passwordProvider: { priorInvalidAttempt in
+                        promptStates.append(priorInvalidAttempt)
+                        return nil
+                    }
+                )
+            }
+
+            #expect(promptStates == [false])
+            #expect(metrics.events.map(\.traceID).allSatisfy { $0 == traceID })
+            #expect(metrics.events.map(\.signature) == [
+                "filePreflight.begin.-",
+                "filePreflight.end.success",
+                "pdfDocumentInit.begin.-",
+                "pdfDocumentInit.end.success",
+                "documentPolicyValidation.begin.-",
+                "documentPolicyValidation.end.cancelled",
+            ])
         }
     }
 
