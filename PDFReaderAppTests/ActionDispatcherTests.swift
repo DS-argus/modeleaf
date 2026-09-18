@@ -167,6 +167,64 @@ struct ActionDispatcherTests {
         }
     }
 
+    @Test("status text uses centered natural line heights in multi-tab shells", arguments: [480, 640, 960])
+    func statusTextAlignment(width: Int) throws {
+        let root = ReaderRootView(frame: NSRect(x: 0, y: 0, width: width, height: 360))
+        root.apply(theme: AppKitTheme(themeID: .tokyoNight))
+        let store = ReaderSessionStore()
+        #expect(store.insert(RecordingReaderSession(title: "First-reference-document.pdf", pageCount: 300)))
+        #expect(store.insert(RecordingReaderSession(title: String(repeating: "Long-filename-", count: 8) + ".pdf", pageCount: 300)))
+        root.render(snapshot: store.snapshot, activeContentView: nil, sessionStatus: nil)
+        let window = NSWindow(contentRect: root.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = root
+        defer { window.contentView = nil }
+        let bar = root.statusBar
+        let longPath = "/Users/example/Documents/Research/" + String(repeating: "Long-folder/", count: 12) + "Reference-document.pdf"
+        let base = StatusBarPresentation(page: "300 / 300", zoom: "125%", pendingPrefix: "", detail: "Ready", tone: .normal)
+        var fitWidth = base; fitWidth.mode = "FIT WIDTH"
+        var fitPage = base; fitPage.mode = "FIT PAGE"
+        var search = fitWidth; search.isSearchMode = true; search.detail = "Search · 2 / 12"
+        var path = fitPage; path.documentPath = longPath; path.pendingPrefix = "y"
+        var copied = path; copied.transientNotice = "Copied!"
+        var notice = fitPage; notice.transientNotice = "Completed"; notice.pendingPrefix = "g"
+        let states = [("normal", base), ("fit-width", fitWidth), ("fit-page", fitPage), ("search", search), ("y", path), ("yy", copied), ("notice", notice)]
+        func visibleLabels(in view: NSView) -> [NSTextField] {
+            guard !view.isHidden else { return [] }
+            return (view as? NSTextField).map { [$0] } ?? view.subviews.flatMap { visibleLabels(in: $0) }
+        }
+        for (name, state) in states {
+            bar.render(state)
+            root.layoutSubtreeIfNeeded()
+            #expect(!root.tabBar.isHidden)
+            for label in visibleLabels(in: bar) {
+                let frame = bar.convert(label.bounds, from: label)
+                #expect(abs(frame.midY - bar.bounds.midY) <= 0.5, "\(name): \(label.accessibilityIdentifier()) must be centered")
+                #expect(abs(label.bounds.height - ceil(label.intrinsicContentSize.height)) <= 0.5, "\(name): text fields must not stretch their top-aligned cells")
+                #expect(bar.bounds.contains(frame))
+                if label.accessibilityIdentifier() == "status.path" {
+                    #expect(label.toolTip == longPath)
+                    #expect(label.lineBreakMode == .byTruncatingMiddle)
+                }
+            }
+            if name == "yy" {
+                #expect(bar.visibleStatusIdentifiersForTesting.contains("status.copied"))
+                #expect(bar.visibleStatusIdentifiersForTesting.contains("status.path"))
+            }
+            if let directory = ProcessInfo.processInfo.environment["PDF_READER_SNAPSHOT_DIR"] {
+                let output = URL(fileURLWithPath: directory, isDirectory: true)
+                try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+                let rep = try #require(bar.bitmapImageRepForCachingDisplay(in: bar.bounds))
+                bar.cacheDisplay(in: bar.bounds, to: rep)
+                let png = try #require(rep.representation(using: .png, properties: [:]))
+                try png.write(to: output.appendingPathComponent("alignment-\(width)-\(name).png"))
+                if name == "yy" {
+                    let shell = try #require(root.bitmapImageRepForCachingDisplay(in: root.bounds))
+                    root.cacheDisplay(in: root.bounds, to: shell)
+                    try #require(shell.representation(using: .png, properties: [:])).write(to: output.appendingPathComponent("multi-tab-\(width).png"))
+                }
+            }
+        }
+    }
     @Test("responsive status evidence renders 480, 640, and 960 point bars when requested")
     func responsiveStatusEvidence() throws {
         guard let directory = ProcessInfo.processInfo.environment["PDF_READER_SNAPSHOT_DIR"] else { return }
