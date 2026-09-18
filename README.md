@@ -93,7 +93,7 @@ Modeleaf checks [GitHub Releases](https://github.com/DS-argus/modeleaf/releases)
 
 `y` previews the full PDF path; `yy` copies it and adds `copied!`. Each input refreshes the three-second display; the default key-sequence timeout remains 400 ms. Long paths are middle-truncated with the full path available in a tooltip.
 
-External URL hints display the destination URL on selection and require two separate Enter presses: the first confirms the selection, the second opens it. Escape closes the prompt. Internal PDF destinations are unchanged.
+External URL hints display the destination URL on selection. Press Enter once to open it, or Escape to close the prompt. Held-key repeats do not open links. Internal PDF destinations are unchanged.
 
 The status bar adapts down to the existing 480 × 360 pt minimum window: it keeps every item on one line, prioritizes temporary path/key feedback and compact search results, and hides lower-priority basic items in order (version, help, zoom, fit badge, page). Optional notices and update text appear only when they fit. Errors that do not fit retain an `Error` button for their full details.
 

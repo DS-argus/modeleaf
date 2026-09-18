@@ -154,7 +154,7 @@ struct LinkHintIntegrationTests {
             #expect(!controller.rootView.helpOverlay.isHidden)
         }
     }
-    @Test("unique URL hint requires two separate Enter presses after displaying the URL")
+    @Test("unique URL hint commits on the first non-repeat Enter after displaying the URL")
     func uniqueURLCommit() throws {
         try withLinkHarness { controller, session, view, _ in
             var followed: URL?
@@ -166,31 +166,31 @@ struct LinkHintIntegrationTests {
             #expect(followed == nil)
             #expect(view.followedLinkCount == 0)
             #expect(controller.rootView.linkHintOverlay.selectedURLIndexForTesting != nil)
-
             #expect(controller.rootView.linkHintOverlay.confirmationURLForTesting == "https://example.invalid/link-hint")
             #expect(controller.rootView.linkHintOverlay.urlPromptActionsForTesting == "↩ Open    Esc Close")
             #expect((controller.rootView.linkHintOverlay.accessibilityValue() as? String)?.contains("https://example.invalid/link-hint") == true)
-            #expect((controller.rootView.linkHintOverlay.accessibilityValue() as? String)?.contains("confirm opening") == true)
-            let firstEnter = try #require(makeKeyEvent(characters: "\r", keyCode: 36))
-            #expect(controller.routeKeyEventForTesting(firstEnter))
-            #expect(followed == nil)
-            #expect(controller.rootView.linkHintOverlay.isURLConfirmationVisibleForTesting)
-            #expect(controller.rootView.linkHintOverlay.confirmationURLForTesting == "https://example.invalid/link-hint")
-            #expect(controller.rootView.linkHintOverlay.urlPromptActionsForTesting == "↩ Open    Esc Close")
             #expect((controller.rootView.linkHintOverlay.accessibilityValue() as? String)?.contains("Press Enter to open") == true)
 
             let repeatedEnter = try #require(makeKeyEvent(characters: "\r", keyCode: 36, isRepeat: true))
             #expect(controller.routeKeyEventForTesting(repeatedEnter))
             #expect(followed == nil)
-            #expect(controller.rootView.linkHintOverlay.isURLConfirmationVisibleForTesting)
+            #expect(view.followedLinkCount == 0)
+            #expect(controller.rootView.linkHintOverlay.selectedURLIndexForTesting != nil)
 
-            let secondEnter = try #require(makeKeyEvent(characters: "\r", keyCode: 36))
-            #expect(controller.routeKeyEventForTesting(secondEnter))
+            let firstEnter = try #require(makeKeyEvent(characters: "\r", keyCode: 36))
+            #expect(controller.routeKeyEventForTesting(firstEnter))
             #expect(followed == URL(string: "https://example.invalid/link-hint"))
             #expect(view.followedLinkCount == 1)
+            #expect(controller.rootView.linkHintOverlay.selectedURLIndexForTesting == nil)
+            #expect(controller.rootView.linkHintOverlay.confirmationURLForTesting == nil)
             #expect(!session.destinationIndicatorVisibleForTesting)
             #expect(controller.rootView.linkHintOverlay.isHidden)
             #expect(controller.window?.firstResponder === session.focusView)
+
+            let subsequentEnter = try #require(makeKeyEvent(characters: "\r", keyCode: 36))
+            _ = controller.routeKeyEventForTesting(subsequentEnter)
+            #expect(followed == URL(string: "https://example.invalid/link-hint"))
+            #expect(view.followedLinkCount == 1)
         }
     }
 
@@ -217,13 +217,8 @@ struct LinkHintIntegrationTests {
         #expect(overlay.confirmationURLForTesting == url)
         #expect(overlay.urlPromptActionsForTesting == "↩ Open    Esc Close")
         #expect((overlay.accessibilityValue() as? String)?.contains(url) == true)
-        #expect((overlay.accessibilityValue() as? String)?.contains("confirm opening") == true)
-        #expect(!overlay.isURLConfirmationVisibleForTesting)
-
-        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "\r", keyCode: 36))))
-        #expect(overlay.isURLConfirmationVisibleForTesting)
-        #expect(overlay.confirmationURLForTesting == url)
         #expect((overlay.accessibilityValue() as? String)?.contains("Press Enter to open") == true)
+
         overlay.layoutSubtreeIfNeeded()
         let representation = try #require(overlay.bitmapImageRepForCachingDisplay(in: overlay.bounds))
         overlay.cacheDisplay(in: overlay.bounds, to: representation)
@@ -258,19 +253,16 @@ struct LinkHintIntegrationTests {
         #expect(clip.bounds.minX == 0)
     }
 
-    @Test("URL hint confirmation cancels on Escape or Tab without following")
+    @Test("URL hint selection cancels on Escape or Tab without following")
     func urlConfirmationCancellation() throws {
         try withLinkHarness { controller, session, view, _ in
             var followed = 0
             view.followLinkHandler = { _ in followed += 1 }
             let select = try #require(makeKeyEvent(characters: "f"))
-            let enter = try #require(makeKeyEvent(characters: "\r", keyCode: 36))
             let escape = try #require(makeKeyEvent(characters: "", keyCode: 53))
             let tab = try #require(makeKeyEvent(characters: "\t", keyCode: 48))
             controller.presentLinkHints()
             #expect(controller.routeKeyEventForTesting(select))
-            #expect(controller.routeKeyEventForTesting(enter))
-            #expect(controller.rootView.linkHintOverlay.isURLConfirmationVisibleForTesting)
             #expect(controller.routeKeyEventForTesting(escape))
             #expect(controller.rootView.linkHintOverlay.isHidden)
             #expect(followed == 0)

@@ -22,7 +22,6 @@ final class LinkHintOverlayView: NSView {
     private var urlHintIndices: Set<Int> = []
     private var urlHintURLs: [Int: String] = [:]
     private var selectedURLIndex: Int?
-    private var isShowingURLConfirmation = false
     private var skipsURLConfirmation = false
     private let urlPromptScrollView = LinkHintURLScrollView()
     private let urlPromptTextView = LinkHintURLTextView()
@@ -111,7 +110,6 @@ final class LinkHintOverlayView: NSView {
     var currentPrefix: String { typedPrefix }
     var visibleLabels: [String] { hints.map(\.label) }
     var selectedURLIndexForTesting: Int? { selectedURLIndex }
-    var isURLConfirmationVisibleForTesting: Bool { isShowingURLConfirmation }
     var confirmationURLForTesting: String? {
         selectedURLIndex.flatMap { urlHintURLs[$0] }
     }
@@ -147,19 +145,10 @@ final class LinkHintOverlayView: NSView {
                 NSSound.beep()
                 return true
             }
-            // A held key must never turn a confirmation into an activation. The
-            // second explicit, non-repeat Enter is the only commit path.
+            // A held key must never turn a selected URL into an activation.
             guard !event.isARepeat else { return true }
-            if !isShowingURLConfirmation {
-                isShowingURLConfirmation = true
-                let url = urlHintURLs[index] ?? "External link"
-                setAccessibilityLabel("External link URL")
-                setAccessibilityValue("\(url). Press Enter to open, or Escape to close.")
-                needsDisplay = true
-            } else {
-                clearURLSelection()
-                onCommit?(index)
-            }
+            clearURLSelection()
+            onCommit?(index)
             return true
         }
 
@@ -197,10 +186,9 @@ final class LinkHintOverlayView: NSView {
                 typedPrefix = candidate
                 selectedURLIndex = index
                 needsLayout = true
-                isShowingURLConfirmation = false
                 let url = urlHintURLs[index] ?? "External link"
                 setAccessibilityLabel("External link selected")
-                setAccessibilityValue("\(url). Press Enter to confirm opening, or Escape to close.")
+                setAccessibilityValue("\(url). Press Enter to open, or Escape to close.")
                 needsDisplay = true
             } else {
                 onCommit?(index)
@@ -348,7 +336,6 @@ final class LinkHintOverlayView: NSView {
         urlPromptScrollView.reflectScrolledClipView(urlPromptScrollView.contentView)
         needsLayout = true
         selectedURLIndex = nil
-        isShowingURLConfirmation = false
     }
 
     private func cancelAndDismiss() {
