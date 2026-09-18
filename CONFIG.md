@@ -33,7 +33,7 @@ prefix = "<C-b>"
 skip_external_link_hint_confirmation = false
 ```
 
-External URL hints select without opening: the first Enter shows the destination URL and the next Enter opens it. Escape cancels. Set `links.skip_external_link_hint_confirmation = true` to activate external hints immediately. Internal PDF destinations and mouse links are unchanged.
+External URL hints display the destination URL on selection without opening it. The first Enter confirms the selection and the next Enter opens it; Escape closes the prompt. Set `links.skip_external_link_hint_confirmation = true` to activate external hints immediately. Internal PDF destinations and mouse links are unchanged.
 
 ## Key grammar
 
