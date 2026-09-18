@@ -27,6 +27,8 @@ AGENTS.md
 artifacts/
 docs/windows-porting/
 docs/*.png
+docs/DESIGN.md
+docs/handoffs
 
 # Stray/user PDFs are never part of the repo.
 *.pdf
