@@ -333,7 +333,13 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
     var statusSnapshot: ReaderStatusSnapshot {
         let page = currentPageNumber.map(String.init) ?? "—"
         let zoom = Int((scaleFactor * 100).rounded())
-        return ReaderStatusSnapshot(context: preferredInputContext == .searchResults ? "SEARCH" : "NORMAL", page: "\(page) / \(pageCount)", zoom: "\(zoom)%", detail: searchDetail, mode: viewMode == .fitPage ? "FIT PAGE" : "")
+        let mode: String
+        switch viewMode {
+        case .fitPage: mode = "FIT PAGE"
+        case .fitWidth: mode = "FIT WIDTH"
+        case .manual, .actualSize: mode = ""
+        }
+        return ReaderStatusSnapshot(context: preferredInputContext == .searchResults ? "SEARCH" : "NORMAL", page: "\(page) / \(pageCount)", zoom: "\(zoom)%", detail: searchDetail, mode: mode)
     }
     func configureDuplicateValidation(_ handler: @escaping (Bool) -> Void) {
         guard !duplicateValidationDelivered else { return }
@@ -731,7 +737,7 @@ final class ReaderSession: NSObject, ReaderSessionPresenting, ReaderDuplicateVal
 
     private var searchDetail: String {
         let search = searchSnapshot
-        guard search.isActive else { return title }
+        guard search.isActive else { return "" }
         if search.isRunning {
             let suffix = search.matchCount == 0 ? "" : " · \(search.matchCount) found"
             return "Searching “\(search.query)”…\(suffix)"

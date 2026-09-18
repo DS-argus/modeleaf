@@ -65,6 +65,7 @@ final class ReaderRootView: NSView {
     private var currentStatus = StatusBarPresentation.empty
     private var renderedSessionSnapshot: ReaderSessionStoreSnapshot?
     private var transientNoticeTask: Task<Void, Never>?
+    private var documentPathTask: Task<Void, Never>?
     /// Absolute divider positions owned by pane topology, keyed by the
     /// unordered pane pair owned by a split band's inner divider; captured
     /// only from committed renders or real user drags.
@@ -90,6 +91,7 @@ final class ReaderRootView: NSView {
             guard let self, self.capturesDividerPositions, let pair = self.currentInnerPairsByBand[.trailing] else { return }
             self.innerDividerPositions[pair] = position
         }
+        tabBar.onActiveTabGeometryChange = { [weak self] in self?.synchronizeCanvasFocusGeometry() }
         for view in [tabBar, contentHost, statusBar, promptOverlay, themePickerOverlay, linkIndicatorPickerOverlay, updateInstructionsOverlay, commandPaletteOverlay, recentFilesOverlay, helpOverlay, linkHintOverlay] { view.prepareForAutoLayout(); addSubview(view) }
         emptyState.prepareForAutoLayout(); contentHost.addSubview(emptyState)
         paneContainer.prepareForAutoLayout(); contentHost.addSubview(paneContainer)
@@ -348,6 +350,28 @@ final class ReaderRootView: NSView {
     override func layout() {
         super.layout()
         updateTOCWidgetGeometry()
+        tabBar.layoutSubtreeIfNeeded()
+        contentHost.layoutSubtreeIfNeeded()
+        synchronizeCanvasFocusGeometry()
+    }
+
+    private func synchronizeCanvasFocusGeometry() {
+        guard paneContainer.isHidden else {
+            paneViews.values.forEach { $0.synchronizeCanvasFocusGeometry() }
+            return
+        }
+        func findReader(_ view: NSView) -> ReaderPDFView? {
+            if let reader = view as? ReaderPDFView { return reader }
+            return view.subviews.lazy.compactMap { findReader($0) }.first
+        }
+        guard let reader = findReader(contentHost) else { return }
+        reader.focusIndicatorGeometryProvider = { [weak reader, weak tabBar] in
+            guard let reader, let tabBar, let frame = tabBar.activeTabFrame(in: reader) else { return nil }
+            let left = max(reader.bounds.minX, frame.minX)
+            let right = min(reader.bounds.maxX, frame.maxX)
+            return right > left ? left...right : nil
+        }
+        reader.refreshFocusIndicatorGeometry()
     }
 
     private func updateTOCWidgetGeometry() {
@@ -379,7 +403,7 @@ final class ReaderRootView: NSView {
         }
 
         transientNoticeTask?.cancel()
-        currentStatus.transientNotice = "PATH COPIED"
+        currentStatus.transientNotice = message.trimmingCharacters(in: .whitespacesAndNewlines)
         statusBar.render(currentStatus)
         transientNoticeTask = Task { [weak self] in
             do {
@@ -419,11 +443,37 @@ final class ReaderRootView: NSView {
         statusBar.render(currentStatus)
     }
     func setInputContext(_ context: InputContext) { readerInputContext = context }
-    func setPendingPrefix(_ prefix: String) { currentStatus.pendingPrefix = prefix; statusBar.render(currentStatus) }
+    func setPendingPrefix(_ prefix: String) {
+        currentStatus.pendingPrefix = prefix == "y" ? "" : prefix
+        statusBar.render(currentStatus)
+    }
+    func setDocumentPath(_ path: String, copied: Bool = false, dismissAfter: Duration = .seconds(3)) {
+        let deadline = ContinuousClock.now.advanced(by: dismissAfter)
+        documentPathTask?.cancel()
+        transientNoticeTask?.cancel()
+        transientNoticeTask = nil
+        currentStatus.documentPath = path
+        currentStatus.transientNotice = copied ? "Copied!" : ""
+        statusBar.render(currentStatus)
+        documentPathTask = Task { [weak self] in
+            do { try await Task.sleep(until: deadline, clock: .continuous) } catch { return }
+            guard let self, !Task.isCancelled else { return }
+            self.clearDocumentPath()
+        }
+    }
+
+    func clearDocumentPath() {
+        documentPathTask?.cancel()
+        documentPathTask = nil
+        currentStatus.documentPath = ""
+        currentStatus.transientNotice = ""
+        statusBar.render(currentStatus)
+    }
     private func setPresentedContentView(_ view: NSView?) {
         if presentedContentView !== view { presentedContentView?.removeFromSuperview() }
         presentedContentView = view
         attachContentView(view, to: contentHost)
+        synchronizeCanvasFocusGeometry()
         for widget in tocWidgets.values where widget.superview === contentHost {
             contentHost.addSubview(widget, positioned: .above, relativeTo: view)
         }

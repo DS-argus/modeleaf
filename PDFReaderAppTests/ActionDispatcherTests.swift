@@ -6,6 +6,192 @@ import Testing
 @Suite("Viewer-first action dispatcher")
 @MainActor
 struct ActionDispatcherTests {
+    @Test("path starts after final badge and stays anchored when copied")
+    func pathLayoutStability() throws {
+        let bar = StatusBarView(frame: NSRect(x: 0, y: 0, width: 960, height: 26))
+        bar.apply(theme: AppKitTheme(themeID: .catppuccinLatte))
+        let window = NSWindow(contentRect: bar.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = bar
+        defer { window.contentView = nil }
+        func label(_ id: String, in view: NSView) -> NSTextField? {
+            if view.accessibilityIdentifier() == id { return view as? NSTextField }
+            return view.subviews.lazy.compactMap { label(id, in: $0) }.first
+        }
+        var state = StatusBarPresentation(page: "1 / 2", zoom: "100%", mode: "FIT WIDTH", isSearchMode: true, pendingPrefix: "y", documentPath: "/tmp/document.pdf", detail: "", tone: .normal)
+        bar.render(state)
+        bar.layoutSubtreeIfNeeded()
+        let path = try #require(label("status.path", in: bar))
+        let copied = try #require(label("status.copied", in: bar))
+        let badge = try #require(label("status.searchMode", in: bar))
+        let start = bar.convert(path.bounds, from: path).minX
+        #expect(start > bar.convert(badge.bounds, from: badge).maxX)
+        #expect(path.textColor == AppKitTheme(themeID: .catppuccinLatte)[.mutedText])
+        state.transientNotice = "Copied!"
+        bar.render(state)
+        bar.layoutSubtreeIfNeeded()
+        #expect(abs(bar.convert(path.bounds, from: path).minX - start) < 0.5)
+        #expect(path.stringValue == "/tmp/document.pdf")
+        #expect(copied.stringValue == "copied!")
+        #expect(copied.textColor?.usingColorSpace(.sRGB) == NSColor.systemGreen.usingColorSpace(.sRGB))
+    }
+    @Test("path feedback replaces state and cancels stale expiry")
+    func pathFeedbackReplacement() async throws {
+        let root = ReaderRootView(frame: NSRect(x: 0, y: 0, width: 960, height: 640))
+        let path = "/tmp/Long folder/Document.pdf"
+        root.setDocumentPath(path, dismissAfter: .milliseconds(40))
+        #expect(root.statusBar.presentation.documentPath == path)
+        #expect(root.statusBar.presentation.transientNotice.isEmpty)
+        root.setDocumentPath(path, copied: true, dismissAfter: .seconds(120))
+        try await Task.sleep(for: .milliseconds(80))
+        #expect(root.statusBar.presentation.documentPath == path)
+        #expect(root.statusBar.presentation.transientNotice == "Copied!")
+        root.setDocumentPath(path, dismissAfter: .seconds(120))
+        await Task.yield()
+        #expect(root.statusBar.presentation.documentPath == path)
+        #expect(root.statusBar.presentation.transientNotice.isEmpty)
+        root.setPendingPrefix("")
+        #expect(root.statusBar.presentation.documentPath == path)
+        root.setDocumentPath(path, copied: true, dismissAfter: .milliseconds(20))
+        let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+        while !root.statusBar.presentation.documentPath.isEmpty, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(root.statusBar.presentation.documentPath.isEmpty)
+        #expect(root.statusBar.presentation.transientNotice.isEmpty)
+        root.setDocumentPath(path, copied: true)
+        root.clearDocumentPath()
+        #expect(root.statusBar.presentation.documentPath.isEmpty)
+        #expect(root.statusBar.presentation.transientNotice.isEmpty)
+        root.showActionFeedback("Completed", isError: false, dismissAfter: .seconds(3))
+        #expect(root.statusBar.presentation.transientNotice == "Completed")
+        root.dismissTransientNotice()
+    }
+    @Test("responsive status keeps transient content and search/error priority across supported widths")
+    func responsiveStatusLayout() throws {
+        let longPath = "/Users/example/Documents/Research/2026/Very-long-folder-name/Another-folder/Reader-reference-document.pdf"
+        let cases: [(width: CGFloat, state: StatusBarPresentation)] = [
+            (
+                480,
+                StatusBarPresentation(
+                    page: "300 / 300",
+                    zoom: "125%",
+                    mode: "FIT PAGE",
+                    transientNotice: "Copied!",
+                    pendingPrefix: "g",
+                    documentPath: longPath,
+                    detail: "Ready",
+                    tone: .normal
+                )
+            ),
+            (
+                640,
+                StatusBarPresentation(
+                    page: "300 / 300",
+                    zoom: "125%",
+                    mode: "FIT WIDTH",
+                    isSearchMode: true,
+                    pendingPrefix: "",
+                    detail: "No matches · “a deliberately long search query that should disappear”",
+                    tone: .normal
+                )
+            ),
+            (
+                960,
+                StatusBarPresentation(
+                    page: "300 / 300",
+                    zoom: "125%",
+                    mode: "FIT PAGE",
+                    pendingPrefix: "",
+                    detail: "Could not open the selected PDF",
+                    expandedDetail: String(repeating: "The complete diagnostic includes a long underlying parser explanation. ", count: 120),
+                    tone: .error
+                )
+            ),
+        ]
+
+        func descendants(of view: NSView) -> [NSView] {
+            view.subviews + view.subviews.flatMap(descendants(of:))
+        }
+
+        func isEffectivelyVisible(_ view: NSView) -> Bool {
+            guard !view.isHidden else { return false }
+            var ancestor = view.superview
+            while let parent = ancestor {
+                if parent.isHidden { return false }
+                ancestor = parent.superview
+            }
+            return true
+        }
+
+        for item in cases {
+            let bar = StatusBarView(frame: NSRect(x: 0, y: 0, width: item.width, height: 26))
+            bar.apply(theme: AppKitTheme(themeID: .tokyoNight))
+            let window = NSWindow(contentRect: bar.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+            window.contentView = bar
+            defer { window.contentView = nil }
+            bar.render(item.state)
+            bar.layoutSubtreeIfNeeded()
+
+            #expect(!bar.hasAmbiguousLayout)
+            for view in descendants(of: bar) where isEffectivelyVisible(view) {
+                #expect(bar.bounds.contains(bar.convert(view.bounds, from: view)), "visible status item escaped \(item.width)pt bar")
+                if let label = view as? NSTextField {
+                    #expect(label.maximumNumberOfLines <= 1)
+                    #expect(!label.stringValue.isEmpty)
+                    if label.accessibilityIdentifier() != "status.path" {
+                        #expect(label.frame.width + 0.5 >= label.intrinsicContentSize.width, "non-path labels must not be truncated")
+                    }
+                }
+            }
+
+            if item.width == 480 {
+                #expect(bar.visibleStatusIdentifiersForTesting.contains("status.path"))
+                #expect(bar.visibleStatusIdentifiersForTesting.contains("status.copied"))
+                #expect(!bar.visibleStatusIdentifiersForTesting.contains("status.mode"))
+                #expect(bar.copiedFrameForTesting.minX > bar.convert(NSRect(x: 0, y: 0, width: 1, height: 1), from: bar).minX)
+            } else if item.width == 640 {
+                let detail = try #require(descendants(of: bar).compactMap { $0 as? NSTextField }.first { $0.accessibilityIdentifier() == "status.diagnostic" })
+                #expect(!detail.stringValue.contains("“"))
+                #expect(!detail.stringValue.contains("”"))
+                #expect(detail.stringValue == "No matches")
+            } else {
+                #expect(!bar.errorButtonForTesting.isHidden)
+                bar.performDiagnosticClickForTesting()
+                #expect(bar.errorPopoverTextForTesting?.contains("complete diagnostic") == true)
+                let scroll = try #require(bar.diagnosticContentForTesting)
+                let text = try #require(scroll.documentView as? NSTextView)
+                #expect(text.string == bar.errorPopoverTextForTesting)
+                #expect(scroll.hasVerticalScroller)
+                #expect(text.frame.height > scroll.contentSize.height)
+            }
+        }
+    }
+
+    @Test("responsive status evidence renders 480, 640, and 960 point bars when requested")
+    func responsiveStatusEvidence() throws {
+        guard let directory = ProcessInfo.processInfo.environment["PDF_READER_SNAPSHOT_DIR"] else { return }
+        let output = URL(fileURLWithPath: directory, isDirectory: true)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        let longPath = "/Users/example/Documents/Research/2026/Very-long-folder-name/Another-folder/Reader-reference-document.pdf"
+        let states: [(CGFloat, StatusBarPresentation)] = [
+            (480, StatusBarPresentation(page: "300 / 300", zoom: "125%", mode: "FIT PAGE", transientNotice: "Copied!", pendingPrefix: "g", documentPath: longPath, detail: "Ready", tone: .normal)),
+            (640, StatusBarPresentation(page: "300 / 300", zoom: "125%", mode: "FIT WIDTH", isSearchMode: true, pendingPrefix: "", detail: "Searching “a long query that should be shortened”… · 12 found", tone: .normal)),
+            (960, StatusBarPresentation(page: "300 / 300", zoom: "125%", mode: "FIT PAGE", pendingPrefix: "", detail: "Could not open the selected PDF", expandedDetail: String(repeating: "The complete diagnostic includes a long underlying parser explanation. ", count: 12), tone: .error))
+        ]
+        for (width, state) in states {
+            let bar = StatusBarView(frame: NSRect(x: 0, y: 0, width: width, height: 26))
+            bar.apply(theme: AppKitTheme(themeID: .tokyoNight))
+            let window = NSWindow(contentRect: bar.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+            window.contentView = bar
+            bar.render(state)
+            bar.layoutSubtreeIfNeeded()
+            let representation = try #require(bar.bitmapImageRepForCachingDisplay(in: bar.bounds))
+            bar.cacheDisplay(in: bar.bounds, to: representation)
+            let png = try #require(representation.representation(using: .png, properties: [:]))
+            try png.write(to: output.appendingPathComponent("responsive-status-\(Int(width)).png"), options: .atomic)
+            window.contentView = nil
+        }
+    }
     @Test("configured movement, page, and zoom actions call only the active session")
     func navigationValues() {
         let store = ReaderSessionStore()
@@ -57,6 +243,84 @@ struct ActionDispatcherTests {
 
         #expect((presenter.tocToggleCount, presenter.tocScrollDownCount, presenter.tocScrollUpCount) == (1, 1, 1))
         #expect(session.events.isEmpty)
+    }
+    @Test("status priorities keep transient paths ahead of search and restore basics when widened")
+    func responsivePriorityAndWidening() throws {
+        let path = "/Users/example/Documents/Reader-reference-document.pdf"
+        let bar = StatusBarView(frame: NSRect(x: 0, y: 0, width: 480, height: 26))
+        bar.apply(theme: AppKitTheme(themeID: .tokyoNight))
+        let state = StatusBarPresentation(
+            page: "3 / 12",
+            zoom: "110%",
+            mode: "FIT PAGE",
+            isSearchMode: true,
+            transientNotice: "Copied!",
+            pendingPrefix: "g",
+            documentPath: path,
+            detail: "2 / 8 · “query”",
+            tone: .normal
+        )
+        func label(_ id: String, in view: NSView) -> NSTextField? {
+            if view.accessibilityIdentifier() == id { return view as? NSTextField }
+            return view.subviews.lazy.compactMap { label(id, in: $0) }.first
+        }
+        bar.render(state)
+        bar.layoutSubtreeIfNeeded()
+        #expect(label("status.path", in: bar)?.isHidden == false)
+        #expect(label("status.copied", in: bar)?.isHidden == false)
+        #expect(!bar.visibleStatusIdentifiersForTesting.contains("status.searchMode"))
+        #expect(label("status.diagnostic", in: bar)?.isHidden == true)
+        #expect(label("status.page", in: bar)?.isHidden == true)
+
+        bar.frame.size.width = 960
+        bar.render(state)
+        bar.layoutSubtreeIfNeeded()
+        #expect(label("status.searchMode", in: bar)?.isHidden == false)
+        #expect(label("status.diagnostic", in: bar)?.isHidden == false)
+        #expect(label("status.page", in: bar)?.isHidden == false)
+        #expect(label("status.mode", in: bar)?.isHidden == false)
+        #expect(label("status.version", in: bar)?.isHidden == false)
+        let version = try #require(label("status.version", in: bar))
+        #expect(abs(version.frame.maxX - (bar.bounds.width - 12)) < 0.5)
+    }
+
+    @Test("error status uses a compact action when full details do not fit")
+    func compactAndFullDiagnosticLayout() throws {
+        let longDetail = String(repeating: "The complete diagnostic includes a long underlying parser explanation. ", count: 12)
+        let bar = StatusBarView(frame: NSRect(x: 0, y: 0, width: 480, height: 26))
+        bar.apply(theme: AppKitTheme(themeID: .tokyoNight))
+        func label(_ id: String, in view: NSView) -> NSTextField? {
+            if view.accessibilityIdentifier() == id { return view as? NSTextField }
+            return view.subviews.lazy.compactMap { label(id, in: $0) }.first
+        }
+        bar.render(StatusBarPresentation(page: "3 / 12", zoom: "110%", mode: "FIT PAGE", pendingPrefix: "", detail: "Could not open PDF", expandedDetail: longDetail, tone: .error))
+        bar.layoutSubtreeIfNeeded()
+        #expect(!bar.errorButtonForTesting.isHidden)
+        #expect(label("status.diagnostic", in: bar)?.isHidden == true)
+        bar.performDiagnosticClickForTesting()
+        #expect(bar.errorPopoverTextForTesting?.contains("underlying parser") == true)
+
+        bar.frame.size.width = 960
+        bar.render(StatusBarPresentation(page: "3 / 12", zoom: "110%", mode: "FIT PAGE", pendingPrefix: "", detail: "Malformed PDF", expandedDetail: nil, tone: .error))
+        bar.layoutSubtreeIfNeeded()
+        #expect(bar.errorButtonForTesting.isHidden)
+        #expect(label("status.diagnostic", in: bar)?.isHidden == false)
+    }
+
+    @Test("optional diagnostic, notice, and update never displace basic content")
+    func optionalStatusPriority() {
+        let bar = StatusBarView(frame: NSRect(x: 0, y: 0, width: 480, height: 26))
+        bar.apply(theme: AppKitTheme(themeID: .tokyoNight))
+        bar.render(StatusBarPresentation(page: "3 / 12", zoom: "110%", mode: "FIT PAGE", transientNotice: "Notice", pendingPrefix: "", detail: "Info", tone: .normal))
+        bar.presentUpdate("0.9.0 available → modeleaf update · Details [U]")
+        bar.layoutSubtreeIfNeeded()
+        #expect(!bar.visibleStatusIdentifiersForTesting.contains("status.update"))
+        #expect(bar.visibleStatusIdentifiersForTesting.contains("status.page"))
+        #expect(bar.visibleStatusIdentifiersForTesting.contains("status.zoom"))
+        #expect(bar.visibleStatusIdentifiersForTesting.contains("status.mode"))
+        #expect(bar.visibleStatusIdentifiersForTesting.contains("status.version"))
+        #expect(bar.visibleStatusIdentifiersForTesting.contains("status.diagnostic"))
+        #expect(bar.visibleStatusIdentifiersForTesting.contains("status.notice"))
     }
 
     @Test("TOC one-row actions remain presentation-only and repeatable")

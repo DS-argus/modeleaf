@@ -7,6 +7,39 @@ import Testing
 @Suite("Polished native shell and AppKit themes")
 @MainActor
 struct ThemeAndShellTests {
+    @Test("prompt labels track search and page execution while preserving input")
+    func promptActionLabels() {
+        let prompt = PromptOverlayView()
+        prompt.present(PromptPresentation(kind: .search, text: "needle", validationMessage: nil))
+        #expect(prompt.textField.placeholderString == "Search…")
+        #expect(prompt.commitButton.title == "Search")
+        #expect(prompt.commitButton.accessibilityLabel() == "Search")
+        #expect(prompt.activeText == "needle")
+        prompt.present(PromptPresentation(kind: .page, text: "7", validationMessage: nil))
+        #expect(prompt.commitButton.title == "Go")
+        #expect(prompt.commitButton.accessibilityLabel() == "Go to page")
+        #expect(prompt.activeText == "7")
+        prompt.dismiss()
+        #expect(prompt.isHidden)
+    }
+    @Test("new canvas receives tab gap without switching away and back")
+    func newlyAttachedCanvasRefreshesItsOwnGap() throws {
+        let root = ReaderRootView(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
+        let id = TabID()
+        let snapshot = ReaderSessionStoreSnapshot(tabs: [ReaderTabSnapshot(id: id, title: "First.pdf")], activeID: id)
+        root.render(snapshot: snapshot, activeContentView: ReaderPDFView(), sessionStatus: .empty)
+        root.layoutSubtreeIfNeeded()
+        let replacement = ReaderPDFView()
+        root.render(snapshot: snapshot, activeContentView: replacement, sessionStatus: .empty)
+        #expect(replacement.focusIndicatorGeometryProvider != nil)
+        replacement.frame = NSRect(x: 0, y: 0, width: 900, height: 540)
+        replacement.applyFocusIndicatorTopBreak(nil)
+        replacement.layout()
+        let frame = try #require(root.tabBar.activeTabFrame(in: replacement))
+        let gap = try #require(replacement.focusIndicatorTopBreakForTesting)
+        #expect(abs(gap.lowerBound - frame.minX) < 0.01)
+        #expect(abs(gap.upperBound - frame.maxX) < 0.01)
+    }
     @Test("U-THEME-01 every built-in theme resolves complete AppKit chrome colors")
     func everyThemeResolvesAppKitColors() {
         for themeID in ThemeID.allCases {
@@ -73,8 +106,18 @@ struct ThemeAndShellTests {
         let layerColor = try #require(session.contentView.layer?.backgroundColor)
         #expect(NSColor(cgColor: layerColor)?.hexRGB == theme.canvasBackground.hexRGB)
         #expect(controller.window?.firstResponder === readerView)
-        #expect(readerView.layer?.borderWidth == WindowVisualMetrics.canvasFocusRingWidth)
-        #expect(NSColor(cgColor: try #require(readerView.layer?.borderColor))?.hexRGB == theme.focusRing.hexRGB)
+        controller.rootView.layoutSubtreeIfNeeded()
+        #expect(readerView.layer?.borderWidth == 0)
+        #expect(readerView.isShowingFocusIndicator)
+        #expect(readerView.focusIndicatorColorForTesting.hexRGB == theme.focusRing.hexRGB)
+        let activeTabFrame = try #require(controller.rootView.tabBar.activeTabFrame(in: readerView))
+        let focusBreak = try #require(readerView.focusIndicatorTopBreakForTesting)
+        #expect(abs(focusBreak.lowerBound - activeTabFrame.minX) < 0.01)
+        #expect(abs(focusBreak.upperBound - activeTabFrame.maxX) < 0.01)
+        if let output = try snapshotOutputDirectory() {
+            try renderPNG(controller.rootView).write(to: output.appendingPathComponent("connected-tab-canvas.png"))
+        }
+        #expect(abs(activeTabFrame.minY - readerView.bounds.maxY) < 0.01)
 
         controller.presentPrompt(
             PromptPresentation(kind: .search, text: "focus", validationMessage: nil)
@@ -305,30 +348,22 @@ struct ThemeAndShellTests {
         #expect(controller.window != nil)
     }
 
-    @Test("copied-path feedback uses a transient status pill and errors clear it")
-    func copiedPathFeedbackPillIsTransient() {
+    @Test("copied-path feedback is adjacent text and errors clear the success state")
+    func copiedPathFeedbackIsAdjacent() {
         let root = ReaderRootView()
         root.apply(theme: AppKitTheme(themeID: .tokyoNight))
-
-        root.showActionFeedback(
-            "Copied PDF path",
-            isError: false,
-            dismissAfter: .seconds(1)
-        )
-
+        root.setDocumentPath("/tmp/Document.pdf", copied: true)
+        let path = findDescendant(in: root.statusBar, identifier: "status.path") as? NSTextField
         let notice = findDescendant(in: root.statusBar, identifier: "status.notice") as? NSTextField
-        #expect(notice?.stringValue == "PATH COPIED")
-        #expect(notice?.isHidden == false)
-        #expect(root.statusBar.presentation.detail == ReaderStatusSnapshot.empty.detail)
-        root.dismissTransientNotice()
+        #expect(path?.stringValue == "/tmp/Document.pdf")
+        let copied = findDescendant(in: root.statusBar, identifier: "status.copied") as? NSTextField
+        #expect(copied?.stringValue == "copied!")
         #expect(notice?.isHidden == true)
-        #expect(root.statusBar.presentation.transientNotice.isEmpty)
-
-        root.showActionFeedback("Copied PDF path", isError: false, dismissAfter: .seconds(1))
         root.showActionFeedback("Could not copy PDF path", isError: true)
-        #expect(notice?.isHidden == true)
+        #expect(path?.stringValue == "/tmp/Document.pdf")
+        #expect(root.statusBar.presentation.transientNotice.isEmpty)
         #expect(root.statusBar.presentation.tone == .error)
-        #expect(root.statusBar.presentation.detail == "Could not copy PDF path")
+        root.clearDocumentPath()
     }
     @Test("prompt controls remain inside the overlay at the minimum window width")
     func promptControlsDoNotOverflow() throws {
@@ -670,9 +705,61 @@ struct ThemeAndShellTests {
         #expect(tabButton.lineBreakMode == .byTruncatingTail)
         #expect(tabButton.toolTip == nil)
         #expect(tabButton.superview?.toolTip == nil)
-        #expect(tabButton.superview?.frame.width == 184)
+        #expect(tabButton.superview?.frame.width == 220)
+        #expect(tabButton.superview?.layer?.cornerRadius == 0)
         #expect(tabButton.accessibilityLabel()?.contains(fullTitle) == true)
         #expect(controller.rootView.tabBar.trackingAreas.isEmpty)
+    }
+
+    @Test("tab and canvas focus geometry keeps a connected active gap while resizing and splitting")
+    func tabCanvasFocusGeometryStaysConnected() throws {
+        let theme = AppKitTheme(themeID: .tokyoNight)
+        let first = TabID(rawValue: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!)
+        let second = TabID(rawValue: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!)
+        let third = TabID(rawValue: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!)
+        let root = ReaderRootView(frame: NSRect(x: 0, y: 0, width: 760, height: 520))
+        let canvas = ReaderPDFView(frame: .zero)
+        root.apply(theme: theme)
+        root.render(
+            snapshot: ReaderSessionStoreSnapshot(
+                tabs: [
+                    ReaderTabSnapshot(id: first, title: "First.pdf"),
+                    ReaderTabSnapshot(id: second, title: "Second.pdf"),
+                    ReaderTabSnapshot(id: third, title: "Third.pdf"),
+                ],
+                activeID: second
+            ),
+            activeContentView: canvas,
+            sessionStatus: .empty
+        )
+
+        func expectConnectedGap(_ tabBar: TabBarView, _ readerView: ReaderPDFView) throws {
+            let activeFrame = try #require(tabBar.activeTabFrame(in: readerView))
+            let focusBreak = try #require(readerView.focusIndicatorTopBreakForTesting)
+            #expect(abs(focusBreak.lowerBound - activeFrame.minX) < 0.01)
+            #expect(abs(focusBreak.upperBound - activeFrame.maxX) < 0.01)
+            #expect(abs(activeFrame.minY - readerView.bounds.maxY) < 0.01)
+            #expect(readerView.layer?.borderWidth == 0)
+        }
+
+        root.layoutSubtreeIfNeeded()
+        try expectConnectedGap(root.tabBar, canvas)
+        root.frame = NSRect(x: 0, y: 0, width: 520, height: 400)
+        root.layoutSubtreeIfNeeded()
+        try expectConnectedGap(root.tabBar, canvas)
+
+        let pane = PaneView(id: PaneID(), trafficLightInset: 0)
+        pane.frame = NSRect(x: 0, y: 0, width: 360, height: 300)
+        let paneCanvas = ReaderPDFView(frame: .zero)
+        let paneTabs = (0..<12).map { index in
+            ReaderTabSnapshot(id: TabID(), title: "Pane \(index).pdf")
+        }
+        pane.render(
+            snapshot: ReaderSessionStoreSnapshot(tabs: paneTabs, activeID: paneTabs.last?.id),
+            contentView: paneCanvas
+        )
+        pane.layoutSubtreeIfNeeded()
+        try expectConnectedGap(pane.tabBar, paneCanvas)
     }
 
     @Test("V-THEME-01 all built-in themes render the six required visual acceptance states")
