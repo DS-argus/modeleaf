@@ -8,7 +8,7 @@ import Testing
 @Suite("Link hint acceptance")
 @MainActor
 struct LinkHintAcceptanceTests {
-    @Test("f displays labels, labels activate URL and GoTo targets, and Escape cancels deterministically")
+    @Test("f displays labels, confirms external URLs with two Enter presses, and GoTo remains immediate")
     func keyboardEndToEnd() throws {
         try withLinkHarness { controller, session, view, _ in
             var opened: [URL] = []
@@ -20,6 +20,16 @@ struct LinkHintAcceptanceTests {
             #expect(!controller.rootView.linkHintOverlay.isHidden)
             #expect(controller.rootView.linkHintOverlay.visibleLabels == LinkHintLabels.generate(count: 5))
             try type(urlLabel, through: controller)
+            #expect(opened.isEmpty)
+            #expect(view.followedLinkCount == 0)
+            #expect(controller.rootView.linkHintOverlay.matchingLabelsForTesting == [urlLabel])
+            #expect(route("", keyCode: 36, through: controller))
+            #expect(opened.isEmpty)
+            #expect(controller.rootView.linkHintOverlay.isURLConfirmationVisibleForTesting)
+            #expect(controller.rootView.linkHintOverlay.confirmationURLForTesting == "https://example.invalid/link-hint")
+            #expect(route("", keyCode: 36, isRepeat: true, through: controller))
+            #expect(opened.isEmpty)
+            #expect(route("", keyCode: 36, through: controller))
             #expect(opened == [URL(string: "https://example.invalid/link-hint")!])
             #expect(view.followedLinkCount == 1)
             #expect(controller.rootView.linkHintOverlay.isHidden)
@@ -41,6 +51,27 @@ struct LinkHintAcceptanceTests {
                 #expect(controller.rootView.linkHintOverlay.isHidden)
                 #expect(session.currentPageNumber == 1)
             }
+        }
+    }
+
+    @Test("configured skip bypasses external URL hint confirmation")
+    func configuredSkipBypassesConfirmation() throws {
+        let config = try #require(
+            ConfigValidator.validate(
+                SparseAppConfig(
+                    links: SparseLinksConfiguration(skipExternalLinkHintConfirmation: true)
+                )
+            ).validatedConfig
+        )
+        try withLinkHarness(validatedConfig: config) { controller, session, view, _ in
+            var opened: [URL] = []
+            view.followLinkHandler = { opened.append($0) }
+            let urlLabel = try #require(label(for: .url("https://example.invalid/link-hint"), in: session, controller: controller))
+            #expect(route("f", through: controller))
+            try type(urlLabel, through: controller)
+            #expect(opened == [URL(string: "https://example.invalid/link-hint")!])
+            #expect(view.followedLinkCount == 1)
+            #expect(controller.rootView.linkHintOverlay.isHidden)
         }
     }
 
@@ -89,7 +120,10 @@ struct LinkHintAcceptanceTests {
             #expect(coordinator.activePaneID == activePane)
             #expect(route("f", through: controller))
             #expect(!controller.rootView.linkHintOverlay.isHidden)
-            try type(try #require(label(for: .url("https://example.invalid/link-hint"), in: active, controller: controller)), through: controller)
+            let activeLabel = try #require(label(for: .url("https://example.invalid/link-hint"), in: active, controller: controller))
+            try type(activeLabel, through: controller)
+            #expect(route("", keyCode: 36, through: controller))
+            #expect(route("", keyCode: 36, through: controller))
             #expect(activeView.followedLinkCount == 1)
             #expect(inactiveView.followedLinkCount == 0)
             #expect(opened == [URL(string: "https://example.invalid/link-hint")!])
@@ -103,21 +137,32 @@ struct LinkHintAcceptanceTests {
         }
     }
 
-    private func makeController(coordinator: PaneCoordinator) -> MainWindowController {
+    private func makeController(
+        coordinator: PaneCoordinator,
+        validatedConfig: ValidatedAppConfig? = nil
+    ) -> MainWindowController {
         var dispatcher: ActionDispatcher?
-        let controller = MainWindowController(coordinator: coordinator, theme: AppKitTheme(themeID: .tokyoNight), actionHandler: { dispatcher?.dispatch($0) })
+        let controller = MainWindowController(
+            coordinator: coordinator,
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { dispatcher?.dispatch($0) },
+            validatedConfig: validatedConfig
+        )
         let actionDispatcher = ActionDispatcher(coordinator: coordinator, navigation: BuiltInDefaults.config.navigation)
         dispatcher = actionDispatcher
         actionDispatcher.presentation = controller
         return controller
     }
 
-    private func withLinkHarness(_ body: (MainWindowController, ReaderSession, ReaderPDFView, URL) throws -> Void) throws {
+    private func withLinkHarness(
+        validatedConfig: ValidatedAppConfig? = nil,
+        _ body: (MainWindowController, ReaderSession, ReaderPDFView, URL) throws -> Void
+    ) throws {
         try withTemporaryDirectory { directory in
             let url = try PDFFixtureFactory.makeLinkHintPDF(in: directory)
             let session = try PDFOpenService().open(url: url)
             let coordinator = PaneCoordinator()
-            let controller = makeController(coordinator: coordinator)
+            let controller = makeController(coordinator: coordinator, validatedConfig: validatedConfig)
             defer { controller.close(); session.prepareForClose() }
             #expect(coordinator.insert(session, into: .createIfEmpty))
             controller.rootView.layoutSubtreeIfNeeded()
@@ -142,8 +187,24 @@ struct LinkHintAcceptanceTests {
         for character in label { #expect(route(String(character), through: controller)) }
     }
 
-    private func route(_ characters: String, keyCode: UInt16 = 0, through controller: MainWindowController) -> Bool {
-        guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: 0, context: nil, characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: keyCode) else { return false }
+    private func route(
+        _ characters: String,
+        keyCode: UInt16 = 0,
+        isRepeat: Bool = false,
+        through controller: MainWindowController
+    ) -> Bool {
+        guard let event = NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: 0,
+            context: nil,
+            characters: characters,
+            charactersIgnoringModifiers: characters,
+            isARepeat: isRepeat,
+            keyCode: keyCode
+        ) else { return false }
         return controller.routeKeyEventForTesting(event)
     }
 

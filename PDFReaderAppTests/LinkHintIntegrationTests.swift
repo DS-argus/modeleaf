@@ -154,7 +154,7 @@ struct LinkHintIntegrationTests {
             #expect(!controller.rootView.helpOverlay.isHidden)
         }
     }
-    @Test("unique URL hint commits through the PDF view and dismisses")
+    @Test("unique URL hint requires two separate Enter presses after displaying the URL")
     func uniqueURLCommit() throws {
         try withLinkHarness { controller, session, view, _ in
             var followed: URL?
@@ -163,6 +163,23 @@ struct LinkHintIntegrationTests {
 
             let event = try #require(makeKeyEvent(characters: "f"))
             #expect(controller.routeKeyEventForTesting(event))
+            #expect(followed == nil)
+            #expect(view.followedLinkCount == 0)
+            #expect(controller.rootView.linkHintOverlay.selectedURLIndexForTesting != nil)
+
+            let firstEnter = try #require(makeKeyEvent(characters: "\r", keyCode: 36))
+            #expect(controller.routeKeyEventForTesting(firstEnter))
+            #expect(followed == nil)
+            #expect(controller.rootView.linkHintOverlay.isURLConfirmationVisibleForTesting)
+            #expect(controller.rootView.linkHintOverlay.confirmationURLForTesting == "https://example.invalid/link-hint")
+
+            let repeatedEnter = try #require(makeKeyEvent(characters: "\r", keyCode: 36, isRepeat: true))
+            #expect(controller.routeKeyEventForTesting(repeatedEnter))
+            #expect(followed == nil)
+            #expect(controller.rootView.linkHintOverlay.isURLConfirmationVisibleForTesting)
+
+            let secondEnter = try #require(makeKeyEvent(characters: "\r", keyCode: 36))
+            #expect(controller.routeKeyEventForTesting(secondEnter))
             #expect(followed == URL(string: "https://example.invalid/link-hint"))
             #expect(view.followedLinkCount == 1)
             #expect(!session.destinationIndicatorVisibleForTesting)
@@ -171,6 +188,31 @@ struct LinkHintIntegrationTests {
         }
     }
 
+    @Test("URL hint confirmation cancels on Escape or Tab without following")
+    func urlConfirmationCancellation() throws {
+        try withLinkHarness { controller, session, view, _ in
+            var followed = 0
+            view.followLinkHandler = { _ in followed += 1 }
+            let select = try #require(makeKeyEvent(characters: "f"))
+            let enter = try #require(makeKeyEvent(characters: "\r", keyCode: 36))
+            let escape = try #require(makeKeyEvent(characters: "", keyCode: 53))
+            let tab = try #require(makeKeyEvent(characters: "\t", keyCode: 48))
+            controller.presentLinkHints()
+            #expect(controller.routeKeyEventForTesting(select))
+            #expect(controller.routeKeyEventForTesting(enter))
+            #expect(controller.rootView.linkHintOverlay.isURLConfirmationVisibleForTesting)
+            #expect(controller.routeKeyEventForTesting(escape))
+            #expect(controller.rootView.linkHintOverlay.isHidden)
+            #expect(followed == 0)
+            #expect(session.currentPageNumber == 1)
+
+            controller.presentLinkHints()
+            #expect(controller.routeKeyEventForTesting(select))
+            #expect(controller.routeKeyEventForTesting(tab))
+            #expect(controller.rootView.linkHintOverlay.isHidden)
+            #expect(followed == 0)
+        }
+    }
     @Test("GoTo hint changes page without incrementing URL follow count")
     func uniqueGoToCommit() throws {
         try withLinkHarness { controller, session, view, _ in

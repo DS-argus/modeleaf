@@ -37,20 +37,33 @@ public struct SparseInputConfiguration: Decodable, Equatable, Sendable {
     }
 }
 
+public struct SparseLinksConfiguration: Decodable, Equatable, Sendable {
+    public let skipExternalLinkHintConfirmation: Bool?
+
+    public init(skipExternalLinkHintConfirmation: Bool? = nil) {
+        self.skipExternalLinkHintConfirmation = skipExternalLinkHintConfirmation
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case skipExternalLinkHintConfirmation = "skip_external_link_hint_confirmation"
+    }
+}
 
 public struct SparseAppConfig: Decodable, Equatable, Sendable {
     public let keymap: [String: [String]]?
     public let navigation: SparseNavigationConfiguration?
     public let input: SparseInputConfiguration?
+    public let links: SparseLinksConfiguration?
 
     public init(
         keymap: [String: [String]]? = nil,
         navigation: SparseNavigationConfiguration? = nil,
-        input: SparseInputConfiguration? = nil
+        input: SparseInputConfiguration? = nil,
+        links: SparseLinksConfiguration? = nil
     ) {
         self.keymap = keymap
         self.navigation = navigation
         self.input = input
+        self.links = links
     }
-
 }

@@ -15,7 +15,7 @@ struct PromptPresentation: Equatable {
 final class PromptOverlayView: NSView {
     private let prefixLabel = NSTextField(labelWithString: "/")
     let textField = NSTextField(string: "")
-    let commitButton = ClosureButton(title: "Commit", target: nil, action: nil)
+    let commitButton = ClosureButton(title: "Search", target: nil, action: nil)
     let cancelButton = ClosureButton(title: "Cancel", target: nil, action: nil)
     private let validationLabel = NSTextField(labelWithString: "")
     private(set) var activeKind: ReaderPromptKind?
@@ -65,7 +65,7 @@ final class PromptOverlayView: NSView {
             button.setContentCompressionResistancePriority(.required, for: .horizontal)
         }
         commitButton.setAccessibilityIdentifier("prompt.commitButton")
-        commitButton.setAccessibilityLabel("Commit prompt")
+        commitButton.setAccessibilityLabel("Search")
         cancelButton.setAccessibilityIdentifier("prompt.cancelButton")
         cancelButton.setAccessibilityLabel("Cancel prompt")
 
@@ -118,7 +118,10 @@ final class PromptOverlayView: NSView {
         activeKind = presentation.kind
         prefixLabel.stringValue = presentation.kind == .search ? "/" : "go to page"
         textField.stringValue = presentation.text
-        textField.placeholderString = presentation.kind == .search ? "Search embedded text" : "Page number"
+        let isSearch = presentation.kind == .search
+        textField.placeholderString = isSearch ? "Search…" : "Page number"
+        commitButton.title = isSearch ? "Search" : "Go"
+        commitButton.setAccessibilityLabel(isSearch ? "Search" : "Go to page")
         validationLabel.stringValue = presentation.validationMessage ?? ""
         validationLabel.isHidden = presentation.validationMessage == nil
         textField.setAccessibilityLabel(presentation.kind == .search ? "Search query" : "Page number")

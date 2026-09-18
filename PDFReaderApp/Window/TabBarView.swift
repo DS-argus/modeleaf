@@ -2,10 +2,10 @@ import AppKit
 import PDFReaderCore
 
 private enum TabBarLayoutMetrics {
-    static let regularTabWidth: CGFloat = 184
+    static let regularTabWidth: CGFloat = 220
     static let compactInactiveTabWidth: CGFloat = 40
     static let minimumCompactActiveTabWidth: CGFloat = 120
-    static let spacing: CGFloat = 5
+    static let spacing: CGFloat = 0
     static let trailingInset: CGFloat = 8
 }
 
@@ -49,6 +49,7 @@ private final class TabItemView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerRadius = WindowVisualMetrics.compactCornerRadius
+        layer?.masksToBounds = false
 
         selectButton.respondsToFirstMouse = true
         closeButton.respondsToFirstMouse = true
@@ -176,22 +177,15 @@ private final class TabItemView: NSView {
         refreshAppearance()
         return true
     }
+    private var isActive: Bool { selected && paneIsActive }
 
     private func refreshAppearance() {
         guard let theme else { return }
-        let background: NSColor
-        if selected && paneIsActive {
-            background = theme[.activeTab]
-        } else if hovering {
-            background = theme.hover
-        } else {
-            background = theme[.inactiveTab]
-        }
-        layer?.backgroundColor = background.cgColor
-        if selected && paneIsActive {
-            layer?.borderWidth = 1
-            layer?.borderColor = theme[.accent].withAlphaComponent(0.48).cgColor
-        } else if itemLayout == .compactInactive {
+        let active = isActive
+        layer?.backgroundColor = active
+            ? NSColor.clear.cgColor
+            : (hovering ? theme.hover : theme[.inactiveTab]).cgColor
+        if itemLayout == .compactInactive {
             layer?.borderWidth = 1
             layer?.borderColor = theme[.border]
                 .withAlphaComponent(hovering ? 0.72 : 0.42)
@@ -200,9 +194,73 @@ private final class TabItemView: NSView {
             layer?.borderWidth = 0
             layer?.borderColor = NSColor.clear.cgColor
         }
-        selectButton.contentTintColor = selected && paneIsActive ? theme[.foreground] : theme[.mutedText]
-        closeButton.contentTintColor = selected && paneIsActive || hovering ? theme[.foreground] : theme[.mutedText]
-        closeButton.alphaValue = selected && paneIsActive || hovering ? 0.92 : 0.48
+        // The path owns the upper corners; a layer radius also clips the lower stroke ends.
+        layer?.cornerRadius = active ? 0 : WindowVisualMetrics.compactCornerRadius
+        selectButton.contentTintColor = active ? theme[.foreground] : theme[.mutedText]
+        closeButton.contentTintColor = active || hovering ? theme[.foreground] : theme[.mutedText]
+        closeButton.alphaValue = active || hovering ? 0.92 : 0.62
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard let theme else { return }
+        guard isActive else {
+            theme[.border].withAlphaComponent(hovering ? 0.72 : 0.42).setStroke()
+            let divider = NSBezierPath()
+            divider.move(to: NSPoint(x: bounds.maxX - 0.5, y: bounds.minY + 7))
+            divider.line(to: NSPoint(x: bounds.maxX - 0.5, y: bounds.maxY - 7))
+            divider.lineWidth = 1
+            divider.stroke()
+            return
+        }
+
+        let lineWidth = WindowVisualMetrics.canvasFocusRingWidth
+        let inset = lineWidth / 2
+        let radius = min(4, max(0, bounds.height / 2 - inset))
+        let left = bounds.minX + inset
+        let right = bounds.maxX - inset
+        let bottom = bounds.minY
+        let top = bounds.maxY - inset
+        guard right > left, top > bottom else { return }
+
+        let fill = NSBezierPath()
+        fill.move(to: NSPoint(x: left, y: bottom))
+        fill.line(to: NSPoint(x: left, y: top - radius))
+        fill.curve(
+            to: NSPoint(x: left + radius, y: top),
+            controlPoint1: NSPoint(x: left, y: top - radius * 0.45),
+            controlPoint2: NSPoint(x: left + radius * 0.45, y: top)
+        )
+        fill.line(to: NSPoint(x: right - radius, y: top))
+        fill.curve(
+            to: NSPoint(x: right, y: top - radius),
+            controlPoint1: NSPoint(x: right - radius * 0.45, y: top),
+            controlPoint2: NSPoint(x: right, y: top - radius * 0.45)
+        )
+        fill.line(to: NSPoint(x: right, y: bottom))
+        fill.close()
+        theme.canvasBackground.setFill()
+        fill.fill()
+
+        let stroke = NSBezierPath()
+        stroke.move(to: NSPoint(x: left, y: bottom))
+        stroke.line(to: NSPoint(x: left, y: top - radius))
+        stroke.curve(
+            to: NSPoint(x: left + radius, y: top),
+            controlPoint1: NSPoint(x: left, y: top - radius * 0.45),
+            controlPoint2: NSPoint(x: left + radius * 0.45, y: top)
+        )
+        stroke.line(to: NSPoint(x: right - radius, y: top))
+        stroke.curve(
+            to: NSPoint(x: right, y: top - radius),
+            controlPoint1: NSPoint(x: right - radius * 0.45, y: top),
+            controlPoint2: NSPoint(x: right, y: top - radius * 0.45)
+        )
+        stroke.line(to: NSPoint(x: right, y: bottom))
+        stroke.lineWidth = lineWidth
+        theme.focusRing.setStroke()
+        stroke.stroke()
     }
 
     private static func identifierComponent(_ id: TabID) -> String {
@@ -230,6 +288,7 @@ final class TabBarView: NSView {
     var onSelect: ((TabID) -> Void)?
     var onClose: ((TabID) -> Void)?
     var onNewTab: (() -> Void)?
+    var onActiveTabGeometryChange: (() -> Void)?
     var orderedKeyViews: [NSView] { itemViews.flatMap(\.orderedKeyViews) + [newTabButton] }
     override var mouseDownCanMoveWindow: Bool { false }
 
@@ -273,12 +332,12 @@ final class TabBarView: NSView {
         setAccessibilityIdentifier("tabBar")
 
         stackView.orientation = .horizontal
-        stackView.alignment = .centerY
+        stackView.alignment = .bottom
         stackView.spacing = TabBarLayoutMetrics.spacing
         stackView.edgeInsets = NSEdgeInsets(
-            top: 4,
+            top: WindowVisualMetrics.tabBarHeight - WindowVisualMetrics.tabHeight,
             left: trafficLightInset,
-            bottom: 4,
+            bottom: 0,
             right: TabBarLayoutMetrics.trailingInset
         )
         stackView.prepareForAutoLayout()
@@ -300,8 +359,15 @@ final class TabBarView: NSView {
         scrollView.horizontalScrollElasticity = .allowed
         scrollView.verticalScrollElasticity = .none
         scrollView.documentView = documentView
-        scrollView.prepareForAutoLayout()
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(activeTabBoundsDidChange(_:)),
+            name: NSView.boundsDidChangeNotification,
+            object: scrollView.contentView
+        )
         newTabButton.respondsToFirstMouse = true
+        scrollView.prepareForAutoLayout()
         newTabButton.isBordered = false
         newTabButton.imagePosition = .imageOnly
         newTabButton.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "Open PDF in New Tab")
@@ -329,6 +395,12 @@ final class TabBarView: NSView {
         nil
     }
 
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    @objc private func activeTabBoundsDidChange(_ notification: Notification) {
+        onActiveTabGeometryChange?()
+    }
+
     override func hitTest(_ point: NSPoint) -> NSView? {
         let localPoint = superview.map { convert(point, from: $0) } ?? point
         let clipPoint = scrollView.contentView.convert(localPoint, from: self)
@@ -344,15 +416,28 @@ final class TabBarView: NSView {
         return super.hitTest(point)
     }
 
+    func activeTabFrame(in view: NSView) -> NSRect? {
+        guard let activeItemView else { return nil }
+        let visibleRect = scrollView.contentView.convert(scrollView.contentView.bounds, to: self)
+        let itemRect = activeItemView.convert(activeItemView.bounds, to: self)
+        let clipped = itemRect.intersection(visibleRect).intersection(bounds)
+        guard !clipped.isNull, clipped.width > 0, clipped.height > 0 else { return nil }
+        return convert(clipped, to: view)
+    }
+
+    var activeTabFrameForTesting: NSRect? { activeTabFrame(in: self) }
+
+
     override func layout() {
         super.layout()
-        if updateAdaptiveLayout() {
-            stackView.layoutSubtreeIfNeeded()
-            scrollView.documentView?.layoutSubtreeIfNeeded()
-        }
-        guard let activeItemView else { return }
+        _ = updateAdaptiveLayout()
+        stackView.layoutSubtreeIfNeeded()
+        scrollView.documentView?.layoutSubtreeIfNeeded()
         scrollView.layoutSubtreeIfNeeded()
-        activeItemView.scrollToVisible(activeItemView.bounds)
+        if let activeItemView {
+            activeItemView.scrollToVisible(activeItemView.bounds)
+        }
+        onActiveTabGeometryChange?()
     }
 
     func render(_ snapshot: ReaderSessionStoreSnapshot) {

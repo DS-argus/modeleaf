@@ -115,3 +115,7 @@ zoom_factor = 1.1
 prefix_timeout_ms = 400
 # Pane prefix chord. Every <prefix> binding above expands to this.
 prefix = "<C-b>"
+
+[links]
+# External link hints require confirmation by default.
+skip_external_link_hint_confirmation = false

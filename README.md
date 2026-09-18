@@ -91,6 +91,12 @@ Modeleaf checks [GitHub Releases](https://github.com/DS-argus/modeleaf/releases)
 | Split / focus pane | `Ctrl-b \|` `Ctrl-b -` / `Ctrl-h/j/k/l` |
 | Theme / palette / help              | `T` / `:` / `?`               |
 
+`y` previews the full PDF path; `yy` copies it and adds `copied!`. Each input refreshes the three-second display; the default key-sequence timeout remains 400 ms. Long paths are middle-truncated with the full path available in a tooltip.
+
+External URL hints require two separate Enter presses after selecting a hint: the first reveals the destination, the second opens it. Escape cancels. Internal PDF destinations are unchanged.
+
+The status bar adapts down to the existing 480 × 360 pt minimum window: it keeps every item on one line, prioritizes temporary path/key feedback and compact search results, and hides lower-priority basic items in order (version, help, zoom, fit badge, page). Optional notices and update text appear only when they fit. Errors that do not fit retain an `Error` button for their full details.
+
 ## Configuration
 
 Modeleaf reads an optional TOML config:
@@ -99,7 +105,7 @@ Modeleaf reads an optional TOML config:
 ~/.config/modeleaf/config.toml
 ```
 
-Keys use `D` (Command), `C` (Control), `A` (Option), and `S` (Shift). Use **Write Default Config**, **Reload Config**, or **Reset Config** from the command palette. See [CONFIG.md](CONFIG.md) for every action, default, and validation rule.
+Keys use `D` (Command), `C` (Control), `A` (Option), and `S` (Shift). Use **Write Default Config**, **Reload Config**, or **Reset Config** from the command palette. See [CONFIG.md](CONFIG.md) for every action, default, and validation rule. External link hint confirmation can be disabled with `[links] skip_external_link_hint_confirmation = true`; it is enabled by default.
 
 ## Build from source
 
