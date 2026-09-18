@@ -592,9 +592,14 @@ final class StatusBarView: NSView {
 
         let versionIndex = items.firstIndex(where: { $0.view === versionLabel })
         var x = contentInset
-        let height = max(1, min(22, bounds.height - 4))
-        let y = max(0, (bounds.height - height) / 2)
+        let controlHeight = max(1, min(22, bounds.height - 4))
         for (index, item) in items.enumerated() {
+            // NSTextField cells draw at the top of oversized frames, unlike
+            // NSButton cells. Center the natural line box, not a stretched field.
+            let height = item.view is NSTextField
+                ? ceil(item.view.intrinsicContentSize.height)
+                : controlHeight
+            let y = (bounds.height - height) / 2
             let width = max(1, widths[index])
             if let versionIndex, index == versionIndex {
                 item.view.frame = NSRect(x: bounds.width - contentInset - width, y: y, width: width, height: height)
@@ -741,8 +746,8 @@ private final class StatusModePillView: NSView {
         NSLayoutConstraint.activate([
             label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 7),
             label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -7),
-            label.topAnchor.constraint(equalTo: topAnchor, constant: 2),
-            label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
+            // Keep the cell at its intrinsic line height, just like plain labels.
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
     }
     var contentAccessibilityIdentifier: String { label.accessibilityIdentifier() }
