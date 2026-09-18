@@ -2,7 +2,18 @@ import AppKit
 import PDFReaderCore
 
 @MainActor
+private final class LinkHintURLScrollView: NSScrollView {
+    override var acceptsFirstResponder: Bool { false }
+}
+
+@MainActor
+private final class LinkHintURLTextView: NSTextView {
+    override var acceptsFirstResponder: Bool { false }
+}
+
+@MainActor
 final class LinkHintOverlayView: NSView {
+    private static let urlPromptActions = "↩ Open    Esc Close"
     var onCommit: ((Int) -> Void)?
     var onDismiss: (() -> Void)?
 
@@ -13,6 +24,9 @@ final class LinkHintOverlayView: NSView {
     private var selectedURLIndex: Int?
     private var isShowingURLConfirmation = false
     private var skipsURLConfirmation = false
+    private let urlPromptScrollView = LinkHintURLScrollView()
+    private let urlPromptTextView = LinkHintURLTextView()
+    private var urlPromptFrame = NSRect.zero
 
     var didRejectInputForTesting: (() -> Void)?
     private var theme: AppKitTheme?
@@ -22,6 +36,23 @@ final class LinkHintOverlayView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
+        urlPromptScrollView.borderType = .noBorder
+        urlPromptScrollView.drawsBackground = false
+        urlPromptScrollView.hasVerticalScroller = false
+        urlPromptScrollView.autohidesScrollers = false
+        urlPromptScrollView.horizontalScrollElasticity = .none
+        urlPromptTextView.isEditable = false
+        urlPromptTextView.isSelectable = false
+        urlPromptTextView.drawsBackground = false
+        urlPromptTextView.isHorizontallyResizable = true
+        urlPromptTextView.isVerticallyResizable = false
+        urlPromptTextView.textContainerInset = .zero
+        urlPromptTextView.textContainer?.lineFragmentPadding = 0
+        urlPromptTextView.textContainer?.widthTracksTextView = false
+        urlPromptTextView.textContainer?.heightTracksTextView = true
+        urlPromptScrollView.documentView = urlPromptTextView
+        urlPromptScrollView.isHidden = true
+        addSubview(urlPromptScrollView)
         setAccessibilityIdentifier("linkHintOverlay")
         isHidden = true
     }
@@ -31,6 +62,7 @@ final class LinkHintOverlayView: NSView {
     func apply(theme: AppKitTheme) {
         self.theme = theme
         needsDisplay = true
+        needsLayout = true
     }
 
     func present(
@@ -49,6 +81,7 @@ final class LinkHintOverlayView: NSView {
         setAccessibilityValue(nil)
         isHidden = false
         needsDisplay = true
+        needsLayout = true
     }
 
     func dismiss() {
@@ -62,6 +95,8 @@ final class LinkHintOverlayView: NSView {
         setAccessibilityValue(nil)
         isHidden = true
         needsDisplay = true
+        urlPromptScrollView.isHidden = true
+        needsLayout = true
     }
 
     override func resignFirstResponder() -> Bool {
@@ -81,9 +116,19 @@ final class LinkHintOverlayView: NSView {
         selectedURLIndex.flatMap { urlHintURLs[$0] }
     }
 
+    var urlPromptActionsForTesting: String? {
+        confirmationURLForTesting == nil ? nil : Self.urlPromptActions
+    }
+
     var matchingLabelsForTesting: [String] {
         LinkHintFilter.candidates(hints.map(\.label), typed: typedPrefix).map { hints[$0].label }
     }
+    var urlPromptIsScrollableForTesting: Bool {
+        !urlPromptScrollView.isHidden && urlPromptScrollView.hasHorizontalScroller
+    }
+    var urlPromptTextSurfaceForTesting: NSView { urlPromptTextView }
+    var urlPromptContentWidthForTesting: CGFloat { urlPromptTextView.frame.width }
+    var urlPromptViewportWidthForTesting: CGFloat { urlPromptScrollView.contentView.bounds.width }
     var hintRectCountsForTesting: [Int] { hints.map { $0.rects.count } }
     var hintRectsForTesting: [[NSRect]] { hints.map(\.rects) }
     var hasCallbacksForTesting: Bool { onCommit != nil || onDismiss != nil }
@@ -109,7 +154,7 @@ final class LinkHintOverlayView: NSView {
                 isShowingURLConfirmation = true
                 let url = urlHintURLs[index] ?? "External link"
                 setAccessibilityLabel("External link URL")
-                setAccessibilityValue("\(url). Press Enter to open, or Escape to cancel.")
+                setAccessibilityValue("\(url). Press Enter to open, or Escape to close.")
                 needsDisplay = true
             } else {
                 clearURLSelection()
@@ -151,9 +196,11 @@ final class LinkHintOverlayView: NSView {
             if urlHintIndices.contains(index), !skipsURLConfirmation {
                 typedPrefix = candidate
                 selectedURLIndex = index
+                needsLayout = true
                 isShowingURLConfirmation = false
+                let url = urlHintURLs[index] ?? "External link"
                 setAccessibilityLabel("External link selected")
-                setAccessibilityValue("Press Enter to show the URL, or Escape to cancel.")
+                setAccessibilityValue("\(url). Press Enter to confirm opening, or Escape to close.")
                 needsDisplay = true
             } else {
                 onCommit?(index)
@@ -172,6 +219,12 @@ final class LinkHintOverlayView: NSView {
     }
 
     override func keyDown(with event: NSEvent) { _ = handleKeyDown(event) }
+
+
+    override func layout() {
+        super.layout()
+        updateURLPromptLayout()
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         guard let theme else { return }
@@ -197,19 +250,25 @@ final class LinkHintOverlayView: NSView {
             }
         }
 
-        guard let index = selectedURLIndex,
-              let rect = hints.indices.contains(index) ? hints[index].rects.first : nil
-        else { return }
-        drawURLPrompt(
-            url: isShowingURLConfirmation ? urlHintURLs[index] : nil,
-            near: rect,
-            theme: theme
-        )
+        guard selectedURLIndex != nil else { return }
+        drawURLPrompt(theme: theme)
     }
 
-    private func drawURLPrompt(url: String?, near rect: NSRect, theme: AppKitTheme) {
+    private func updateURLPromptLayout() {
+        guard let theme,
+              let index = selectedURLIndex,
+              hints.indices.contains(index),
+              let rect = hints[index].rects.first,
+              let url = urlHintURLs[index]
+        else {
+            urlPromptFrame = .zero
+            urlPromptScrollView.isHidden = true
+            return
+        }
+
+        let titleFont = NSFont.systemFont(ofSize: 11, weight: .medium)
         let titleAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+            .font: titleFont,
             .foregroundColor: theme[.foreground],
         ]
         let keyAttributes: [NSAttributedString.Key: Any] = [
@@ -217,65 +276,77 @@ final class LinkHintOverlayView: NSView {
             .foregroundColor: theme[.mutedText],
         ]
         let maxContentWidth = max(120, min(bounds.width - 24, 360))
-        let title = url.map {
-            fittingURL(
-                $0.replacingOccurrences(of: "\n", with: " "),
-                attributes: titleAttributes,
-                maxWidth: maxContentWidth
-            )
-        } ?? "Open link?"
-        let keyText = url == nil ? "Enter details    Esc cancel" : "Enter open    Esc cancel"
-        let titleSize = (title as NSString).size(withAttributes: titleAttributes)
-        let keySize = (keyText as NSString).size(withAttributes: keyAttributes)
-        let contentWidth = max(titleSize.width, keySize.width)
+        let urlSize = (url as NSString).size(withAttributes: titleAttributes)
+        let keySize = (Self.urlPromptActions as NSString).size(withAttributes: keyAttributes)
+        let contentWidth = max(keySize.width, min(maxContentWidth, max(120, urlSize.width)))
+        let titleHeight = ceil(
+            urlPromptTextView.layoutManager?.defaultLineHeight(for: titleFont)
+                ?? (titleFont.ascender - titleFont.descender + 2)
+        )
+        let needsHorizontalScroll = urlSize.width > contentWidth
+        let scrollerHeight: CGFloat = needsHorizontalScroll ? 15 : 0
+        let urlViewportHeight = titleHeight + scrollerHeight
         let popup = NSRect(
             x: max(bounds.minX + 8, min(bounds.maxX - contentWidth - 24, rect.maxX + 8)),
             y: max(
                 bounds.minY + 8,
                 min(
-                    bounds.maxY - titleSize.height - keySize.height - 22,
-                    rect.maxY - titleSize.height - keySize.height - 22
+                    bounds.maxY - urlViewportHeight - keySize.height - 22,
+                    rect.maxY - urlViewportHeight - keySize.height - 22
                 )
             ),
             width: contentWidth + 16,
-            height: titleSize.height + keySize.height + 14
+            height: urlViewportHeight + keySize.height + 14
         )
+        urlPromptFrame = popup
 
+        urlPromptTextView.textStorage?.setAttributedString(
+            NSAttributedString(string: url, attributes: titleAttributes)
+        )
+        urlPromptTextView.frame = NSRect(
+            x: 0,
+            y: 0,
+            width: max(contentWidth, urlSize.width),
+            height: titleHeight
+        )
+        if let textContainer = urlPromptTextView.textContainer {
+            textContainer.containerSize = urlPromptTextView.frame.size
+            urlPromptTextView.layoutManager?.ensureLayout(for: textContainer)
+        }
+        urlPromptScrollView.hasHorizontalScroller = needsHorizontalScroll
+        urlPromptScrollView.frame = NSRect(
+            x: popup.minX + 8,
+            y: popup.minY + keySize.height + 7,
+            width: contentWidth,
+            height: urlViewportHeight
+        )
+        urlPromptScrollView.isHidden = false
+        urlPromptScrollView.reflectScrolledClipView(urlPromptScrollView.contentView)
+    }
+
+    private func drawURLPrompt(theme: AppKitTheme) {
+        guard !urlPromptFrame.isEmpty else { return }
+        let keyAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 9, weight: .medium),
+            .foregroundColor: theme[.mutedText],
+        ]
         theme[.activeTab].withAlphaComponent(0.97).setFill()
-        NSBezierPath(roundedRect: popup, xRadius: 4, yRadius: 4).fill()
-        let outline = NSBezierPath(roundedRect: popup, xRadius: 4, yRadius: 4)
+        NSBezierPath(roundedRect: urlPromptFrame, xRadius: 4, yRadius: 4).fill()
+        let outline = NSBezierPath(roundedRect: urlPromptFrame, xRadius: 4, yRadius: 4)
         outline.lineWidth = 1
         theme[.accent].withAlphaComponent(0.8).setStroke()
         outline.stroke()
-        title.draw(
-            at: NSPoint(x: popup.minX + 8, y: popup.minY + keySize.height + 7),
-            withAttributes: titleAttributes
-        )
-        keyText.draw(
-            at: NSPoint(x: popup.minX + 8, y: popup.minY + 4),
+        Self.urlPromptActions.draw(
+            at: NSPoint(x: urlPromptFrame.minX + 8, y: urlPromptFrame.minY + 4),
             withAttributes: keyAttributes
         )
     }
-
-    private func fittingURL(
-        _ value: String,
-        attributes: [NSAttributedString.Key: Any],
-        maxWidth: CGFloat
-    ) -> String {
-        guard (value as NSString).size(withAttributes: attributes).width > maxWidth else { return value }
-        let suffix = "..."
-        var count = value.count
-        while count > 0 {
-            let candidate = String(value.prefix(count)) + suffix
-            if (candidate as NSString).size(withAttributes: attributes).width <= maxWidth {
-                return candidate
-            }
-            count -= 1
-        }
-        return suffix
-    }
-
     private func clearURLSelection() {
+        urlPromptFrame = .zero
+        urlPromptScrollView.isHidden = true
+        urlPromptScrollView.contentView.scroll(to: .zero)
+        urlPromptScrollView.reflectScrolledClipView(urlPromptScrollView.contentView)
+        needsLayout = true
         selectedURLIndex = nil
         isShowingURLConfirmation = false
     }
