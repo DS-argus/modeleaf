@@ -8,7 +8,7 @@ import Testing
 @Suite("Link hint acceptance")
 @MainActor
 struct LinkHintAcceptanceTests {
-    @Test("f displays labels, confirms external URLs with two Enter presses, and GoTo remains immediate")
+    @Test("f displays labels, opens external URLs on the first non-repeat Enter, and GoTo remains immediate")
     func keyboardEndToEnd() throws {
         try withLinkHarness { controller, session, view, _ in
             var opened: [URL] = []
@@ -23,16 +23,17 @@ struct LinkHintAcceptanceTests {
             #expect(opened.isEmpty)
             #expect(view.followedLinkCount == 0)
             #expect(controller.rootView.linkHintOverlay.matchingLabelsForTesting == [urlLabel])
-            #expect(route("", keyCode: 36, through: controller))
-            #expect(opened.isEmpty)
-            #expect(controller.rootView.linkHintOverlay.isURLConfirmationVisibleForTesting)
-            #expect(controller.rootView.linkHintOverlay.confirmationURLForTesting == "https://example.invalid/link-hint")
             #expect(route("", keyCode: 36, isRepeat: true, through: controller))
             #expect(opened.isEmpty)
+            #expect(view.followedLinkCount == 0)
+            #expect(controller.rootView.linkHintOverlay.selectedURLIndexForTesting != nil)
             #expect(route("", keyCode: 36, through: controller))
             #expect(opened == [URL(string: "https://example.invalid/link-hint")!])
             #expect(view.followedLinkCount == 1)
             #expect(controller.rootView.linkHintOverlay.isHidden)
+            _ = route("", keyCode: 36, through: controller)
+            #expect(opened == [URL(string: "https://example.invalid/link-hint")!])
+            #expect(view.followedLinkCount == 1)
 
             #expect(route("f", through: controller))
             try type(goToLabel, through: controller)
@@ -122,8 +123,10 @@ struct LinkHintAcceptanceTests {
             #expect(!controller.rootView.linkHintOverlay.isHidden)
             let activeLabel = try #require(label(for: .url("https://example.invalid/link-hint"), in: active, controller: controller))
             try type(activeLabel, through: controller)
+            #expect(route("", keyCode: 36, isRepeat: true, through: controller))
+            #expect(activeView.followedLinkCount == 0)
             #expect(route("", keyCode: 36, through: controller))
-            #expect(route("", keyCode: 36, through: controller))
+            _ = route("", keyCode: 36, through: controller)
             #expect(activeView.followedLinkCount == 1)
             #expect(inactiveView.followedLinkCount == 0)
             #expect(opened == [URL(string: "https://example.invalid/link-hint")!])
