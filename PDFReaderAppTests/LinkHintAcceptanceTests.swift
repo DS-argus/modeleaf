@@ -116,6 +116,55 @@ struct LinkHintAcceptanceTests {
         }
     }
 
+    @Test("fresh splits keep link hints inside the active viewport before movement in both orientations")
+    func freshSplitViewportGeometry() throws {
+        for direction in [PaneOrientation.sideBySide, .stacked] {
+            try withTemporaryDirectory { directory in
+                let url = try PDFFixtureFactory.makeLinkHintPDF(in: directory)
+                let first = try PDFOpenService().open(url: url)
+                let coordinator = PaneCoordinator()
+                coordinator.configureDuplication { _ in try? PDFOpenService().open(url: url) }
+                let controller = makeController(coordinator: coordinator)
+                defer { controller.close(); while coordinator.closeActiveTab() {} }
+                #expect(coordinator.insert(first, into: .createIfEmpty))
+                let sourcePane = try #require(coordinator.activePaneID)
+                let activePane = try #require(coordinator.split(direction: direction))
+                let active = try #require(coordinator.activeSession as? ReaderSession)
+                let sourceView = try #require(descendantReaderPDFViews(in: first.contentView).only)
+                let activeView = try #require(descendantReaderPDFViews(in: active.contentView).only)
+
+                #expect(coordinator.activePaneID == activePane)
+                #expect(sourcePane != activePane)
+                #expect(route("f", through: controller))
+                let overlay = controller.rootView.linkHintOverlay
+                let activeViewport = overlay.convert(activeView.visibleRect, from: activeView)
+                #expect(activeViewport.width > 1 && activeViewport.height > 1)
+                let projectedRects = overlay.hintRectsForTesting.flatMap { $0 }
+                #expect(!projectedRects.isEmpty)
+                #expect(projectedRects.allSatisfy { activeViewport.contains($0) })
+
+                let sourceRect = controller.rootView.linkHintOverlay.convert(
+                    sourceView.visibleRect.isEmpty ? sourceView.bounds : sourceView.visibleRect,
+                    from: sourceView
+                )
+                #expect(projectedRects.allSatisfy { $0.intersection(sourceRect).isNull || $0.intersection(sourceRect).width <= 0 })
+                #expect(activeView.bounds.width > 1 && activeView.bounds.height > 1)
+                if let path = ProcessInfo.processInfo.environment["MODELEAF_HINT_SNAPSHOT_DIR"] {
+                    let directory = URL(fileURLWithPath: path, isDirectory: true)
+                    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                    overlay.layoutSubtreeIfNeeded()
+                    let bitmap = try #require(overlay.bitmapImageRepForCachingDisplay(in: overlay.bounds))
+                    overlay.cacheDisplay(in: overlay.bounds, to: bitmap)
+                    let png = try #require(bitmap.representation(using: .png, properties: [:]))
+                    try png.write(to: directory.appendingPathComponent("hints-\(direction).png"))
+                }
+                #expect(route("f", through: controller))
+                #expect(overlay.isHidden)
+                #expect(controller.window?.firstResponder === activeView)
+            }
+        }
+    }
+
     @Test("hints preserve source bytes, operate only in the active pane, and retain mouse URL routing")
     func readOnlyAndMultiPaneAcceptance() throws {
         try withTemporaryDirectory { directory in

@@ -26,6 +26,7 @@ final class LinkHintOverlayView: NSView {
     private let urlPromptScrollView = LinkHintURLScrollView()
     private let urlPromptTextView = LinkHintURLTextView()
     private var urlPromptFrame = NSRect.zero
+    private var activeViewport: NSRect?
 
     var didRejectInputForTesting: (() -> Void)?
     private var theme: AppKitTheme?
@@ -68,12 +69,14 @@ final class LinkHintOverlayView: NSView {
         hints: [(rects: [NSRect], label: String)],
         urlHintIndices: Set<Int> = [],
         urlHintURLs: [Int: String] = [:],
-        skipsURLConfirmation: Bool = false
+        skipsURLConfirmation: Bool = false,
+        viewport: NSRect? = nil
     ) {
         self.hints = hints
         self.urlHintURLs = urlHintURLs
         self.urlHintIndices = urlHintIndices.union(urlHintURLs.keys)
         self.skipsURLConfirmation = skipsURLConfirmation
+        activeViewport = viewport.flatMap { normalizedViewport($0) }
         clearURLSelection()
         typedPrefix = ""
         setAccessibilityLabel("Link hints")
@@ -89,6 +92,7 @@ final class LinkHintOverlayView: NSView {
         clearURLSelection()
         urlHintIndices = []
         urlHintURLs = [:]
+        activeViewport = nil
         skipsURLConfirmation = false
         setAccessibilityLabel(nil)
         setAccessibilityValue(nil)
@@ -127,18 +131,25 @@ final class LinkHintOverlayView: NSView {
     var urlPromptTextSurfaceForTesting: NSView { urlPromptTextView }
     var urlPromptContentWidthForTesting: CGFloat { urlPromptTextView.frame.width }
     var urlPromptViewportWidthForTesting: CGFloat { urlPromptScrollView.contentView.bounds.width }
+    var urlPromptFrameForTesting: NSRect { urlPromptFrame }
     var hintRectCountsForTesting: [Int] { hints.map { $0.rects.count } }
     var hintRectsForTesting: [[NSRect]] { hints.map(\.rects) }
+    var activeViewportForTesting: NSRect? { activeViewport }
     var hasCallbacksForTesting: Bool { onCommit != nil || onDismiss != nil }
 
     func handleKeyDown(_ event: NSEvent) -> Bool {
         let rejectedModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
+
         if !event.modifierFlags.intersection(rejectedModifiers).isEmpty {
             didRejectInputForTesting?()
             NSSound.beep()
             return true
         }
 
+        if event.charactersIgnoringModifiers?.lowercased() == "f" {
+            cancelAndDismiss()
+            return true
+        }
         if [36, 76].contains(event.keyCode) {
             guard let index = selectedURLIndex else {
                 didRejectInputForTesting?()
@@ -216,6 +227,11 @@ final class LinkHintOverlayView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         guard let theme else { return }
+        let viewport = viewportBounds
+        guard !viewport.isEmpty else { return }
+        NSGraphicsContext.saveGraphicsState()
+        NSBezierPath(rect: viewport).addClip()
+        defer { NSGraphicsContext.restoreGraphicsState() }
 
         let labels = hints.map(\.label)
         let matches = Set(LinkHintFilter.candidates(labels, typed: typedPrefix))
@@ -242,6 +258,19 @@ final class LinkHintOverlayView: NSView {
         drawURLPrompt(theme: theme)
     }
 
+    private var viewportBounds: NSRect {
+        guard let activeViewport else { return bounds }
+        return activeViewport.intersection(bounds)
+    }
+
+    private func normalizedViewport(_ viewport: NSRect) -> NSRect? {
+        guard viewport.minX.isFinite, viewport.minY.isFinite,
+              viewport.width.isFinite, viewport.height.isFinite,
+              viewport.width > 0, viewport.height > 0
+        else { return nil }
+        return viewport
+    }
+
     private func updateURLPromptLayout() {
         guard let theme,
               let index = selectedURLIndex,
@@ -263,10 +292,16 @@ final class LinkHintOverlayView: NSView {
             .font: NSFont.monospacedSystemFont(ofSize: 9, weight: .medium),
             .foregroundColor: theme[.mutedText],
         ]
-        let maxContentWidth = max(120, min(bounds.width - 24, 360))
+        let viewport = viewportBounds
+        guard !viewport.isEmpty else {
+            urlPromptFrame = .zero
+            urlPromptScrollView.isHidden = true
+            return
+        }
+        let maxContentWidth = max(1, min(viewport.width - 24, 360))
         let urlSize = (url as NSString).size(withAttributes: titleAttributes)
         let keySize = (Self.urlPromptActions as NSString).size(withAttributes: keyAttributes)
-        let contentWidth = max(keySize.width, min(maxContentWidth, max(120, urlSize.width)))
+        let contentWidth = min(maxContentWidth, max(keySize.width, urlSize.width))
         let titleHeight = ceil(
             urlPromptTextView.layoutManager?.defaultLineHeight(for: titleFont)
                 ?? (titleFont.ascender - titleFont.descender + 2)
@@ -274,20 +309,20 @@ final class LinkHintOverlayView: NSView {
         let needsHorizontalScroll = urlSize.width > contentWidth
         let scrollerHeight: CGFloat = needsHorizontalScroll ? 15 : 0
         let urlViewportHeight = titleHeight + scrollerHeight
+        let popupWidth = contentWidth + 16
+        let popupHeight = urlViewportHeight + keySize.height + 14
+        let minPopupX = viewport.minX + 8
+        let maxPopupX = max(minPopupX, viewport.maxX - popupWidth - 8)
+        let minPopupY = viewport.minY + 8
+        let maxPopupY = max(minPopupY, viewport.maxY - popupHeight - 8)
         let popup = NSRect(
-            x: max(bounds.minX + 8, min(bounds.maxX - contentWidth - 24, rect.maxX + 8)),
-            y: max(
-                bounds.minY + 8,
-                min(
-                    bounds.maxY - urlViewportHeight - keySize.height - 22,
-                    rect.maxY - urlViewportHeight - keySize.height - 22
-                )
-            ),
-            width: contentWidth + 16,
-            height: urlViewportHeight + keySize.height + 14
+            x: min(maxPopupX, max(minPopupX, rect.maxX + 8)),
+            y: min(maxPopupY, max(minPopupY, rect.maxY - popupHeight - 8)),
+            width: popupWidth,
+            height: popupHeight
         )
-        urlPromptFrame = popup
 
+        urlPromptFrame = popup
         urlPromptTextView.textStorage?.setAttributedString(
             NSAttributedString(string: url, attributes: titleAttributes)
         )

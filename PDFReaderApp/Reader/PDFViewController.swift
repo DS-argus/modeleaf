@@ -751,7 +751,7 @@ final class PDFViewController: NSViewController {
 extension PDFViewController: ReaderLinkProviding, ReaderPDFViewInternalLinkHandling {
     func readerPDFView(_ view: ReaderPDFView, activateInternalLink target: ReaderLinkTarget) { internalLinkHandler?(target) }
     func linkTargets() -> [RawLink] {
-        loadViewIfNeeded(); readerView.layoutDocumentView()
+        settleLinkHintGeometry()
         return readerView.pagesIntersectingViewport.flatMap { page in
             let index = initialDocument.index(for: page)
             return page.annotations.compactMap { (annotation: PDFAnnotation) -> RawLink? in
@@ -771,12 +771,22 @@ extension PDFViewController: ReaderLinkProviding, ReaderPDFViewInternalLinkHandl
     func setInternalLinkHandler(_ handler: ((ReaderLinkTarget) -> Void)?) { internalLinkHandler = handler }
     func linkHintRects(for link: ReaderLink, in coordinateSpace: NSView) -> [NSRect] {
         loadViewIfNeeded()
+        let sourceViewport = readerView.visibleRect.isEmpty ? readerView.bounds : readerView.visibleRect
+        let viewport = readerView.convert(sourceViewport, to: coordinateSpace)
+        let visibleViewport = viewport.intersection(coordinateSpace.bounds)
+        guard !visibleViewport.isNull, visibleViewport.width > 0, visibleViewport.height > 0 else { return [] }
         guard let page = initialDocument.page(at: link.sourcePageIndex) else { return [] }
         return link.rects.compactMap { pageRect in
             let overlayRect = readerView.convert(readerView.convert(pageRect, from: page), to: coordinateSpace)
-            let clipped = overlayRect.intersection(coordinateSpace.bounds)
+            let clipped = overlayRect.intersection(visibleViewport)
             return clipped.isNull || clipped.width <= 0 || clipped.height <= 0 ? nil : clipped
         }
+    }
+    private func settleLinkHintGeometry() {
+        loadViewIfNeeded()
+        view.layoutSubtreeIfNeeded()
+        readerView.layoutSubtreeIfNeeded()
+        readerView.layoutDocumentView()
     }
     private static func isLink(_ annotation: PDFAnnotation) -> Bool { annotation.type == "Link" || annotation.action != nil || annotation.url != nil }
     private static func linkTarget(_ annotation: PDFAnnotation) -> ReaderLinkTarget? {

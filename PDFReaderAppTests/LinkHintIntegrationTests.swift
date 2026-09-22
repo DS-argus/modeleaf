@@ -161,7 +161,7 @@ struct LinkHintIntegrationTests {
             view.followLinkHandler = { followed = $0 }
             controller.presentLinkHints()
 
-            let event = try #require(makeKeyEvent(characters: "f"))
+            let event = try #require(makeKeyEvent(characters: "j"))
             #expect(controller.routeKeyEventForTesting(event))
             #expect(followed == nil)
             #expect(view.followedLinkCount == 0)
@@ -208,12 +208,13 @@ struct LinkHintIntegrationTests {
         overlay.apply(theme: AppKitTheme(themeID: .tokyoNight))
         let url = "https://example.invalid/" + String(repeating: "long-segment-", count: 24)
         overlay.present(
-            hints: [(rects: [NSRect(x: 8, y: 8, width: 24, height: 24)], label: "f")],
+            hints: [(rects: [NSRect(x: 8, y: 8, width: 24, height: 24)], label: "j")],
             urlHintIndices: [0],
-            urlHintURLs: [0: url]
+            urlHintURLs: [0: url],
+            viewport: NSRect(x: 0, y: 0, width: 100, height: 320)
         )
 
-        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "f"))))
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "j"))))
         #expect(overlay.confirmationURLForTesting == url)
         #expect(overlay.urlPromptActionsForTesting == "↩ Open    Esc Close")
         #expect((overlay.accessibilityValue() as? String)?.contains(url) == true)
@@ -229,6 +230,8 @@ struct LinkHintIntegrationTests {
         #expect(renderedPixelCount(in: textRepresentation) > 20)
         #expect(overlay.urlPromptIsScrollableForTesting)
         #expect(overlay.urlPromptContentWidthForTesting > overlay.urlPromptViewportWidthForTesting)
+        #expect(overlay.activeViewportForTesting == NSRect(x: 0, y: 0, width: 100, height: 320))
+        #expect(NSRect(x: 0, y: 0, width: 100, height: 320).contains(overlay.urlPromptFrameForTesting))
         if let directory = ProcessInfo.processInfo.environment["PDF_READER_SNAPSHOT_DIR"] {
             let output = URL(fileURLWithPath: directory, isDirectory: true)
             try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
@@ -244,10 +247,11 @@ struct LinkHintIntegrationTests {
         overlay.dismiss()
         let nextURL = url + "different-destination"
         overlay.present(
-            hints: [(rects: [NSRect(x: 8, y: 8, width: 24, height: 24)], label: "f")],
-            urlHintURLs: [0: nextURL]
+            hints: [(rects: [NSRect(x: 8, y: 8, width: 24, height: 24)], label: "j")],
+            urlHintURLs: [0: nextURL],
+            viewport: NSRect(x: 0, y: 0, width: 100, height: 320)
         )
-        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "f"))))
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "j"))))
         overlay.layoutSubtreeIfNeeded()
         #expect(overlay.confirmationURLForTesting == nextURL)
         #expect(clip.bounds.minX == 0)
@@ -258,7 +262,7 @@ struct LinkHintIntegrationTests {
         try withLinkHarness { controller, session, view, _ in
             var followed = 0
             view.followLinkHandler = { _ in followed += 1 }
-            let select = try #require(makeKeyEvent(characters: "f"))
+            let select = try #require(makeKeyEvent(characters: "j"))
             let escape = try #require(makeKeyEvent(characters: "", keyCode: 53))
             let tab = try #require(makeKeyEvent(characters: "\t", keyCode: 48))
             controller.presentLinkHints()
@@ -475,7 +479,7 @@ struct LinkHintIntegrationTests {
             let page = try #require(view.document?.page(at: 0))
             let viewportCenter = NSPoint(x: view.bounds.midX, y: view.bounds.midY)
             let center = view.convert(viewportCenter, to: page)
-            for index in 0..<21 {
+            for index in 0..<20 {
                 let annotation = PDFAnnotation(
                     bounds: CGRect(x: center.x + CGFloat(index % 4), y: center.y + CGFloat(index / 4), width: 12, height: 8),
                     forType: .link,
@@ -492,13 +496,45 @@ struct LinkHintIntegrationTests {
             offscreen.action = PDFActionURL(url: URL(string: "https://example.invalid/offscreen")!)
             page.addAnnotation(offscreen)
 
-            #expect(LinkHintMerge.mergeLinks(session.linkTargets()).count > 26)
+            #expect(LinkHintMerge.mergeLinks(session.linkTargets()).count == 27)
             controller.presentLinkHints()
             let labels = controller.rootView.linkHintOverlay.visibleLabels
-            #expect(!labels.isEmpty && labels.count <= 26)
+            #expect(labels.count == 25)
             #expect(labels.allSatisfy { $0.count == 1 })
         }
     }
+    @Test("partially visible pane-edge annotations are clipped before label allocation")
+    func partiallyVisiblePaneEdgeAnnotation() throws {
+        try withLinkHarness { controller, session, view, _ in
+            session.zoom(by: 2)
+            view.layoutDocumentView()
+            let viewport = view.visibleRect.isEmpty ? view.bounds : view.visibleRect
+            let center = NSPoint(x: viewport.midX, y: viewport.midY)
+            let page = try #require(view.page(for: center, nearest: true))
+            let pageBounds = page.bounds(for: .cropBox)
+            let viewportInPage = view.convert(viewport, to: page)
+            let edgeX = min(pageBounds.maxX - 6, max(pageBounds.minX, viewportInPage.maxX - 6))
+            let annotation = PDFAnnotation(
+                bounds: CGRect(x: edgeX, y: viewportInPage.midY, width: 24, height: 12),
+                forType: .link,
+                withProperties: nil
+            )
+            annotation.action = PDFActionURL(url: URL(string: "https://example.invalid/pane-edge")!)
+            page.addAnnotation(annotation)
+            view.layoutDocumentView()
+
+            controller.presentLinkHints()
+            let overlay = controller.rootView.linkHintOverlay
+            let target = try #require(LinkHintMerge.mergeLinks(session.linkTargets()).first { $0.target == .url("https://example.invalid/pane-edge") })
+            let fullRect = view.convert(view.convert(target.rects[0], from: page), to: overlay)
+            let projected = try #require(session.linkHintRects(for: target, in: overlay).first)
+            let activeViewport = overlay.convert(view.visibleRect, from: view)
+            #expect(fullRect.intersects(activeViewport))
+            #expect(projected.width < fullRect.width)
+            #expect(activeViewport.contains(projected))
+        }
+    }
+
     @Test("two-character labels accept Shift and Caps Lock labels while rejecting command modifiers")
     func prefixAndModifierTransitions() throws {
         let overlay = LinkHintOverlayView(frame: .zero)
@@ -508,20 +544,51 @@ struct LinkHintIntegrationTests {
         overlay.didRejectInputForTesting = { rejected += 1 }
         overlay.onCommit = { commits.append($0) }
 
-        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "F", charactersIgnoringModifiers: "f", modifiers: [.shift]))))
-        #expect(overlay.currentPrefix == "f")
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "J", charactersIgnoringModifiers: "j", modifiers: [.shift]))))
+        #expect(overlay.currentPrefix == "j")
         #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "", keyCode: 51))))
         #expect(overlay.currentPrefix.isEmpty)
         overlay.dismiss()
-        overlay.present(hints: [(rects: [.zero], label: "f")])
-        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "F", charactersIgnoringModifiers: "f", modifiers: [.capsLock]))))
+        overlay.present(hints: [(rects: [.zero], label: "j")])
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "J", charactersIgnoringModifiers: "j", modifiers: [.capsLock]))))
         #expect(commits == [0])
 
         for modifier in [NSEvent.ModifierFlags.command, .control, .option] {
-            #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "f", modifiers: [modifier]))))
+            #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "j", modifiers: [modifier]))))
         }
         #expect(overlay.isPresenting)
         #expect(rejected == 3)
+    }
+
+    @Test("f cancels hints before, during, and after URL selection")
+    func fDismissesAtEveryHintState() throws {
+        let overlay = LinkHintOverlayView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
+        var dismissals = 0
+        overlay.onDismiss = { dismissals += 1; overlay.dismiss() }
+        let twoCharacterHints = LinkHintLabels.generate(count: 26).map {
+            (rects: [NSRect(x: 10, y: 10, width: 12, height: 8)], label: $0)
+        }
+
+        overlay.present(hints: twoCharacterHints)
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "f"))))
+        #expect(overlay.isHidden)
+
+        overlay.present(hints: twoCharacterHints)
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "j"))))
+        #expect(overlay.currentPrefix == "j")
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "f"))))
+        #expect(overlay.isHidden)
+
+        overlay.present(
+            hints: [(rects: [NSRect(x: 10, y: 10, width: 12, height: 8)], label: "j")],
+            urlHintIndices: [0],
+            urlHintURLs: [0: "https://example.invalid/link-hint"]
+        )
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "j"))))
+        #expect(overlay.selectedURLIndexForTesting != nil)
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "f"))))
+        #expect(overlay.isHidden)
+        #expect(dismissals == 3)
     }
 
     @Test("escape and mouse down cancel hints, restore focus, and pass the click to the PDF view")

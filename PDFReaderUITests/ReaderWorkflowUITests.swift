@@ -397,7 +397,7 @@ final class ReaderWorkflowUITests: XCTestCase {
             app.typeKey("c", modifierFlags: .shift)
             XCTAssertTrue(waitForStatus("status.experimentalMode", containing: "CITATION PREVIEW", in: app))
             let originalPage = status("status.page", in: app).labelOrValue
-            app.typeText("ff")
+            app.typeText("fj")
             let reference = app.textViews["citationPreview.referenceText"]
             XCTAssertTrue(reference.waitForExistence(timeout: 3))
             XCTAssertTrue(reference.labelOrValue.contains("Verified citation reference"))
@@ -408,7 +408,7 @@ final class ReaderWorkflowUITests: XCTestCase {
             add(attachment)
             app.typeKey(.escape, modifierFlags: [])
             XCTAssertEqual(status("status.page", in: app).labelOrValue, originalPage)
-            app.typeText("ff")
+            app.typeText("fj")
             XCTAssertTrue(reference.waitForExistence(timeout: 3))
             app.typeKey(.return, modifierFlags: [])
             XCTAssertTrue(waitForStatus("status.page", containing: "2 / 8", in: app))
@@ -453,7 +453,7 @@ final class ReaderWorkflowUITests: XCTestCase {
                 app.typeKey("c", modifierFlags: .shift)
                 XCTAssertTrue(waitForStatus("status.experimentalMode", containing: "CITATION PREVIEW", in: app))
                 let originalPage = status("status.page", in: app).labelOrValue
-                app.typeText("ff")
+                app.typeText("fj")
                 let reference = app.textViews["citationPreview.referenceText"]
                 XCTAssertTrue(reference.waitForExistence(timeout: 5), sample.name)
                 XCTAssertTrue(waitForStatus("citationPreviewOverlay", containing: "of \(sample.members)", in: app), sample.name)
@@ -482,7 +482,7 @@ final class ReaderWorkflowUITests: XCTestCase {
                 app.typeKey(.escape, modifierFlags: [])
                 XCTAssertFalse(reference.exists)
                 XCTAssertEqual(status("status.page", in: app).labelOrValue, originalPage)
-                app.typeText("ff")
+                app.typeText("fj")
                 XCTAssertTrue(reference.waitForExistence(timeout: 5))
                 app.typeKey(.return, modifierFlags: [])
                 XCTAssertTrue(waitForStatus("status.page", containing: "\(targetPage) /", in: app), sample.name)
@@ -513,7 +513,7 @@ final class ReaderWorkflowUITests: XCTestCase {
             app.typeText("gg")
             XCTAssertTrue(waitForStatus("status.page", containing: "1 / 8", in: app))
             app.typeKey("c", modifierFlags: .shift)
-            app.typeText("ff")
+            app.typeText("fj")
             let reference = app.textViews["citationPreview.referenceText"]
             XCTAssertTrue(reference.waitForExistence(timeout: 3))
             app.typeText("l")
@@ -536,7 +536,7 @@ final class ReaderWorkflowUITests: XCTestCase {
             XCTAssertTrue(waitForStatus("status.experimentalMode", containing: "CITATION PREVIEW", in: app))
             app.typeKey("w", modifierFlags: .command)
             XCTAssertTrue(tab(named: url.lastPathComponent, in: app).exists)
-            app.typeText("ff")
+            app.typeText("fj")
             XCTAssertTrue(reference.waitForExistence(timeout: 3))
             app.typeKey("w", modifierFlags: .command)
             XCTAssertTrue(tab(named: url.lastPathComponent, in: app).exists)
@@ -552,7 +552,7 @@ final class ReaderWorkflowUITests: XCTestCase {
             app.typeKey("o", modifierFlags: .command)
             try choosePDF(url, in: app)
             app.typeText("gg")
-            app.typeText("ff")
+            app.typeText("fj")
             XCTAssertTrue(reference.waitForExistence(timeout: 3))
             app.typeKey(.return, modifierFlags: .shift)
             let browserActivated = NSPredicate { _, _ in app.state == .runningBackground }
@@ -591,7 +591,7 @@ final class ReaderWorkflowUITests: XCTestCase {
             app.typeKey("c", modifierFlags: .shift)
             XCTAssertTrue(waitForStatus("status.experimentalMode", containing: "CITATION PREVIEW", in: app))
             // Preserve all 40 original annotations: hints have two characters.
-            for (label, author) in [("ff", "Xian"), ("fd", "Mazzetto"), ("ff", "Xian")] {
+            for (label, author) in [("jj", "Xian"), ("jk", "Mazzetto"), ("jj", "Xian")] {
                 app.typeText("f" + label)
                 XCTAssertTrue(reference.waitForExistence(timeout: 5), author)
                 XCTAssertTrue(reference.labelOrValue.contains(author), reference.labelOrValue)
@@ -602,7 +602,7 @@ final class ReaderWorkflowUITests: XCTestCase {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 4) { delay.fulfill() }
                 wait(for: [delay], timeout: 6)
             }
-            app.typeText("fff")
+            app.typeText("fjj")
             XCTAssertTrue(reference.waitForExistence(timeout: 5))
             app.typeKey(.return, modifierFlags: [])
             XCTAssertTrue(waitForStatus("status.page", containing: "\(targetPage) / 49", in: app))
@@ -610,7 +610,7 @@ final class ReaderWorkflowUITests: XCTestCase {
             XCTAssertTrue(waitForStatus("status.page", containing: "8 / 49", in: app))
             app.typeKey("w", modifierFlags: .command)
             try openTable()
-            app.typeText("fff")
+            app.typeText("fjj")
             XCTAssertTrue(reference.waitForExistence(timeout: 5))
             XCTAssertTrue(reference.labelOrValue.contains("Xian"))
             app.typeKey(.escape, modifierFlags: [])
@@ -641,7 +641,7 @@ final class ReaderWorkflowUITests: XCTestCase {
             app.typeKey("c", modifierFlags: .shift)
             XCTAssertTrue(waitForStatus("status.experimentalMode", containing: "CITATION PREVIEW", in: app))
             XCTAssertTrue(waitForStatus("status.page", containing: "1 / 49", in: app))
-            for hint in ["s", "l"] {
+            for hint in ["l", "a"] {
                 app.typeText("f" + hint)
                 let reference = app.textViews["citationPreview.referenceText"]
                 XCTAssertTrue(waitForStatus("citationPreviewOverlay", containing: "Yarowsky 1995", in: app))
@@ -669,13 +669,13 @@ final class ReaderWorkflowUITests: XCTestCase {
         typealias CitationCase = (page: Int, annotation: Int, hints: [String], key: String, required: [String], forbidden: [String])
         let inputs: [(String, [CitationCase])] = [
             ("ICML/2024-charmer.pdf", [
-                (1, 34, ["jh", "jr"], "Alzantot et al. 2018", ["Generating natural language", "2018"], ["Belinkov", "Gao,"]),
-                (2, 32, ["ft", "fb"], "Alzantot et al. 2018", ["Generating natural language", "2018"], ["Belinkov", "Gao,"])
+                (1, 34, ["du", "de"], "Alzantot et al. 2018", ["Generating natural language", "2018"], ["Belinkov", "Gao,"]),
+                (2, 32, ["jb", "jy"], "Alzantot et al. 2018", ["Generating natural language", "2018"], ["Belinkov", "Gao,"])
             ]),
             ("AISTATS/2023-last-iterate-zero-sum.pdf", [
-                (1, 24, ["fc", "fm"], "Daskalakis and Panageas 2019", ["Last-iterate", "27:1–27:18"], ["de Montbrun", "Renault"]),
-                (2, 1, ["fj", "fd"], "Sarin 1997", ["Learning through", "1997"], ["Bloembergen", "Cen,"]),
-                (2, 11, ["fe", "fi"], "Bauer et al. 2019", ["equilibria", "20190355"], ["Bena", "1999", "1996"])
+                (1, 24, ["jm", "jp"], "Daskalakis and Panageas 2019", ["Last-iterate", "27:1–27:18"], ["de Montbrun", "Renault"]),
+                (2, 1, ["jd", "jk"], "Sarin 1997", ["Learning through", "1997"], ["Bloembergen", "Cen,"]),
+                (2, 11, ["ji", "jw"], "Bauer et al. 2019", ["equilibria", "20190355"], ["Bena", "1999", "1996"])
             ])
         ]
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()

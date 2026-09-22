@@ -200,6 +200,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     func presentLinkHints() {
         dismissAllTransientOverlays(restoringContext: false)
+        rootView.layoutSubtreeIfNeeded()
         guard inputRouter.context == .navigation,
               let provider = coordinator.activeSession as? any ReaderLinkProviding,
               let session = coordinator.activeSession as? ReaderSession
@@ -212,6 +213,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             if !rects.isEmpty { displayed.append((link, rects)) }
         }
         guard !displayed.isEmpty else { return }
+        let activeViewport = (session.focusView as? ReaderPDFView).map { readerView in
+            let sourceViewport = readerView.visibleRect.isEmpty ? readerView.bounds : readerView.visibleRect
+            return rootView.linkHintOverlay.convert(sourceViewport, from: readerView)
+        }
         let labels = LinkHintLabels.generate(count: displayed.count)
         var urlHintURLs: [Int: String] = [:]
         for (index, item) in displayed.enumerated() {
@@ -245,9 +250,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             hints: zip(displayed, labels).map { (rects: $0.0.rects, label: $0.1) },
             urlHintIndices: Set(urlHintURLs.keys),
             urlHintURLs: urlHintURLs,
-            skipsURLConfirmation: resolvedConfig.config.links.skipExternalLinkHintConfirmation
+            skipsURLConfirmation: resolvedConfig.config.links.skipExternalLinkHintConfirmation,
+            viewport: activeViewport
         )
         window?.makeFirstResponder(rootView.linkHintOverlay)
+        rootView.linkHintOverlay.layoutSubtreeIfNeeded()
     }
 
     func dismissLinkHintsAndRestoreFocus() {

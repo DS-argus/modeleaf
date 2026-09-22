@@ -2,8 +2,8 @@ import Foundation
 
 /// Generates Vimium-style, prefix-free labels for on-screen PDF links.
 public enum LinkHintLabels {
-    /// Home-row-first alphabet so common hints use the easiest keys.
-    public static let defaultAlphabet = Array("fjdkslaghrueiwoncmpvtbyzxq")
+    /// Home-row-first alphabet; f is reserved for dismissing link hints.
+    public static let defaultAlphabet = Array("jdkslaghrueiwoncmpvtbyzxq")
 
     /// Returns unique labels of one shared length. Equal lengths make the labels
     /// prefix-free and ensure a completed label is unambiguous.

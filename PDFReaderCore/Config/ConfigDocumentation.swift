@@ -38,7 +38,7 @@ public enum ConfigDocumentation {
             "skip_external_link_hint_confirmation = false",
             "```",
             "",
-            "External URL hints display the destination URL on selection without opening it. Press Enter once to open it, or Escape to close the prompt. Held-key repeats do not open links. Set `links.skip_external_link_hint_confirmation = true` to activate external hints immediately. Internal PDF destinations and mouse links are unchanged.",
+            "Link hints are confined to the active pane. Press f or Escape while hints are open to dismiss them; hint labels reserve f and never contain it. External URL hints display the destination URL on selection without opening it. Press Enter once to open it, or Escape to close the prompt. Held-key repeats do not open links. Set `links.skip_external_link_hint_confirmation = true` to activate external hints immediately. Internal PDF destinations and mouse links are unchanged.",
             "",
             "## Key grammar",
             "",

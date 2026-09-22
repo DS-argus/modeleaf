@@ -22,17 +22,25 @@ struct LinkHintLabelsTests {
 
     @Test("small counts use home-row-first single-character labels")
     func smallCountsUseHomeRowCharacters() {
-        #expect(LinkHintLabels.generate(count: 3) == ["f", "j", "d"])
+        #expect(LinkHintLabels.generate(count: 3) == ["j", "d", "k"])
     }
 
     @Test("labels grow from one to two characters above the alphabet size")
     func labelLengthGrowsAtCapacity() {
-        #expect(LinkHintLabels.generate(count: 26).allSatisfy { $0.count == 1 })
-        #expect(LinkHintLabels.generate(count: 27).allSatisfy { $0.count == 2 })
+        #expect(LinkHintLabels.generate(count: 25).allSatisfy { $0.count == 1 })
+        #expect(LinkHintLabels.generate(count: 26).allSatisfy { $0.count == 2 })
     }
 
     @Test("generation is deterministic")
     func generationIsDeterministic() {
         #expect(LinkHintLabels.generate(count: 100) == LinkHintLabels.generate(count: 100))
+    }
+    @Test("default hints never conflict with f dismissal", arguments: [1, 25, 26, 625, 626])
+    func reservedDismissKey(count: Int) {
+        let labels = LinkHintLabels.generate(count: count)
+        #expect(labels.count == count)
+        #expect(Set(labels).count == count)
+        #expect(labels.allSatisfy { !$0.contains("f") })
+        #expect(Set(labels.map(\.count)).count == 1)
     }
 }
