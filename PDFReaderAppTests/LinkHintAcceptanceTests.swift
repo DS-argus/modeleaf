@@ -109,6 +109,15 @@ struct LinkHintAcceptanceTests {
             defer { controller.close(); while coordinator.closeActiveTab() {} }
             #expect(coordinator.insert(first, into: .createIfEmpty))
             let inactivePane = try #require(coordinator.activePaneID)
+            // Splitting duplicates the source viewport. Mount the source first;
+            // an unlaid-out PDFView does not provide a stable reading position.
+            controller.rootView.layoutSubtreeIfNeeded()
+            controller.window?.contentView?.layoutSubtreeIfNeeded()
+            first.contentView.layoutSubtreeIfNeeded()
+            let sourceView = try #require(descendantReaderPDFViews(in: first.contentView).only)
+            sourceView.layoutDocumentView()
+            try #require(first.initialPresentationState == .applied)
+            try #require(first.linkTargets().count == 6)
             let activePane = try #require(coordinator.split(direction: .sideBySide))
             let active = try #require(coordinator.activeSession as? ReaderSession)
             let inactiveView = try #require(descendantReaderPDFViews(in: first.contentView).only)
@@ -124,16 +133,7 @@ struct LinkHintAcceptanceTests {
             try #require(active.initialPresentationState == .applied)
             try #require(activeView.bounds.width > 1 && activeView.bounds.height > 1)
             try #require(active.currentPageNumber == 1)
-            // PDFKit can publish visiblePages after the split view has completed
-            // layout. Wait for that observable state before sending the single f.
-            let deadline = Date().addingTimeInterval(5)
-            while activeView.visiblePages.isEmpty, Date() < deadline {
-                RunLoop.current.run(until: Date().addingTimeInterval(0.01))
-                activeView.layoutDocumentView()
-            }
-            try #require(!activeView.visiblePages.isEmpty)
-            try #require(active.linkTargets().count == 6,
-                         "visible pages=\(activeView.visiblePages.map { activeView.document?.index(for: $0) ?? -1 }), annotation counts=\(activeView.visiblePages.map { $0.annotations.count }), document counts=\((0..<(activeView.document?.pageCount ?? 0)).map { activeView.document?.page(at: $0)?.annotations.count ?? -1 }), current=\(active.currentPageNumber ?? -1)")
+            try #require(active.linkTargets().count == 6)
             #expect(coordinator.activePaneID == activePane)
             #expect(route("f", through: controller))
             #expect(!controller.rootView.linkHintOverlay.isHidden)
