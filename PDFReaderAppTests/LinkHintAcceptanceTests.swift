@@ -118,6 +118,12 @@ struct LinkHintAcceptanceTests {
             activeView.followLinkHandler = { opened.append($0) }
 
             controller.rootView.layoutSubtreeIfNeeded()
+            controller.window?.contentView?.layoutSubtreeIfNeeded()
+            active.contentView.layoutSubtreeIfNeeded()
+            activeView.layoutDocumentView()
+            try #require(active.initialPresentationState == .applied)
+            try #require(activeView.bounds.width > 1 && activeView.bounds.height > 1)
+            try #require(active.currentPageNumber == 1)
             #expect(coordinator.activePaneID == activePane)
             #expect(route("f", through: controller))
             #expect(!controller.rootView.linkHintOverlay.isHidden)
