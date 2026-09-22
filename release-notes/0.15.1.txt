@@ -1,0 +1,2 @@
+- Show citation preview state only through its badge, without persistent ON/OFF notices; actual setting-save errors remain visible.
+- Use a softer rose-red citation preview badge with theme-aware contrast on light and dark backgrounds.
