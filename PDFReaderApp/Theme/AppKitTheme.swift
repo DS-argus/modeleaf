@@ -26,6 +26,12 @@ struct AppKitTheme {
     var tabBarBackground: NSColor {
         self[.inactiveTab].blended(withFraction: 0.28, of: self[.background]) ?? self[.inactiveTab]
     }
+    var citationPreviewAccent: NSColor {
+        let hex = id == .catppuccinLatte ? 0xA64B50 : 0xC87878
+        return NSColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
+                       green: CGFloat((hex >> 8) & 0xFF) / 255,
+                       blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+    }
     var focusRing: NSColor { self[.focusIndicator] }
 
     var hover: NSColor {

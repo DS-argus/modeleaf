@@ -172,7 +172,7 @@ final class StatusBarView: NSView {
         errorButton.contentTintColor = theme[.error]
         fitPagePill.render(presentation.mode, accent: theme[.accent])
         searchModePill.render(presentation.isSearchMode ? "SEARCH" : "", accent: theme[.accent])
-        experimentalPill.render(presentation.isExperimentalMode ? "CITATION PREVIEW" : "", accent: .systemRed, filled: false)
+        experimentalPill.render(presentation.isExperimentalMode ? "CITATION PREVIEW" : "", accent: theme.citationPreviewAccent, filled: false)
         noticePill.render(Self.noticeText(from: presentation.transientNotice), accent: Self.noticeAccent)
         versionLabel.textColor = theme[.mutedText]
         needsLayout = true
@@ -330,7 +330,7 @@ final class StatusBarView: NSView {
         let accent = theme?[.accent]
         fitPagePill.render(presentation.mode, accent: accent)
         searchModePill.render(presentation.isSearchMode ? "SEARCH" : "", accent: accent)
-        experimentalPill.render(presentation.isExperimentalMode ? "CITATION PREVIEW" : "", accent: .systemRed, filled: false)
+        experimentalPill.render(presentation.isExperimentalMode ? "CITATION PREVIEW" : "", accent: theme?.citationPreviewAccent, filled: false)
         noticePill.render(Self.noticeText(from: presentation.transientNotice), accent: Self.noticeAccent)
         prefixLabel.stringValue = presentation.pendingPrefix == "y" || presentation.pendingPrefix.isEmpty
             ? ""

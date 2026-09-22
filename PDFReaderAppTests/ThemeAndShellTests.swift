@@ -376,7 +376,7 @@ struct ThemeAndShellTests {
         #expect(!bar.visibleStatusIdentifiersForTesting.contains("status.experimentalMode"))
     }
 
-    @Test("experimental mode stays red across themes and coexists with SEARCH")
+    @Test("experimental mode uses muted rose across themes and coexists with SEARCH")
     func experimentalModePill() throws {
         let bar = StatusBarView(frame: CGRect(x: 0, y: 0, width: 1100, height: 32))
         var state = StatusBarPresentation.empty
@@ -389,11 +389,11 @@ struct ThemeAndShellTests {
             bar.apply(theme: AppKitTheme(themeID: themeID))
             #expect(label.stringValue == "CITATION PREVIEW")
             #expect(label.superview?.isHidden == false)
-            #expect(label.textColor?.hexRGB == NSColor.systemRed.hexRGB)
+            #expect(label.textColor?.hexRGB == (themeID == .catppuccinLatte ? "#A64B50" : "#C87878"))
             let background = try #require(label.superview?.layer?.backgroundColor.flatMap(NSColor.init(cgColor:)))
             let border = try #require(label.superview?.layer?.borderColor.flatMap(NSColor.init(cgColor:)))
             #expect(background.alphaComponent == 0)
-            #expect(border.hexRGB == NSColor.systemRed.hexRGB)
+            #expect(border.hexRGB == (themeID == .catppuccinLatte ? "#A64B50" : "#C87878"))
             #expect(abs(border.alphaComponent - 0.55) < 0.001)
             #expect(search.superview?.layer?.backgroundColor?.alpha == 0.16)
             #expect(search.stringValue == "SEARCH")
