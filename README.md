@@ -23,6 +23,26 @@ https://github.com/user-attachments/assets/1fd81fb3-b600-403c-bcfb-5365aa867503
 - Fit, zoom, rotation, history, and system printing
 - TOML-configurable commands and reader behavior
 
+## Experimental Features
+
+### Citation preview
+
+Preview cited references without leaving the text you are reading.
+
+- **Enable:** Press `Shift+C` to toggle. It defaults to OFF, and your choice is saved.
+- **Use:** Press `f` to show link hints, then select a citation link.
+- **Navigate:** Use `h` / `l` or `Tab` / `Shift+Tab` to switch references, `Enter` to jump to the reference, `Shift+Enter` to search for it on Google Scholar, and `Esc` to close.
+- **Representative citation formats:** Support focuses on formats commonly used in AI conference papers, such as `[1]`, `[1,3]`, `[1–3]`, `(1; 2)`, `(Author, 2020)`, `(Author, 2020a,b)`, and `[HKR16; Pat+23]`.
+
+The PDF must contain existing internal citation links. Depending on its link structure, text, and layout, some references may be unavailable or extracted incorrectly. Superscript citations and citations without links are outside the supported scope.
+
+<details>
+<summary>View citation preview screenshot</summary>
+
+![Citation preview showing Pearl and Mackenzie 2018 in Counterfactual Structural Causal Bandits](Assets/CitationPreview.png)
+
+</details>
+
 ## Install
 
 ```sh

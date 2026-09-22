@@ -79,7 +79,7 @@ struct CitationPreviewTests {
             ("D16-labeldp-pro.pdf", 0, [31, 32], 1, nil),
         ]
         for (file, pageIndex, indices, count, context) in cases {
-            let url = URL(fileURLWithPath: "docs/citation-papers/\(file)")
+            let url = URL(fileURLWithPath: "test-pdf/citation-verification/mapped/\(file)")
             guard citationFixtureExists(atPath: url.path) else { continue }
             let document = try #require(PDFDocument(url: url))
             let page = try #require(document.page(at: pageIndex))
@@ -101,7 +101,7 @@ struct CitationPreviewTests {
                 }
             }
         }
-        let noteURL = URL(fileURLWithPath: "docs/citation-papers/D16-labeldp-pro.pdf")
+        let noteURL = URL(fileURLWithPath: "test-pdf/citation-verification/mapped/D16-labeldp-pro.pdf")
         if citationFixtureExists(atPath: noteURL.path) {
             let document = try #require(PDFDocument(url: noteURL))
             let page = try #require(document.page(at: 7))
@@ -117,7 +117,7 @@ struct CitationPreviewTests {
             ("D15-improving-bandits.pdf", [4, 5], ["HKR16", "Pat+23"]),
             ("D16-labeldp-pro.pdf", [33], ["app"]),
         ] {
-            let url = URL(fileURLWithPath: "docs/citation-papers/\(file)")
+            let url = URL(fileURLWithPath: "test-pdf/citation-verification/mapped/\(file)")
             guard citationFixtureExists(atPath: url.path) else { continue }
             let document = try #require(PDFDocument(url: url))
             let page = try #require(document.page(at: 0))
@@ -293,7 +293,7 @@ struct CitationPreviewTests {
             ("D04-spegc.pdf", 0, Array(9...14), [44, 45, 46, 56, 61, 69, 70]),
         ]
         for (file, pageIndex, annotations, members) in cases {
-            let url = URL(fileURLWithPath: "docs/citation-papers/\(file)")
+            let url = URL(fileURLWithPath: "test-pdf/citation-verification/mapped/\(file)")
             guard citationFixtureExists(atPath: url.path) else { continue }
             let document = try #require(PDFDocument(url: url))
             let page = try #require(document.page(at: pageIndex))
@@ -952,7 +952,7 @@ struct CitationPreviewTests {
     }
     @Test("D03 N05 resolves [24] against the supplemental bibliography, not main references")
     func neuralPlexerSupplementalSingleContract() throws {
-        let path = "docs/citation-papers/D03-neuralplexer3.pdf"
+        let path = "test-pdf/citation-verification/mapped/D03-neuralplexer3.pdf"
         guard citationFixtureExists(atPath: path) else { return }
         let document = try #require(PDFDocument(url: URL(fileURLWithPath: path)))
         let sourcePage = try #require(document.page(at: 27))
@@ -1192,6 +1192,52 @@ struct CitationPreviewTests {
         #expect(yearGroup.items.allSatisfy { $0.isResolved })
         #expect(try PDFFixtureFactory.sha256(of: ambiguousURL) == ambiguousBefore)
     }
+    @Test("author contribution markers preserve bibliography boundaries without changing text")
+    func authorContributionMarkerBoundaryContract() {
+        for text in [
+            "Siyuan Guo*, Viktor Tóth*, Bernhard Schölkopf, and",
+            "Alice Example*, Bob Other, and Carol Third.",
+            "Example*, A. and Other, B. 2023. A reference.",
+            "Alice Example**, Bob Other. 2023. A reference."
+        ] {
+            #expect(CitationReferenceEntryExtractor.isReferenceStart(text))
+        }
+        for text in ["In NeurIPS.*", "A Continuation*", "Deep Learning*", "continuation * text"] {
+            #expect(!CitationReferenceEntryExtractor.isReferenceStart(text))
+        }
+    }
+
+    @Test("D14 Guo 2025 excludes the following starred-author reference")
+    func structuralInformationReferenceBoundaryContract() throws {
+        let path = "test-pdf/citation-verification/mapped/D14-structural-information.pdf"
+        guard citationFixtureExists(atPath: path) else { return }
+        let url = URL(fileURLWithPath: path)
+        let before = try PDFFixtureFactory.sha256(of: url)
+        let document = try #require(PDFDocument(url: url))
+        let page = try #require(document.page(at: 0))
+        let resolver = CitationPreviewResolver(document: document)
+        for index in [1, 2] {
+            let annotation = page.annotations[index]
+            let destination = try #require(target(for: annotation, in: document))
+            #expect(destination == .goTo(pageIndex: 9, point: CGPoint(x: 65.875, y: 739.138)))
+            let link = ReaderLink(sourcePageIndex: 0, rects: [annotation.bounds],
+                                  target: destination, primaryLabelRect: annotation.bounds)
+            guard case let .preview(group) = resolver.resolve(link) else {
+                Issue.record("D14 author and year must both preview Guo 2025")
+                continue
+            }
+            #expect(group.items.count == 1)
+            let item = group.items[group.selectedIndex]
+            #expect(item.isResolved)
+            #expect(item.destination == destination)
+            #expect(item.referenceText.hasPrefix("Siyuan Guo and Bernhard Schölkopf. 2025."))
+            #expect(item.referenceText.contains("2509.21049"))
+            #expect(!item.referenceText.contains("Viktor"))
+            #expect(!item.referenceText.contains("2023"))
+            #expect(!item.referenceText.contains("Causal de finetti"))
+        }
+        #expect(try PDFFixtureFactory.sha256(of: url) == before)
+    }
     @Test("additional corpus boundaries preserve exact author-year targets and stop at successor authors")
     func additionalCitationRepairContracts() throws {
         let cases: [(path: String, sourcePage: Int, annotation: Int, target: ReaderLinkTarget, label: String, group: [String], prefix: String, rejected: [String])] = [
@@ -1322,7 +1368,7 @@ struct CitationPreviewTests {
             ("D13-charmer.pdf", 1, Array(34...40), 4),
         ]
         for (file, pageIndex, indices, count) in cases {
-            let url = URL(fileURLWithPath: "docs/citation-papers/\(file)")
+            let url = URL(fileURLWithPath: "test-pdf/citation-verification/mapped/\(file)")
             guard citationFixtureExists(atPath: url.path) else { continue }
             let document = try #require(PDFDocument(url: url))
             let page = try #require(document.page(at: pageIndex))
@@ -1371,7 +1417,7 @@ struct CitationPreviewTests {
             ("D08-grammaticality.pdf", 5, [29], "Mikolov 2012", 8),
         ]
         for fixture in cases {
-            let path = "docs/citation-papers/\(fixture.file)"
+            let path = "test-pdf/citation-verification/mapped/\(fixture.file)"
             guard citationFixtureExists(atPath: path) else { continue }
             let document = try #require(PDFDocument(url: URL(fileURLWithPath: path)))
             let page = try #require(document.page(at: fixture.sourcePage))

@@ -428,7 +428,7 @@ final class ReaderWorkflowUITests: XCTestCase {
             ("locator", "D18-orthogonal-manifold.pdf", 5, [6, 7], 1),
         ]
         for sample in cases {
-            let original = root.appendingPathComponent("docs/citation-papers/\(sample.file)")
+            let original = root.appendingPathComponent("test-pdf/citation-verification/mapped/\(sample.file)")
             guard FileManager.default.fileExists(atPath: original.path) else {
                 throw XCTSkip("Local research fixture unavailable: \(sample.file)")
             }
@@ -662,6 +662,67 @@ final class ReaderWorkflowUITests: XCTestCase {
             }
             XCTAssertEqual(try sha256(copy), originalHash)
             XCTAssertEqual(try sha256(original), originalHash)
+        }
+    }
+    @MainActor
+    func testE2E21OriginalCharmerAndAISTATSCitationsPreserveReferences() throws {
+        typealias CitationCase = (page: Int, annotation: Int, hints: [String], key: String, required: [String], forbidden: [String])
+        let inputs: [(String, [CitationCase])] = [
+            ("ICML/2024-charmer.pdf", [
+                (1, 34, ["jh", "jr"], "Alzantot et al. 2018", ["Generating natural language", "2018"], ["Belinkov", "Gao,"]),
+                (2, 32, ["ft", "fb"], "Alzantot et al. 2018", ["Generating natural language", "2018"], ["Belinkov", "Gao,"])
+            ]),
+            ("AISTATS/2023-last-iterate-zero-sum.pdf", [
+                (1, 24, ["fc", "fm"], "Daskalakis and Panageas 2019", ["Last-iterate", "27:1–27:18"], ["de Montbrun", "Renault"]),
+                (2, 1, ["fj", "fd"], "Sarin 1997", ["Learning through", "1997"], ["Bloembergen", "Cen,"]),
+                (2, 11, ["fe", "fi"], "Bauer et al. 2019", ["equilibria", "20190355"], ["Bena", "1999", "1996"])
+            ])
+        ]
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        for (path, cases) in inputs {
+            let original = root.appendingPathComponent("test-pdf/citation-annotation-corpus/" + path)
+            guard FileManager.default.fileExists(atPath: original.path) else { throw XCTSkip("Local original fixture unavailable: \(path)") }
+            try withEnvironment { environment, app in
+                let originalHash = try sha256(original)
+                let copy = environment.fixtures.appendingPathComponent(original.lastPathComponent)
+                try FileManager.default.copyItem(at: original, to: copy)
+                let document = try XCTUnwrap(PDFDocument(url: copy))
+                app.typeKey("o", modifierFlags: .command)
+                try choosePDF(copy, in: app)
+                XCTAssertTrue(waitForStatus("status.page", containing: "1 / \(document.pageCount)", in: app))
+                app.activate()
+                app.typeKey("f", modifierFlags: .shift)
+                app.typeKey("c", modifierFlags: .shift)
+                XCTAssertTrue(waitForStatus("status.experimentalMode", containing: "CITATION PREVIEW", in: app))
+                for item in cases {
+                    let source = try XCTUnwrap(document.page(at: item.page - 1))
+                    let destination = try XCTUnwrap((source.annotations[item.annotation].action as? PDFActionGoTo)?.destination)
+                    let target = try XCTUnwrap(destination.page)
+                    let targetPage = document.index(for: target) + 1
+                    app.typeText("\(item.page)gg")
+                    XCTAssertTrue(waitForStatus("status.page", containing: "\(item.page) / \(document.pageCount)", in: app))
+                    app.typeKey("f", modifierFlags: .shift)
+                    for hint in item.hints {
+                        app.typeText("f" + hint)
+                        let reference = app.textViews["citationPreview.referenceText"]
+                        XCTAssertTrue(waitForStatus("citationPreviewOverlay", containing: item.key, in: app))
+                        XCTAssertTrue(reference.waitForExistence(timeout: 3))
+                        for text in item.required { XCTAssertTrue(reference.labelOrValue.contains(text), "Missing \(text): \(path) \(hint)") }
+                        for text in item.forbidden { XCTAssertFalse(reference.labelOrValue.contains(text), "Contamination \(text): \(path) \(hint)") }
+                        XCTAssertTrue(waitForStatus("status.page", containing: "\(item.page) / \(document.pageCount)", in: app))
+                        let image = XCTAttachment(screenshot: app.screenshot())
+                        image.name = "original-\(original.deletingPathExtension().lastPathComponent)-p\(item.page)-\(hint)"
+                        image.lifetime = .keepAlways
+                        add(image)
+                        app.typeKey(.return, modifierFlags: [])
+                        XCTAssertTrue(waitForStatus("status.page", containing: "\(targetPage) / \(document.pageCount)", in: app))
+                        app.typeKey("o", modifierFlags: .control)
+                        XCTAssertTrue(waitForStatus("status.page", containing: "\(item.page) / \(document.pageCount)", in: app))
+                    }
+                }
+                XCTAssertEqual(try sha256(copy), originalHash)
+                XCTAssertEqual(try sha256(original), originalHash)
+            }
         }
     }
     @MainActor

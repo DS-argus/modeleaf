@@ -450,8 +450,8 @@ enum CitationReferenceEntryExtractor {
     static func isReferenceStart(_ text: String) -> Bool {
         let normalized = normalizedPDFGlyphSpacing(text).trimmingCharacters(in: .whitespacesAndNewlines)
         guard normalized.range(of: #"^(?:In|A|An|The)\s"#, options: .regularExpression) == nil else { return false }
-        let authorWithInitial = #"(?:\p{Lu}[\p{L}'’\-]*|(?:de|del|di|da|du|la|le|van|von|der|den)\s+\p{Lu}[\p{L}'’\-]*)\s*,\s*\p{Lu}(?:[\p{L}.'’\-]*)"#
-        let pattern = #"^\s*(?:\[[^\]]+\]|[0-9]{1,4}\.[ \t]+\S|"# + authorWithInitial + #"|(?:\p{Lu}[\p{L}'’\.\-]*\s+){1,4}\p{Lu}[\p{L}'’\-]*[,.])"#
+        let authorWithInitial = #"(?:\p{Lu}[\p{L}'’\-]*|(?:de|del|di|da|du|la|le|van|von|der|den)\s+\p{Lu}[\p{L}'’\-]*)\**\s*,\s*\p{Lu}(?:[\p{L}.'’\-]*)"#
+        let pattern = #"^\s*(?:\[[^\]]+\]|[0-9]{1,4}\.[ \t]+\S|"# + authorWithInitial + #"|(?:\p{Lu}[\p{L}'’\.\-]*\s+){1,4}\p{Lu}[\p{L}'’\-]*\**[,.])"#
         return normalized.range(of: pattern, options: .regularExpression) != nil
     }
 
