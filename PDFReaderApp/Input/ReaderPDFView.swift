@@ -151,7 +151,7 @@ final class ReaderPDFView: PDFView {
     /// left untouched).
     override func resetCursorRects() {
         super.resetCursorRects()
-        for page in visiblePages {
+        for page in pagesIntersectingViewport {
             for annotation in page.annotations where annotation.type == "Link" || annotation.action != nil || annotation.url != nil {
                 addCursorRect(convert(annotation.bounds, from: page), cursor: .pointingHand)
             }
@@ -393,6 +393,33 @@ final class ReaderPDFView: PDFView {
     var pageAtViewportCenter: PDFPage? {
         guard bounds.width > 1, bounds.height > 1 else { return currentPage }
         return page(for: NSPoint(x: bounds.midX, y: bounds.midY), nearest: true) ?? currentPage
+    }
+    /// PDFKit's visiblePages can lag behind clip-view scrolling and split layout.
+    /// Resolve the visible range from the same geometry used by navigation instead.
+    var pagesIntersectingViewport: [PDFPage] {
+        guard let document, bounds.width > 1, bounds.height > 1 else { return [] }
+        let points: [NSPoint]
+        if displayMode == .singlePage {
+            points = [NSPoint(x: bounds.midX, y: bounds.midY)]
+        } else {
+            points = [bounds.minY + 1, bounds.midY, bounds.maxY - 1].map {
+                NSPoint(x: bounds.midX, y: $0)
+            }
+        }
+        let indices = points.compactMap { point -> Int? in
+            guard let page = page(for: point, nearest: true) else { return nil }
+            let index = document.index(for: page)
+            return (0..<document.pageCount).contains(index) ? index : nil
+        }
+        guard let first = indices.min(), let last = indices.max() else { return [] }
+        return (first...last).compactMap { index in
+            guard let page = document.page(at: index) else { return nil }
+            let rect = displayedRect(of: page)
+            guard rect.minX.isFinite, rect.minY.isFinite,
+                  rect.width.isFinite, rect.height.isFinite,
+                  rect.intersects(bounds) else { return nil }
+            return page
+        }
     }
     /// The on-screen rectangle of `page`, including scale and rotation.
     func displayedRect(of page: PDFPage) -> NSRect {

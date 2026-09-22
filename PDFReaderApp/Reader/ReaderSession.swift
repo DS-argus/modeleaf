@@ -760,6 +760,13 @@ extension ReaderSession: ReaderLinkProviding {
         return viewController.linkTargets()
     }
 
+    func applyCitationPreviewEnabled(_ enabled: Bool) {
+        viewController.applyCitationPreviewEnabled(enabled)
+    }
+    func resolveLinkHint(_ link: ReaderLink) -> LinkHintResolution {
+        guard !isClosed else { return .activate(link.target) }
+        return viewController.resolveLinkHint(link)
+    }
     func activateLink(_ target: ReaderLinkTarget) {
         guard !isClosed else { return }
         switch target {

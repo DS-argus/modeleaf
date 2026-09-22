@@ -13,6 +13,7 @@ struct StatusBarPresentation: Equatable {
     var zoom: String
     var mode: String = ""
     var isSearchMode: Bool = false
+    var isExperimentalMode: Bool = false
     var transientNotice: String = ""
     var pendingPrefix: String
     var documentPath: String = ""
@@ -41,6 +42,7 @@ final class StatusBarView: NSView {
     private let pathLabel = StatusBarView.makeLabel(identifier: "status.path", monospaced: false)
     private let copiedLabel = StatusBarView.makeLabel(identifier: "status.copied", monospaced: true)
     private let searchModePill = StatusModePillView(identifier: "status.searchMode", accessibilityLabel: "Search mode")
+    private let experimentalPill = StatusModePillView(identifier: "status.experimentalMode", accessibilityLabel: "Experimental citation preview enabled")
     private let noticePill = StatusModePillView(identifier: "status.notice", accessibilityLabel: "Temporary status")
     private let versionLabel = StatusBarView.makeLabel(identifier: "status.version", monospaced: true)
     private let updateButton = StatusUpdateButton(title: "", target: nil, action: nil)
@@ -96,7 +98,7 @@ final class StatusBarView: NSView {
 
         for view in [
             helpButton, pageLabel, zoomLabel, prefixLabel, detailLabel,
-            fitPagePill, pathLabel, copiedLabel, searchModePill, noticePill,
+            fitPagePill, pathLabel, copiedLabel, searchModePill, experimentalPill, noticePill,
             versionLabel, updateButton, errorButton,
         ] {
             // This view owns the horizontal policy.  None of these subviews
@@ -170,6 +172,7 @@ final class StatusBarView: NSView {
         errorButton.contentTintColor = theme[.error]
         fitPagePill.render(presentation.mode, accent: theme[.accent])
         searchModePill.render(presentation.isSearchMode ? "SEARCH" : "", accent: theme[.accent])
+        experimentalPill.render(presentation.isExperimentalMode ? "CITATION PREVIEW" : "", accent: .systemRed, filled: false)
         noticePill.render(Self.noticeText(from: presentation.transientNotice), accent: Self.noticeAccent)
         versionLabel.textColor = theme[.mutedText]
         needsLayout = true
@@ -307,7 +310,7 @@ final class StatusBarView: NSView {
     var visibleStatusIdentifiersForTesting: Set<String> {
         [
             helpButton, pageLabel, zoomLabel, prefixLabel, detailLabel,
-            fitPagePill, pathLabel, copiedLabel, searchModePill, noticePill,
+            fitPagePill, pathLabel, copiedLabel, searchModePill, experimentalPill, noticePill,
             versionLabel, updateButton, errorButton,
         ].reduce(into: Set<String>()) { result, view in
             guard !view.isHidden else { return }
@@ -327,6 +330,7 @@ final class StatusBarView: NSView {
         let accent = theme?[.accent]
         fitPagePill.render(presentation.mode, accent: accent)
         searchModePill.render(presentation.isSearchMode ? "SEARCH" : "", accent: accent)
+        experimentalPill.render(presentation.isExperimentalMode ? "CITATION PREVIEW" : "", accent: .systemRed, filled: false)
         noticePill.render(Self.noticeText(from: presentation.transientNotice), accent: Self.noticeAccent)
         prefixLabel.stringValue = presentation.pendingPrefix == "y" || presentation.pendingPrefix.isEmpty
             ? ""
@@ -347,7 +351,7 @@ final class StatusBarView: NSView {
         if let theme {
             detailLabel.textColor = presentation.tone == .error ? theme[.error] : theme[.mutedText]
         }
-        let visibleModes = [presentation.mode, presentation.isSearchMode ? "SEARCH" : ""].filter { !$0.isEmpty }
+        let visibleModes = [presentation.mode, presentation.isSearchMode ? "SEARCH" : "", presentation.isExperimentalMode ? "CITATION PREVIEW" : ""].filter { !$0.isEmpty }
         let modeDescription = visibleModes.isEmpty ? "" : ", modes \(visibleModes.joined(separator: ", "))"
         let noticeDescription = presentation.transientNotice.isEmpty ? "" : ", status \(presentation.transientNotice)"
         let pathDescription = presentation.documentPath.isEmpty ? "" : ", path \(presentation.documentPath)"
@@ -366,7 +370,7 @@ final class StatusBarView: NSView {
     private func layoutResponsiveStatusBar() {
         let allViews: [NSView] = [
             helpButton, pageLabel, zoomLabel, prefixLabel, detailLabel,
-            fitPagePill, pathLabel, copiedLabel, searchModePill, noticePill,
+            fitPagePill, pathLabel, copiedLabel, searchModePill, experimentalPill, noticePill,
             versionLabel, updateButton, errorButton,
         ]
         allViews.forEach { view in
@@ -434,6 +438,9 @@ final class StatusBarView: NSView {
             }
             if searchBadgeVisible {
                 result.append(LayoutItem(id: "status.searchMode", view: searchModePill, width: searchModePill.requiredWidth))
+            }
+            if presentation.isExperimentalMode {
+                result.append(LayoutItem(id: "status.experimentalMode", view: experimentalPill, width: experimentalPill.requiredWidth))
             }
             // Notices are badges, so the path always follows the final
             // visible badge and remains left anchored.
@@ -759,14 +766,14 @@ private final class StatusModePillView: NSView {
         return ceil(label.intrinsicContentSize.width) + 14
     }
 
-    func render(_ text: String, accent: NSColor?) {
+    func render(_ text: String, accent: NSColor?, filled: Bool = true) {
         label.stringValue = text
         isHidden = text.isEmpty
         setAccessibilityValue(text)
         label.isHidden = text.isEmpty
         guard let accent else { return }
         label.textColor = accent
-        layer?.backgroundColor = accent.withAlphaComponent(0.16).cgColor
+        layer?.backgroundColor = (filled ? accent.withAlphaComponent(0.16) : NSColor.clear).cgColor
         layer?.borderColor = accent.withAlphaComponent(0.55).cgColor
         layer?.borderWidth = 1
     }

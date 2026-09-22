@@ -43,6 +43,7 @@ final class ReaderRootView: NSView {
     let recentFilesOverlay = RecentFilesOpenOverlayView()
     let helpOverlay = HelpOverlayView()
     let linkHintOverlay = LinkHintOverlayView()
+    let citationPreviewOverlay = CitationPreviewOverlayView()
     private let contentHost = NSView()
     private let paneContainer = PaneContainerView(orientation: .sideBySide, accessibilityIdentifier: "paneContainer")
     private let leadingBandHost = BandHost()
@@ -62,6 +63,7 @@ final class ReaderRootView: NSView {
     var onPaneSelect: ((PaneID, TabID) -> Void)?
     var onPaneClose: ((PaneID, TabID) -> Void)?
     var onPaneNewTab: ((PaneID) -> Void)?
+    private var isCitationPreviewEnabled = false
     private var currentStatus = StatusBarPresentation.empty
     private var renderedSessionSnapshot: ReaderSessionStoreSnapshot?
     private var transientNoticeTask: Task<Void, Never>?
@@ -92,7 +94,7 @@ final class ReaderRootView: NSView {
             self.innerDividerPositions[pair] = position
         }
         tabBar.onActiveTabGeometryChange = { [weak self] in self?.synchronizeCanvasFocusGeometry() }
-        for view in [tabBar, contentHost, statusBar, promptOverlay, themePickerOverlay, linkIndicatorPickerOverlay, updateInstructionsOverlay, commandPaletteOverlay, recentFilesOverlay, helpOverlay, linkHintOverlay] { view.prepareForAutoLayout(); addSubview(view) }
+        for view in [tabBar, contentHost, statusBar, promptOverlay, themePickerOverlay, linkIndicatorPickerOverlay, updateInstructionsOverlay, commandPaletteOverlay, recentFilesOverlay, helpOverlay, linkHintOverlay, citationPreviewOverlay] { view.prepareForAutoLayout(); addSubview(view) }
         emptyState.prepareForAutoLayout(); contentHost.addSubview(emptyState)
         paneContainer.prepareForAutoLayout(); contentHost.addSubview(paneContainer)
         NSLayoutConstraint.activate([
@@ -115,10 +117,11 @@ final class ReaderRootView: NSView {
             statusBar.leadingAnchor.constraint(equalTo: leadingAnchor), statusBar.trailingAnchor.constraint(equalTo: trailingAnchor), statusBar.bottomAnchor.constraint(equalTo: bottomAnchor), statusBar.heightAnchor.constraint(equalToConstant: WindowVisualMetrics.statusBarHeight),
             promptOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor), promptOverlay.bottomAnchor.constraint(equalTo: contentHost.bottomAnchor, constant: -16), promptOverlay.heightAnchor.constraint(equalToConstant: WindowVisualMetrics.promptHeight), preferredPromptWidth, promptOverlay.widthAnchor.constraint(lessThanOrEqualToConstant: WindowVisualMetrics.promptMaximumWidth), promptOverlay.widthAnchor.constraint(greaterThanOrEqualToConstant: 360), promptOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 40), promptOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -40),
             linkHintOverlay.topAnchor.constraint(equalTo: contentHost.topAnchor), linkHintOverlay.leadingAnchor.constraint(equalTo: contentHost.leadingAnchor), linkHintOverlay.trailingAnchor.constraint(equalTo: contentHost.trailingAnchor), linkHintOverlay.bottomAnchor.constraint(equalTo: contentHost.bottomAnchor),
+            citationPreviewOverlay.topAnchor.constraint(equalTo: contentHost.topAnchor), citationPreviewOverlay.leadingAnchor.constraint(equalTo: contentHost.leadingAnchor), citationPreviewOverlay.trailingAnchor.constraint(equalTo: contentHost.trailingAnchor), citationPreviewOverlay.bottomAnchor.constraint(equalTo: contentHost.bottomAnchor),
         ])
     }
     required init?(coder: NSCoder) { nil }
-    func apply(theme: AppKitTheme) { self.theme = theme; for pane in paneViews.values { pane.apply(theme: theme) }; for widget in tocWidgets.values { widget.apply(theme: theme) }; layer?.backgroundColor = theme[.background].cgColor; contentHost.wantsLayer = true; contentHost.layer?.backgroundColor = theme[.background].cgColor; tabBar.apply(theme: theme); emptyState.apply(theme: theme); statusBar.apply(theme: theme); promptOverlay.apply(theme: theme); themePickerOverlay.apply(theme: theme); linkIndicatorPickerOverlay.apply(theme: theme); updateInstructionsOverlay.apply(theme: theme); commandPaletteOverlay.apply(theme: theme); recentFilesOverlay.apply(theme: theme); helpOverlay.apply(theme: theme); linkHintOverlay.apply(theme: theme) }
+    func apply(theme: AppKitTheme) { self.theme = theme; for pane in paneViews.values { pane.apply(theme: theme) }; for widget in tocWidgets.values { widget.apply(theme: theme) }; layer?.backgroundColor = theme[.background].cgColor; contentHost.wantsLayer = true; contentHost.layer?.backgroundColor = theme[.background].cgColor; tabBar.apply(theme: theme); emptyState.apply(theme: theme); statusBar.apply(theme: theme); promptOverlay.apply(theme: theme); themePickerOverlay.apply(theme: theme); linkIndicatorPickerOverlay.apply(theme: theme); updateInstructionsOverlay.apply(theme: theme); commandPaletteOverlay.apply(theme: theme); recentFilesOverlay.apply(theme: theme); helpOverlay.apply(theme: theme); linkHintOverlay.apply(theme: theme); citationPreviewOverlay.apply(theme: theme) }
     func render(snapshot: ReaderSessionStoreSnapshot, activeContentView: NSView?, sessionStatus: ReaderStatusSnapshot?) {
         let hasTabs = !snapshot.tabs.isEmpty
         if renderedSessionSnapshot != snapshot { tabBar.render(snapshot); tabBarHeightConstraint.constant = hasTabs ? WindowVisualMetrics.tabBarHeight : 0; tabBar.isHidden = !hasTabs; emptyState.isHidden = hasTabs; renderedSessionSnapshot = snapshot }
@@ -226,6 +229,11 @@ final class ReaderRootView: NSView {
             return container
         }
     }
+    func setCitationPreviewEnabled(_ enabled: Bool) {
+        isCitationPreviewEnabled = enabled
+        currentStatus.isExperimentalMode = enabled
+        statusBar.render(currentStatus)
+    }
     private func renderStatus(_ sessionStatus: ReaderStatusSnapshot?) {
         if let sessionStatus {
             currentStatus.page = sessionStatus.page
@@ -240,6 +248,7 @@ final class ReaderRootView: NSView {
         } else if activeDiagnostic?.pinned != true {
             currentStatus = .empty
         }
+        currentStatus.isExperimentalMode = isCitationPreviewEnabled
         statusBar.render(currentStatus)
     }
     private func configurePane(_ id: PaneID, snapshot: PaneCoordinatorSnapshot, label: String) -> PaneView {

@@ -107,6 +107,12 @@ public struct ActionRegistry: Sendable {
         ActionDescriptor(id: .viewRotateLeft, title: "Rotate Left", scope: .contexts(readerContexts)),
         ActionDescriptor(id: .viewRotateRight, title: "Rotate Right", scope: .contexts(readerContexts)),
         ActionDescriptor(id: .linkHint, title: "Link Hints", scope: .contexts([.navigation])),
+        ActionDescriptor(
+            id: .citationPreviewToggle,
+            title: "Toggle Citation Preview (Experimental)",
+            scope: .contexts(readerContexts),
+            repeatPolicy: .suppressed
+        ),
         ActionDescriptor(id: .configReload, title: "Reload Config", scope: .contexts([.navigation]), repeatPolicy: .suppressed),
         ActionDescriptor(id: .configWriteDefault, title: "Write Default Config", scope: .global, repeatPolicy: .suppressed),
         ActionDescriptor(id: .configResetDefault, title: "Reset Config", scope: .global, repeatPolicy: .suppressed),

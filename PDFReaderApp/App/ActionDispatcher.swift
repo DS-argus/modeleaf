@@ -54,6 +54,7 @@ private var newInstanceHandler: () -> Void
     private var clipboardWriter: (String) -> Bool
     private var fileRevealer: (URL) -> Void
 
+    private var citationPreviewToggleHandler: () -> Void
     weak var presentation: (any ReaderWorkflowPresenting)?
 
     init(
@@ -65,6 +66,7 @@ private var newInstanceHandler: () -> Void
         configReloadHandler: @escaping () -> Void = {},
         configWriteDefaultHandler: @escaping () -> Void = {},
         configResetDefaultHandler: @escaping () -> Void = {},
+        citationPreviewToggleHandler: @escaping () -> Void = {},
         clipboardWriter: @escaping (String) -> Bool = { value in
             NSPasteboard.general.clearContents()
             return NSPasteboard.general.setString(value, forType: .string)
@@ -81,6 +83,7 @@ self.newInstanceHandler = newInstanceHandler
         self.configReloadHandler = configReloadHandler
         self.configWriteDefaultHandler = configWriteDefaultHandler
         self.configResetDefaultHandler = configResetDefaultHandler
+        self.citationPreviewToggleHandler = citationPreviewToggleHandler
         self.clipboardWriter = clipboardWriter
         self.fileRevealer = fileRevealer
     }
@@ -105,6 +108,9 @@ newInstanceHandler = newInstance
 
     func configureConfigResetDefaultHandler(_ handler: @escaping () -> Void) {
         configResetDefaultHandler = handler
+    }
+    func configureCitationPreviewToggleHandler(_ handler: @escaping () -> Void) {
+        citationPreviewToggleHandler = handler
     }
     func updateNavigation(_ navigation: NavigationConfiguration) {
         self.navigation = navigation
@@ -245,6 +251,8 @@ newInstanceHandler = newInstance
             activeSession?.rotateRight()
         case .linkHint:
             presentation?.presentLinkHints()
+        case .citationPreviewToggle:
+            citationPreviewToggleHandler()
         case .paneSplitRight:
             _ = coordinator.split(direction: .sideBySide)
         case .paneSplitDown:

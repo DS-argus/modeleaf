@@ -29,7 +29,7 @@ public enum BuiltInDefaults {
         .historyBack: ["<C-o>"], .historyForward: ["<C-i>"],
         .promptCommit: ["<Enter>"], .promptCancel: ["<Esc>"],
         .searchPrompt: ["/"], .searchNext: ["<Enter>"], .searchPrevious: ["<S-Enter>"], .searchCancel: ["<Esc>"],
-        .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [], .viewFitWidth: ["w"], .viewFitPage: ["F"], .viewRotateLeft: ["["], .viewRotateRight: ["]"], .linkHint: ["f"],
+        .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [], .viewFitWidth: ["w"], .viewFitPage: ["F"], .viewRotateLeft: ["["], .viewRotateRight: ["]"], .linkHint: ["f"], .citationPreviewToggle: ["C"],
         .tocToggle: ["t"], .tocScrollDown: ["J"], .tocScrollUp: ["K"],
         .configReload: ["<prefix>r"], .configWriteDefault: [], .configResetDefault: [],
         .themePicker: ["T"], .indicatorPicker: ["I"], .updateShow: ["U"],
@@ -130,6 +130,7 @@ public enum BuiltInDefaults {
         case "search": return "Search"
         case "history": return "Navigation"
         case "link": return "Links"
+        case "citation": return "Experimental"
         case "toc": return "Table of contents"
         case "config": return "Config"
         case "view": return "View / Zoom"

@@ -32,3 +32,7 @@ docs/handoffs
 
 # Stray/user PDFs are never part of the repo.
 *.pdf
+
+# Keep only the public documentation README in version control.
+/docs/*
+!/docs/README.md

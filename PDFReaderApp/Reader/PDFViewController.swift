@@ -58,6 +58,8 @@ final class PDFViewController: NSViewController {
     private var activeSearchIndex: Int?
     private var internalLinkHandler: ((ReaderLinkTarget) -> Void)?
     private var navigationSnapshotCaptureOverride: (() -> NavigationSnapshot?)?
+    private lazy var citationPreviewResolver = CitationPreviewResolver(document: initialDocument)
+    private var citationPreviewEnabled = false
     private var viewportMutationHandler: ((ReaderViewportMutationTerminal) -> Void)?
     private var activeViewportEpoch: ReaderViewportMutationEpoch?
     private var nextViewportEpochID: UInt64 = 0
@@ -596,6 +598,8 @@ final class PDFViewController: NSViewController {
               let firstPage = initialDocument.page(at: 0)
         else { return }
         initialPresentationState = .applying
+        let epoch = beginViewportMutation(.system)
+        defer { finishViewportMutation(epoch) }
         let navigation = pendingPresentationNavigation
         let success = pendingPresentationSuccessHandler
         let failure = pendingPresentationFailureHandler
@@ -748,13 +752,20 @@ extension PDFViewController: ReaderLinkProviding, ReaderPDFViewInternalLinkHandl
     func readerPDFView(_ view: ReaderPDFView, activateInternalLink target: ReaderLinkTarget) { internalLinkHandler?(target) }
     func linkTargets() -> [RawLink] {
         loadViewIfNeeded(); readerView.layoutDocumentView()
-        return readerView.visiblePages.flatMap { page in
+        return readerView.pagesIntersectingViewport.flatMap { page in
             let index = initialDocument.index(for: page)
             return page.annotations.compactMap { (annotation: PDFAnnotation) -> RawLink? in
                 guard Self.isLink(annotation), let target = Self.linkTarget(annotation) else { return nil }
                 return RawLink(sourcePageIndex: index, pageSpaceBounds: annotation.bounds, target: target)
             }
         }
+    }
+    func applyCitationPreviewEnabled(_ enabled: Bool) {
+        citationPreviewEnabled = enabled
+    }
+    func resolveLinkHint(_ link: ReaderLink) -> LinkHintResolution {
+        guard citationPreviewEnabled else { return .activate(link.target) }
+        return citationPreviewResolver.resolve(link)
     }
     func activateLink(_ target: ReaderLinkTarget) { loadViewIfNeeded(); readerView.activate(target) }
     func setInternalLinkHandler(_ handler: ((ReaderLinkTarget) -> Void)?) { internalLinkHandler = handler }
@@ -770,6 +781,7 @@ extension PDFViewController: ReaderLinkProviding, ReaderPDFViewInternalLinkHandl
     private static func isLink(_ annotation: PDFAnnotation) -> Bool { annotation.type == "Link" || annotation.action != nil || annotation.url != nil }
     private static func linkTarget(_ annotation: PDFAnnotation) -> ReaderLinkTarget? {
         if let goTo = annotation.action as? PDFActionGoTo { let destination = goTo.destination; guard let page = destination.page, let document = page.document else { return nil }; return .goTo(pageIndex: document.index(for: page), point: destination.point) }
+        if let destination = annotation.destination { guard let page = destination.page, let document = page.document else { return nil }; return .goTo(pageIndex: document.index(for: page), point: destination.point) }
         if let action = annotation.action as? PDFActionURL, let url = action.url { return .url(url.absoluteString) }
         if let url = annotation.url { return .url(url.absoluteString) }
         return nil

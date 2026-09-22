@@ -97,6 +97,25 @@ struct LinkHintAcceptanceTests {
         }
     }
 
+    @Test("hint pages follow viewport geometry after page jumps and resize")
+    func hintPagesFollowViewport() throws {
+        try withLinkHarness { controller, session, view, _ in
+            session.fitPage()
+            try #require(session.goToPage(2))
+            view.layoutDocumentView()
+            #expect(view.pagesIntersectingViewport.map { view.document!.index(for: $0) } == [1])
+            #expect(session.linkTargets().isEmpty)
+            try #require(session.goToPage(1))
+            controller.window?.setContentSize(NSSize(width: 720, height: 480))
+            controller.rootView.layoutSubtreeIfNeeded()
+            view.layoutDocumentView()
+            #expect(view.pagesIntersectingViewport.map { view.document!.index(for: $0) } == [0])
+            #expect(session.linkTargets().count == 6)
+            controller.presentLinkHints()
+            #expect(!controller.rootView.linkHintOverlay.isHidden)
+        }
+    }
+
     @Test("hints preserve source bytes, operate only in the active pane, and retain mouse URL routing")
     func readOnlyAndMultiPaneAcceptance() throws {
         try withTemporaryDirectory { directory in
@@ -109,6 +128,15 @@ struct LinkHintAcceptanceTests {
             defer { controller.close(); while coordinator.closeActiveTab() {} }
             #expect(coordinator.insert(first, into: .createIfEmpty))
             let inactivePane = try #require(coordinator.activePaneID)
+            // Splitting duplicates the source viewport. Mount the source first;
+            // an unlaid-out PDFView does not provide a stable reading position.
+            controller.rootView.layoutSubtreeIfNeeded()
+            controller.window?.contentView?.layoutSubtreeIfNeeded()
+            first.contentView.layoutSubtreeIfNeeded()
+            let sourceView = try #require(descendantReaderPDFViews(in: first.contentView).only)
+            sourceView.layoutDocumentView()
+            try #require(first.initialPresentationState == .applied)
+            try #require(first.linkTargets().count == 6)
             let activePane = try #require(coordinator.split(direction: .sideBySide))
             let active = try #require(coordinator.activeSession as? ReaderSession)
             let inactiveView = try #require(descendantReaderPDFViews(in: first.contentView).only)
@@ -118,6 +146,13 @@ struct LinkHintAcceptanceTests {
             activeView.followLinkHandler = { opened.append($0) }
 
             controller.rootView.layoutSubtreeIfNeeded()
+            controller.window?.contentView?.layoutSubtreeIfNeeded()
+            active.contentView.layoutSubtreeIfNeeded()
+            activeView.layoutDocumentView()
+            try #require(active.initialPresentationState == .applied)
+            try #require(activeView.bounds.width > 1 && activeView.bounds.height > 1)
+            try #require(active.currentPageNumber == 1)
+            try #require(active.linkTargets().count == 6)
             #expect(coordinator.activePaneID == activePane)
             #expect(route("f", through: controller))
             #expect(!controller.rootView.linkHintOverlay.isHidden)

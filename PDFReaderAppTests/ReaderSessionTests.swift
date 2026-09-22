@@ -11,6 +11,12 @@ struct ReaderSessionTests {
     @Test("a newly mounted PDF opens on page one in continuous fit-width layout")
     func initialPresentationFitsFirstPageOnce() throws {
         try withSession(pageCount: 3) { session, _ in
+            var publishedPages: [Int?] = []
+            session.setPresentationChangeHandler {
+                if session.initialPresentationState == .applied {
+                    publishedPages.append(session.currentPageNumber)
+                }
+            }
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 720, height: 480),
                 styleMask: [.titled],
@@ -30,6 +36,8 @@ struct ReaderSessionTests {
             #expect(view.displayMode == .singlePageContinuous)
             #expect(view.autoScales)
             #expect(abs(view.scaleFactor - view.scaleFactorForSizeToFit) < 0.01)
+            #expect(publishedPages.last == 1)
+            #expect(!session.canGoBack)
 
             session.zoom(by: 1.25)
             let manuallySelectedScale = session.scaleFactor
@@ -1095,6 +1103,84 @@ struct ReaderSessionTests {
         }
     }
 
+
+    @Test("mounted PDF citation preview remains stable after delayed rendering")
+    func mountedCitationPreviewSurvivesDelayedRendering() throws {
+        let path = "test-pdf/citation-annotation-corpus/UAI/2024-adversarial-weak-supervision.pdf"
+        guard FileManager.default.fileExists(atPath: path) else {
+            if ProcessInfo.processInfo.environment["MODELEAF_REQUIRE_CITATION_FIXTURES"] == "1" {
+                Issue.record("Required citation fixture is unavailable: \(path)")
+            }
+            return
+        }
+        let url = URL(fileURLWithPath: path)
+        let document = try #require(PDFDocument(url: url))
+        let session = ReaderSession(sourceURL: url, document: document)
+        defer { session.prepareForClose() }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 700),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = session.contentView
+        session.contentView.frame = window.contentLayoutRect
+        session.contentView.layoutSubtreeIfNeeded()
+        let pdfView = try #require(descendantPDFViews(in: session.contentView).only)
+        pdfView.layoutDocumentView()
+        #expect(session.goToPage(8))
+        session.zoom(by: 1.83 / session.scaleFactor)
+        window.title = "Modeleaf citation geometry regression"
+        window.orderFront(nil)
+        session.contentView.displayIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let sourcePageIndex = 7
+        let targetPageIndex = 11
+        let sourcePage = try #require(document.page(at: sourcePageIndex))
+        let annotation = try #require(sourcePage.annotations.first { annotation in
+            let text = sourcePage.selection(for: annotation.bounds)?.string?.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard text == "Xian et al.",
+                  let action = annotation.action as? PDFActionGoTo,
+                  let targetPage = action.destination.page,
+                  targetPage.document === document,
+                  document.index(for: targetPage) == targetPageIndex
+            else { return false }
+            return abs(action.destination.point.y - 166.860) < 1
+        })
+        let target = ReaderLinkTarget.goTo(
+            pageIndex: targetPageIndex,
+            point: (annotation.action as? PDFActionGoTo)?.destination.point
+        )
+        let link = ReaderLink(
+            sourcePageIndex: sourcePageIndex,
+            rects: [annotation.bounds],
+            target: target,
+            primaryLabelRect: annotation.bounds
+        )
+        session.applyCitationPreviewEnabled(true)
+        guard case let .preview(initialGroup) = session.resolveLinkHint(link) else {
+            Issue.record("Mounted Xian citation should preview before the delayed check")
+            return
+        }
+        #expect(initialGroup.items[initialGroup.selectedIndex].destination == link.target)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 3))
+        guard case let .preview(delayedGroup) = session.resolveLinkHint(link) else {
+            Issue.record("Mounted Xian citation should remain a preview after delayed rendering")
+            return
+        }
+        #expect(delayedGroup.items[delayedGroup.selectedIndex].destination == link.target)
+        #expect(delayedGroup.items[delayedGroup.selectedIndex].referenceText.contains("Yongqin Xian"))
+
+        let lateSession = ReaderSession(sourceURL: url, document: document)
+        defer { lateSession.prepareForClose() }
+        lateSession.applyCitationPreviewEnabled(true)
+        guard case let .preview(firstLateGroup) = lateSession.resolveLinkHint(link) else {
+            Issue.record("A first mounted resolve after delayed rendering should still preview")
+            return
+        }
+        #expect(firstLateGroup.items[firstLateGroup.selectedIndex].destination == link.target)
+    }
 
     private func withSession(
         pageCount: Int,

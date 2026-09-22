@@ -57,17 +57,22 @@ public struct StateFileDocument: Codable, Equatable, Sendable {
     public var recentFiles: [RecentFileEntryDTO]?
     public var linkDestinationIndicator: LinkDestinationIndicatorStateDTO?
     public private(set) var hasLinkDestinationIndicatorField: Bool
+    public var citationPreviewEnabled: Bool?
+    public private(set) var hasCitationPreviewEnabledField: Bool
     private var unknownFields: [String: JSONValue]
 
     public init(
         selectedTheme: String? = nil,
         recentFiles: [RecentFileEntryDTO]? = nil,
-        linkDestinationIndicator: LinkDestinationIndicatorStateDTO? = nil
+        linkDestinationIndicator: LinkDestinationIndicatorStateDTO? = nil,
+        citationPreviewEnabled: Bool? = nil
     ) {
         self.selectedTheme = selectedTheme
         self.recentFiles = recentFiles
         self.linkDestinationIndicator = linkDestinationIndicator
         self.hasLinkDestinationIndicatorField = linkDestinationIndicator != nil
+        self.citationPreviewEnabled = citationPreviewEnabled
+        self.hasCitationPreviewEnabledField = citationPreviewEnabled != nil
         unknownFields = [:]
     }
 
@@ -75,6 +80,7 @@ public struct StateFileDocument: Codable, Equatable, Sendable {
         case selectedTheme = "selected_theme"
         case recentFiles = "recent_files"
         case linkDestinationIndicator = "link_destination_indicator"
+        case citationPreviewEnabled = "citation_preview_enabled"
     }
 
     private struct AnyKey: CodingKey {
@@ -92,6 +98,8 @@ public struct StateFileDocument: Codable, Equatable, Sendable {
         recentFiles = (try? known.decodeIfPresent([RecentFileEntryDTO].self, forKey: .recentFiles)) ?? nil
         hasLinkDestinationIndicatorField = known.contains(.linkDestinationIndicator)
         linkDestinationIndicator = (try? known.decodeIfPresent(LinkDestinationIndicatorStateDTO.self, forKey: .linkDestinationIndicator)) ?? nil
+        hasCitationPreviewEnabledField = known.contains(.citationPreviewEnabled)
+        citationPreviewEnabled = (try? known.decodeIfPresent(Bool.self, forKey: .citationPreviewEnabled)) ?? nil
 
         let all = try decoder.container(keyedBy: AnyKey.self)
         var retained: [String: JSONValue] = [:]
@@ -111,6 +119,7 @@ public struct StateFileDocument: Codable, Equatable, Sendable {
         if let selectedTheme { try all.encode(selectedTheme, forKey: AnyKey(stringValue: "selected_theme")!) }
         if let recentFiles { try all.encode(recentFiles, forKey: AnyKey(stringValue: "recent_files")!) }
         if let linkDestinationIndicator { try all.encode(linkDestinationIndicator, forKey: AnyKey(stringValue: "link_destination_indicator")!) }
+        if let citationPreviewEnabled { try all.encode(citationPreviewEnabled, forKey: AnyKey(stringValue: "citation_preview_enabled")!) }
     }
 }
 

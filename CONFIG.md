@@ -118,6 +118,7 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 | `view.rotateLeft` | `[` | `navigation`, `searchResults` | `suppressed` |
 | `view.rotateRight` | `]` | `navigation`, `searchResults` | `suppressed` |
 | `link.hint` | `f` | `navigation` | `suppressed` |
+| `citation.preview.toggle` | `C` | `navigation`, `searchResults` | `suppressed` |
 | `config.reload` | `<C-b>r` | `navigation` | `suppressed` |
 | `config.writeDefault` | unbound | global | `suppressed` |
 | `config.resetDefault` | unbound | global | `suppressed` |
@@ -140,6 +141,7 @@ The exhaustive contexts are `navigation`, `pagePrompt`, `searchPrompt`, and `sea
 - Pane prefix: `<C-b>` (any single key chord; used by `<prefix>` bindings).
 - Themes: `tokyo-night`, `gruvbox-dark`, `solarized-dark`, `dracula`, `everforest`, `nord`, `catppuccin-latte`.
 - Themes are chosen in-app with the theme picker (`T`) and persisted separately. 테마는 앱 내 테마 선택기(`T`)에서 선택하며 별도로 저장됩니다.
+- Citation reference preview is experimental, defaults to OFF, and toggles with `C` (`Shift+C`). The setting persists separately from `config.toml`. A `CITATION PREVIEW` status pill with red text and border and no background fill stays visible while enabled. In the preview, `h`/`l`, arrow keys, and `Tab`/`Shift+Tab` cycle references with wraparound.
 
 A document starts on page 1 in a vertically continuous, fit-width layout. `j`/`↓`/`d` scroll forward through the connected pages and `k`/`↑`/`u` scroll backward. In fit-page mode those keys move one page at a time; `=` or `-` exits to continuous manual zoom while preserving the reading anchor, and `w` exits to continuous fit-width. The status bar shows `FIT PAGE` and `SEARCH` pills while active. Actual Size remains available from the View menu and as `view.zoomReset`, but is intentionally unbound by default.
 
@@ -350,6 +352,9 @@ Prompt text, dead keys, and IME composition stay on the native text-input path. 
 
 # --- Links ---
 "link.hint"        = ["f"]  # f
+
+# --- Experimental ---
+"citation.preview.toggle" = ["C"]  # C
 
 # --- Config ---
 "config.reload"    = ["<prefix>r"]  # Ctrl+b r

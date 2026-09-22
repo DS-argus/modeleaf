@@ -23,6 +23,9 @@ final class ApplicationController {
     private(set) var currentIndicatorSettings: LinkDestinationIndicatorSettings
     private let indicatorStartupDiagnostic: String?
     private let recentFilesStore: RecentFilesStore
+    private let citationPreviewSettingsStore: CitationPreviewSettingsStore
+    private(set) var isCitationPreviewEnabled: Bool
+    private let citationPreviewStartupDiagnostic: String?
     private(set) var menuBuilder: ValidatedMenuBuilder?
     private let configService: ConfigService
     private var activeConfig: ValidatedAppConfig
@@ -79,6 +82,7 @@ final class ApplicationController {
         themeStore: ThemeSelectionStore = ThemeSelectionStore(),
         indicatorSettingsStore: LinkDestinationIndicatorSettingsStore = LinkDestinationIndicatorSettingsStore(),
         recentFilesStore: RecentFilesStore = RecentFilesStore(),
+        citationPreviewSettingsStore: CitationPreviewSettingsStore = CitationPreviewSettingsStore(),
         terminationHandler: (() -> Void)? = nil,
         newInstanceLauncher: (() -> Void)? = nil
     ) {
@@ -89,6 +93,7 @@ final class ApplicationController {
         self.pdfOpenService = pdfOpenService; self.openMetrics = openMetrics; self.openPanelPresenter = openPanelPresenter; self.themeStore = themeStore; self.recentFilesStore = recentFilesStore
         self.passwordPresenter = passwordPresenter
         self.indicatorSettingsStore = indicatorSettingsStore
+        self.citationPreviewSettingsStore = citationPreviewSettingsStore
         switch themeStore.load() {
         case let .selected(id): self.currentThemeID = id; self.themeStartupDiagnostic = nil
         case .absent, .invalid: self.currentThemeID = ThemeSelectionStore.productDefault; self.themeStartupDiagnostic = nil
@@ -105,6 +110,17 @@ final class ApplicationController {
             self.currentIndicatorSettings = LinkDestinationIndicatorSettingsStore.productDefault
             self.indicatorStartupDiagnostic = "Could not read the saved link indicator settings (\(message)); using the default."
         }
+        switch citationPreviewSettingsStore.load() {
+        case let .selected(enabled):
+            self.isCitationPreviewEnabled = enabled
+            self.citationPreviewStartupDiagnostic = nil
+        case .absent, .invalid:
+            self.isCitationPreviewEnabled = CitationPreviewSettingsStore.productDefault
+            self.citationPreviewStartupDiagnostic = nil
+        case let .ioError(message):
+            self.isCitationPreviewEnabled = CitationPreviewSettingsStore.productDefault
+            self.citationPreviewStartupDiagnostic = "Could not read the saved citation preview setting (\(message)); using OFF."
+        }
         self.terminationHandler = terminationHandler ?? { application.terminate(nil) }
         self.newInstanceLauncher = newInstanceLauncher ?? { ApplicationController.launchNewInstance() }
         self.actionDispatcher = ActionDispatcher(coordinator: coordinator, navigation: configResult.activeConfig.config.navigation)
@@ -115,6 +131,9 @@ final class ApplicationController {
         self.actionDispatcher.configureConfigWriteDefaultHandler { [weak self] in self?.writeDefaultConfig() }
         self.actionDispatcher.configureConfigResetDefaultHandler { [weak self] in self?.resetConfig() }
         coordinator.applyLinkDestinationIndicatorSettings(currentIndicatorSettings)
+        coordinator.applyCitationPreviewEnabled(isCitationPreviewEnabled)
+        mainWindowController.rootView.setCitationPreviewEnabled(isCitationPreviewEnabled)
+        self.actionDispatcher.configureCitationPreviewToggleHandler { [weak self] in self?.toggleCitationPreview() }
     }
 
     func start() {
@@ -127,7 +146,11 @@ final class ApplicationController {
         application.mainMenu = menuBuilder.makeMainMenu()
         mainWindowController.showWindow(nil)
 
-        let stateDiagnostics = [themeStartupDiagnostic, indicatorStartupDiagnostic].compactMap { $0 }
+        let stateDiagnostics = [
+            themeStartupDiagnostic,
+            indicatorStartupDiagnostic,
+            citationPreviewStartupDiagnostic,
+        ].compactMap { $0 }
         if !configResult.diagnostics.isEmpty {
             let presentation = ConfigDiagnosticPresentation(
                 diagnostics: configResult.diagnostics,
@@ -240,6 +263,7 @@ final class ApplicationController {
             let session = try openSession(at: url, traceID: traceID)
             session.applyTheme(AppKitTheme(themeID: currentThemeID))
             session.applyLinkDestinationIndicatorSettings(currentIndicatorSettings)
+            session.applyCitationPreviewEnabled(isCitationPreviewEnabled)
             guard coordinator.insert(session, into: target) else { session.prepareForClose(reason: .insertionRejected); mainWindowController.showDiagnostic("Could not create a PDF tab for \(url.lastPathComponent)"); recordOpenFailure(traceID: traceID, outcome: .insertionRejected); return false }
             mainWindowController.clearDiagnostic()
             if case let .failed(message) = recentFilesStore.recordOpened(absolutePath: url.path) {
@@ -274,6 +298,21 @@ final class ApplicationController {
                 "Link indicator settings applied for this session but could not be saved: \(message)"
             )
         }
+
+    }
+    func toggleCitationPreview() {
+        isCitationPreviewEnabled.toggle()
+        mainWindowController.dismissAllTransientOverlays()
+        coordinator.applyCitationPreviewEnabled(isCitationPreviewEnabled)
+        mainWindowController.rootView.setCitationPreviewEnabled(isCitationPreviewEnabled)
+        let state = isCitationPreviewEnabled ? "ON" : "OFF"
+        if case let .failed(message) = citationPreviewSettingsStore.persist(isCitationPreviewEnabled) {
+            mainWindowController.showDiagnostic(
+                "Citation Preview · Experimental · \(state) · could not save: \(message)"
+            )
+            return
+        }
+        mainWindowController.showDiagnostic("Citation Preview · Experimental · \(state)", isError: false)
     }
     func openExternalDocuments(_ urls: [URL]) { for url in urls { _ = openDocument(at: url) } }
     private func presentOpenPanel(target: PaneOpenTarget = .createIfEmpty) { openPanelPresenter.present(attachedTo: mainWindowController.window) { [weak self] url in guard let self, let url else { return }; _ = self.openDocument(at: url, target: target) } }
@@ -300,6 +339,7 @@ final class ApplicationController {
             let session = try openSession(at: snapshot.sourceURL, traceID: traceID)
             session.applyTheme(AppKitTheme(themeID: currentThemeID))
             session.applyLinkDestinationIndicatorSettings(currentIndicatorSettings)
+            session.applyCitationPreviewEnabled(isCitationPreviewEnabled)
             session.seedPendingPresentation(snapshot)
             pendingDuplicateTraces[session.id] = traceID
             return session
