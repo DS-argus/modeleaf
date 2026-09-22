@@ -133,7 +133,7 @@ struct LinkHintAcceptanceTests {
             }
             try #require(!activeView.visiblePages.isEmpty)
             try #require(active.linkTargets().count == 6,
-                         "visible pages=\(activeView.visiblePages.count), annotation counts=\(activeView.visiblePages.map { $0.annotations.count })")
+                         "visible pages=\(activeView.visiblePages.map { activeView.document?.index(for: $0) ?? -1 }), annotation counts=\(activeView.visiblePages.map { $0.annotations.count }), document counts=\((0..<(activeView.document?.pageCount ?? 0)).map { activeView.document?.page(at: $0)?.annotations.count ?? -1 }), current=\(active.currentPageNumber ?? -1)")
             #expect(coordinator.activePaneID == activePane)
             #expect(route("f", through: controller))
             #expect(!controller.rootView.linkHintOverlay.isHidden)
