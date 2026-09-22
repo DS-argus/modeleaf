@@ -1,0 +1,4 @@
+- Preview linked citations without leaving your reading position. Enable this experimental feature with Shift+C; it is off by default and requires existing internal citation links.
+- Browse grouped references with h/l or Tab, jump with Enter, or search Google Scholar with Shift+Enter.
+- Keep link hints inside the active pane immediately after splitting, without overlapping neighboring panes.
+- Press f again to dismiss link hints, even after partial input; hint labels now reserve f for closing.
