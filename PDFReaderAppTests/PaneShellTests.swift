@@ -1211,7 +1211,8 @@ struct PaneShellTests {
                 for (id, view) in snapshot.paneFocusViews {
                     let canvas = try #require(view as? ReaderPDFView)
                     canvas.refreshFocusAppearance()
-                    widths[id] = canvas.layer?.borderWidth ?? -1
+                    #expect(canvas.layer?.borderWidth == 0)
+                    widths[id] = canvas.isShowingFocusIndicator ? WindowVisualMetrics.canvasFocusRingWidth : 0
                 }
                 return widths
             }

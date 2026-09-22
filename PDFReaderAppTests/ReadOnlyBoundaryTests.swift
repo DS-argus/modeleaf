@@ -27,11 +27,14 @@ struct ReadOnlyBoundaryTests {
             "PDFReaderApp/Reader/PDFViewController.swift",
             "PDFReaderApp/Input/ReaderPDFView.swift",
             "PDFReaderApp/Reader/PDFOpenService.swift",
+            "PDFReaderApp/Window/PDFPasswordPresenter.swift",
         ]
         let productionSource = try relativePaths
             .map { try String(contentsOf: root.appendingPathComponent($0), encoding: .utf8) }
             .joined(separator: "\n")
 
+        // Unlocking an in-memory document is allowed; writing or editing PDFs is not.
+        // Password-flow tests also assert that the encrypted source bytes stay unchanged.
         let forbiddenPatterns = [
             #"\.write\s*\("#,
             #"\.addAnnotation\s*\("#,
@@ -42,7 +45,6 @@ struct ReadOnlyBoundaryTests {
             #"\bPDFAnnotation\s*\("#,
             #"\bwidgetStringValue\s*="#,
             #"\.contents\s*="#,
-            #"\bunlock\w*\s*\("#,
         ]
 
         for pattern in forbiddenPatterns {

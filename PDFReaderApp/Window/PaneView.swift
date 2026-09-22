@@ -31,7 +31,10 @@ final class PaneView: NSView {
         tabBar.onNewTab = { [weak self] in
             self?.activateThen { self?.onNewTab?() }
         }
-        for view in [tabBar, contentHost] {
+        tabBar.onActiveTabGeometryChange = { [weak self] in
+            self?.synchronizeCanvasFocusGeometry()
+        }
+        for view in [contentHost, tabBar] {
             view.prepareForAutoLayout()
             addSubview(view)
         }
@@ -49,6 +52,32 @@ final class PaneView: NSView {
     }
 
     required init?(coder: NSCoder) { nil }
+
+    override func layout() {
+        super.layout()
+        tabBar.layoutSubtreeIfNeeded()
+        contentHost.layoutSubtreeIfNeeded()
+        synchronizeCanvasFocusGeometry()
+    }
+
+    func synchronizeCanvasFocusGeometry() {
+        guard let readerView = readerPDFView(in: contentHost) else { return }
+        readerView.focusIndicatorGeometryProvider = { [weak readerView, weak tabBar] in
+            guard let readerView, let tabBar, let frame = tabBar.activeTabFrame(in: readerView) else { return nil }
+            let left = max(readerView.bounds.minX, frame.minX)
+            let right = min(readerView.bounds.maxX, frame.maxX)
+            return right > left ? left...right : nil
+        }
+        readerView.refreshFocusIndicatorGeometry()
+    }
+
+    private func readerPDFView(in view: NSView) -> ReaderPDFView? {
+        if let readerView = view as? ReaderPDFView { return readerView }
+        for subview in view.subviews {
+            if let readerView = readerPDFView(in: subview) { return readerView }
+        }
+        return nil
+    }
 
     func apply(theme: AppKitTheme) {
         contentHost.wantsLayer = true
@@ -101,6 +130,7 @@ final class PaneView: NSView {
         if presentedContentView !== view { presentedContentView?.removeFromSuperview() }
         presentedContentView = view
         attachContentView(view, to: contentHost)
+        synchronizeCanvasFocusGeometry()
     }
 }
 

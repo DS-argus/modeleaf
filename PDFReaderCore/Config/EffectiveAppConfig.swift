@@ -5,11 +5,7 @@ public struct NavigationConfiguration: Equatable, Sendable {
     public let largeScrollViewportFraction: Double
     public let zoomFactor: Double
 
-    public init(
-        smallScrollPoints: Double,
-        largeScrollViewportFraction: Double,
-        zoomFactor: Double
-    ) {
+    public init(smallScrollPoints: Double, largeScrollViewportFraction: Double, zoomFactor: Double) {
         self.smallScrollPoints = smallScrollPoints
         self.largeScrollViewportFraction = largeScrollViewportFraction
         self.zoomFactor = zoomFactor
@@ -26,19 +22,29 @@ public struct InputConfiguration: Equatable, Sendable {
     }
 }
 
+public struct LinksConfiguration: Equatable, Sendable {
+    public let skipExternalLinkHintConfirmation: Bool
+
+    public init(skipExternalLinkHintConfirmation: Bool) {
+        self.skipExternalLinkHintConfirmation = skipExternalLinkHintConfirmation
+    }
+}
 
 public struct EffectiveAppConfig: Equatable, Sendable {
     public let keymap: [ActionID: [KeySequence]]
     public let navigation: NavigationConfiguration
     public let input: InputConfiguration
+    public let links: LinksConfiguration
 
     public init(
         keymap: [ActionID: [KeySequence]],
         navigation: NavigationConfiguration,
-        input: InputConfiguration
+        input: InputConfiguration,
+        links: LinksConfiguration = LinksConfiguration(skipExternalLinkHintConfirmation: false)
     ) {
         self.keymap = keymap
         self.navigation = navigation
         self.input = input
+        self.links = links
     }
 }

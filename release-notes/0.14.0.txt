@@ -1,0 +1,4 @@
+- Open password-protected PDFs with a native secure password prompt.
+- Enjoy redesigned tabs and a responsive status bar with Fit Width badges, path previews, copy feedback, and improved text alignment.
+- Search and jump to pages with clearer, simpler prompts.
+- Preview the original external URL before opening it with one Enter; inspect long URLs by scrolling or configure immediate opening.

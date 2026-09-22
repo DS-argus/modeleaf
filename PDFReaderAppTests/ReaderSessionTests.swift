@@ -193,13 +193,19 @@ struct ReaderSessionTests {
             let view = try #require(descendantPDFViews(in: session.contentView).only)
             #expect(view.displayMode == .singlePageContinuous)
             #expect(view.autoScales)
-            #expect(session.statusSnapshot.mode.isEmpty)
+            #expect(session.statusSnapshot.mode == "FIT WIDTH")
 
             session.fitPage()
             #expect(session.viewMode == .fitPage)
             #expect(view.displayMode == .singlePage)
             #expect(view.autoScales)
             #expect(session.statusSnapshot.mode == "FIT PAGE")
+            session.zoom(by: 1.1)
+            #expect(session.statusSnapshot.mode.isEmpty)
+            session.fitWidth()
+            #expect(session.statusSnapshot.mode == "FIT WIDTH")
+            session.resetZoom()
+            #expect(session.statusSnapshot.mode.isEmpty)
         }
     }
 

@@ -137,6 +137,8 @@ private struct ConfigTOMLSchema {
                 validateNavigation(value, path: path, issues: &issues)
             case "input":
                 validateInput(value, path: path, issues: &issues)
+            case "links":
+                validateLinks(value, path: path, issues: &issues)
             case "theme":
                 issues.append(SchemaIssue(severity: .warning, code: .deprecatedTheme, path: path, message: "[theme] is deprecated and ignored; choose a theme in-app with the theme.picker action (default Shift-t). Themes can no longer be configured in TOML."))
             default:
@@ -206,6 +208,20 @@ private struct ConfigTOMLSchema {
             path: path,
             fields: ["prefix_timeout_ms": { $0 is Int64 }, "prefix": { $0 is String }],
             expectedTypes: ["prefix_timeout_ms": "integer", "prefix": "string"],
+            issues: &issues
+        )
+    }
+
+    private static func validateLinks(
+        _ value: Any,
+        path: [TOMLPathComponent],
+        issues: inout [SchemaIssue]
+    ) {
+        validateFixedTable(
+            value,
+            path: path,
+            fields: ["skip_external_link_hint_confirmation": { $0 is Bool }],
+            expectedTypes: ["skip_external_link_hint_confirmation": "boolean"],
             issues: &issues
         )
     }

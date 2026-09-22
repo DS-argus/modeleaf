@@ -28,8 +28,12 @@ zoom_factor = 1.1
 [input]
 prefix_timeout_ms = 400
 prefix = "<C-b>"
+
+[links]
+skip_external_link_hint_confirmation = false
 ```
 
+External URL hints display the destination URL on selection without opening it. Press Enter once to open it, or Escape to close the prompt. Held-key repeats do not open links. Set `links.skip_external_link_hint_confirmation = true` to activate external hints immediately. Internal PDF destinations and mouse links are unchanged.
 
 ## Key grammar
 
@@ -385,4 +389,8 @@ zoom_factor = 1.1
 prefix_timeout_ms = 400
 # Pane prefix chord. Every <prefix> binding above expands to this.
 prefix = "<C-b>"
+
+[links]
+# External link hints require confirmation by default.
+skip_external_link_hint_confirmation = false
 ```

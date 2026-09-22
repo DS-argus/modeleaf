@@ -118,7 +118,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         applyTOCKeyHints(config.keymap)
         inputRouter = ReaderInputRouter(
             config: config,
-            pendingHandler: { [weak rootView] prefix in rootView?.setPendingPrefix(prefix) },
+            pendingHandler: { [weak self] prefix in
+                guard let self else { return }
+                self.rootView.setPendingPrefix(prefix)
+                if prefix == "y", let session = self.coordinator.activeSession {
+                    self.rootView.setDocumentPath(session.sourceURL.path)
+                }
+            },
             dispatchHandler: { [weak self] dispatch in self?.handleKeyDispatch(dispatch, fallback: keyDispatchHandler) }
         )
         window.keyEventHandler = { [weak self] event in
@@ -187,6 +193,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         focusActiveSurface(snapshot: coordinator.snapshot)
     }
 
+    func restoreReaderFocus() {
+        window?.makeKeyAndOrderFront(nil)
+        focusActiveSurface(snapshot: coordinator.snapshot)
+    }
+
     func presentLinkHints() {
         dismissAllTransientOverlays(restoringContext: false)
         guard inputRouter.context == .navigation,
@@ -202,6 +213,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
         guard !displayed.isEmpty else { return }
         let labels = LinkHintLabels.generate(count: displayed.count)
+        var urlHintURLs: [Int: String] = [:]
+        for (index, item) in displayed.enumerated() {
+            if case let .url(url) = item.link.target {
+                urlHintURLs[index] = url
+            }
+        }
         beginTransientOverlay()
         let sessionID = session.id
         rootView.linkHintOverlay.onCommit = { [weak self, weak provider] index in
@@ -225,7 +242,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         }
         rootView.linkHintOverlay.onDismiss = { [weak self] in self?.dismissLinkHintsAndRestoreFocus() }
         rootView.linkHintOverlay.present(
-            hints: zip(displayed, labels).map { (rects: $0.0.rects, label: $0.1) }
+            hints: zip(displayed, labels).map { (rects: $0.0.rects, label: $0.1) },
+            urlHintIndices: Set(urlHintURLs.keys),
+            urlHintURLs: urlHintURLs,
+            skipsURLConfirmation: resolvedConfig.config.links.skipExternalLinkHintConfirmation
         )
         window?.makeFirstResponder(rootView.linkHintOverlay)
     }
@@ -530,7 +550,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.showDiagnostic(message, expandedDetail: expandedDetail, isError: isError, pinned: pinned)
     }
     func showActionFeedback(_ message: String, isError: Bool) {
-        rootView.showActionFeedback(message, isError: isError)
+        if !isError, message == "Copied PDF path", let session = coordinator.activeSession {
+            rootView.setDocumentPath(session.sourceURL.path, copied: true)
+        } else {
+            rootView.showActionFeedback(message, isError: isError)
+        }
     }
 
     func clearDiagnostic(force: Bool = false) {
@@ -797,6 +821,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             (snapshot.activeFocusView as? ReaderPDFView)?.refreshFocusAppearance()
         }
         if snapshot.activeID != lastActiveSessionID || dismissStagedPrompt {
+            rootView.clearDocumentPath()
             let reason: KeyInputInvalidationReason = lastActiveSessionID != nil && snapshot.activeID == nil
                 ? .sessionClosed
                 : .sessionChanged

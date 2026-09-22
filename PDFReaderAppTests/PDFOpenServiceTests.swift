@@ -1,4 +1,5 @@
 import AppKit
+import Foundation
 import PDFKit
 import PDFReaderCore
 import PDFReaderTestSupport
@@ -25,7 +26,7 @@ struct PDFOpenServiceTests {
         }
     }
 
-    @Test("I-PDF-02 missing, malformed, locked, and remote URLs map to stable errors")
+    @Test("I-PDF-02 missing, malformed, password-required, and remote URLs map to stable errors")
     func invalidInputsMapToStableErrors() throws {
         try withTemporaryDirectory { directory in
             let service = PDFOpenService()
@@ -40,15 +41,108 @@ struct PDFOpenServiceTests {
                 try service.open(url: malformed)
             }
             #expect(PDFDocument(url: locked)?.isLocked == true)
-            #expect(throws: PDFOpenError.lockedDocument(locked.path)) {
+            #expect(throws: PDFOpenError.passwordRequired(locked.path)) {
                 try service.open(url: locked)
             }
             #expect(throws: PDFOpenError.unsupportedLocation("https://example.invalid/file.pdf")) {
                 try service.open(url: URL(string: "https://example.invalid/file.pdf")!)
             }
 
-            #expect(PDFOpenError.lockedDocument(locked.path).presentation.contains("Password-protected"))
+            #expect(PDFOpenError.passwordRequired(locked.path).presentation.contains("Password required"))
+            #expect(!PDFOpenError.passwordRequired(locked.path).presentation.contains("not supported"))
             #expect(!PDFOpenError.malformedDocument(malformed.path).presentation.isEmpty)
+        }
+    }
+
+    @Test("locked PDF with valid password creates a session and preserves source bytes")
+    func lockedPDFWithValidPasswordCreatesSession() throws {
+        try withTemporaryDirectory { directory in
+            let locked = try PDFFixtureFactory.makeLockedPDF(in: directory)
+            let originalBytes = try Data(contentsOf: locked)
+            var promptStates: [Bool] = []
+
+            let session = try PDFOpenService().open(url: locked, passwordProvider: { priorInvalidAttempt in
+                promptStates.append(priorInvalidAttempt)
+                return "reader-test-secret"
+            })
+
+            #expect(promptStates == [false])
+            #expect(session.sourceURL == locked.standardizedFileURL)
+            #expect(session.pageCount == 1)
+            #expect(try Data(contentsOf: locked) == originalBytes)
+            session.prepareForClose()
+        }
+    }
+
+    @Test("locked PDF retries a wrong password before opening with a valid password")
+    func lockedPDFWrongPasswordThenValidOpens() throws {
+        try withTemporaryDirectory { directory in
+            let locked = try PDFFixtureFactory.makeLockedPDF(in: directory)
+            let responses = ["wrong-password", "reader-test-secret"]
+            var promptStates: [Bool] = []
+
+            let session = try PDFOpenService().open(url: locked, passwordProvider: { priorInvalidAttempt in
+                promptStates.append(priorInvalidAttempt)
+                return responses.indices.contains(promptStates.count - 1)
+                    ? responses[promptStates.count - 1]
+                    : nil
+            })
+
+            #expect(promptStates == [false, true])
+            #expect(session.pageCount == 1)
+            session.prepareForClose()
+        }
+    }
+
+    @Test("locked PDF cancellation after a wrong password does not create a session")
+    func lockedPDFWrongPasswordThenCancel() throws {
+        try withTemporaryDirectory { directory in
+            let locked = try PDFFixtureFactory.makeLockedPDF(in: directory)
+            let originalBytes = try Data(contentsOf: locked)
+            var promptStates: [Bool] = []
+
+            #expect(throws: PDFOpenError.cancelled) {
+                try PDFOpenService().open(url: locked, passwordProvider: { priorInvalidAttempt in
+                    promptStates.append(priorInvalidAttempt)
+                    return promptStates.count == 1 ? "wrong-password" : nil
+                })
+            }
+
+            #expect(promptStates == [false, true])
+            #expect(try Data(contentsOf: locked) == originalBytes)
+        }
+    }
+
+    @Test("locked PDF immediate cancellation does not retry")
+    func lockedPDFImmediateCancel() throws {
+        try withTemporaryDirectory { directory in
+            let locked = try PDFFixtureFactory.makeLockedPDF(in: directory)
+            var promptStates: [Bool] = []
+
+            #expect(throws: PDFOpenError.cancelled) {
+                try PDFOpenService().open(url: locked, passwordProvider: { priorInvalidAttempt in
+                    promptStates.append(priorInvalidAttempt)
+                    return nil
+                })
+            }
+
+            #expect(promptStates == [false])
+        }
+    }
+
+    @Test("unlocked PDF does not invoke the password provider")
+    func unlockedPDFDoesNotPrompt() throws {
+        try withTemporaryDirectory { directory in
+            let unlocked = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1)
+            var didPrompt = false
+
+            let session = try PDFOpenService().open(url: unlocked, passwordProvider: { _ in
+                didPrompt = true
+                return nil
+            })
+
+            #expect(!didPrompt)
+            session.prepareForClose()
         }
     }
 

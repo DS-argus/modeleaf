@@ -200,12 +200,15 @@ public enum ConfigValidator {
             prefix: effectivePrefix
         )
 
-
-
+        let links = LinksConfiguration(
+            skipExternalLinkHintConfirmation: sparse.links?.skipExternalLinkHintConfirmation
+                ?? defaults.links.skipExternalLinkHintConfirmation
+        )
         let effective = EffectiveAppConfig(
             keymap: bindings,
             navigation: navigation,
-            input: input
+            input: input,
+            links: links
         )
         validateEffectiveConfiguration(
             effective,

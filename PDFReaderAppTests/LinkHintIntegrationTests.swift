@@ -154,7 +154,7 @@ struct LinkHintIntegrationTests {
             #expect(!controller.rootView.helpOverlay.isHidden)
         }
     }
-    @Test("unique URL hint commits through the PDF view and dismisses")
+    @Test("unique URL hint commits on the first non-repeat Enter after displaying the URL")
     func uniqueURLCommit() throws {
         try withLinkHarness { controller, session, view, _ in
             var followed: URL?
@@ -163,14 +163,118 @@ struct LinkHintIntegrationTests {
 
             let event = try #require(makeKeyEvent(characters: "f"))
             #expect(controller.routeKeyEventForTesting(event))
+            #expect(followed == nil)
+            #expect(view.followedLinkCount == 0)
+            #expect(controller.rootView.linkHintOverlay.selectedURLIndexForTesting != nil)
+            #expect(controller.rootView.linkHintOverlay.confirmationURLForTesting == "https://example.invalid/link-hint")
+            #expect(controller.rootView.linkHintOverlay.urlPromptActionsForTesting == "↩ Open    Esc Close")
+            #expect((controller.rootView.linkHintOverlay.accessibilityValue() as? String)?.contains("https://example.invalid/link-hint") == true)
+            #expect((controller.rootView.linkHintOverlay.accessibilityValue() as? String)?.contains("Press Enter to open") == true)
+
+            let repeatedEnter = try #require(makeKeyEvent(characters: "\r", keyCode: 36, isRepeat: true))
+            #expect(controller.routeKeyEventForTesting(repeatedEnter))
+            #expect(followed == nil)
+            #expect(view.followedLinkCount == 0)
+            #expect(controller.rootView.linkHintOverlay.selectedURLIndexForTesting != nil)
+
+            let firstEnter = try #require(makeKeyEvent(characters: "\r", keyCode: 36))
+            #expect(controller.routeKeyEventForTesting(firstEnter))
             #expect(followed == URL(string: "https://example.invalid/link-hint"))
             #expect(view.followedLinkCount == 1)
+            #expect(controller.rootView.linkHintOverlay.selectedURLIndexForTesting == nil)
+            #expect(controller.rootView.linkHintOverlay.confirmationURLForTesting == nil)
             #expect(!session.destinationIndicatorVisibleForTesting)
             #expect(controller.rootView.linkHintOverlay.isHidden)
             #expect(controller.window?.firstResponder === session.focusView)
+
+            let subsequentEnter = try #require(makeKeyEvent(characters: "\r", keyCode: 36))
+            _ = controller.routeKeyEventForTesting(subsequentEnter)
+            #expect(followed == URL(string: "https://example.invalid/link-hint"))
+            #expect(view.followedLinkCount == 1)
         }
     }
 
+    @Test("URL hint prompt keeps the complete destination and uses Open and Close actions")
+    func urlPromptKeepsFullDestination() throws {
+        let overlay = LinkHintOverlayView(frame: NSRect(x: 0, y: 0, width: 180, height: 320))
+        let window = NSWindow(
+            contentRect: overlay.frame,
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = overlay
+        defer { window.contentView = nil }
+        overlay.apply(theme: AppKitTheme(themeID: .tokyoNight))
+        let url = "https://example.invalid/" + String(repeating: "long-segment-", count: 24)
+        overlay.present(
+            hints: [(rects: [NSRect(x: 8, y: 8, width: 24, height: 24)], label: "f")],
+            urlHintIndices: [0],
+            urlHintURLs: [0: url]
+        )
+
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "f"))))
+        #expect(overlay.confirmationURLForTesting == url)
+        #expect(overlay.urlPromptActionsForTesting == "↩ Open    Esc Close")
+        #expect((overlay.accessibilityValue() as? String)?.contains(url) == true)
+        #expect((overlay.accessibilityValue() as? String)?.contains("Press Enter to open") == true)
+
+        overlay.layoutSubtreeIfNeeded()
+        let representation = try #require(overlay.bitmapImageRepForCachingDisplay(in: overlay.bounds))
+        overlay.cacheDisplay(in: overlay.bounds, to: representation)
+        let textSurface = overlay.urlPromptTextSurfaceForTesting
+        textSurface.layoutSubtreeIfNeeded()
+        let textRepresentation = try #require(textSurface.bitmapImageRepForCachingDisplay(in: textSurface.bounds))
+        textSurface.cacheDisplay(in: textSurface.bounds, to: textRepresentation)
+        #expect(renderedPixelCount(in: textRepresentation) > 20)
+        #expect(overlay.urlPromptIsScrollableForTesting)
+        #expect(overlay.urlPromptContentWidthForTesting > overlay.urlPromptViewportWidthForTesting)
+        if let directory = ProcessInfo.processInfo.environment["PDF_READER_SNAPSHOT_DIR"] {
+            let output = URL(fileURLWithPath: directory, isDirectory: true)
+            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+            let png = try #require(representation.representation(using: .png, properties: [:]))
+            try png.write(to: output.appendingPathComponent("link-hint-url-prompt.png"), options: .atomic)
+        }
+        let clip = try #require(textSurface.superview as? NSClipView)
+        clip.scroll(to: NSPoint(x: 80, y: 0))
+        #expect(clip.bounds.minX > 0)
+        overlay.needsLayout = true
+        overlay.layoutSubtreeIfNeeded()
+        #expect(clip.bounds.minX > 0)
+        overlay.dismiss()
+        let nextURL = url + "different-destination"
+        overlay.present(
+            hints: [(rects: [NSRect(x: 8, y: 8, width: 24, height: 24)], label: "f")],
+            urlHintURLs: [0: nextURL]
+        )
+        #expect(overlay.handleKeyDown(try #require(makeKeyEvent(characters: "f"))))
+        overlay.layoutSubtreeIfNeeded()
+        #expect(overlay.confirmationURLForTesting == nextURL)
+        #expect(clip.bounds.minX == 0)
+    }
+
+    @Test("URL hint selection cancels on Escape or Tab without following")
+    func urlConfirmationCancellation() throws {
+        try withLinkHarness { controller, session, view, _ in
+            var followed = 0
+            view.followLinkHandler = { _ in followed += 1 }
+            let select = try #require(makeKeyEvent(characters: "f"))
+            let escape = try #require(makeKeyEvent(characters: "", keyCode: 53))
+            let tab = try #require(makeKeyEvent(characters: "\t", keyCode: 48))
+            controller.presentLinkHints()
+            #expect(controller.routeKeyEventForTesting(select))
+            #expect(controller.routeKeyEventForTesting(escape))
+            #expect(controller.rootView.linkHintOverlay.isHidden)
+            #expect(followed == 0)
+            #expect(session.currentPageNumber == 1)
+
+            controller.presentLinkHints()
+            #expect(controller.routeKeyEventForTesting(select))
+            #expect(controller.routeKeyEventForTesting(tab))
+            #expect(controller.rootView.linkHintOverlay.isHidden)
+            #expect(followed == 0)
+        }
+    }
     @Test("GoTo hint changes page without incrementing URL follow count")
     func uniqueGoToCommit() throws {
         try withLinkHarness { controller, session, view, _ in
@@ -586,6 +690,27 @@ struct LinkHintIntegrationTests {
             && abs(lhs.minY - rhs.minY) <= tolerance
             && abs(lhs.width - rhs.width) <= tolerance
             && abs(lhs.height - rhs.height) <= tolerance
+    }
+
+    private func renderedPixelCount(in representation: NSBitmapImageRep) -> Int {
+        guard let bitmapData = representation.bitmapData else { return 0 }
+        let bytesPerSample = max(1, representation.bitsPerSample / 8)
+        let channelCount = max(1, representation.samplesPerPixel)
+        let bytesPerPixel = channelCount * bytesPerSample
+        let alphaOffset = representation.hasAlpha ? (channelCount - 1) * bytesPerSample : nil
+        var count = 0
+        for y in 0..<representation.pixelsHigh {
+            let row = bitmapData.advanced(by: y * representation.bytesPerRow)
+            for x in 0..<representation.pixelsWide {
+                let pixel = row.advanced(by: x * bytesPerPixel)
+                if let alphaOffset {
+                    if pixel.advanced(by: alphaOffset).pointee > 8 { count += 1 }
+                } else if (0..<channelCount).contains(where: { pixel.advanced(by: $0 * bytesPerSample).pointee > 16 }) {
+                    count += 1
+                }
+            }
+        }
+        return count
     }
 
     private func withLinkHarness(_ body: (MainWindowController, ReaderSession, ReaderPDFView, URL) throws -> Void) throws {

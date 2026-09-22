@@ -4,6 +4,7 @@
 </div>
 
 A native, read-only macOS PDF viewer — keyboard-first, Vim-flavored, with native tabs and a minimal interface.
+> **Windows:** [Modeleaf for Windows](https://github.com/DS-argus/modeleaf-win) is actively evolving. See its README for current features and limitations.
 
 [Korean](docs/README.md)
 
@@ -19,6 +20,7 @@ https://github.com/user-attachments/assets/1fd81fb3-b600-403c-bcfb-5365aa867503
 
 - Keyboard-first navigation, search, link hints, and embedded-outline TOC
 - Native tabs and a recent-file picker
+- Password-protected local PDFs with a native secure prompt; passwords are never saved
 - Command palette and seven built-in themes
 - Fit, zoom, rotation, history, and system printing
 - TOML-configurable commands and reader behavior
@@ -109,6 +111,12 @@ Modeleaf checks [GitHub Releases](https://github.com/DS-argus/modeleaf/releases)
 | Split / focus pane | `Ctrl-b \|` `Ctrl-b -` / `Ctrl-h/j/k/l` |
 | Theme / palette / help              | `T` / `:` / `?`               |
 
+`y` previews the full PDF path; `yy` copies it and adds `copied!`. Each input refreshes the three-second display; the default key-sequence timeout remains 400 ms. Long paths are middle-truncated with the full path available in a tooltip.
+
+External URL hints display the destination URL on selection. Press Enter once to open it, or Escape to close the prompt. Held-key repeats do not open links. Internal PDF destinations are unchanged.
+
+The status bar adapts down to the existing 480 × 360 pt minimum window: it keeps every item on one line, prioritizes temporary path/key feedback and compact search results, and hides lower-priority basic items in order (version, help, zoom, fit badge, page). Optional notices and update text appear only when they fit. Errors that do not fit retain an `Error` button for their full details.
+
 ## Configuration
 
 Modeleaf reads an optional TOML config:
@@ -117,7 +125,7 @@ Modeleaf reads an optional TOML config:
 ~/.config/modeleaf/config.toml
 ```
 
-Keys use `D` (Command), `C` (Control), `A` (Option), and `S` (Shift). Use **Write Default Config**, **Reload Config**, or **Reset Config** from the command palette. See [CONFIG.md](CONFIG.md) for every action, default, and validation rule.
+Keys use `D` (Command), `C` (Control), `A` (Option), and `S` (Shift). Use **Write Default Config**, **Reload Config**, or **Reset Config** from the command palette. See [CONFIG.md](CONFIG.md) for every action, default, and validation rule. External link hint confirmation can be disabled with `[links] skip_external_link_hint_confirmation = true`; it is enabled by default.
 
 ## Build from source
 

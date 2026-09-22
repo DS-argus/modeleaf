@@ -5,6 +5,21 @@ import Testing
 
 @Suite("Strict TOML adapter and atomic activation")
 struct ConfigLoadingTests {
+    @Test("external hint confirmation defaults safe and accepts only explicit booleans")
+    func externalHintConfirmationConfiguration() throws {
+        for (source, skip) in [("", false), ("[links]\nskip_external_link_hint_confirmation = false", false), ("[links]\nskip_external_link_hint_confirmation = true", true)] {
+            let decoded = TOMLConfigDecoder().decode(Data(source.utf8), sourcePath: "test.toml")
+            #expect(decoded.isValid)
+            let document = try #require(decoded.document)
+            let validated = try #require(ConfigValidator.validate(document.sparseConfig, source: document.source).validatedConfig)
+            #expect(validated.config.links.skipExternalLinkHintConfirmation == skip)
+        }
+        for value in ["1", "\"true\"", "[]"] {
+            let source = "[links]\nskip_external_link_hint_confirmation = \(value)"
+            let decoded = TOMLConfigDecoder().decode(Data(source.utf8), sourcePath: "test.toml")
+            #expect(!decoded.isValid)
+        }
+    }
     @Test("U-CFG-01 missing deterministic path activates embedded defaults without creating a file")
     func missingFileUsesEmbeddedDefaults() throws {
         let temporary = try makeTemporaryDirectory()

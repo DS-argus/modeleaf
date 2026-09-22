@@ -12,12 +12,9 @@ public enum BuiltInDefaults {
 
     public static let config = EffectiveAppConfig(
         keymap: keymap,
-        navigation: NavigationConfiguration(
-            smallScrollPoints: 32.0,
-            largeScrollViewportFraction: 0.8,
-            zoomFactor: 1.10
-        ),
-        input: InputConfiguration(prefixTimeoutMilliseconds: 400, prefix: defaultPrefix)
+        navigation: NavigationConfiguration(smallScrollPoints: 32.0, largeScrollViewportFraction: 0.8, zoomFactor: 1.10),
+        input: InputConfiguration(prefixTimeoutMilliseconds: 400, prefix: defaultPrefix),
+        links: LinksConfiguration(skipExternalLinkHintConfirmation: false)
     )
 
     public static let templatedKeymap: [ActionID: [String]] = [
@@ -95,6 +92,10 @@ public enum BuiltInDefaults {
             "prefix_timeout_ms = \(config.input.prefixTimeoutMilliseconds)",
             "# Pane prefix chord. Every <prefix> binding above expands to this.",
             "prefix = \"\(escapeTOML(config.input.prefix))\"",
+            "",
+            "[links]",
+            "# External link hints require confirmation by default.",
+            "skip_external_link_hint_confirmation = \(config.links.skipExternalLinkHintConfirmation)",
         ]
         return lines.joined(separator: "\n")
     }

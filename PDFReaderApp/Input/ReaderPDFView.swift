@@ -25,6 +25,54 @@ protocol ReaderPDFViewInternalLinkHandling: AnyObject {
 
 
 @MainActor
+private final class CanvasFocusIndicatorView: NSView {
+    var color = NSColor.clear {
+        didSet { needsDisplay = true }
+    }
+    var topBreak: ClosedRange<CGFloat>? {
+        didSet { needsDisplay = true }
+    }
+    var showsIndicator = false {
+        didSet { needsDisplay = true }
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard showsIndicator, color.alphaComponent > 0, bounds.width > 0, bounds.height > 0 else {
+            return
+        }
+
+        let lineWidth = WindowVisualMetrics.canvasFocusRingWidth
+        let inset = lineWidth / 2
+        let left = bounds.minX + inset
+        let right = bounds.maxX - inset
+        guard right > left else { return }
+
+        color.setStroke()
+        if let topBreak {
+            let breakStart = max(left, min(right, topBreak.lowerBound + inset))
+            let breakEnd = max(left, min(right, topBreak.upperBound - inset))
+            strokeLine(from: left, to: breakStart, y: bounds.maxY - inset, lineWidth: lineWidth)
+            strokeLine(from: breakEnd, to: right, y: bounds.maxY - inset, lineWidth: lineWidth)
+        } else {
+            strokeLine(from: left, to: right, y: bounds.maxY - inset, lineWidth: lineWidth)
+        }
+        strokeLine(from: left, to: right, y: bounds.minY + inset, lineWidth: lineWidth)
+    }
+
+    private func strokeLine(from start: CGFloat, to end: CGFloat, y: CGFloat, lineWidth: CGFloat) {
+        guard end - start > 0.01 else { return }
+        let path = NSBezierPath()
+        path.move(to: NSPoint(x: start, y: y))
+        path.line(to: NSPoint(x: end, y: y))
+        path.lineWidth = lineWidth
+        path.stroke()
+    }
+}
+
+
+@MainActor
 final class ReaderPDFView: PDFView {
     var keyEventHandler: ((NSEvent) -> Bool)?
     weak var internalLinkHandler: (any ReaderPDFViewInternalLinkHandling)?
@@ -45,6 +93,9 @@ final class ReaderPDFView: PDFView {
     private var nativeViewportGestureActive = false
     private var pendingViewportGestureEnd: DispatchWorkItem?
     private var focusIndicatorColor = NSColor.clear
+    private let focusIndicatorView = CanvasFocusIndicatorView()
+    private var focusIndicatorTopBreak: ClosedRange<CGFloat>?
+    private(set) var isShowingFocusIndicator = false
 
     override var acceptsFirstResponder: Bool { true }
 
@@ -71,6 +122,19 @@ final class ReaderPDFView: PDFView {
         setAccessibilityLabel("PDF document")
         delegate = readOnlyDelegate
         updateFocusAppearance(isFocused: false)
+        focusIndicatorView.translatesAutoresizingMaskIntoConstraints = true
+        focusIndicatorView.frame = bounds
+        focusIndicatorView.autoresizingMask = [.width, .height]
+        addSubview(focusIndicatorView, positioned: .above, relativeTo: nil)
+    }
+
+    override func layout() {
+        super.layout()
+        focusIndicatorView.frame = bounds
+        refreshFocusIndicatorGeometry()
+        if focusIndicatorView.superview === self {
+            addSubview(focusIndicatorView, positioned: .above, relativeTo: nil)
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -279,6 +343,28 @@ final class ReaderPDFView: PDFView {
         focusIndicatorColor = color
         refreshFocusAppearance()
     }
+    var focusIndicatorGeometryProvider: (() -> ClosedRange<CGFloat>?)?
+
+    func refreshFocusIndicatorGeometry() {
+        guard let focusIndicatorGeometryProvider else { return }
+        applyFocusIndicatorTopBreak(focusIndicatorGeometryProvider())
+    }
+    func applyFocusIndicatorTopBreak(_ range: ClosedRange<CGFloat>?) {
+        let normalized: ClosedRange<CGFloat>?
+        if let range {
+            let lower = min(range.lowerBound, range.upperBound)
+            let upper = max(range.lowerBound, range.upperBound)
+            normalized = upper > lower ? lower...upper : nil
+        } else {
+            normalized = nil
+        }
+        guard focusIndicatorTopBreak != normalized else { return }
+        focusIndicatorTopBreak = normalized
+        focusIndicatorView.topBreak = normalized
+    }
+
+    var focusIndicatorTopBreakForTesting: ClosedRange<CGFloat>? { focusIndicatorTopBreak }
+    var focusIndicatorColorForTesting: NSColor { focusIndicatorColor }
 
     func scrollBy(xPoints: Double, yPoints: Double) {
         guard xPoints.isFinite, yPoints.isFinite,
@@ -514,8 +600,13 @@ final class ReaderPDFView: PDFView {
     }
 
     private func updateFocusAppearance(isFocused: Bool) {
-        layer?.borderColor = focusIndicatorColor.cgColor
-        layer?.borderWidth = isFocused ? WindowVisualMetrics.canvasFocusRingWidth : 0
+        layer?.borderColor = NSColor.clear.cgColor
+        layer?.borderWidth = 0
+        isShowingFocusIndicator = isFocused
+        focusIndicatorView.color = focusIndicatorColor
+        focusIndicatorView.topBreak = focusIndicatorTopBreak
+        focusIndicatorView.showsIndicator = isFocused
+        focusIndicatorView.needsDisplay = true
     }
 
     private var documentScrollView: NSScrollView? {
