@@ -798,7 +798,8 @@ struct CitationPreviewTests {
                 Issue.record("Preview must resolve after enabling experimental mode")
                 return
             }
-            #expect(controller.mainWindowController.rootView.statusBar.presentation.detail.contains("Experimental · ON"))
+            #expect(!controller.mainWindowController.rootView.statusBar.presentation.detail.contains("Experimental · ON"))
+            #expect(controller.mainWindowController.rootView.statusBar.presentation.isExperimentalMode)
             controller.mainWindowController.rootView.citationPreviewOverlay.present(
                 group: group,
                 anchorRect: CGRect(x: 100, y: 100, width: 10, height: 10)
@@ -835,7 +836,8 @@ struct CitationPreviewTests {
             restarted.dispatch(.citationPreviewToggle)
             #expect(!restarted.isCitationPreviewEnabled)
             #expect(settingsStore.load() == .selected(false))
-            #expect(restarted.mainWindowController.rootView.statusBar.presentation.detail.contains("Experimental · OFF"))
+            #expect(!restarted.mainWindowController.rootView.statusBar.presentation.detail.contains("Experimental · OFF"))
+            #expect(!restarted.mainWindowController.rootView.statusBar.presentation.isExperimentalMode)
         }
     }
     @Test("author-year preview resolution remains nonmutating until Move commits one history jump")

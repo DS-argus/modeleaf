@@ -312,7 +312,6 @@ final class ApplicationController {
             )
             return
         }
-        mainWindowController.showDiagnostic("Citation Preview · Experimental · \(state)", isError: false)
     }
     func openExternalDocuments(_ urls: [URL]) { for url in urls { _ = openDocument(at: url) } }
     private func presentOpenPanel(target: PaneOpenTarget = .createIfEmpty) { openPanelPresenter.present(attachedTo: mainWindowController.window) { [weak self] url in guard let self, let url else { return }; _ = self.openDocument(at: url, target: target) } }
