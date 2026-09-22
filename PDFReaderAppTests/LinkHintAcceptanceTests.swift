@@ -97,6 +97,25 @@ struct LinkHintAcceptanceTests {
         }
     }
 
+    @Test("hint pages follow viewport geometry after page jumps and resize")
+    func hintPagesFollowViewport() throws {
+        try withLinkHarness { controller, session, view, _ in
+            session.fitPage()
+            try #require(session.goToPage(2))
+            view.layoutDocumentView()
+            #expect(view.pagesIntersectingViewport.map { view.document!.index(for: $0) } == [1])
+            #expect(session.linkTargets().isEmpty)
+            try #require(session.goToPage(1))
+            controller.window?.setContentSize(NSSize(width: 720, height: 480))
+            controller.rootView.layoutSubtreeIfNeeded()
+            view.layoutDocumentView()
+            #expect(view.pagesIntersectingViewport.map { view.document!.index(for: $0) } == [0])
+            #expect(session.linkTargets().count == 6)
+            controller.presentLinkHints()
+            #expect(!controller.rootView.linkHintOverlay.isHidden)
+        }
+    }
+
     @Test("hints preserve source bytes, operate only in the active pane, and retain mouse URL routing")
     func readOnlyAndMultiPaneAcceptance() throws {
         try withTemporaryDirectory { directory in

@@ -752,7 +752,7 @@ extension PDFViewController: ReaderLinkProviding, ReaderPDFViewInternalLinkHandl
     func readerPDFView(_ view: ReaderPDFView, activateInternalLink target: ReaderLinkTarget) { internalLinkHandler?(target) }
     func linkTargets() -> [RawLink] {
         loadViewIfNeeded(); readerView.layoutDocumentView()
-        return readerView.visiblePages.flatMap { page in
+        return readerView.pagesIntersectingViewport.flatMap { page in
             let index = initialDocument.index(for: page)
             return page.annotations.compactMap { (annotation: PDFAnnotation) -> RawLink? in
                 guard Self.isLink(annotation), let target = Self.linkTarget(annotation) else { return nil }
