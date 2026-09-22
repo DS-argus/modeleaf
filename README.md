@@ -32,7 +32,7 @@ https://github.com/user-attachments/assets/1fd81fb3-b600-403c-bcfb-5365aa867503
 Preview cited references without leaving the text you are reading.
 
 - **Enable:** Press `Shift+C` to toggle. It defaults to OFF, and your choice is saved.
-- **Use:** Press `f` to show link hints, then select a citation link.
+- **Use:** Press `f` to show hints inside the active pane, then select a citation link. Press `f` again (or `Esc`) to dismiss hints, including after a partial label. Hint labels never contain `f`.
 - **Navigate:** Use `h` / `l` or `Tab` / `Shift+Tab` to switch references, `Enter` to jump to the reference, `Shift+Enter` to search for it on Google Scholar, and `Esc` to close.
 - **Representative citation formats:** Support focuses on formats commonly used in AI conference papers, such as `[1]`, `[1,3]`, `[1–3]`, `(1; 2)`, `(Author, 2020)`, `(Author, 2020a,b)`, and `[HKR16; Pat+23]`.
 

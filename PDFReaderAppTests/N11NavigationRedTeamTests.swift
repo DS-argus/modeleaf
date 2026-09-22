@@ -160,7 +160,10 @@ struct N11NavigationRedTeamTests {
                 linkSession.fitPage()
                 controller.presentLinkHints()
                 try #require(!controller.rootView.linkHintOverlay.isHidden)
-                try #require(controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: "f"))))
+                let label = try #require(controller.rootView.linkHintOverlay.visibleLabels.first)
+                for character in label {
+                    try #require(controller.routeKeyEventForTesting(try #require(makeKeyEvent(characters: String(character)))))
+                }
                 try #require(linkSession.currentPageNumber == 2)
                 try #require(linkSession.goBack() == .verifiedLanding && linkSession.currentPageNumber == 1)
                 try #require(!linkSession.canGoBack)
