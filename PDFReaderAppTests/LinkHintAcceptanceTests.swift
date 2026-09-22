@@ -124,14 +124,16 @@ struct LinkHintAcceptanceTests {
             try #require(active.initialPresentationState == .applied)
             try #require(activeView.bounds.width > 1 && activeView.bounds.height > 1)
             try #require(active.currentPageNumber == 1)
-            let overlay = controller.rootView.linkHintOverlay
-            let geometry = LinkHintMerge.mergeLinks(active.linkTargets()).map { link in
-                "source=\(link.sourcePageIndex) rects=\(link.rects) projected=\(active.linkHintRects(for: link, in: overlay))"
-            }.joined(separator: "; ")
-            try #require(overlay.bounds.width > 1 && overlay.bounds.height > 1,
-                         "overlay=\(overlay.frame), root=\(controller.rootView.frame), active=\(activeView.frame)")
-            try #require(label(for: .url("https://example.invalid/link-hint"), in: active, controller: controller) != nil,
-                         "Before f: scale=\(activeView.scaleFactor), pdf=\(activeView.bounds), overlay=\(overlay.frame), links=\(geometry)")
+            // PDFKit can publish visiblePages after the split view has completed
+            // layout. Wait for that observable state before sending the single f.
+            let deadline = Date().addingTimeInterval(5)
+            while activeView.visiblePages.isEmpty, Date() < deadline {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+                activeView.layoutDocumentView()
+            }
+            try #require(!activeView.visiblePages.isEmpty)
+            try #require(active.linkTargets().count == 6,
+                         "visible pages=\(activeView.visiblePages.count), annotation counts=\(activeView.visiblePages.map { $0.annotations.count })")
             #expect(coordinator.activePaneID == activePane)
             #expect(route("f", through: controller))
             #expect(!controller.rootView.linkHintOverlay.isHidden)
