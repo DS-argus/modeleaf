@@ -164,9 +164,8 @@ struct PDFOpenServiceTests {
             let externalURL = try PDFFixtureFactory.makeTextPDF(in: directory, name: "external.pdf", pageCount: 2)
             let store = ReaderSessionStore()
             let picker = ImmediatePDFOpenPanel(url: pickerURL)
-            let missingConfig = directory.appendingPathComponent("missing-config.toml")
             let controller = ApplicationController(
-                configService: ConfigService(source: ConfigFileSource(url: missingConfig)),
+                settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
                 sessionStore: store,
                 openPanelPresenter: picker,
                 themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
@@ -199,9 +198,7 @@ struct PDFOpenServiceTests {
             let store = ReaderSessionStore()
             let recentStore = RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json"))
             let controller = ApplicationController(
-                configService: ConfigService(
-                    source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))
-                ),
+                settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
                 sessionStore: store,
                 themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
                 recentFilesStore: recentStore,

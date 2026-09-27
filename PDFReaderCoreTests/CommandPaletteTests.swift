@@ -58,7 +58,7 @@ struct CommandPaletteTests {
     @Test("global lifecycle commands stay enabled with no open document")
     func lifecycleAlwaysEnabled() {
         let empty = PaletteContextState(hasActiveDocument: false, paneCount: 0, tabCount: 0, inSearchResults: false)
-        for id in [ActionID.documentOpen, .appNew, .appQuit, .helpShow] {
+        for id in [ActionID.documentOpen, .appNew, .appQuit, .helpShow, .settingsOpen] {
             #expect(PaletteAvailability.evaluate(id, state: empty).enabled)
         }
         // Everything else is disabled until a document is open.
@@ -66,18 +66,6 @@ struct CommandPaletteTests {
         #expect(!disabled.enabled)
         #expect(disabled.reason == "Open a PDF first")
         #expect(PaletteAvailability.evaluate(.documentPrint, state: empty) == (false, "Open a PDF first"))
-    }
-
-    @Test("config commands mirror config file existence")
-    func configAvailability() {
-        let missing = PaletteContextState(hasActiveDocument: false, paneCount: 0, tabCount: 0, inSearchResults: false, configFileExists: false)
-        #expect(PaletteAvailability.evaluate(.configReload, state: missing).enabled)
-        #expect(PaletteAvailability.evaluate(.configWriteDefault, state: missing).enabled)
-        #expect(PaletteAvailability.evaluate(.configResetDefault, state: missing) == (false, "No config file to reset"))
-
-        let existing = PaletteContextState(hasActiveDocument: false, paneCount: 0, tabCount: 0, inSearchResults: false, configFileExists: true)
-        #expect(PaletteAvailability.evaluate(.configWriteDefault, state: existing) == (false, "Config already exists"))
-        #expect(PaletteAvailability.evaluate(.configResetDefault, state: existing).enabled)
     }
 
     @Test("tab, pane, split, and search availability track runtime state")

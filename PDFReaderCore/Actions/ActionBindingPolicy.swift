@@ -121,10 +121,11 @@ public enum ActionBindingPolicy {
         system: SystemKeyReservationV1 = .shared
     ) -> ActionBindingPolicyReport {
         var evaluated: [ActionID: [EvaluatedActionBinding]] = [:]
+        let effectiveBindings = FoundationalBindings.compose(bindings, registry: registry)
         var diagnostics: [ActionBindingDiagnostic] = []
 
         for descriptor in registry.descriptors {
-            guard let sequences = bindings[descriptor.id] else {
+            guard let sequences = effectiveBindings[descriptor.id] else {
                 diagnostics.append(.missingAction(descriptor.id))
                 evaluated[descriptor.id] = []
                 continue
@@ -176,7 +177,11 @@ public enum ActionBindingPolicy {
                 else {
                     continue
                 }
-                let overlap = first.action.activeContexts.intersection(second.action.activeContexts)
+                let firstContexts = FoundationalBindings.contexts(for: first.action.id, sequence: first.sequence)
+                    ?? first.action.activeContexts
+                let secondContexts = FoundationalBindings.contexts(for: second.action.id, sequence: second.sequence)
+                    ?? second.action.activeContexts
+                let overlap = firstContexts.intersection(secondContexts)
                 if !overlap.isEmpty {
                     diagnostics.append(
                         .conflictingSequence(
@@ -192,7 +197,7 @@ public enum ActionBindingPolicy {
 
         let validated: ValidatedKeymap?
         if diagnostics.isEmpty {
-            validated = ValidatedKeymap(bindings: bindings, evaluatedBindings: evaluated, registry: registry)
+            validated = ValidatedKeymap(bindings: effectiveBindings, evaluatedBindings: evaluated, registry: registry)
         } else {
             validated = nil
         }

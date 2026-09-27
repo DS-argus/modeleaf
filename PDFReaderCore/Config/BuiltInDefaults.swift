@@ -17,6 +17,9 @@ public enum BuiltInDefaults {
         links: LinksConfiguration(skipExternalLinkHintConfirmation: false)
     )
 
+    /// The source templates used to seed the built-in effective keymap.
+    /// Foundation entries remain here so this map continues to describe the complete
+    /// built-in vocabulary; use `editableTemplatedKeymap` for alias presentation.
     public static let templatedKeymap: [ActionID: [String]] = [
         .documentOpen: ["<D-o>"], .documentClose: ["<D-w>"], .documentPrint: ["<D-p>"], .documentCopyPath: ["yy"], .documentRevealInFinder: ["of"], .appQuit: ["<D-q>"], .appNew: ["<D-n>"], .paletteOpen: [":", "<D-S-p>"], .helpShow: ["?"],
         .tabNext: ["N"], .tabPrevious: ["P"],
@@ -29,82 +32,44 @@ public enum BuiltInDefaults {
         .historyBack: ["<C-o>"], .historyForward: ["<C-i>"],
         .promptCommit: ["<Enter>"], .promptCancel: ["<Esc>"],
         .searchPrompt: ["/"], .searchNext: ["<Enter>"], .searchPrevious: ["<S-Enter>"], .searchCancel: ["<Esc>"],
-        .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [], .viewFitWidth: ["w"], .viewFitPage: ["F"], .viewRotateLeft: ["["], .viewRotateRight: ["]"], .linkHint: ["f"], .citationPreviewToggle: ["C"],
+        .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: ["0"], .viewFitWidth: ["w"], .viewFitPage: ["F"], .viewRotateLeft: ["["], .viewRotateRight: ["]"], .linkHint: ["f"], .citationPreviewToggle: ["C"],
         .tocToggle: ["t"], .tocScrollDown: ["J"], .tocScrollUp: ["K"],
-        .configReload: ["<prefix>r"], .configWriteDefault: [], .configResetDefault: [],
+        .settingsOpen: ["<D-,>"],
         .themePicker: ["T"], .indicatorPicker: ["I"], .updateShow: ["U"],
         .paneSplitRight: ["<prefix>|"], .paneSplitDown: ["<prefix>-"], .paneUnsplit: ["<prefix>o"],
         .paneFocusLeft: ["<C-h>"], .paneFocusDown: ["<C-j>"], .paneFocusUp: ["<C-k>"], .paneFocusRight: ["<C-l>"],
     ]
 
+    /// Built-in source templates with each action's own immutable foundation removed.
+    /// `<prefix>` references and all other source spellings are retained verbatim.
+    public static let editableTemplatedKeymap: [ActionID: [String]] = makeEditableTemplatedKeymap(templatedKeymap)
+
     public static let keymap = resolvedKeymap(templatedKeymap, prefix: defaultPrefix)
-    public static var defaultConfigTOML: String {
-        var lines = [
-            "# Modeleaf configuration \u{2014} generated from PDFReaderCore.BuiltInDefaults.",
-            "# Do not edit this bundled copy. Copy it to ~/.config/modeleaf/config.toml and edit the copy.",
-            "#",
-            "# Key notation (chords are wrapped in <...>):",
-            "#   D = Command (Cmd)   C = Control (Ctrl)   A = Option (Alt)   S = Shift",
-            "#   Bare printable characters are literal; use <Space> for space. Concatenate tokens for sequences (gg).",
-            "#   Uppercase letters are bare literals (O). In a chord, write Shift explicitly (<D-S-o>).",
-            "#   e.g. <D-o> = Cmd+o, <C-j> = Ctrl+j, <S-Enter> = Shift+Enter.",
-            "#   <prefix> expands to the pane prefix defined under [input] below. Rebind the prefix",
-            "#   once and every <prefix> binding follows; <prefix> may be used in any binding.",
-            "#",
-            "# Enter/Esc prompt commit & cancel and search next/previous are fixed keys and are",
-            "# intentionally omitted here — they cannot be rebound.",
-            "",
-            "[keymap]",
-        ]
-        var previousCategory: String?
-        for descriptor in ActionRegistry.v1.userConfigurableDescriptors {
-            let category = categoryTitle(for: descriptor.id)
-            if category != previousCategory {
-                lines.append("")
-                lines.append("# --- \(category) ---")
-                if category == "Panes" {
-                    lines.append("# split/unsplit use <prefix>; focus keys are direct. Change the prefix under [input].")
-                }
-                previousCategory = category
+
+    private static func makeEditableTemplatedKeymap(
+        _ templates: [ActionID: [String]]
+    ) -> [ActionID: [String]] {
+        var editable = templates
+        for (action, sources) in templates {
+            guard ActionRegistry.v1.descriptor(for: action)?.isFixedBinding != true else {
+                editable[action] = []
+                continue
             }
-            let sequences = keymap[descriptor.id, default: []]
-            let templateSources = templatedKeymap[descriptor.id, default: []]
-            let rendered = templateSources
-                .map { "\"\(escapeTOML($0))\"" }
-                .joined(separator: ", ")
-            let key = "\"\(descriptor.id.rawValue)\""
-            let padded = key.padding(toLength: max(key.count, 18), withPad: " ", startingAt: 0)
-            let assignment = "\(padded) = [\(rendered)]"
-            if let hint = keyHint(sequences) {
-                lines.append("\(assignment)  # \(hint)")
-            } else {
-                lines.append(assignment)
+            let foundations = Set(FoundationalBindings.sequences(for: action))
+            editable[action] = sources.filter { source in
+                let expanded = source.replacingOccurrences(of: "<prefix>", with: defaultPrefix)
+                guard let parsed = try? KeySequenceParser.parse(expanded) else { return true }
+                return !foundations.contains(parsed)
             }
         }
-        lines += [
-            "",
-            "[navigation]",
-            "small_scroll_points = \(config.navigation.smallScrollPoints)",
-            "large_scroll_viewport_fraction = \(config.navigation.largeScrollViewportFraction)",
-            "zoom_factor = \(config.navigation.zoomFactor)",
-            "",
-            "[input]",
-            "prefix_timeout_ms = \(config.input.prefixTimeoutMilliseconds)",
-            "# Pane prefix chord. Every <prefix> binding above expands to this.",
-            "prefix = \"\(escapeTOML(config.input.prefix))\"",
-            "",
-            "[links]",
-            "# External link hints require confirmation by default.",
-            "skip_external_link_hint_confirmation = \(config.links.skipExternalLinkHintConfirmation)",
-        ]
-        return lines.joined(separator: "\n")
+        return editable
     }
 
     private static func resolvedKeymap(
         _ templates: [ActionID: [String]],
         prefix: String
     ) -> [ActionID: [KeySequence]] {
-        templates.mapValues { sources in
+        let aliases = templates.mapValues { sources in
             sources.map { source in
                 do {
                     return try KeySequenceParser.parse(source.replacingOccurrences(of: "<prefix>", with: prefix))
@@ -113,12 +78,9 @@ public enum BuiltInDefaults {
                 }
             }
         }
+        return FoundationalBindings.compose(aliases, registry: .v1)
     }
 
-    private static func escapeTOML(_ value: String) -> String {
-        value.replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-    }
     public static func categoryTitle(for id: ActionID) -> String {
         switch String(id.rawValue.prefix(while: { $0 != "." })) {
         case "app", "document": return "Application"
@@ -132,7 +94,7 @@ public enum BuiltInDefaults {
         case "link": return "Links"
         case "citation": return "Experimental"
         case "toc": return "Table of contents"
-        case "config": return "Config"
+        case "settings": return "Settings"
         case "view": return "View / Zoom"
         case "theme": return "Theme"
         case "pane": return "Panes"
@@ -140,10 +102,5 @@ public enum BuiltInDefaults {
         case "update": return "Update"
         default: return "Other"
         }
-    }
-
-
-    private static func keyHint(_ sequences: [KeySequence]) -> String? {
-        sequences.first.flatMap(KeyBindingHint.text(for:))
     }
 }

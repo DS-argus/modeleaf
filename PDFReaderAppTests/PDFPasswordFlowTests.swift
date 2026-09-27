@@ -147,7 +147,7 @@ struct PDFPasswordFlowTests {
         picker: any PDFOpenPanelPresenting = NativePDFOpenPanelPresenter()
     ) -> ApplicationController {
         ApplicationController(
-            configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing.toml"))),
+            settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
             openMetrics: NoopPDFOpenMetrics(),
             openPanelPresenter: picker,
             passwordPresenter: prompt,

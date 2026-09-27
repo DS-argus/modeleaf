@@ -10,9 +10,13 @@ final class ReaderWorkflowUITests: XCTestCase {
     @MainActor
     func testE2E01EmptyLaunchRemappedOpenAndRealOpenPanel() throws {
         try withEnvironment(
-            config: """
-            [keymap]
-            "document.open" = ["<D-F12>"]
+            settings: """
+            {
+              "version": 1,
+              "settings": {
+                "keymap": { "document.open": ["<D-F12>"] }
+              }
+            }
             """
         ) { environment, app in
             let pdf = try makePDF(in: environment.fixtures, name: "Remapped.pdf", pages: 20)
@@ -123,9 +127,13 @@ final class ReaderWorkflowUITests: XCTestCase {
     @MainActor
     func testE2E06ValidRemapReplacesRemovedDefault() throws {
         try withEnvironment(
-            config: """
-            [keymap]
-            "page.next" = ["x"]
+            settings: """
+            {
+              "version": 1,
+              "settings": {
+                "keymap": { "page.next": ["x"] }
+              }
+            }
             """
         ) { environment, app in
             let pdf = try makePDF(in: environment.fixtures, name: "Remap.pdf", pages: 3)
@@ -139,14 +147,19 @@ final class ReaderWorkflowUITests: XCTestCase {
     }
 
     @MainActor
-    func testE2E07InvalidConfigFallsBackWithAggregateDiagnostic() throws {
+    func testE2E07InvalidSettingsFallsBackWithAggregateDiagnostic() throws {
         try withEnvironment(
-            config: """
-            [navigation]
-            zoom_factor = 9
-            [keymap]
-            "document.open" = ["o"]
-            "bookmark.toggle" = ["b"]
+            settings: """
+            {
+              "version": 1,
+              "settings": {
+                "navigation": { "zoom_factor": 9 },
+                "keymap": {
+                  "document.open": ["o"],
+                  "bookmark.toggle": ["b"]
+                }
+              }
+            }
             """
         ) { _, app in
             let diagnostic = status("status.diagnostic", in: app)
@@ -164,10 +177,13 @@ final class ReaderWorkflowUITests: XCTestCase {
         let themes = ["catppuccin-mocha", "tokyo-night", "gruvbox-dark", "nord"]
         for theme in themes {
             try withEnvironment(
-                config: """
-                [theme]
-                built_in = "\(theme)"
-                """
+                settings: """
+                {
+                  "version": 1,
+                  "settings": {}
+                }
+                """,
+                state: "{\"selected_theme\":\"\(theme)\"}"
             ) { _, app in
                 XCTAssertTrue(app.descendants(matching: .any)["emptyState"].waitForExistence(timeout: 5))
                 XCTAssertTrue(app.descendants(matching: .any)["statusBar"].exists)
@@ -182,9 +198,13 @@ final class ReaderWorkflowUITests: XCTestCase {
     @MainActor
     func testE2E09GlobalMenuAndPromptPrecedence() throws {
         try withEnvironment(
-            config: """
-            [keymap]
-            "document.open" = ["<D-F12>"]
+            settings: """
+            {
+              "version": 1,
+              "settings": {
+                "keymap": { "document.open": ["<D-F12>"] }
+              }
+            }
             """
         ) { environment, app in
             app.menuBars.menuBarItems["File"].click()
@@ -324,18 +344,26 @@ final class ReaderWorkflowUITests: XCTestCase {
     @MainActor
     func testE2E14PromptSafeGlobalRejectsTextAndAcceptsCommandF12() throws {
         try withEnvironment(
-            config: """
-            [keymap]
-            "document.open" = ["o"]
+            settings: """
+            {
+              "version": 1,
+              "settings": {
+                "keymap": { "document.open": ["o"] }
+              }
+            }
             """
         ) { _, app in
             XCTAssertTrue(status("status.diagnostic", in: app).labelOrValue.contains("built-in defaults active"))
         }
 
         try withEnvironment(
-            config: """
-            [keymap]
-            "document.open" = ["<D-F12>"]
+            settings: """
+            {
+              "version": 1,
+              "settings": {
+                "keymap": { "document.open": ["<D-F12>"] }
+              }
+            }
             """
         ) { environment, app in
             let pdf = try makePDF(in: environment.fixtures, name: "Safe Global.pdf", pages: 2)
@@ -727,10 +755,11 @@ final class ReaderWorkflowUITests: XCTestCase {
     }
     @MainActor
     private func withEnvironment(
-        config: String? = nil,
+        settings: String? = nil,
+        state: String? = nil,
         body: (UITestEnvironment, XCUIApplication) throws -> Void
     ) throws {
-        let environment = try UITestEnvironment(config: config)
+        let environment = try UITestEnvironment(settings: settings ?? Self.defaultSettings, state: state)
         let originalInputSource = TISCopyCurrentKeyboardInputSource().takeRetainedValue()
         let app = XCUIApplication()
         app.launchEnvironment["HOME"] = environment.home.path
@@ -867,21 +896,35 @@ final class ReaderWorkflowUITests: XCTestCase {
     private func sha256(_ url: URL) throws -> String {
         SHA256.hash(data: try Data(contentsOf: url)).map { String(format: "%02x", $0) }.joined()
     }
+
+    private static let defaultSettings = """
+    {
+      "version": 1,
+      "settings": {}
+    }
+    """
 }
 
 private struct UITestEnvironment {
     let home: URL
     let fixtures: URL
+    let settingsURL: URL
+    let stateURL: URL
 
-    init(config: String?) throws {
+    init(settings: String, state: String?) throws {
         home = FileManager.default.temporaryDirectory
             .appendingPathComponent("modeleaf-ui-\(UUID().uuidString)", isDirectory: true)
         fixtures = home.appendingPathComponent("fixtures", isDirectory: true)
+        let applicationSupport = home.appendingPathComponent("Library/Application Support/Modeleaf", isDirectory: true)
+        settingsURL = applicationSupport.appendingPathComponent("settings.json")
+        let stateDirectory = home.appendingPathComponent(".config/modeleaf", isDirectory: true)
+        stateURL = stateDirectory.appendingPathComponent("state.json")
         try FileManager.default.createDirectory(at: fixtures, withIntermediateDirectories: true)
-        if let config {
-            let directory = home.appendingPathComponent(".config/modeleaf", isDirectory: true)
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            try Data(config.utf8).write(to: directory.appendingPathComponent("config.toml"))
+        try FileManager.default.createDirectory(at: applicationSupport, withIntermediateDirectories: true)
+        try Data(settings.utf8).write(to: settingsURL, options: .atomic)
+        if let state {
+            try FileManager.default.createDirectory(at: stateDirectory, withIntermediateDirectories: true)
+            try Data(state.utf8).write(to: stateURL, options: .atomic)
         }
     }
 

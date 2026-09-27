@@ -296,7 +296,7 @@ struct KeySequenceEngineTests {
     func noGeneralCounts() throws {
         var engine = try makeEngine()
         #expect(engine.handle(try token("1")) == .ignored(.noBinding))
-        #expect(engine.handle(try token("0")) == .ignored(.noBinding))
+        #expect(engine.handle(try token("0")) == .dispatch(KeyActionDispatch(actionID: .viewZoomReset)))
         #expect(engine.handle(try token("j")) == .dispatch(KeyActionDispatch(actionID: .scrollDown)))
     }
 

@@ -22,13 +22,20 @@ struct ActionRegistryTests {
             "pane.splitRight", "pane.splitDown", "pane.focusLeft", "pane.focusDown", "pane.focusUp", "pane.focusRight", "pane.unsplit",
             "citation.preview.toggle",
             "theme.picker", "indicator.picker", "update.show",
-            "config.reload", "config.writeDefault", "config.resetDefault",
+            "settings.open",
         ]
         let registry = ActionRegistry.v1
-        #expect(registry.descriptors.count == 64)
+        #expect(registry.descriptors.count == 62)
         #expect(Set(registry.actionIDs).count == registry.actionIDs.count)
         #expect(Set(registry.actionIDs.map(\.rawValue)) == expected)
         #expect(Set(InputContext.allCases) == [.navigation, .pagePrompt, .searchPrompt, .searchResults])
+    }
+    @Test("Retired configuration action IDs are unknown")
+    func retiredActionIDsAreUnknown() {
+        let retired = ["config.reload", "config.writeDefault", "config.resetDefault"]
+        #expect(retired.allSatisfy { ActionID(rawValue: $0) == nil })
+        #expect(ActionID(rawValue: "config.shortcuts") == nil)
+        #expect(ActionRegistry.v1.actionIDs.allSatisfy { !$0.rawValue.hasPrefix("config.") })
     }
 
     @Test("U-ACT-02 every action binds, dispatches, and unbinds")
@@ -40,7 +47,7 @@ struct ActionRegistryTests {
 
         #expect(
             Set(registry.actionIDs.filter { !keymap.isBound($0) })
-                == [.viewZoomReset, .configWriteDefault, .configResetDefault]
+                .isEmpty
         )
 
         for descriptor in registry.descriptors where keymap.isBound(descriptor.id) {
@@ -53,8 +60,20 @@ struct ActionRegistryTests {
             let unboundReport = keymap.replacingBindings(for: descriptor.id, with: [], registry: registry)
             #expect(unboundReport.diagnostics.isEmpty)
             let unbound = try #require(unboundReport.validatedKeymap)
-            #expect(!unbound.isBound(descriptor.id))
-            #expect(unbound.action(forExact: sequence, in: context) != descriptor.id)
+            let foundations = FoundationalBindings.sequences(for: descriptor.id)
+            if foundations.isEmpty {
+                #expect(!unbound.isBound(descriptor.id))
+                #expect(unbound.action(forExact: sequence, in: context) != descriptor.id)
+            } else {
+                #expect(unbound.isBound(descriptor.id))
+                for foundation in foundations {
+                    #expect(unbound.action(forExact: foundation, in: context) == descriptor.id)
+                }
+                let editableBindings = keymap.bindings(for: descriptor.id).filter { !foundations.contains($0) }
+                for editable in editableBindings {
+                    #expect(unbound.action(forExact: editable, in: context) != descriptor.id)
+                }
+            }
 
             let menuBefore = MenuEquivalentPolicy.makeDescriptors(
                 evaluatedBindings: report.evaluatedBindings,
@@ -107,7 +126,8 @@ struct ActionRegistryTests {
         #expect(descriptors.first { $0.actionID == .documentOpen }?.keyEquivalent?.description == "<D-o>")
         #expect(descriptors.first { $0.actionID == .appQuit }?.keyEquivalent?.description == "<D-q>")
         #expect(descriptors.first { $0.actionID == .documentPrint }?.keyEquivalent?.description == "<D-p>")
-        #expect(descriptors.filter { ![.documentOpen, .documentPrint, .appQuit, .appNew].contains($0.actionID) }.allSatisfy { $0.keyEquivalent == nil })
+        #expect(descriptors.first { $0.actionID == .settingsOpen }?.keyEquivalent?.description == "<D-,>")
+        #expect(descriptors.filter { ![.documentOpen, .documentPrint, .appQuit, .appNew, .settingsOpen].contains($0.actionID) }.allSatisfy { $0.keyEquivalent == nil })
 
         var reordered = BuiltInDefaults.keymap
         reordered[.documentOpen] = [try sequence("<D-F12>"), try sequence("<D-o>")]
@@ -165,7 +185,7 @@ struct ActionRegistryTests {
     func contextEligibility() throws {
         let registry = ActionRegistry.v1
         let globals = Set(registry.descriptors.filter { $0.scope == .global }.map(\.id))
-        #expect(globals == [.documentOpen, .documentPrint, .appQuit, .appNew, .configWriteDefault, .configResetDefault])
+        #expect(globals == [.documentOpen, .documentPrint, .appQuit, .appNew, .settingsOpen])
 
         let commit = try #require(registry.descriptor(for: .promptCommit))
         let cancel = try #require(registry.descriptor(for: .promptCancel))

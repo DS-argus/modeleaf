@@ -24,10 +24,6 @@ struct GenerateConfigArtifacts {
             fileURLWithPath: CommandLine.arguments[1],
             isDirectory: true
         )
-        try Data(BuiltInDefaults.defaultConfigTOML.utf8).write(
-            to: root.appendingPathComponent("PDFReaderApp/Resources/DefaultConfig.toml"),
-            options: .atomic
-        )
         try Data(ConfigDocumentation.markdown.utf8).write(
             to: root.appendingPathComponent("CONFIG.md"),
             options: .atomic
@@ -45,5 +41,4 @@ find "$ROOT/PDFReaderCore" -name '*.swift' -print0 \
 "$BINARY" "$ROOT"
 
 printf '%s\n' \
-  "$ROOT/PDFReaderApp/Resources/DefaultConfig.toml" \
   "$ROOT/CONFIG.md"

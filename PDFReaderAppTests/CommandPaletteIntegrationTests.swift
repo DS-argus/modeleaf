@@ -82,6 +82,31 @@ struct CommandPaletteIntegrationTests {
         #expect(overlay.isHidden)
         #expect(executed == [.viewFitWidth])
     }
+
+    @Test("palette shortcuts use aliases first and compact prefix formatting")
+    func compactShortcutFormatting() throws {
+        let validated = try #require(
+            ConfigValidator.validate(SparseAppConfig(
+                keymap: [
+                    "scroll.down": ["x"],
+                    "pane.unsplit": ["<prefix>o"],
+                ],
+                input: SparseInputConfiguration(prefix: "<C-x>")
+            )).validatedConfig
+        )
+        let controller = MainWindowController(
+            coordinator: PaneCoordinator(initialStore: ReaderSessionStore()),
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { _ in },
+            validatedConfig: validated
+        )
+        defer { controller.close() }
+        controller.presentCommandPalette()
+
+        let rows = controller.rootView.commandPaletteOverlay.visibleCommandsForTesting
+        #expect(rows.first { $0.id == .scrollDown }?.shortcut == "x")
+        #expect(rows.first { $0.id == .paneUnsplit }?.shortcut == "<pre> → o")
+    }
     @Test("mouse hover selects and click runs an enabled command")
     func pointerSelectsAndExecutes() throws {
         var executed: [ActionID] = []

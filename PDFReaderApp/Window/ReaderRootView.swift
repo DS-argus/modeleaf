@@ -35,6 +35,7 @@ final class ReaderRootView: NSView {
     let emptyState = EmptyStateView()
     let statusBar = StatusBarView()
     let themePickerOverlay = ThemePickerOverlayView()
+    let settingsOverlay = SettingsOverlayView()
     let linkIndicatorPickerOverlay = LinkDestinationIndicatorPickerOverlayView()
     let updateInstructionsOverlay = UpdateInstructionsOverlayView()
     let promptOverlay = PromptOverlayView()
@@ -121,12 +122,25 @@ final class ReaderRootView: NSView {
         ])
     }
     required init?(coder: NSCoder) { nil }
-    func apply(theme: AppKitTheme) { self.theme = theme; for pane in paneViews.values { pane.apply(theme: theme) }; for widget in tocWidgets.values { widget.apply(theme: theme) }; layer?.backgroundColor = theme[.background].cgColor; contentHost.wantsLayer = true; contentHost.layer?.backgroundColor = theme[.background].cgColor; tabBar.apply(theme: theme); emptyState.apply(theme: theme); statusBar.apply(theme: theme); promptOverlay.apply(theme: theme); themePickerOverlay.apply(theme: theme); linkIndicatorPickerOverlay.apply(theme: theme); updateInstructionsOverlay.apply(theme: theme); commandPaletteOverlay.apply(theme: theme); recentFilesOverlay.apply(theme: theme); helpOverlay.apply(theme: theme); linkHintOverlay.apply(theme: theme); citationPreviewOverlay.apply(theme: theme) }
+    func apply(theme: AppKitTheme) { self.theme = theme; for pane in paneViews.values { pane.apply(theme: theme) }; for widget in tocWidgets.values { widget.apply(theme: theme) }; layer?.backgroundColor = theme[.background].cgColor; contentHost.wantsLayer = true; contentHost.layer?.backgroundColor = theme[.background].cgColor; tabBar.apply(theme: theme); emptyState.apply(theme: theme); statusBar.apply(theme: theme); promptOverlay.apply(theme: theme); themePickerOverlay.apply(theme: theme); settingsOverlay.apply(theme: theme); linkIndicatorPickerOverlay.apply(theme: theme); updateInstructionsOverlay.apply(theme: theme); commandPaletteOverlay.apply(theme: theme); recentFilesOverlay.apply(theme: theme); helpOverlay.apply(theme: theme); linkHintOverlay.apply(theme: theme); citationPreviewOverlay.apply(theme: theme) }
     func render(snapshot: ReaderSessionStoreSnapshot, activeContentView: NSView?, sessionStatus: ReaderStatusSnapshot?) {
         let hasTabs = !snapshot.tabs.isEmpty
         if renderedSessionSnapshot != snapshot { tabBar.render(snapshot); tabBarHeightConstraint.constant = hasTabs ? WindowVisualMetrics.tabBarHeight : 0; tabBar.isHidden = !hasTabs; emptyState.isHidden = hasTabs; renderedSessionSnapshot = snapshot }
         if !hasTabs { tocWidgets.values.forEach { $0.dismiss() } }
         setPresentedContentView(activeContentView); renderStatus(sessionStatus)
+    }
+    func mountSettings() {
+        guard settingsOverlay.superview == nil else { return }
+        settingsOverlay.prepareForAutoLayout()
+        addSubview(settingsOverlay)
+        NSLayoutConstraint.activate([
+            settingsOverlay.centerXAnchor.constraint(equalTo: contentHost.centerXAnchor),
+            settingsOverlay.centerYAnchor.constraint(equalTo: contentHost.centerYAnchor),
+            settingsOverlay.leadingAnchor.constraint(greaterThanOrEqualTo: contentHost.leadingAnchor, constant: 16),
+            settingsOverlay.trailingAnchor.constraint(lessThanOrEqualTo: contentHost.trailingAnchor, constant: -16),
+            settingsOverlay.topAnchor.constraint(greaterThanOrEqualTo: contentHost.topAnchor, constant: 12),
+            settingsOverlay.bottomAnchor.constraint(lessThanOrEqualTo: contentHost.bottomAnchor, constant: -12),
+        ])
     }
 
 
@@ -356,7 +370,12 @@ final class ReaderRootView: NSView {
         updateTOCWidgetGeometry()
     }
 
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        settingsOverlay.updatePreferredSize()
+    }
     override func layout() {
+        settingsOverlay.updatePreferredSize()
         super.layout()
         updateTOCWidgetGeometry()
         tabBar.layoutSubtreeIfNeeded()

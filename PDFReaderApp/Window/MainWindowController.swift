@@ -47,7 +47,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private let recentPruneHandler: (String) -> RecentFilesPersist
     private let recentClearHandler: () -> RecentFilesPersist
     private var installedKeyViewLoop: [NSView] = []
-    private let configFileURLProvider: () -> URL
     private let citationSearchHandler: (String) -> Void
     let rootView: ReaderRootView
     private(set) var availableUpdate: AvailableUpdate?
@@ -73,15 +72,13 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         recentOpenHandler: @escaping (String) -> Void = { _ in },
         recentPruneHandler: @escaping (String) -> RecentFilesPersist = { _ in .persisted },
         recentClearHandler: @escaping () -> RecentFilesPersist = { .persisted },
-        citationSearchHandler: @escaping (String) -> Void = openGoogleScholarSearch,
-        configFileURLProvider: @escaping () -> URL = { ConfigFileSource.defaultURL() }
+        citationSearchHandler: @escaping (String) -> Void = openGoogleScholarSearch
     ) {
         self.browseHandler = browseHandler
         self.recentFilesProvider = recentFilesProvider
         self.recentOpenHandler = recentOpenHandler
         self.recentPruneHandler = recentPruneHandler
         self.citationSearchHandler = citationSearchHandler
-        self.configFileURLProvider = configFileURLProvider
         self.recentClearHandler = recentClearHandler
         self.coordinator = coordinator
         self.actionHandler = actionHandler
@@ -133,6 +130,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window.delegate = self
         window.mouseDownHandler = { [weak self] event in
             guard let self else { return }
+            guard !self.isSettingsPresented else { return }
             if !self.rootView.citationPreviewOverlay.isHidden {
                 if self.rootView.citationPreviewOverlay.containsCard(atWindowPoint: event.locationInWindow) { return }
                 self.dismissCitationPreviewAndRestoreFocus()
@@ -314,6 +312,31 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         dismissCitationPreviewAndRestoreFocus()
     }
 
+    var onSettingsClose: (() -> Bool)?
+
+    var isSettingsPresented: Bool { !rootView.settingsOverlay.isHidden }
+
+    func presentSettingsPanel() {
+        dismissAllTransientOverlays()
+        inputRouter.invalidate(.explicitCancel)
+        rootView.cancelPendingTOCInput()
+        rootView.mountSettings()
+        rootView.settingsOverlay.isHidden = false
+        rootView.settingsOverlay.present()
+    }
+
+    func dismissSettingsPanel() {
+        rootView.settingsOverlay.dismiss()
+        rootView.settingsOverlay.removeFromSuperview()
+        inputRouter.invalidate(.explicitCancel)
+        rebuildKeyViewLoop(snapshot: coordinator.snapshot)
+        focusActiveSurface(snapshot: coordinator.snapshot)
+    }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard isSettingsPresented else { return true }
+        return onSettingsClose?() ?? false
+    }
     func presentThemePicker() {
         dismissAllTransientOverlays(restoringContext: false)
         beginTransientOverlay()
@@ -466,7 +489,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func presentHelp() {
         dismissAllTransientOverlays(restoringContext: false)
         beginTransientOverlay()
-        let sections = Self.helpSections(from: resolvedConfig.keymap)
+        let sections = Self.helpSections(from: resolvedConfig.keymap, prefix: resolvedConfig.config.input.prefix)
         rootView.helpOverlay.onDismiss = { [weak self] in self?.dismissHelpOverlayAndRestoreFocus() }
         rootView.helpOverlay.present(sections: sections)
         window?.makeFirstResponder(rootView.helpOverlay)
@@ -492,7 +515,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             paneCount: snapshot.layout.paneIDs.count,
             tabCount: snapshot.tabs.count,
             inSearchResults: (savedTransientInputContexts.last ?? inputRouter.context) == .searchResults,
-            configFileExists: FileManager.default.fileExists(atPath: configFileURLProvider().path),
             savedInputContext: savedTransientInputContexts.last ?? inputRouter.context,
             canGoBack: history?.canGoBack ?? false,
             canGoForward: history?.canGoForward ?? false,
@@ -513,7 +535,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
                 return PaletteCommand(
                     id: descriptor.id,
                     title: descriptor.title,
-                    shortcut: resolvedConfig.keymap.bindings(for: descriptor.id).first.flatMap { KeyBindingHint.text(for: $0) },
+                    shortcut: ShortcutKeyDisplay.orderedBindings(for: descriptor.id, keymap: resolvedConfig.keymap).first.map { ShortcutKeyDisplay.text(for: $0, prefix: resolvedConfig.config.input.prefix) },
                     isEnabled: availability.enabled,
                     disabledReason: availability.reason
                 )
@@ -690,6 +712,12 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     @discardableResult
     private func routeKeyEvent(_ event: NSEvent) -> Bool {
+        if !rootView.settingsOverlay.isHidden {
+            // Native controls own navigation and text editing while settings is open.
+            // The short-lived recording monitor separately consumes captured events.
+            inputRouter.resetModalHistorySuppression()
+            return rootView.settingsOverlay.handleNavigation(event)
+        }
         if !rootView.citationPreviewOverlay.isHidden, rootView.citationPreviewOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
         if !rootView.linkHintOverlay.isHidden, rootView.linkHintOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
         if !rootView.commandPaletteOverlay.isHidden, rootView.commandPaletteOverlay.handleKeyDown(event) { inputRouter.resetModalHistorySuppression(); return true }
@@ -744,6 +772,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         rootView.setInputContext(context)
     }
     func windowDidBecomeKey(_ notification: Notification) {
+        if !rootView.settingsOverlay.isHidden { return }
         if !rootView.updateInstructionsOverlay.isHidden {
             rootView.updateInstructionsOverlay.setFocusAppearance(true)
             window?.makeFirstResponder(rootView.updateInstructionsOverlay)
@@ -857,6 +886,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         focusActiveSurface(snapshot: snapshot)
     }
     private func rebuildKeyViewLoop(snapshot: PaneCoordinatorSnapshot) {
+        guard rootView.settingsOverlay.isHidden else { return }
         for view in installedKeyViewLoop {
             view.nextKeyView = nil
         }
@@ -912,6 +942,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
 
     private func focusActiveSurface(snapshot: PaneCoordinatorSnapshot) {
+        guard rootView.settingsOverlay.isHidden else { return }
         guard rootView.promptOverlay.isHidden else { return }
         if let focusView = snapshot.activeFocusView, focusView.acceptsFirstResponder {
             window?.makeFirstResponder(focusView)
@@ -919,45 +950,23 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             window?.makeFirstResponder(rootView.emptyState.openButton)
         }
     }
-    private static func helpSections(from keymap: ValidatedKeymap) -> [HelpOverlaySection] {
-        let tabSelectionIDs: [ActionID] = [
-            .tabSelect1, .tabSelect2, .tabSelect3, .tabSelect4, .tabSelect5,
-            .tabSelect6, .tabSelect7, .tabSelect8, .tabSelect9,
-        ]
-        let usesDefaultTabSelectionBindings = tabSelectionIDs.allSatisfy {
-            keymap.bindings(for: $0) == BuiltInDefaults.keymap[$0, default: []]
-        }
-        var entriesByCategory: [(title: String, entries: [(keyText: String, commandTitle: String)])] = []
-
-        func append(_ entry: (keyText: String, commandTitle: String), to title: String) {
-            if entriesByCategory.last?.title != title {
-                entriesByCategory.append((title, []))
-            }
-            entriesByCategory[entriesByCategory.count - 1].entries.append(entry)
-        }
-
-        for descriptor in ActionRegistry.v1.userConfigurableDescriptors {
-            if tabSelectionIDs.contains(descriptor.id), usesDefaultTabSelectionBindings {
-                if descriptor.id == .tabSelect1 {
-                    append(("Cmd+1..9", "Select tab 1-9"), to: "Tabs")
+    private static func helpSections(from keymap: ValidatedKeymap, prefix: String) -> [HelpOverlaySection] {
+        let tabSelectionIDs: [ActionID] = [.tabSelect1, .tabSelect2, .tabSelect3, .tabSelect4, .tabSelect5, .tabSelect6, .tabSelect7, .tabSelect8, .tabSelect9]
+        let defaultTabs = tabSelectionIDs.allSatisfy { keymap.bindings(for: $0) == BuiltInDefaults.keymap[$0, default: []] }
+        return ActionHelpCatalog.sections.map { section in
+            var entries: [(keyText: String, commandTitle: String)] = []
+            for action in section.actions {
+                if defaultTabs, tabSelectionIDs.contains(action) {
+                    if action == .tabSelect1 { entries.append(("⌘1…9", "Select tab 1-9")) }
+                    continue
                 }
-                continue
+                guard let descriptor = ActionRegistry.v1.descriptor(for: action) else { continue }
+                let hints = ShortcutKeyDisplay.orderedBindings(for: action, keymap: keymap).map { ShortcutKeyDisplay.text(for: $0, prefix: prefix) }
+                let title = action == .searchNext ? "Next search match" : action == .searchPrevious ? "Previous search match" : descriptor.title
+                entries.append((hints.isEmpty ? "Unassigned" : hints.joined(separator: ", "), title))
             }
-            let hints = keymap.bindings(for: descriptor.id).compactMap(KeyBindingHint.text(for:))
-            guard !hints.isEmpty else { continue }
-            append((hints.joined(separator: ", "), descriptor.title), to: BuiltInDefaults.categoryTitle(for: descriptor.id))
+            return HelpOverlaySection(title: section.title, entries: entries)
         }
-        let searchEntries = [
-            ("Enter", "Next search match"),
-            ("Shift+Enter", "Previous search match"),
-        ]
-        if let searchIndex = entriesByCategory.firstIndex(where: { $0.title == "Search" }) {
-            entriesByCategory[searchIndex].entries += searchEntries
-        } else {
-            entriesByCategory.append(("Search", searchEntries))
-        }
-
-        return entriesByCategory.map { HelpOverlaySection(title: $0.title, entries: $0.entries) }
     }
 
     private func dispatchTabSelection(to targetID: TabID) {

@@ -24,7 +24,6 @@ TARGETS = {
         "bundle_id": "com.argus.modeleaf.core",
         "deps": [],
         "links": [],
-        "package": False,
     },
     "PDFReaderApp": {
         "product": "Modeleaf.app",
@@ -33,7 +32,6 @@ TARGETS = {
         "bundle_id": "com.argus.modeleaf",
         "deps": ["PDFReaderCore", "ModeleafCLI"],
         "links": ["PDFReaderCore"],
-        "package": True,
     },
     "ModeleafCLI": {
         "product": "modeleaf",
@@ -42,7 +40,6 @@ TARGETS = {
         "bundle_id": "com.argus.modeleaf.cli",
         "deps": [],
         "links": [],
-        "package": False,
     },
     "PDFReaderTestSupport": {
         "product": "PDFReaderTestSupport.framework",
@@ -51,7 +48,6 @@ TARGETS = {
         "bundle_id": "com.argus.modeleaf.testsupport",
         "deps": ["PDFReaderCore"],
         "links": ["PDFReaderCore"],
-        "package": False,
     },
     "PDFReaderCoreTests": {
         "product": "PDFReaderCoreTests.xctest",
@@ -60,7 +56,6 @@ TARGETS = {
         "bundle_id": "com.argus.modeleaf.coretests",
         "deps": ["PDFReaderCore"],
         "links": ["PDFReaderCore"],
-        "package": False,
     },
     "PDFReaderAppTests": {
         "product": "PDFReaderAppTests.xctest",
@@ -69,7 +64,6 @@ TARGETS = {
         "bundle_id": "com.argus.modeleaf.apptests",
         "deps": ["PDFReaderApp", "PDFReaderCore", "PDFReaderTestSupport"],
         "links": ["PDFReaderCore", "PDFReaderTestSupport"],
-        "package": False,
     },
     "PDFReaderUITests": {
         "product": "PDFReaderUITests.xctest",
@@ -78,7 +72,6 @@ TARGETS = {
         "bundle_id": "com.argus.modeleaf.uitests",
         "deps": ["PDFReaderApp"],
         "links": [],
-        "package": False,
     },
 }
 
@@ -115,8 +108,6 @@ PROJECT_ID = oid("project")
 MAIN_GROUP_ID = oid("main-group")
 PRODUCTS_GROUP_ID = oid("products-group")
 PROJECT_CONFIG_LIST_ID = config_list_id("project")
-PACKAGE_REF_ID = oid("package:TOMLDecoder")
-PACKAGE_PRODUCT_ID = oid("package-product:TOMLDecoder")
 
 
 def build_file_id(target: str, dependency: str) -> str:
@@ -204,10 +195,6 @@ def generate_pbxproj() -> str:
                 f"\t\t{build_file_id(target, dep)} /* {dep}.framework in Frameworks */ = "
                 f"{{isa = PBXBuildFile; fileRef = {product_ref(dep)} /* {TARGETS[dep]['product']} */; }};"
             )
-    lines.append(
-        f"\t\t{build_file_id('PDFReaderApp', 'TOMLDecoder')} /* TOMLDecoder in Frameworks */ = "
-        f"{{isa = PBXBuildFile; productRef = {PACKAGE_PRODUCT_ID} /* TOMLDecoder */; }};"
-    )
     lines.append(
         f"\t\t{oid('embed:PDFReaderApp:PDFReaderCore')} /* PDFReaderCore.framework in Embed Frameworks */ = "
         f"{{isa = PBXBuildFile; fileRef = {product_ref('PDFReaderCore')} /* PDFReaderCore.framework */; "
@@ -306,8 +293,6 @@ def generate_pbxproj() -> str:
         ]
         for dep in data["links"]:
             lines.append(f"\t\t\t\t{build_file_id(name, dep)} /* {dep}.framework in Frameworks */,")
-        if data["package"]:
-            lines.append(f"\t\t\t\t{build_file_id(name, 'TOMLDecoder')} /* TOMLDecoder in Frameworks */,")
         lines += ["\t\t\t);", "\t\t\trunOnlyForDeploymentPostprocessing = 0;", "\t\t};"]
     lines += ["/* End PBXFrameworksBuildPhase section */", "", "/* Begin PBXGroup section */"]
 
@@ -365,12 +350,8 @@ def generate_pbxproj() -> str:
             f"\t\t\t\t{group_id(name)} /* {name} */,",
             "\t\t\t);",
             f"\t\t\tname = {name};",
-            "\t\t\tpackageProductDependencies = (",
         ]
-        if data["package"]:
-            lines.append(f"\t\t\t\t{PACKAGE_PRODUCT_ID} /* TOMLDecoder */,")
         lines += [
-            "\t\t\t);",
             f"\t\t\tproductName = {name};",
             f"\t\t\tproductReference = {product_ref(name)} /* {data['product']} */;",
             f"\t\t\tproductType = \"{data['product_type']}\";",
@@ -392,11 +373,8 @@ def generate_pbxproj() -> str:
         "\t\t\tknownRegions = (en, Base);",
         f"\t\t\tmainGroup = {MAIN_GROUP_ID};",
         "\t\t\tminimizedProjectReferenceProxies = 1;",
-        "\t\t\tpackageReferences = (",
-        f"\t\t\t\t{PACKAGE_REF_ID} /* XCRemoteSwiftPackageReference \"TOMLDecoder\" */,",
     ]
     lines += [
-        "\t\t\t);",
         "\t\t\tpreferredProjectObjectVersion = 77;",
         f"\t\t\tproductRefGroup = {PRODUCTS_GROUP_ID} /* Products */;",
         "\t\t\tprojectDirPath = \"\";",
@@ -493,26 +471,8 @@ def generate_pbxproj() -> str:
             "\t\t\tdefaultConfigurationName = Release;",
             "\t\t};",
         ]
-    lines += ["/* End XCConfigurationList section */", "", "/* Begin XCRemoteSwiftPackageReference section */"]
-
+    lines += ["/* End XCConfigurationList section */", ""]
     lines += [
-        f"\t\t{PACKAGE_REF_ID} /* XCRemoteSwiftPackageReference \"TOMLDecoder\" */ = {{",
-        "\t\t\tisa = XCRemoteSwiftPackageReference;",
-        "\t\t\trepositoryURL = \"https://github.com/dduan/TOMLDecoder.git\";",
-        "\t\t\trequirement = {",
-        "\t\t\t\tkind = exactVersion;",
-        "\t\t\t\tversion = 0.4.5;",
-        "\t\t\t};",
-        "\t\t};",
-        "/* End XCRemoteSwiftPackageReference section */",
-        "",
-        "/* Begin XCSwiftPackageProductDependency section */",
-        f"\t\t{PACKAGE_PRODUCT_ID} /* TOMLDecoder */ = {{",
-        "\t\t\tisa = XCSwiftPackageProductDependency;",
-        f"\t\t\tpackage = {PACKAGE_REF_ID} /* XCRemoteSwiftPackageReference \"TOMLDecoder\" */;",
-        "\t\t\tproductName = TOMLDecoder;",
-        "\t\t};",
-        "/* End XCSwiftPackageProductDependency section */",
         "\t};",
         f"\trootObject = {PROJECT_ID} /* Project object */;",
         "}",

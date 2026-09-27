@@ -11,7 +11,7 @@ struct ThemeRedTeamQATests {
     @Test("STATE-FILE TORTURE: classifications, fallback, and config isolation")
     func stateFileTorture() throws {
         try withTemporaryDirectory { directory in
-            let configURL = directory.appendingPathComponent("config.toml")
+            let configURL = directory.appendingPathComponent("settings.json")
             let stateURL = directory.appendingPathComponent("state.json")
             let store = ThemeSelectionStore(fileURL: stateURL)
 
@@ -126,34 +126,26 @@ struct ThemeRedTeamQATests {
         }
     }
 
-    @Test("CONFIG COMPAT: deprecated theme does not mask valid keymap or genuine errors")
-    func configCompatibility() throws {
+    @Test("CONFIG COMPAT: legacy TOML is ignored and invalid JSON is diagnosed")
+    func legacyTOMLIgnoredAndJSONDiagnostics() throws {
         try withTemporaryDirectory { directory in
-            let config = directory.appendingPathComponent("config.toml")
-            try Data("""
-            [theme]
-            built_in = "nord"
-            [theme.overrides]
-            accent = "#FFFFFF"
-            [keymap]
-            "theme.picker" = ["<C-t>"]
-            """.utf8).write(to: config)
-            let accepted = ConfigService(source: ConfigFileSource(url: config)).load()
-            #expect(accepted.origin == .userFile)
-            #expect(!accepted.usedFallback)
-            #expect(accepted.diagnostics.contains { $0.code == .deprecatedTheme && $0.severity == .warning })
-            #expect(accepted.activeConfig.keymap.bindings(for: .themePicker).map(\.description) == ["<C-t>"])
+            let legacyURL = directory.appendingPathComponent("config.toml")
+            try Data("[theme]\nbuilt_in = \"nord\"\n".utf8).write(to: legacyURL)
+            let settingsURL = directory.appendingPathComponent("settings.json")
+            let service = SettingsService(store: SettingsStore(fileURL: settingsURL))
 
-            try Data("""
-            [theme]
-            built_in = "nord"
-            [keymap]
-            "not.real" = ["x"]
-            """.utf8).write(to: config)
-            let rejected = ConfigService(source: ConfigFileSource(url: config)).load()
-            #expect(rejected.usedFallback)
-            #expect(rejected.diagnostics.contains { $0.code == .deprecatedTheme && $0.severity == .warning })
+            let ignored = service.load()
+            #expect(ignored.activeConfig.config == BuiltInDefaults.config)
+            #expect(ignored.diagnostics.isEmpty)
+            #expect(ignored.snapshot?.exists == false)
+            #expect(!FileManager.default.fileExists(atPath: settingsURL.path))
+
+            try Data(#"{"version":1,"settings":{"keymap":{"not.real":["x"]}}}"#.utf8)
+                .write(to: settingsURL)
+            let rejected = service.load()
+            #expect(rejected.activeConfig.config == BuiltInDefaults.config)
             #expect(rejected.diagnostics.contains { $0.code == .unknownAction && $0.severity == .error })
+            #expect(!rejected.diagnostics.contains { $0.code == .deprecatedTheme })
         }
     }
 
@@ -175,9 +167,10 @@ struct ThemeRedTeamQATests {
     @Test("PROMPT-SAFETY: Shift-T is blocked in prompts and rebound Control-T opens in navigation")
     func promptSafetyAndRebinding() throws {
         try withTemporaryDirectory { directory in
-            let config = directory.appendingPathComponent("config.toml")
-            try Data("[keymap]\n\"theme.picker\" = [\"<C-t>\"]\n".utf8).write(to: config)
-            let controller = ApplicationController(configService: ConfigService(source: ConfigFileSource(url: config)), sessionStore: ReaderSessionStore(), themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("state.json")), recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")), terminationHandler: {})
+            let config = directory.appendingPathComponent("settings.json")
+            let service = SettingsService(store: SettingsStore(fileURL: config))
+            try service.encode(SparseAppConfig(keymap: [ActionID.themePicker.rawValue: ["<C-t>"]])).write(to: config)
+            let controller = ApplicationController(settingsService: SettingsService(store: SettingsStore(fileURL: config)), sessionStore: ReaderSessionStore(), themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("state.json")), recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")), terminationHandler: {})
             defer { controller.mainWindowController.close() }
             let window = controller.mainWindowController
             let shiftT = try #require(makeKeyEvent(characters: "T", charactersIgnoringModifiers: "t", modifiers: [.shift], keyCode: 17))
@@ -196,7 +189,7 @@ struct ThemeRedTeamQATests {
     }
 
     private func makeController(directory: URL, stateURL: URL) -> ApplicationController {
-        ApplicationController(configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing.toml"))), sessionStore: ReaderSessionStore(), themeStore: ThemeSelectionStore(fileURL: stateURL), recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")), terminationHandler: {})
+        ApplicationController(settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))), sessionStore: ReaderSessionStore(), themeStore: ThemeSelectionStore(fileURL: stateURL), recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")), terminationHandler: {})
     }
 
     private func storeTheme(at url: URL) -> ThemeID? { ThemeSelectionStore(fileURL: url).loadSelectedTheme() }

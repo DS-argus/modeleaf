@@ -76,6 +76,23 @@ struct ValidatedMenuBuilderTests {
         _ = printItem.target?.perform(action, with: printItem)
         #expect(dispatched.isEmpty)
     }
+    @Test("Settings opens with Cmd+comma by default and remains remappable or unbound")
+    func settingsAccelerator() throws {
+        for (override, expected) in [(nil as [String]?, ","), (["<D-F12>"], UnicodeScalar(NSF12FunctionKey).map(String.init)!), ([], "")] {
+            let config = try #require(ConfigValidator.validate(SparseAppConfig(
+                keymap: override.map { [ActionID.settingsOpen.rawValue: $0] }
+            )).validatedConfig)
+            var dispatched: [ActionID] = []
+            let builder = ValidatedMenuBuilder(descriptors: config.menuDescriptors) { dispatched.append($0) }
+            let item = try #require(builder.makeMainMenu().descendant(title: "Settings…"))
+            #expect(item.identifier?.rawValue == "application.settings")
+            #expect(item.keyEquivalent == expected)
+            #expect(item.keyEquivalentModifierMask == (expected.isEmpty ? [] : .command))
+            let selector = try #require(item.action)
+            _ = item.target?.perform(selector, with: item)
+            #expect(dispatched == [.settingsOpen])
+        }
+    }
 }
 
 private extension NSMenu {

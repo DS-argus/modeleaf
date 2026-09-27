@@ -13,7 +13,6 @@ ROOT = Path(__file__).resolve().parents[1]
 PROJECT = ROOT / "Modeleaf.xcodeproj"
 PBXPROJ = PROJECT / "project.pbxproj"
 SCHEME = PROJECT / "xcshareddata" / "xcschemes" / "Modeleaf.xcscheme"
-LOCK = PROJECT / "project.xcworkspace" / "xcshareddata" / "swiftpm" / "Package.resolved"
 
 EXPECTED_TARGETS = {
     "PDFReaderCore": "com.apple.product-type.framework",
@@ -113,13 +112,11 @@ def main() -> None:
     package_refs = [
         value for value in objects.values() if value.get("isa") == "XCRemoteSwiftPackageReference"
     ]
-    require(len(package_refs) == 1, "expected exactly one Swift package")
-    package = package_refs[0]
-    require(package.get("repositoryURL") == "https://github.com/dduan/TOMLDecoder.git", "wrong package URL")
-    require(
-        package.get("requirement") == {"kind": "exactVersion", "version": "0.4.5"},
-        "TOMLDecoder must be exact-pinned to 0.4.5",
-    )
+    require(not package_refs, "project must not declare remote Swift packages")
+    package_products = [
+        value for value in objects.values() if value.get("isa") == "XCSwiftPackageProductDependency"
+    ]
+    require(not package_products, "project must not declare Swift package products")
 
     build_configs = [value for value in objects.values() if value.get("isa") == "XCBuildConfiguration"]
     project_config_list = objects[objects[str(project["rootObject"])]["buildConfigurationList"]]
@@ -183,10 +180,6 @@ def main() -> None:
         require(f'BlueprintName = "{name}"' in scheme_text, f"shared scheme omits {name}")
     require('BuildableName = "Modeleaf.app"' in scheme_text, "shared scheme must launch Modeleaf.app")
 
-    lock = json.loads(LOCK.read_text(encoding="utf-8"))
-    pins = {pin["identity"]: pin for pin in lock["pins"]}
-    require(pins["tomldecoder"]["state"]["version"] == "0.4.5", "workspace lock is not 0.4.5")
-
     print(
         json.dumps(
             {
@@ -199,7 +192,7 @@ def main() -> None:
                 "appModuleName": "PDFReaderApp",
                 "appProductName": "Modeleaf",
                 "debugArchitectures": "active only",
-                "dependency": "TOMLDecoder@0.4.5 exact",
+                "remoteSwiftPackages": 0,
                 "sharedScheme": str(SCHEME.relative_to(ROOT)),
             },
             indent=2,

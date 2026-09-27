@@ -13,12 +13,6 @@ let package = Package(
         .executable(name: "Modeleaf", targets: ["PDFReaderApp"]),
         .executable(name: "ModeleafCLI", targets: ["ModeleafCLI"]),
     ],
-    dependencies: [
-        .package(
-            url: "https://github.com/dduan/TOMLDecoder.git",
-            exact: "0.4.5"
-        ),
-    ],
     targets: [
         .target(
             name: "PDFReaderCore",
@@ -30,10 +24,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "PDFReaderApp",
-            dependencies: [
-                "PDFReaderCore",
-                .product(name: "TOMLDecoder", package: "TOMLDecoder"),
-            ],
+            dependencies: ["PDFReaderCore"],
             path: "PDFReaderApp",
             exclude: ["Info.plist", "Theme/ThemeAttributions.md"],
             resources: [.process("Resources")]

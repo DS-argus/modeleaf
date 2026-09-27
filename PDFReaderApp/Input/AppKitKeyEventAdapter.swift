@@ -2,6 +2,19 @@ import AppKit
 import PDFReaderCore
 
 enum AppKitKeyEventAdapter {
+    /// Returns the first candidate whose serialized form is accepted unchanged by the key grammar.
+    ///
+    /// Candidate ordering remains the routing preference used by `tokens(for:)`; recordings need
+    /// a parseable spelling so names such as `Minus`, `LT`, and `GT` are selected when a literal
+    /// delimiter would make the chord ambiguous.
+    static func recordingToken(for event: NSEvent) -> KeyToken? {
+        tokens(for: event).first { candidate in
+            guard let parsed = try? KeySequenceParser.parseSingleToken(candidate.description) else {
+                return false
+            }
+            return parsed == candidate
+        }
+    }
     static func tokens(for event: NSEvent) -> [KeyToken] {
         guard event.type == .keyDown else { return [] }
 

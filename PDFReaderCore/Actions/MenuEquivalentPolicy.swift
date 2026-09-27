@@ -47,6 +47,7 @@ public struct MenuDescriptor: Equatable, Sendable {
 
 public enum MenuItemRegistry {
     public static let v1: [MenuItemDefinition] = [
+        MenuItemDefinition(identifier: "application.settings", title: "Settings…", actionID: .settingsOpen, placement: .application),
         MenuItemDefinition(identifier: "application.quit", title: "Quit Modeleaf", actionID: .appQuit, placement: .application),
         MenuItemDefinition(identifier: "file.new", title: "New Window", actionID: .appNew, placement: .file),
         MenuItemDefinition(identifier: "file.open", title: "Open PDF…", actionID: .documentOpen, placement: .file),
