@@ -1,0 +1,4 @@
+- Add a keyboard-first Settings window with General and Key Bindings sections, opened with Command-comma.
+- Customize shortcuts by recording keys, with conflict feedback, per-action reset, and consistent shortcut labels across Settings, Help, and the command palette.
+- **Breaking change:** Existing config.toml files are no longer read or migrated. Reconfigure preferences in Settings; existing files are left untouched.
+- Replace file-management commands with Apply, Discard, and Restore Defaults. Default Actual Size to 0.
