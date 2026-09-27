@@ -213,9 +213,7 @@ struct PDFOpenMetricsTests {
         metrics: any PDFOpenMetrics
     ) -> ApplicationController {
         return ApplicationController(
-            configService: ConfigService(
-                source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))
-            ),
+            settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
             sessionStore: sessionStore,
             pdfOpenService: pdfOpenService,
             openMetrics: metrics,

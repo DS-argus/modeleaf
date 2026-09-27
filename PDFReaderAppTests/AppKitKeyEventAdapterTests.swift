@@ -27,7 +27,7 @@ struct AppKitKeyEventAdapterTests {
             keyCode: 5
         ))
 
-        try withPinnedUnmodifiedCharacters("g") {
+        withPinnedUnmodifiedCharacters("g") {
             #expect(AppKitKeyEventAdapter.tokens(for: event).map(\.description) == ["G"])
         }
     }
@@ -41,7 +41,7 @@ struct AppKitKeyEventAdapterTests {
             keyCode: 45
         ))
 
-        try withPinnedUnmodifiedCharacters("n") {
+        withPinnedUnmodifiedCharacters("n") {
             let candidates = AppKitKeyEventAdapter.tokens(for: event).map(\.description)
             #expect(candidates.first == "N")
             #expect(candidates == ["N"])
@@ -57,7 +57,7 @@ struct AppKitKeyEventAdapterTests {
             keyCode: 24
         ))
 
-        try withPinnedUnmodifiedCharacters("=") {
+        withPinnedUnmodifiedCharacters("=") {
             #expect(
                 AppKitKeyEventAdapter.tokens(for: event).map(\.description)
                     == ["+", "<S-=>", "<S-Equal>"]
@@ -121,6 +121,74 @@ struct AppKitKeyEventAdapterTests {
         #expect(AppKitKeyEventAdapter.tokens(for: deadKey) == [.deadKey])
         #expect(AppKitKeyEventAdapter.tokens(for: ime) == [.imeComposition])
     }
+    @Test("recording chooses the parseable named spelling for Ctrl-minus")
+    func recordingCtrlMinus() throws {
+        let event = try #require(makeKeyEvent(
+            characters: "\u{001F}",
+            charactersIgnoringModifiers: "-",
+            modifiers: [.control],
+            keyCode: 27
+        ))
+
+        let token = try #require(AppKitKeyEventAdapter.recordingToken(for: event))
+        #expect(token.description == "<C-Minus>")
+        let parsed = try KeySequenceParser.parseSingleToken(token.description)
+        #expect(parsed == token)
+    }
+
+    @Test("recorded Shift keys preserve canonical literal identities")
+    func recordingShiftKeys() throws {
+        let uppercase = try #require(makeKeyEvent(
+            characters: "U",
+            charactersIgnoringModifiers: "U",
+            modifiers: [.shift],
+            keyCode: 32
+        ))
+        try withPinnedUnmodifiedCharacters("u") {
+            let token = try #require(AppKitKeyEventAdapter.recordingToken(for: uppercase))
+            #expect(token.description == "U")
+            let parsed = try KeySequenceParser.parseSingleToken(token.description)
+            #expect(parsed == token)
+        }
+
+        let punctuation = try #require(makeKeyEvent(
+            characters: "|",
+            charactersIgnoringModifiers: "|",
+            modifiers: [.shift],
+            keyCode: 42
+        ))
+        try withPinnedUnmodifiedCharacters("\\") {
+            let token = try #require(AppKitKeyEventAdapter.recordingToken(for: punctuation))
+            #expect(token.description == "|")
+            let parsed = try KeySequenceParser.parseSingleToken(token.description)
+            #expect(parsed == token)
+        }
+    }
+
+    @Test("named delimiter and ordinary modifier recordings round trip through the parser")
+    func recordingRoundTrips() throws {
+        for (character, expected) in [("<", "<LT>"), (">", "<GT>")] {
+            let event = try #require(makeKeyEvent(characters: character, keyCode: character == "<" ? 43 : 47))
+            let token = try #require(AppKitKeyEventAdapter.recordingToken(for: event))
+            #expect(token.description == expected)
+            let parsed = try KeySequenceParser.parseSingleToken(token.description)
+            #expect(parsed == token)
+        }
+
+        let modifiedEvents = [
+            makeKeyEvent(characters: "k", modifiers: [.command], keyCode: 40),
+            makeKeyEvent(characters: "k", modifiers: [.control], keyCode: 40),
+            makeKeyEvent(characters: "k", modifiers: [.option], keyCode: 40),
+            makeKeyEvent(characters: "=", charactersIgnoringModifiers: "=", modifiers: [.shift], keyCode: 24),
+        ]
+        for event in modifiedEvents {
+            let event = try #require(event)
+            let token = try #require(AppKitKeyEventAdapter.recordingToken(for: event))
+            let parsed = try KeySequenceParser.parseSingleToken(token.description)
+            #expect(parsed == token)
+        }
+    }
+
 }
 
 @MainActor

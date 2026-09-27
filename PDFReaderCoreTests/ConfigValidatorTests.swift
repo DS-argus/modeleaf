@@ -22,7 +22,7 @@ struct ConfigValidatorTests {
         )
         #expect(active.config.navigation.zoomFactor == BuiltInDefaults.config.navigation.zoomFactor)
         #expect(active.config.input == BuiltInDefaults.config.input)
-        #expect(active.keymap.bindings(for: .scrollDown) == [try sequence("x")])
+        #expect(active.keymap.bindings(for: .scrollDown) == [try sequence("<Down>"), try sequence("x")])
         #expect(active.keymap.bindings(for: .scrollUp) == BuiltInDefaults.keymap[.scrollUp])
         #expect(Set(active.config.keymap.keys) == Set(ActionRegistry.v1.actionIDs))
     }
@@ -139,7 +139,7 @@ struct ConfigValidatorTests {
     @Test("U-CFG-13 every prompt-active action shares one strict binding predicate")
     func promptActiveActionsUseSharedPredicate() throws {
         let promptActive = ActionRegistry.v1.descriptors.filter { $0.isPromptActive && !$0.isFixedBinding }
-        #expect(promptActive.map(\.id) == [.documentOpen, .documentPrint, .appQuit, .appNew, .configWriteDefault, .configResetDefault])
+        #expect(promptActive.map(\.id) == [.documentOpen, .documentPrint, .appQuit, .appNew, .settingsOpen])
 
         for descriptor in promptActive {
             let unbound = validateBinding([], for: descriptor.id)
@@ -231,7 +231,7 @@ struct ConfigValidatorTests {
         #expect(active.keymap.bindings(for: .paneSplitRight) == [try sequence("<C-a>|")])
         #expect(active.keymap.bindings(for: .paneSplitDown) == [try sequence("<C-a>-")])
         #expect(active.keymap.bindings(for: .paneUnsplit) == [try sequence("<C-a>o")])
-        #expect(active.keymap.bindings(for: .configReload) == [try sequence("<C-a>r")])
+        #expect(active.keymap.bindings(for: .settingsOpen) == [try sequence("<D-,>")])
     }
 
     @Test("Concrete seeds preserve their bindings when the input prefix changes")

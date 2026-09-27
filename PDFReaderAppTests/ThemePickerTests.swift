@@ -183,7 +183,7 @@ struct ThemePickerTests {
             let stateURL = dir.appendingPathComponent("state.json")
             let store = ThemeSelectionStore(fileURL: stateURL)
             let controller = ApplicationController(
-                configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
+                settingsService: SettingsService(store: SettingsStore(fileURL: dir.appendingPathComponent("settings.json"))),
                 sessionStore: ReaderSessionStore(),
                 themeStore: store,
                 recentFilesStore: RecentFilesStore(fileURL: dir.appendingPathComponent("recent-state.json")),
@@ -206,7 +206,7 @@ struct ThemePickerTests {
             #expect(overlay.isHidden)
 
             let restarted = ApplicationController(
-                configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
+                settingsService: SettingsService(store: SettingsStore(fileURL: dir.appendingPathComponent("settings.json"))),
                 sessionStore: ReaderSessionStore(),
                 themeStore: ThemeSelectionStore(fileURL: stateURL),
                 recentFilesStore: RecentFilesStore(fileURL: dir.appendingPathComponent("recent-state.json")),
@@ -226,7 +226,7 @@ struct ThemePickerTests {
             let store = ThemeSelectionStore(fileURL: stateURL)
             store.persist(.dracula)
             let controller = ApplicationController(
-                configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
+                settingsService: SettingsService(store: SettingsStore(fileURL: dir.appendingPathComponent("settings.json"))),
                 sessionStore: ReaderSessionStore(),
                 themeStore: store,
                 recentFilesStore: RecentFilesStore(fileURL: dir.appendingPathComponent("recent-state.json")),
@@ -253,7 +253,7 @@ struct ThemePickerTests {
             let store = ThemeSelectionStore(fileURL: dir.appendingPathComponent("state.json"))
             store.persist(.dracula) // deterministic non-last theme so a down-arrow preview always drifts
             let controller = ApplicationController(
-                configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
+                settingsService: SettingsService(store: SettingsStore(fileURL: dir.appendingPathComponent("settings.json"))),
                 sessionStore: ReaderSessionStore(),
                 themeStore: store,
                 recentFilesStore: RecentFilesStore(fileURL: dir.appendingPathComponent("recent-state.json")),
@@ -281,7 +281,7 @@ struct ThemePickerTests {
             let stateURL = dir.appendingPathComponent("state.json")
             try FileManager.default.createDirectory(at: stateURL, withIntermediateDirectories: true)
             let controller = ApplicationController(
-                configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
+                settingsService: SettingsService(store: SettingsStore(fileURL: dir.appendingPathComponent("settings.json"))),
                 sessionStore: ReaderSessionStore(),
                 themeStore: ThemeSelectionStore(fileURL: stateURL),
                 recentFilesStore: RecentFilesStore(fileURL: dir.appendingPathComponent("recent-state.json")),
@@ -304,7 +304,7 @@ struct ThemePickerTests {
             try Data("x".utf8).write(to: parent)
             let stateURL = parent.appendingPathComponent("state.json")
             let controller = ApplicationController(
-                configService: ConfigService(source: ConfigFileSource(url: dir.appendingPathComponent("missing.toml"))),
+                settingsService: SettingsService(store: SettingsStore(fileURL: dir.appendingPathComponent("settings.json"))),
                 sessionStore: ReaderSessionStore(),
                 themeStore: ThemeSelectionStore(fileURL: stateURL),
                 recentFilesStore: RecentFilesStore(fileURL: dir.appendingPathComponent("recent-state.json")),
@@ -322,17 +322,26 @@ struct ThemePickerTests {
         }
     }
 
-    @Test("AC-7 a config warning and a state-file I/O error are both surfaced at startup")
+    @Test("AC-7 a JSON settings warning and a state-file I/O error are both surfaced at startup")
     func aggregatedStartupDiagnostics() throws {
         try withTemporaryDirectory { dir in
-            // Legacy [theme] in the config -> deprecation WARNING diagnostic.
-            let configURL = dir.appendingPathComponent("config.toml")
-            try Data("[theme]\nbuilt_in = \"nord\"\n".utf8).write(to: configURL)
-            // A directory at the state path -> operational ioError.
+            let settingsURL = dir.appendingPathComponent("settings.json")
+            let settingsService = SettingsService(store: SettingsStore(fileURL: settingsURL))
+            try Data("""
+            {
+              "version": 1,
+              "settings": {
+                "keymap": {
+                  "prompt.commit": [],
+                  "prompt.cancel": []
+                }
+              }
+            }
+            """.utf8).write(to: settingsURL)
             let stateURL = dir.appendingPathComponent("state.json")
             try FileManager.default.createDirectory(at: stateURL, withIntermediateDirectories: true)
             let controller = ApplicationController(
-                configService: ConfigService(source: ConfigFileSource(url: configURL)),
+                settingsService: settingsService,
                 sessionStore: ReaderSessionStore(),
                 themeStore: ThemeSelectionStore(fileURL: stateURL),
                 recentFilesStore: RecentFilesStore(fileURL: dir.appendingPathComponent("recent-state.json")),
@@ -340,8 +349,6 @@ struct ThemePickerTests {
             )
             controller.start()
             let status = controller.mainWindowController.rootView.statusBar.presentation
-            // The config warning occupies the summary AND the theme I/O error is
-            // folded into the expanded detail (neither failure is hidden).
             #expect(status.detail.contains("warning") || status.tone == .normal)
             #expect(status.expandedDetail?.contains("Could not read the saved theme") == true)
             controller.mainWindowController.close()
@@ -372,7 +379,7 @@ struct ThemePickerTests {
             try withTemporaryDirectory { directory in
                 let sessionStore = ReaderSessionStore()
                 let controller = ApplicationController(
-                    configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing.toml"))),
+                    settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
                     sessionStore: sessionStore,
                     themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("state.json")),
                     recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")),

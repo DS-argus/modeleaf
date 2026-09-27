@@ -758,9 +758,7 @@ struct CitationPreviewTests {
             let stateURL = directory.appendingPathComponent("state.json")
             let settingsStore = CitationPreviewSettingsStore(fileURL: stateURL)
             let controller = ApplicationController(
-                configService: ConfigService(
-                    source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))
-                ),
+                settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
                 themeStore: ThemeSelectionStore(fileURL: stateURL),
                 indicatorSettingsStore: LinkDestinationIndicatorSettingsStore(fileURL: stateURL),
                 recentFilesStore: RecentFilesStore(fileURL: stateURL),
@@ -817,9 +815,7 @@ struct CitationPreviewTests {
             #expect(settingsStore.load() == .selected(true))
 
             let restarted = ApplicationController(
-                configService: ConfigService(
-                    source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))
-                ),
+                settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
                 themeStore: ThemeSelectionStore(fileURL: stateURL),
                 indicatorSettingsStore: LinkDestinationIndicatorSettingsStore(fileURL: stateURL),
                 recentFilesStore: RecentFilesStore(fileURL: stateURL),

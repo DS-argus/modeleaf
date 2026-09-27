@@ -212,7 +212,7 @@ struct PaneRedTeamTests {
             let url = try PDFFixtureFactory.makePerformancePDF(.F, in: fixtures)
             @MainActor func makeController() throws -> ApplicationController {
                 let controller = ApplicationController(
-                    configService: ConfigService(source: ConfigFileSource(url: fixtures.appendingPathComponent("missing-config.toml"))),
+                    settingsService: SettingsService(store: SettingsStore(fileURL: fixtures.appendingPathComponent("settings.json"))),
                     sessionStore: ReaderSessionStore(),
                     themeStore: ThemeSelectionStore(fileURL: fixtures.appendingPathComponent("theme-state.json")),
                     recentFilesStore: RecentFilesStore(fileURL: fixtures.appendingPathComponent("recent-state.json")),
@@ -317,7 +317,7 @@ struct PaneRedTeamTests {
             try withTemporaryDirectory { fixtures in
                 let url = try PDFFixtureFactory.makePerformancePDF(.F, in: fixtures)
                 let controller = ApplicationController(
-                    configService: ConfigService(source: ConfigFileSource(url: fixtures.appendingPathComponent("missing-config.toml"))),
+                    settingsService: SettingsService(store: SettingsStore(fileURL: fixtures.appendingPathComponent("settings.json"))),
                     sessionStore: ReaderSessionStore(),
                     themeStore: ThemeSelectionStore(fileURL: fixtures.appendingPathComponent("theme-state.json")),
                     recentFilesStore: RecentFilesStore(fileURL: fixtures.appendingPathComponent("recent-state.json")),

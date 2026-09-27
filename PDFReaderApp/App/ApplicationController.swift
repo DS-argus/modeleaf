@@ -4,7 +4,7 @@ import PDFReaderCore
 
 @MainActor
 final class ApplicationController {
-    let configResult: ConfigLoadResult
+    let settingsResult: SettingsLoadResult
     let sessionStore: ReaderSessionStore
     let coordinator: PaneCoordinator
     private let application: NSApplication
@@ -27,9 +27,9 @@ final class ApplicationController {
     private(set) var isCitationPreviewEnabled: Bool
     private let citationPreviewStartupDiagnostic: String?
     private(set) var menuBuilder: ValidatedMenuBuilder?
-    private let configService: ConfigService
+    private let settingsService: SettingsService
     private var activeConfig: ValidatedAppConfig
-    private let configFileStore: ConfigFileStore
+    private var settingsCoordinator: SettingsCoordinator?
     enum ConfigInstallStep: Equatable {
         case dismissTransientOverlays
         case applyWindowConfig
@@ -66,14 +66,13 @@ final class ApplicationController {
             recentOpenHandler: { [weak self] path in _ = self?.openDocument(at: URL(fileURLWithPath: path)) },
             recentPruneHandler: { [weak self] path in self?.recentFilesStore.prune(absolutePath: path) ?? .failed(message: "recent-files store unavailable") },
             recentClearHandler: { [weak self] in self?.recentFilesStore.clear() ?? .failed(message: "recent-files store unavailable") },
-            configFileURLProvider: { [weak self] in self?.configService.source.url ?? ConfigFileSource.defaultURL() },
         )
         actionDispatcher.presentation = controller
         return controller
     }()
     init(
         application: NSApplication = .shared,
-        configService: ConfigService = ConfigService(),
+        settingsService: SettingsService = SettingsService(),
         sessionStore: ReaderSessionStore = ReaderSessionStore(),
         pdfOpenService: PDFOpenService = PDFOpenService(),
         openMetrics: any PDFOpenMetrics = OSLogPDFOpenMetrics(),
@@ -86,10 +85,9 @@ final class ApplicationController {
         terminationHandler: (() -> Void)? = nil,
         newInstanceLauncher: (() -> Void)? = nil
     ) {
-        let configResult = configService.load()
-        self.application = application; self.configService = configService; self.configResult = configResult; self.activeConfig = configResult.activeConfig; self.sessionStore = sessionStore
+        let settingsResult = settingsService.load()
+        self.application = application; self.settingsService = settingsService; self.settingsResult = settingsResult; self.activeConfig = settingsResult.activeConfig; self.sessionStore = sessionStore
         self.coordinator = PaneCoordinator(initialStore: sessionStore)
-        self.configFileStore = ConfigFileStore(fileURL: configService.source.url)
         self.pdfOpenService = pdfOpenService; self.openMetrics = openMetrics; self.openPanelPresenter = openPanelPresenter; self.themeStore = themeStore; self.recentFilesStore = recentFilesStore
         self.passwordPresenter = passwordPresenter
         self.indicatorSettingsStore = indicatorSettingsStore
@@ -123,13 +121,11 @@ final class ApplicationController {
         }
         self.terminationHandler = terminationHandler ?? { application.terminate(nil) }
         self.newInstanceLauncher = newInstanceLauncher ?? { ApplicationController.launchNewInstance() }
-        self.actionDispatcher = ActionDispatcher(coordinator: coordinator, navigation: configResult.activeConfig.config.navigation)
+        self.actionDispatcher = ActionDispatcher(coordinator: coordinator, navigation: settingsResult.activeConfig.config.navigation)
         self.actionDispatcher.configureLifecycleHandlers(openDocument: { [weak self] in self?.presentOpenPanel() }, terminate: { [weak self] in self?.terminationHandler() }, newInstance: { [weak self] in self?.newInstanceLauncher() })
         coordinator.configureDuplication { [weak self] snapshot in self?.makeDuplicate(from: snapshot) }
-        self.actionDispatcher.configureConfigReloadHandler { [weak self] in self?.reloadConfig() }
+        self.actionDispatcher.configureSettingsHandler { [weak self] in self?.presentSettings() }
         coordinator.configureDuplicationCompletion { [weak self] session, committed in self?.completeDuplicate(session, committed: committed) }
-        self.actionDispatcher.configureConfigWriteDefaultHandler { [weak self] in self?.writeDefaultConfig() }
-        self.actionDispatcher.configureConfigResetDefaultHandler { [weak self] in self?.resetConfig() }
         coordinator.applyLinkDestinationIndicatorSettings(currentIndicatorSettings)
         coordinator.applyCitationPreviewEnabled(isCitationPreviewEnabled)
         mainWindowController.rootView.setCitationPreviewEnabled(isCitationPreviewEnabled)
@@ -151,10 +147,10 @@ final class ApplicationController {
             indicatorStartupDiagnostic,
             citationPreviewStartupDiagnostic,
         ].compactMap { $0 }
-        if !configResult.diagnostics.isEmpty {
+        if !settingsResult.diagnostics.isEmpty {
             let presentation = ConfigDiagnosticPresentation(
-                diagnostics: configResult.diagnostics,
-                usedFallback: configResult.usedFallback
+                diagnostics: settingsResult.diagnostics,
+                usedFallback: settingsResult.diagnostics.contains { $0.severity == .error }
             )
             let detail = ([presentation.details].compactMap { $0 } + stateDiagnostics).joined(separator: "\n")
             mainWindowController.showDiagnostic(
@@ -175,68 +171,53 @@ final class ApplicationController {
             self.mainWindowController.installAvailableUpdate(update)
         }
     }
-    func dispatch(_ action: ActionID) { actionDispatcher.dispatch(action) }
+    func dispatch(_ action: ActionID) {
+        if mainWindowController.isSettingsPresented {
+            if action == .settingsOpen { return }
+            guard action == .appQuit, settingsCoordinator?.requestClose() == true else { return }
+        }
+        actionDispatcher.dispatch(action)
+    }
+
+    func presentSettings() {
+        guard !mainWindowController.isSettingsPresented, let window = mainWindowController.window else { return }
+        let editor = SettingsCoordinator(
+            service: settingsService,
+            view: mainWindowController.rootView.settingsOverlay,
+            window: window,
+            currentConfig: { [unowned self] in self.activeConfig },
+            currentGeneration: { [unowned self] in self.configInstallGenerationCountForTesting },
+            install: { [weak self] config in
+                guard let self else { return }
+                self.install(self.prepare(config))
+            },
+            closePanel: { [weak self] in self?.mainWindowController.dismissSettingsPanel() }
+        )
+        settingsCoordinator = editor
+        mainWindowController.onSettingsClose = { [weak editor] in editor?.requestClose() ?? true }
+        mainWindowController.presentSettingsPanel()
+        editor.open()
+    }
 
     func dispatch(_ keyDispatch: KeyActionDispatch) {
-        if keyDispatch.actionID == .configReload {
-            reloadConfig()
-        } else {
-            actionDispatcher.dispatch(keyDispatch)
+        if mainWindowController.isSettingsPresented {
+            dispatch(keyDispatch.actionID)
+            return
         }
+        actionDispatcher.dispatch(keyDispatch)
     }
 
-    func reloadConfig() {
-        switch configService.reload() {
-        case let .applied(config, warnings):
-            let prepared = prepare(config)
-            install(prepared)
-            let message = warnings.isEmpty ? "Config reloaded" : "Config reloaded (\(warnings.count) warnings)"
-            mainWindowController.showDiagnostic(message, isError: false)
-        case let .rejected(diagnostics):
-            let presentation = ConfigDiagnosticPresentation(diagnostics: diagnostics, usedFallback: false)
-            mainWindowController.showDiagnostic("Configuration rejected; previous configuration remains active.", expandedDetail: presentation.details, isError: true, pinned: true)
-        case .missing:
-            mainWindowController.showDiagnostic("No configuration file to reload.", isError: false)
-        }
-    }
-
-    func writeDefaultConfig() {
-        switch configFileStore.writeDefaultExclusive(Data(BuiltInDefaults.defaultConfigTOML.utf8)) {
-        case .created:
-            mainWindowController.showDiagnostic("Default config written", isError: false)
-        case .alreadyExists:
-            mainWindowController.showDiagnostic("Config already exists", isError: false)
-        case let .failed(message):
-            mainWindowController.showDiagnostic("Could not write default config: \(message)")
-        }
-    }
-
-    func resetConfig() {
-        let builtIn = ConfigValidator.validate(SparseAppConfig())
-        guard let config = builtIn.validatedConfig else {
-            preconditionFailure("Built-in configuration must validate")
-        }
-        let prepared = prepare(config)
-        switch configFileStore.reset(defaultBytes: Data(BuiltInDefaults.defaultConfigTOML.utf8)) {
-        case .replaced:
-            install(prepared)
-            mainWindowController.showDiagnostic("Config reset to defaults", isError: false)
-        case .unchanged:
-            if activeConfig.config != prepared.validatedConfig.config || mainWindowController.hasPinnedDiagnostic {
-                install(prepared)
-            }
-            mainWindowController.showDiagnostic("Config already matches defaults", isError: false)
-        case .missingFile:
-            mainWindowController.showDiagnostic("No config file to reset", isError: false)
-        case let .failed(message):
-            mainWindowController.showDiagnostic("Could not reset config: \(message)")
-        }
-    }
     private func prepare(_ config: ValidatedAppConfig) -> PreparedConfigGeneration {
         let builder = ValidatedMenuBuilder(
             descriptors: config.menuDescriptors,
             dispatch: { [weak self] action in self?.dispatch(action) },
-            isEnabled: { [weak self] action in self?.actionDispatcher.isActionEnabled(action) ?? false }
+            isEnabled: { [weak self] action in
+                guard let self else { return false }
+                if self.mainWindowController.isSettingsPresented {
+                    return action == .settingsOpen || action == .appQuit
+                }
+                return self.actionDispatcher.isActionEnabled(action)
+            }
         )
         return PreparedConfigGeneration(validatedConfig: config, menuBuilder: builder, mainMenu: builder.makeMainMenu())
     }

@@ -2,12 +2,18 @@ import AppKit
 
 @MainActor
 final class ReaderWindow: NSWindow {
+    weak var shortcutRecorder: ShortcutRecordingSession?
     var keyEventHandler: ((NSEvent) -> Bool)?
     var mouseDownHandler: ((NSEvent) -> Void)?
     var geometryEventHandler: (() -> Void)?
     var geometryEventObserverForTesting: ((NSEvent.EventType) -> Void)?
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if shortcutRecorder?.consume(event) == true { return true }
+        return super.performKeyEquivalent(with: event)
+    }
 
     override func sendEvent(_ event: NSEvent) {
+        if shortcutRecorder?.consume(event) == true { return }
         let geometryType = [.scrollWheel, .magnify, .smartMagnify, .swipe, .rotate].contains(event.type) ? event.type : nil
         if let geometryType {
             handleGeometryEvent(geometryType)

@@ -1,0 +1,3 @@
+- Open Settings with Command-comma to adjust reading preferences and keyboard shortcuts in one window.
+- Settings are now managed by the app in ~/Library/Application Support/Modeleaf/settings.json. Existing config.toml files are no longer read or migrated; configure your preferences again in Settings. Existing files are not deleted.
+- Write Default Config, Reload Config, and Reset Config commands have been removed. Use Apply, Discard, and Restore Defaults in Settings instead.

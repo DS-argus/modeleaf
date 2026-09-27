@@ -11,7 +11,6 @@
 		B5396727030A0D3D6FA4C1E3 /* PDFReaderCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */; };
 		89925A2A2D5771CC13A5DFA2 /* PDFReaderCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */; };
 		43B4D3A16A4F1F02612D4193 /* PDFReaderTestSupport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C70AF9CD6A05F9871BF0721A /* PDFReaderTestSupport.framework */; };
-		C24C6A546675DDB8990762C3 /* TOMLDecoder in Frameworks */ = {isa = PBXBuildFile; productRef = 72ED85A22FC6BDB47FF1AE81 /* TOMLDecoder */; };
 		069F4A77557CBECC25DAEFD9 /* PDFReaderCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		9A782F277E5B3721FAFB9604 /* modeleaf in Embed CLI */ = {isa = PBXBuildFile; fileRef = D9F7E1B8369DC1F12A8FDC58 /* modeleaf */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -174,7 +173,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				4642C58A0AFFED69A72DAD2C /* PDFReaderCore.framework in Frameworks */,
-				C24C6A546675DDB8990762C3 /* TOMLDecoder in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -266,8 +264,6 @@
 				4FD9ADCBD804C041872D21DD /* PDFReaderCore */,
 			);
 			name = PDFReaderCore;
-			packageProductDependencies = (
-			);
 			productName = PDFReaderCore;
 			productReference = 2DE841E460098F4A78D8D1F3 /* PDFReaderCore.framework */;
 			productType = "com.apple.product-type.framework";
@@ -291,9 +287,6 @@
 				1E3DBE79DA87710F2D1B1058 /* PDFReaderApp */,
 			);
 			name = PDFReaderApp;
-			packageProductDependencies = (
-				72ED85A22FC6BDB47FF1AE81 /* TOMLDecoder */,
-			);
 			productName = PDFReaderApp;
 			productReference = 57627DBA3634259684E38C8B /* Modeleaf.app */;
 			productType = "com.apple.product-type.application";
@@ -313,8 +306,6 @@
 				1581DA260512DB5E929182C2 /* ModeleafCLI */,
 			);
 			name = ModeleafCLI;
-			packageProductDependencies = (
-			);
 			productName = ModeleafCLI;
 			productReference = D9F7E1B8369DC1F12A8FDC58 /* modeleaf */;
 			productType = "com.apple.product-type.tool";
@@ -335,8 +326,6 @@
 				4444264E4A98851A3B3B20B6 /* PDFReaderTestSupport */,
 			);
 			name = PDFReaderTestSupport;
-			packageProductDependencies = (
-			);
 			productName = PDFReaderTestSupport;
 			productReference = C70AF9CD6A05F9871BF0721A /* PDFReaderTestSupport.framework */;
 			productType = "com.apple.product-type.framework";
@@ -357,8 +346,6 @@
 				95E941A930F7035D033BB969 /* PDFReaderCoreTests */,
 			);
 			name = PDFReaderCoreTests;
-			packageProductDependencies = (
-			);
 			productName = PDFReaderCoreTests;
 			productReference = C44B5EE66DCFBB36F4265D67 /* PDFReaderCoreTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -381,8 +368,6 @@
 				8E366546A588094F6D92378C /* PDFReaderAppTests */,
 			);
 			name = PDFReaderAppTests;
-			packageProductDependencies = (
-			);
 			productName = PDFReaderAppTests;
 			productReference = 2D0F8ABEDA3041AC0459241E /* PDFReaderAppTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -403,8 +388,6 @@
 				A0EA9E566DB5A45B76D7D5CA /* PDFReaderUITests */,
 			);
 			name = PDFReaderUITests;
-			packageProductDependencies = (
-			);
 			productName = PDFReaderUITests;
 			productReference = 338E00092B1C985F807E7522 /* PDFReaderUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -425,9 +408,6 @@
 			knownRegions = (en, Base);
 			mainGroup = 870B3294C0CBD48AF6BBCC1B;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-				BA66665FA276E76C2C914D88 /* XCRemoteSwiftPackageReference "TOMLDecoder" */,
-			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 615B463D1028E4E24B674CF7 /* Products */;
 			projectDirPath = "";
@@ -880,24 +860,6 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		BA66665FA276E76C2C914D88 /* XCRemoteSwiftPackageReference "TOMLDecoder" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/dduan/TOMLDecoder.git";
-			requirement = {
-				kind = exactVersion;
-				version = 0.4.5;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		72ED85A22FC6BDB47FF1AE81 /* TOMLDecoder */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = BA66665FA276E76C2C914D88 /* XCRemoteSwiftPackageReference "TOMLDecoder" */;
-			productName = TOMLDecoder;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 98F54143AB4E86B28C3AFEE0 /* Project object */;
 }

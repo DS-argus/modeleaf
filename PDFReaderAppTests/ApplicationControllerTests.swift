@@ -57,7 +57,7 @@ struct ApplicationControllerTests {
         let openPanel = ControllerOpenPanelStub()
         var quit = false
         let controller = ApplicationController(
-            configService: ConfigService(source: ConfigFileSource(url: tempConfig)),
+            settingsService: SettingsService(store: SettingsStore(fileURL: tempConfig)),
             sessionStore: sessionStore,
             openPanelPresenter: openPanel,
             themeStore: ThemeSelectionStore(fileURL: tempConfig.appendingPathExtension("theme-state")),
@@ -86,7 +86,7 @@ struct ApplicationControllerTests {
             let document = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1)
             let recentStore = RecentFilesStore(fileURL: directory.appendingPathComponent("state.json"))
             let controller = ApplicationController(
-                configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
                 themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
                 recentFilesStore: recentStore,
                 terminationHandler: {}
@@ -107,7 +107,7 @@ struct ApplicationControllerTests {
             let defaultModificationDate = try? FileManager.default.attributesOfItem(atPath: defaultURL.path)[.modificationDate] as? Date
 
             let controller = ApplicationController(
-                configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
                 themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
                 recentFilesStore: RecentFilesStore(fileURL: recentURL),
                 terminationHandler: {}
@@ -130,7 +130,7 @@ struct ApplicationControllerTests {
             let stateURL = directory.appendingPathComponent("state.json")
             try FileManager.default.createDirectory(at: stateURL, withIntermediateDirectories: true)
             let controller = ApplicationController(
-                configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
                 themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
                 recentFilesStore: RecentFilesStore(fileURL: stateURL),
                 terminationHandler: {}
@@ -151,7 +151,7 @@ struct ApplicationControllerTests {
             let metrics = ControllerRecordingMetrics()
             let openPanel = CapturingOpenPanelStub()
             let controller = ApplicationController(
-                configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
                 sessionStore: store,
                 openMetrics: metrics,
                 openPanelPresenter: openPanel,
@@ -198,7 +198,7 @@ struct ApplicationControllerTests {
                 let metrics = ControllerRecordingMetrics()
                 let openPanel = CapturingOpenPanelStub()
                 let controller = ApplicationController(
-                    configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                    settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
                     sessionStore: store,
                     openMetrics: metrics,
                     openPanelPresenter: openPanel,
@@ -268,27 +268,30 @@ struct ApplicationControllerTests {
         return own + view.subviews.flatMap(descendantPaneViews(in:))
     }
 
-    @Test("startup presents every configuration error and warning with actionable metadata")
+    @Test("startup presents every JSON settings error and warning with actionable metadata")
     func startupPresentsAggregateConfigurationDiagnostics() throws {
         let temporary = FileManager.default.temporaryDirectory
             .appendingPathComponent("pdf-reader-app-controller-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: temporary) }
-        let configURL = temporary.appendingPathComponent("config.toml")
-        try Data(
-            """
-            [navigation]
-            zoom_factor = 9
-
-            [keymap]
-            "prompt.commit" = []
-            "prompt.cancel" = []
-            "bookmark.toggle" = ["b"]
-            """.utf8
-        ).write(to: configURL)
+        let settingsURL = temporary.appendingPathComponent("settings.json")
+        try Data("""
+        {
+          "version": 1,
+          "settings": {
+            "navigation": { "zoom_factor": 9 },
+            "keymap": {
+              "prompt.commit": [],
+              "prompt.cancel": [],
+              "bookmark.toggle": ["b"]
+            }
+          }
+        }
+        """.utf8).write(to: settingsURL)
+        let service = SettingsService(store: SettingsStore(fileURL: settingsURL))
 
         let controller = ApplicationController(
-            configService: ConfigService(source: ConfigFileSource(url: configURL)),
+            settingsService: service,
             themeStore: ThemeSelectionStore(fileURL: temporary.appendingPathComponent("theme-state.json")),
             recentFilesStore: RecentFilesStore(fileURL: temporary.appendingPathComponent("recent-state.json"))
         )
@@ -308,38 +311,43 @@ struct ApplicationControllerTests {
         #expect(details.contains("[reservedAction]"))
         #expect(details.contains("actions: prompt.commit"))
         #expect(details.contains("actions: prompt.cancel"))
-        #expect(details.contains(configURL.path))
+        #expect(details.contains(settingsURL.path))
         #expect(
             (controller.mainWindowController.rootView.statusBar.accessibilityValue() as? String)?
                 .contains("reservedAction") == true
         )
     }
 
-    @Test("warning-only configuration is visible without forcing fallback")
+    @Test("warning-only JSON settings are visible without forcing fallback")
     func warningOnlyConfigurationIsVisible() throws {
         let temporary = FileManager.default.temporaryDirectory
             .appendingPathComponent("pdf-reader-app-warning-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: temporary) }
-        let configURL = temporary.appendingPathComponent("config.toml")
-        try Data(
-            """
-            [keymap]
-            "prompt.commit" = []
-            "prompt.cancel" = []
-            """.utf8
-        ).write(to: configURL)
+        let settingsURL = temporary.appendingPathComponent("settings.json")
+        try Data("""
+        {
+          "version": 1,
+          "settings": {
+            "keymap": {
+              "prompt.commit": [],
+              "prompt.cancel": []
+            }
+          }
+        }
+        """.utf8).write(to: settingsURL)
+        let service = SettingsService(store: SettingsStore(fileURL: settingsURL))
 
         let controller = ApplicationController(
-            configService: ConfigService(source: ConfigFileSource(url: configURL)),
+            settingsService: service,
             themeStore: ThemeSelectionStore(fileURL: temporary.appendingPathComponent("theme-state.json")),
             recentFilesStore: RecentFilesStore(fileURL: temporary.appendingPathComponent("recent-state.json"))
         )
         controller.start()
         defer { controller.mainWindowController.close() }
 
-        #expect(controller.configResult.origin == .userFile)
-        #expect(!controller.configResult.usedFallback)
+        #expect(controller.settingsResult.diagnostics.count == 2)
+        #expect(controller.settingsResult.diagnostics.allSatisfy { $0.severity == .warning })
         let status = controller.mainWindowController.rootView.statusBar.presentation
         #expect(status.tone == .normal)
         #expect(status.detail == "Configuration: 2 warnings")
@@ -353,7 +361,7 @@ struct ApplicationControllerTests {
             let store = ReaderSessionStore()
             let metrics = ControllerRecordingMetrics()
             let controller = ApplicationController(
-                configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
                 sessionStore: store,
                 openMetrics: metrics,
                 themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
@@ -398,7 +406,7 @@ struct ApplicationControllerTests {
             let url = try PDFFixtureFactory.makeTextPDF(in: directory, pageCount: 1)
             let store = ReaderSessionStore()
             let controller = ApplicationController(
-                configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing-config.toml"))),
+                settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
                 sessionStore: store,
                 openMetrics: metrics,
                 themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),

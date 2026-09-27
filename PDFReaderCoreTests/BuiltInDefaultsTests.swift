@@ -10,7 +10,7 @@ struct BuiltInDefaultsTests {
         #expect(
             Set(BuiltInDefaults.keymap.compactMap { action, bindings in
                 bindings.isEmpty ? action : nil
-            }) == [.viewZoomReset, .configWriteDefault, .configResetDefault]
+            }).isEmpty
         )
         let report = ActionBindingPolicy.evaluateEffective(BuiltInDefaults.keymap)
         #expect(report.isValid)
@@ -20,23 +20,23 @@ struct BuiltInDefaultsTests {
     @Test("Exact default vocabulary remains compact and viewer-first")
     func exactDefaultVocabulary() throws {
         let expected: [ActionID: [String]] = [
-            .documentOpen: ["<D-o>"], .documentClose: ["<D-w>"], .documentPrint: ["<D-p>"], .documentCopyPath: ["yy"], .documentRevealInFinder: ["of"], .appQuit: ["<D-q>"], .appNew: ["<D-n>"], .paletteOpen: [":", "<D-S-p>"], .helpShow: ["?"],
+            .documentOpen: ["<D-o>"], .documentClose: ["<D-w>"], .documentPrint: ["<D-p>"], .documentCopyPath: ["yy"], .documentRevealInFinder: ["of"], .appQuit: ["<D-q>"], .appNew: ["<D-n>"], .paletteOpen: ["<D-S-p>", ":"], .helpShow: ["?"],
             .tabNext: ["N"], .tabPrevious: ["P"],
             .tabSelect1: ["<D-1>"], .tabSelect2: ["<D-2>"], .tabSelect3: ["<D-3>"],
             .tabSelect4: ["<D-4>"], .tabSelect5: ["<D-5>"], .tabSelect6: ["<D-6>"],
             .tabSelect7: ["<D-7>"], .tabSelect8: ["<D-8>"], .tabSelect9: ["<D-9>"],
-            .scrollLeft: ["h", "<Left>"], .scrollDown: ["j", "<Down>"], .scrollUp: ["k", "<Up>"], .scrollRight: ["l", "<Right>"],
+            .scrollLeft: ["<Left>", "h"], .scrollDown: ["<Down>", "j"], .scrollUp: ["<Up>", "k"], .scrollRight: ["<Right>", "l"],
             .scrollLargeDown: ["d"], .scrollLargeUp: ["u"],
             .tocToggle: ["t"], .tocScrollDown: ["J"], .tocScrollUp: ["K"],
             .pageNext: ["n"], .pagePrevious: ["p"], .pageFirst: ["gg"], .pageLast: ["G"], .pagePrompt: ["g"],
             .historyBack: ["<C-o>"], .historyForward: ["<C-i>"],
             .promptCommit: ["<Enter>"], .promptCancel: ["<Esc>"],
             .searchPrompt: ["/"], .searchNext: ["<Enter>"], .searchPrevious: ["<S-Enter>"], .searchCancel: ["<Esc>"],
-            .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: [],
+            .viewZoomIn: ["="], .viewZoomOut: ["-"], .viewZoomReset: ["0"],
             .viewFitWidth: ["w"], .viewFitPage: ["F"], .viewRotateLeft: ["["], .viewRotateRight: ["]"], .linkHint: ["f"],
             .citationPreviewToggle: ["C"],
             .themePicker: ["T"], .indicatorPicker: ["I"], .updateShow: ["U"],
-            .configReload: ["<C-b>r"], .configWriteDefault: [], .configResetDefault: [],
+            .settingsOpen: ["<D-,>"],
             .paneSplitRight: ["<C-b>|"], .paneSplitDown: ["<C-b>-"], .paneUnsplit: ["<C-b>o"],
             .paneFocusLeft: ["<C-h>"], .paneFocusDown: ["<C-j>"], .paneFocusUp: ["<C-k>"], .paneFocusRight: ["<C-l>"],
         ]
@@ -50,6 +50,15 @@ struct BuiltInDefaultsTests {
         #expect(ActionRegistry.v1.actionIDs.allSatisfy { action in
             excludedTerms.allSatisfy { !action.rawValue.lowercased().contains($0) }
         })
+        #expect(ActionRegistry.v1.actionIDs.allSatisfy { !$0.rawValue.hasPrefix("config.") })
+    }
+    @Test("Settings keeps its known global default")
+    func settingsDefault() throws {
+        let descriptor = try #require(ActionRegistry.v1.descriptor(for: .settingsOpen))
+        #expect(ActionID.settingsOpen.rawValue == "settings.open")
+        #expect(descriptor.title == "Settings…")
+        #expect(descriptor.scope == .global)
+        #expect(BuiltInDefaults.keymap[.settingsOpen]?.map(\.description) == ["<D-,>"])
     }
 
     @Test("History commands have navigation-only registry defaults")
@@ -113,30 +122,15 @@ struct BuiltInDefaultsTests {
         #expect(ThemeToken.allCases.allSatisfy { !$0.rawValue.lowercased().contains("pdf") })
     }
 
-    @Test("Bundled DefaultConfig.toml is generated from BuiltInDefaults")
-    func defaultConfigSnapshot() throws {
-        let root = repositoryRoot()
-        let bundled = try String(
-            contentsOf: root.appendingPathComponent("PDFReaderApp/Resources/DefaultConfig.toml"),
-            encoding: .utf8
-        )
-        #expect(bundled == BuiltInDefaults.defaultConfigTOML)
-        #expect(bundled.contains("page.prompt") && bundled.contains("[\"g\"]"))
-        #expect(bundled.contains("prefix = \"<C-b>\""))
-        #expect(bundled.contains("<prefix>|"))
-        #expect(!bundled.contains("prompt.commit"))
-        #expect(!bundled.contains("[theme]"))
-        #expect(!bundled.localizedCaseInsensitiveContains("script"))
-    }
 
     @Test("CONFIG.md generated blocks and grammar remain synchronized")
     func configDocumentationSnapshot() throws {
         let root = repositoryRoot()
         let checkedIn = try String(contentsOf: root.appendingPathComponent("CONFIG.md"), encoding: .utf8)
         #expect(checkedIn == ConfigDocumentation.markdown)
-        #expect(checkedIn.contains("<!-- BEGIN GENERATED: PROMPT_NATIVE_RESERVATION_V1 -->"))
-        #expect(checkedIn.contains("<!-- BEGIN GENERATED: SYSTEM_KEY_RESERVATION_V1 -->"))
-        #expect(checkedIn.contains("Configuration is declarative data only"))
+        #expect(checkedIn.contains("settings.json"))
+        #expect(checkedIn.contains("Key Bindings"))
+        #expect(checkedIn.contains("config.toml"))
     }
 
     private func repositoryRoot() -> URL {

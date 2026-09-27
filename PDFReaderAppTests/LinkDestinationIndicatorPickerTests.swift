@@ -220,7 +220,7 @@ struct LinkDestinationIndicatorPickerTests {
         #expect(sessionStore.insert(first))
         #expect(sessionStore.insert(second))
         let controller = ApplicationController(
-            configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("config.toml"))),
+            settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
             sessionStore: sessionStore,
             themeStore: ThemeSelectionStore(fileURL: stateURL),
             indicatorSettingsStore: settingsStore,

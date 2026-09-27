@@ -113,9 +113,7 @@ public struct ActionRegistry: Sendable {
             scope: .contexts(readerContexts),
             repeatPolicy: .suppressed
         ),
-        ActionDescriptor(id: .configReload, title: "Reload Config", scope: .contexts([.navigation]), repeatPolicy: .suppressed),
-        ActionDescriptor(id: .configWriteDefault, title: "Write Default Config", scope: .global, repeatPolicy: .suppressed),
-        ActionDescriptor(id: .configResetDefault, title: "Reset Config", scope: .global, repeatPolicy: .suppressed),
+        ActionDescriptor(id: .settingsOpen, title: "Settings…", scope: .global, repeatPolicy: .suppressed),
         ActionDescriptor(id: .themePicker, title: "Theme picker", scope: .contexts(readerContexts), repeatPolicy: .suppressed),
         ActionDescriptor(id: .indicatorPicker, title: "Link indicator settings", scope: .contexts(readerContexts), repeatPolicy: .suppressed),
         ActionDescriptor(id: .updateShow, title: "View Available Update", scope: .contexts(readerContexts), repeatPolicy: .suppressed),

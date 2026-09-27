@@ -1,6 +1,6 @@
 import Foundation
 
-public struct SparseNavigationConfiguration: Decodable, Equatable, Sendable {
+public struct SparseNavigationConfiguration: Codable, Equatable, Sendable {
     public let smallScrollPoints: Double?
     public let largeScrollViewportFraction: Double?
     public let zoomFactor: Double?
@@ -22,7 +22,7 @@ public struct SparseNavigationConfiguration: Decodable, Equatable, Sendable {
     }
 }
 
-public struct SparseInputConfiguration: Decodable, Equatable, Sendable {
+public struct SparseInputConfiguration: Codable, Equatable, Sendable {
     public let prefixTimeoutMilliseconds: Int?
     public let prefix: String?
 
@@ -37,7 +37,7 @@ public struct SparseInputConfiguration: Decodable, Equatable, Sendable {
     }
 }
 
-public struct SparseLinksConfiguration: Decodable, Equatable, Sendable {
+public struct SparseLinksConfiguration: Codable, Equatable, Sendable {
     public let skipExternalLinkHintConfirmation: Bool?
 
     public init(skipExternalLinkHintConfirmation: Bool? = nil) {
@@ -49,7 +49,7 @@ public struct SparseLinksConfiguration: Decodable, Equatable, Sendable {
     }
 }
 
-public struct SparseAppConfig: Decodable, Equatable, Sendable {
+public struct SparseAppConfig: Codable, Equatable, Sendable {
     public let keymap: [String: [String]]?
     public let navigation: SparseNavigationConfiguration?
     public let input: SparseInputConfiguration?

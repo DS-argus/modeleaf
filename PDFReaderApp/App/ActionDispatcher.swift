@@ -48,9 +48,7 @@ final class ActionDispatcher {
     private var openDocumentHandler: () -> Void
     private var terminationHandler: () -> Void
 private var newInstanceHandler: () -> Void
-    private var configReloadHandler: () -> Void
-    private var configWriteDefaultHandler: () -> Void
-    private var configResetDefaultHandler: () -> Void
+    private var settingsHandler: () -> Void = {}
     private var clipboardWriter: (String) -> Bool
     private var fileRevealer: (URL) -> Void
 
@@ -63,9 +61,6 @@ private var newInstanceHandler: () -> Void
         openDocumentHandler: @escaping () -> Void = {},
         terminationHandler: @escaping () -> Void = {},
         newInstanceHandler: @escaping () -> Void = {},
-        configReloadHandler: @escaping () -> Void = {},
-        configWriteDefaultHandler: @escaping () -> Void = {},
-        configResetDefaultHandler: @escaping () -> Void = {},
         citationPreviewToggleHandler: @escaping () -> Void = {},
         clipboardWriter: @escaping (String) -> Bool = { value in
             NSPasteboard.general.clearContents()
@@ -80,9 +75,6 @@ private var newInstanceHandler: () -> Void
         self.openDocumentHandler = openDocumentHandler
         self.terminationHandler = terminationHandler
 self.newInstanceHandler = newInstanceHandler
-        self.configReloadHandler = configReloadHandler
-        self.configWriteDefaultHandler = configWriteDefaultHandler
-        self.configResetDefaultHandler = configResetDefaultHandler
         self.citationPreviewToggleHandler = citationPreviewToggleHandler
         self.clipboardWriter = clipboardWriter
         self.fileRevealer = fileRevealer
@@ -98,16 +90,8 @@ self.newInstanceHandler = newInstanceHandler
 newInstanceHandler = newInstance
     }
 
-    func configureConfigReloadHandler(_ handler: @escaping () -> Void) {
-        configReloadHandler = handler
-    }
-
-    func configureConfigWriteDefaultHandler(_ handler: @escaping () -> Void) {
-        configWriteDefaultHandler = handler
-    }
-
-    func configureConfigResetDefaultHandler(_ handler: @escaping () -> Void) {
-        configResetDefaultHandler = handler
+    func configureSettingsHandler(_ handler: @escaping () -> Void) {
+        settingsHandler = handler
     }
     func configureCitationPreviewToggleHandler(_ handler: @escaping () -> Void) {
         citationPreviewToggleHandler = handler
@@ -154,13 +138,8 @@ newInstanceHandler = newInstance
             presentation?.prepareForGlobalAction()
             newInstanceHandler()
 
-        case .configReload:
-            configReloadHandler()
-
-        case .configWriteDefault:
-            configWriteDefaultHandler()
-        case .configResetDefault:
-            configResetDefaultHandler()
+        case .settingsOpen:
+            settingsHandler()
         case .tabNext:
             _ = coordinator.activateNext()
         case .tabPrevious:

@@ -162,6 +162,26 @@ public enum ConfigValidator {
             bindings[actionID] = parsed
         }
 
+        let uncomposedBindings = bindings
+        // Foundations are composed before policy, trie, and menu validation so every
+        // runtime/file candidate follows the same contextual ownership rules.
+        bindings = FoundationalBindings.compose(bindings, registry: registry)
+        if let prefixToken = try? KeySequenceParser.parseSingleToken(effectivePrefix) {
+            for descriptor in registry.descriptors {
+                let contexts = descriptor.activeContexts.intersection([.navigation, .searchResults])
+                guard !contexts.isEmpty else { continue }
+                for (index, sequence) in bindings[descriptor.id, default: []].enumerated() where sequence.singleToken == prefixToken {
+                    diagnostics.append(makeDiagnostic(
+                        code: .invalidExactPrefix,
+                        message: "\(descriptor.title) uses the common prefix by itself. The prefix is reserved for a prefix followed by one key.",
+                        path: ConfigSemanticPath.keymap(action: descriptor.id.rawValue, bindingIndex: index),
+                        source: source,
+                        actions: [descriptor.id.rawValue],
+                        contexts: contexts
+                    ))
+                }
+            }
+        }
         let navigation = NavigationConfiguration(
             smallScrollPoints: bounded(
                 sparse.navigation?.smallScrollPoints,
@@ -219,14 +239,14 @@ public enum ConfigValidator {
 
         let bindingReport = ActionBindingPolicy.evaluateEffective(bindings, registry: registry)
         diagnostics += bindingReport.diagnostics.map {
-            bindingDiagnostic($0, bindings: bindings, source: source)
+            bindingDiagnostic($0, bindings: bindings, source: source, sourceBindings: uncomposedBindings)
         }
 
         var trie: KeySequenceTrie?
         if let validatedKeymap = bindingReport.validatedKeymap {
             let trieReport = KeySequenceTrie.build(from: validatedKeymap, registry: registry)
             diagnostics += trieReport.diagnostics.map {
-                prefixDiagnostic($0, bindings: bindings, source: source)
+                prefixDiagnostic($0, bindings: bindings, source: source, sourceBindings: uncomposedBindings)
             }
             trie = trieReport.trie
         }
@@ -365,7 +385,8 @@ public enum ConfigValidator {
     private static func bindingDiagnostic(
         _ diagnostic: ActionBindingDiagnostic,
         bindings: [ActionID: [KeySequence]],
-        source: ConfigSourceMetadata
+        source: ConfigSourceMetadata,
+        sourceBindings: [ActionID: [KeySequence]]? = nil
     ) -> ConfigDiagnostic {
         switch diagnostic {
         case let .missingAction(actionID):
@@ -379,7 +400,7 @@ public enum ConfigValidator {
         case let .emptySequence(actionID, bindingOrder):
             return makeDiagnostic(
                 code: .invalidKeySequence,
-                message: "An empty KeySequence value is not a valid binding; use an empty TOML array to unbind.",
+                message: "An empty key sequence is not a valid binding. To unbind, record the action in Settings and press Enter without entering a key.",
                 path: ConfigSemanticPath.keymap(action: actionID.rawValue, bindingIndex: bindingOrder),
                 source: source,
                 actions: [actionID.rawValue]
@@ -388,7 +409,7 @@ public enum ConfigValidator {
             return makeDiagnostic(
                 code: .duplicateBinding,
                 message: "Duplicate binding \(sequence.description) for the same action.",
-                path: path(for: sequence, action: actionID, bindings: bindings),
+                path: path(for: sequence, action: actionID, bindings: bindings, sourceBindings: sourceBindings),
                 source: source,
                 actions: [actionID.rawValue]
             )
@@ -396,16 +417,21 @@ public enum ConfigValidator {
             return makeDiagnostic(
                 code: .promptUnsafeBinding,
                 message: promptViolationDescription(failure.violation),
-                path: path(for: failure.sequence, action: failure.actionID, bindings: bindings),
+                path: path(for: failure.sequence, action: failure.actionID, bindings: bindings, sourceBindings: sourceBindings),
                 source: source,
                 actions: [failure.actionID.rawValue],
                 contexts: failure.promptContexts
             )
         case let .conflictingSequence(sequence, first, second, overlappingContexts):
+            let foundation = FoundationalBindings.foundation(for: first, sequence: sequence)
+                ?? FoundationalBindings.foundation(for: second, sequence: sequence)
+            let message = foundation.map {
+                "Binding \(sequence.description) conflicts with immutable foundation \($0.reason) in overlapping contexts."
+            } ?? "Binding \(sequence.description) is assigned to actions with overlapping contexts."
             return makeDiagnostic(
                 code: .conflictingBinding,
-                message: "Binding \(sequence.description) is assigned to actions with overlapping contexts.",
-                path: path(for: sequence, action: second, bindings: bindings),
+                message: message,
+                path: path(for: sequence, action: second, bindings: bindings, sourceBindings: sourceBindings),
                 source: source,
                 actions: [first.rawValue, second.rawValue],
                 contexts: overlappingContexts
@@ -416,7 +442,8 @@ public enum ConfigValidator {
     private static func prefixDiagnostic(
         _ diagnostic: KeySequenceTrieDiagnostic,
         bindings: [ActionID: [KeySequence]],
-        source: ConfigSourceMetadata
+        source: ConfigSourceMetadata,
+        sourceBindings: [ActionID: [KeySequence]]? = nil
     ) -> ConfigDiagnostic {
         switch diagnostic {
         case let .invalidExactPrefix(
@@ -430,7 +457,7 @@ public enum ConfigValidator {
             return makeDiagnostic(
                 code: .invalidExactPrefix,
                 message: "Exact binding \(shorterSequence.description) prefixes \(longerSequence.description), but \(reason.rawValue).",
-                path: path(for: longerSequence, action: longerAction, bindings: bindings),
+                path: path(for: longerSequence, action: longerAction, bindings: bindings, sourceBindings: sourceBindings),
                 source: source,
                 actions: [shorterAction.rawValue, longerAction.rawValue],
                 contexts: overlappingContexts
@@ -441,9 +468,11 @@ public enum ConfigValidator {
     private static func path(
         for sequence: KeySequence,
         action: ActionID,
-        bindings: [ActionID: [KeySequence]]
+        bindings: [ActionID: [KeySequence]],
+        sourceBindings: [ActionID: [KeySequence]]? = nil
     ) -> String {
-        let index = bindings[action, default: []].firstIndex(of: sequence)
+        let pathBindings = sourceBindings ?? bindings
+        let index = pathBindings[action, default: []].firstIndex(of: sequence)
         return ConfigSemanticPath.keymap(action: action.rawValue, bindingIndex: index)
     }
 

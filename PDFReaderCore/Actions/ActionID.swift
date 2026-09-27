@@ -59,9 +59,7 @@ public enum ActionID: String, CaseIterable, Codable, Hashable, Sendable {
     case linkHint = "link.hint"
     case citationPreviewToggle = "citation.preview.toggle"
 
-    case configReload = "config.reload"
-    case configWriteDefault = "config.writeDefault"
-    case configResetDefault = "config.resetDefault"
+    case settingsOpen = "settings.open"
     case themePicker = "theme.picker"
     case indicatorPicker = "indicator.picker"
     case updateShow = "update.show"

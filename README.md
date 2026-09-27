@@ -14,7 +14,7 @@ https://github.com/user-attachments/assets/1fd81fb3-b600-403c-bcfb-5365aa867503
 
 - **Read-only.** No annotations, editing, or saving. The source PDF is never modified.
 - **Keyboard-first.** Inspired by [Sioyek](https://github.com/ahrm/sioyek), [SumatraPDF](https://github.com/sumatrapdfreader/sumatrapdf), [Vimium](https://github.com/philc/vimium), and the Markdown TUI [Leaf](https://github.com/RivoLink/leaf), while staying deliberately focused on reading.
-- **Configurable.** Most commands and reader behavior can be remapped in one TOML file.
+- **Configurable.** Adjust reading preferences and key bindings in the keyboard-accessible Settings window; foundational navigation remains available.
 
 ## Key features
 
@@ -23,7 +23,7 @@ https://github.com/user-attachments/assets/1fd81fb3-b600-403c-bcfb-5365aa867503
 - Password-protected local PDFs with a native secure prompt; passwords are never saved
 - Command palette and seven built-in themes
 - Fit, zoom, rotation, history, and system printing
-- TOML-configurable commands and reader behavior
+- Keyboard-operated shortcut settings with conflict checks, defaults and per-action reset
 
 ## Experimental Features
 
@@ -119,13 +119,11 @@ The status bar adapts down to the existing 480 × 360 pt minimum window: it keep
 
 ## Configuration
 
-Modeleaf reads an optional TOML config:
+Press **Cmd+,** to open **Settings**, with **General** and **Key Bindings** sections. Use **j/k** in the sidebar, **l/Enter** to enter the first right-hand row, and **h** to return. Only one row is highlighted at a time. **Enter** edits/confirms a row; **Esc** cancels an active edit. Otherwise Esc closes Settings, asking about unsaved changes: **Esc** continues editing, **n** discards and closes, **y** saves and closes. **h/l** or left/right selects a choice; Enter activates it (Save and Close is initially selected). Apply/Discard remain available for both sections, and Restore Defaults prepares a default draft.
 
-```text
-~/.config/modeleaf/config.toml
-```
+Modeleaf manages `~/Library/Application Support/Modeleaf/settings.json`, saving only differences from built-in defaults. Direct file editing is not a supported settings interface. Theme and link-indicator pickers remain separate for this release. See [CONFIG.md](CONFIG.md) for the keyboard and validation rules.
 
-Keys use `D` (Command), `C` (Control), `A` (Option), and `S` (Shift). Use **Write Default Config**, **Reload Config**, or **Reset Config** from the command palette. See [CONFIG.md](CONFIG.md) for every action, default, and validation rule. External link hint confirmation can be disabled with `[links] skip_external_link_hint_confirmation = true`; it is enabled by default.
+**Compatibility change:** Existing `~/.config/modeleaf/config.toml` files are no longer read or migrated, and are not deleted. Reconfigure preferences in Settings. Write Default Config, Reload Config, and Reset Config commands have been removed; the settings window replaces them.
 
 ## Build from source
 

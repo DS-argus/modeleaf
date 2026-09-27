@@ -25,9 +25,9 @@ struct HelpOverlayIntegrationTests {
         #expect(!overlay.isHidden)
         #expect(overlay.visibleSectionsForTesting.contains("Application"))
         #expect(!overlay.visibleSectionsForTesting.contains("In overlays & prompts"))
-        #expect(overlay.visibleEntriesForTesting.contains { $0.0 == "Cmd+1..9" && $0.1 == "Select tab 1-9" })
+        #expect(overlay.visibleEntriesForTesting.contains { $0.0 == "⌘1…9" && $0.1 == "Select tab 1-9" })
         #expect(overlay.visibleEntriesForTesting.contains { $0.0 == "Enter" && $0.1 == "Next search match" })
-        #expect(overlay.visibleEntriesForTesting.contains { $0.0 == "Shift+Enter" && $0.1 == "Previous search match" })
+        #expect(overlay.visibleEntriesForTesting.contains { $0.0 == "⇧Enter" && $0.1 == "Previous search match" })
         #expect(overlay.visibleEntriesForTesting.contains { $0.0 == "?" && $0.1 == "Keyboard Help" })
     }
     @Test("help rows use the validated rebinding")
@@ -50,6 +50,47 @@ struct HelpOverlayIntegrationTests {
         })
     }
 
+
+    @Test("help orders editable aliases before contextual foundations")
+    func aliasPrecedesFoundation() throws {
+        let validated = try #require(
+            ConfigValidator.validate(SparseAppConfig(keymap: ["scroll.down": ["x"]])).validatedConfig
+        )
+        let controller = MainWindowController(
+            coordinator: PaneCoordinator(initialStore: ReaderSessionStore()),
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { _ in },
+            validatedConfig: validated
+        )
+        defer { controller.close() }
+        controller.presentHelp()
+
+        #expect(controller.rootView.helpOverlay.visibleEntriesForTesting.contains {
+            $0 == ("x, Down", "Scroll Down")
+        })
+    }
+
+    @Test("help resolves the common prefix in compact formatting")
+    func prefixFormatting() throws {
+        let validated = try #require(
+            ConfigValidator.validate(SparseAppConfig(
+                keymap: ["pane.unsplit": ["<prefix>o"]],
+                input: SparseInputConfiguration(prefix: "<C-x>")
+            )).validatedConfig
+        )
+        let controller = MainWindowController(
+            coordinator: PaneCoordinator(initialStore: ReaderSessionStore()),
+            theme: AppKitTheme(themeID: .tokyoNight),
+            actionHandler: { _ in },
+            validatedConfig: validated
+        )
+        defer { controller.close() }
+        controller.presentHelp()
+
+        #expect(controller.rootView.helpOverlay.visibleEntriesForTesting.contains {
+            $0.0 == "<pre> → o" && $0.1 == ActionRegistry.v1.descriptor(for: .paneUnsplit)?.title
+        })
+    }
     @Test("help shows effective history remaps and preserves prompt context")
     func historyRowsAndPromptRestoration() throws {
         let validated = try #require(ConfigValidator.validate(SparseAppConfig(keymap: [
@@ -140,7 +181,7 @@ struct HelpOverlayIntegrationTests {
 
         let entries = controller.rootView.helpOverlay.visibleEntriesForTesting
         #expect(entries.contains { $0.0 == "x" && $0.1 == "Select Tab 1" })
-        #expect(!entries.contains { $0.0 == "Cmd+1..9" && $0.1 == "Select tab 1-9" })
+        #expect(!entries.contains { $0.0 == "⌘1…9" && $0.1 == "Select tab 1-9" })
     }
 
     @Test("help preserves a prompt opened before a status-bar help tap")
@@ -184,7 +225,7 @@ struct HelpOverlayIntegrationTests {
         #expect(controller.rootView.helpOverlay.visibleSectionsForTesting.contains("Search"))
         #expect(entries.filter { $0.1 == "Next search match" || $0.1 == "Previous search match" }.count == 2)
         #expect(entries.contains { $0 == ("Enter", "Next search match") })
-        #expect(entries.contains { $0 == ("Shift+Enter", "Previous search match") })
+        #expect(entries.contains { $0 == ("⇧Enter", "Previous search match") })
     }
 
     @Test("question mark remains native prompt text rather than presenting help")

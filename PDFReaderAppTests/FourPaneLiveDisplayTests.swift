@@ -53,7 +53,7 @@ struct FourPaneLiveDisplayTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = try PDFFixtureFactory.makePerformancePDF(.F, in: directory)
         let controller = ApplicationController(
-            configService: ConfigService(source: ConfigFileSource(url: directory.appendingPathComponent("missing.toml"))),
+            settingsService: SettingsService(store: SettingsStore(fileURL: directory.appendingPathComponent("settings.json"))),
             sessionStore: ReaderSessionStore(),
             themeStore: ThemeSelectionStore(fileURL: directory.appendingPathComponent("theme-state.json")),
             recentFilesStore: RecentFilesStore(fileURL: directory.appendingPathComponent("recent-state.json")),

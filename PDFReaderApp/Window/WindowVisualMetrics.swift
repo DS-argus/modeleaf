@@ -116,3 +116,24 @@ extension NSView {
         translatesAutoresizingMaskIntoConstraints = false
     }
 }
+
+@MainActor
+enum SettingsKeyboardHint {
+    static func make(text: String, keys: [String], theme: AppKitTheme) -> NSAttributedString {
+        let result = NSMutableAttributedString(string: text, attributes: [
+            .font: NSFont.systemFont(ofSize: 10),
+            .foregroundColor: theme[.mutedText],
+        ])
+        var offset = 0
+        for item in text.components(separatedBy: "    ") {
+            if let key = keys.first(where: { item.hasPrefix($0 + "  ") }) {
+                result.addAttributes([
+                    .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .semibold),
+                    .foregroundColor: theme[.accent],
+                ], range: NSRange(location: offset, length: (key as NSString).length))
+            }
+            offset += (item as NSString).length + 4
+        }
+        return result
+    }
+}
